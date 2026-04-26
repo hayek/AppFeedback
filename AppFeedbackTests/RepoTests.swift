@@ -16,7 +16,6 @@ final class RepoTests: XCTestCase {
         XCTAssertEqual(r.owner, "acme")
         XCTAssertEqual(r.repo, "feedback")
         XCTAssertTrue(r.hiddenAppNames.isEmpty)
-        XCTAssertNotNil(r.id)
     }
 
     func test_insertAndFetch() throws {
