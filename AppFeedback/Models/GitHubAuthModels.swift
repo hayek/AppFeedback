@@ -1,6 +1,6 @@
 import Foundation
 
-struct DeviceCodeResponse: Decodable {
+struct DeviceCodeResponse: Decodable, Sendable {
     let deviceCode: String
     let userCode: String
     let verificationUri: String
@@ -16,7 +16,7 @@ struct DeviceCodeResponse: Decodable {
     }
 }
 
-struct GitHubRepo: Decodable, Identifiable {
+struct GitHubRepo: Decodable, Identifiable, Sendable {
     let id: Int
     let name: String
     let fullName: String
