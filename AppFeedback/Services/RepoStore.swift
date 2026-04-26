@@ -112,11 +112,13 @@ final class RepoStore {
         let models = (try? context.fetch(FetchDescriptor<Repo>(
             sortBy: [SortDescriptor(\.createdAt)]
         ))) ?? []
-        repos = models.map {
+        let newRepos = models.map {
             RepoConfig(id: $0.id, displayName: $0.displayName, owner: $0.owner, repo: $0.repo)
         }
-        hiddenApps = Dictionary(
+        let newHiddenApps = Dictionary(
             uniqueKeysWithValues: models.map { ($0.id, Set($0.hiddenAppNames)) }
         )
+        if repos != newRepos { repos = newRepos }
+        if hiddenApps != newHiddenApps { hiddenApps = newHiddenApps }
     }
 }

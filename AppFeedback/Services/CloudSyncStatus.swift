@@ -50,8 +50,8 @@ final class CloudSyncStatus: CloudSyncStatusProviding {
             case .available:           state = .syncing
             case .noAccount:           state = .unavailable(reason: .notSignedIn)
             case .restricted:          state = .unavailable(reason: .restricted)
-            case .couldNotDetermine:   state = .unavailable(reason: .temporarilyUnavailable)
-            case .temporarilyUnavailable: state = .unavailable(reason: .temporarilyUnavailable)
+            case .couldNotDetermine, .temporarilyUnavailable:
+                state = .unavailable(reason: .temporarilyUnavailable)
             @unknown default:          state = .unavailable(reason: .temporarilyUnavailable)
             }
         } catch {
