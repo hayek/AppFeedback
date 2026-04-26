@@ -9,9 +9,10 @@ enum KeychainService {
         let data = Data(token.utf8)
 
         let query: [String: Any] = [
-            kSecClass as String:       kSecClassGenericPassword,
-            kSecAttrService as String: service,
-            kSecAttrAccount as String: account,
+            kSecClass as String:            kSecClassGenericPassword,
+            kSecAttrService as String:      service,
+            kSecAttrAccount as String:      account,
+            kSecAttrSynchronizable as String: kCFBooleanTrue!,
         ]
         let attributes: [String: Any] = [kSecValueData as String: data]
         let status = SecItemUpdate(query as CFDictionary, attributes as CFDictionary)
@@ -28,6 +29,7 @@ enum KeychainService {
             kSecClass as String:            kSecClassGenericPassword,
             kSecAttrService as String:      service,
             kSecAttrAccount as String:      accountKey(for: repo),
+            kSecAttrSynchronizable as String: kCFBooleanTrue!,
             kSecReturnData as String:       true,
             kSecMatchLimit as String:       kSecMatchLimitOne,
         ]
@@ -39,9 +41,10 @@ enum KeychainService {
 
     static func delete(for repo: RepoConfig) {
         let query: [String: Any] = [
-            kSecClass as String:       kSecClassGenericPassword,
-            kSecAttrService as String: service,
-            kSecAttrAccount as String: accountKey(for: repo),
+            kSecClass as String:            kSecClassGenericPassword,
+            kSecAttrService as String:      service,
+            kSecAttrAccount as String:      accountKey(for: repo),
+            kSecAttrSynchronizable as String: kCFBooleanTrue!,
         ]
         SecItemDelete(query as CFDictionary)
     }
