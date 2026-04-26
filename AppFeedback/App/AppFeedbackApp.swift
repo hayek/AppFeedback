@@ -4,7 +4,12 @@ import SwiftUI
 struct AppFeedbackApp: App {
     var body: some Scene {
         WindowGroup {
-            Text("AppFeedback")
+            RootView()
         }
+        #if os(macOS)
+        Settings {
+            SettingsView(store: RepoStore())
+        }
+        #endif
     }
 }
