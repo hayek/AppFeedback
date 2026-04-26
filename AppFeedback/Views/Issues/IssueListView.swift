@@ -8,10 +8,23 @@ struct IssueListView: View {
 
     var body: some View {
         VStack(spacing: 0) {
-            if viewModel.appFilter != nil && !viewModel.filters.isEmpty {
+            if viewModel.appFilter != nil {
                 FilterBarView(viewModel: viewModel)
                     .padding(.horizontal, 20)
                     .padding(.vertical, 8)
+            }
+
+            if let message = staleBannerMessage {
+                HStack(spacing: 6) {
+                    Image(systemName: "clock.arrow.circlepath")
+                    Text(message)
+                        .font(.caption)
+                }
+                .foregroundStyle(.secondary)
+                .frame(maxWidth: .infinity)
+                .padding(.horizontal, 20)
+                .padding(.vertical, 6)
+                .background(Color.secondary.opacity(0.08))
             }
 
             Group {
@@ -94,6 +107,14 @@ struct IssueListView: View {
     }
 
     private var loaderState: IssueLoader.State { loader?.state ?? .idle }
+
+    private var staleBannerMessage: String? {
+        guard let loader else { return nil }
+        if case .loaded(_, let date) = loader.state, date == Date(timeIntervalSince1970: 0) {
+            return "Showing cached data — refresh to update"
+        }
+        return nil
+    }
 
     private func summaryText(total: Int, visible: Int) -> String {
         visible == total

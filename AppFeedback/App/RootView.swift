@@ -7,9 +7,13 @@ struct RootView: View {
     @State private var selection: SidebarSelection?
     @State private var viewModel = IssueListViewModel()
     @State private var showSettings = false
+    @State private var columnVisibility: NavigationSplitViewVisibility = .automatic
+    #if os(iOS)
+    @Environment(\.horizontalSizeClass) private var horizontalSizeClass
+    #endif
 
     var body: some View {
-        NavigationSplitView {
+        NavigationSplitView(columnVisibility: $columnVisibility) {
             SidebarView(store: store, loaders: loaders, selection: $selection)
                 .toolbar {
                     ToolbarItem(placement: .primaryAction) {
@@ -17,6 +21,19 @@ struct RootView: View {
                             Image(systemName: "gear")
                         }
                     }
+                    #if os(iOS)
+                    ToolbarItem(placement: .navigationBarLeading) {
+                        if horizontalSizeClass == .compact {
+                            Button {
+                                withAnimation {
+                                    columnVisibility = columnVisibility == .all ? .detailOnly : .all
+                                }
+                            } label: {
+                                Image(systemName: "sidebar.left")
+                            }
+                        }
+                    }
+                    #endif
                 }
         } detail: {
             if let selection {
