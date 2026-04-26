@@ -60,7 +60,10 @@ actor GitHubAuthService {
                 throw AuthError.apiError((response as? HTTPURLResponse)?.statusCode ?? 0)
             }
 
-            guard let json = try? JSONDecoder().decode([String: String].self, from: data) else {
+            let json: [String: String]
+            do {
+                json = try JSONDecoder().decode([String: String].self, from: data)
+            } catch {
                 throw AuthError.unexpectedResponse
             }
 

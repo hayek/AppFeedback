@@ -150,4 +150,54 @@ final class GitHubAuthServiceTests: XCTestCase {
         XCTAssertEqual(repos[0].name, "alpha")
         XCTAssertTrue(repos[1].isPrivate)
     }
+
+    func test_pollForToken_incrementsIntervalOnSlowDown() async throws {
+        var callCount = 0
+        MockURLProtocol.requestHandler = { req in
+            callCount += 1
+            let data = callCount == 1 ? self.errorJSON("slow_down") : self.tokenJSON("gho_slow")
+            return (self.ok(req), data)
+        }
+        let service = GitHubAuthService(session: .mock)
+        let token = try await service.pollForToken(deviceCode: "devcode", interval: 0)
+        XCTAssertEqual(token, "gho_slow")
+        XCTAssertEqual(callCount, 2)
+    }
+
+    func test_listRepos_paginatesUntilPageBelowHundred() async throws {
+        let makeRepos: (Int, Int) -> Data = { startId, count in
+            let items = (startId..<(startId + count)).map { n in
+                """
+                { "id": \(n), "name": "repo\(n)", "full_name": "org/repo\(n)", "private": false, "owner": { "login": "org" } }
+                """
+            }
+            return ("[\(items.joined(separator: ","))]").data(using: .utf8)!
+        }
+        var pageRequests = 0
+        MockURLProtocol.requestHandler = { req in
+            pageRequests += 1
+            let data = pageRequests == 1 ? makeRepos(1, 100) : makeRepos(101, 1)
+            return (self.ok(req), data)
+        }
+        let service = GitHubAuthService(session: .mock)
+        let repos = try await service.listRepos(token: "tok")
+        XCTAssertEqual(repos.count, 101)
+        XCTAssertEqual(pageRequests, 2)
+    }
+
+    func test_requestDeviceCode_postsToCorrectURL() async throws {
+        var capturedRequest: URLRequest?
+        MockURLProtocol.requestHandler = { req in
+            capturedRequest = req
+            let responseJSON = """
+            { "device_code": "d", "user_code": "U-CODE", "verification_uri": "https://github.com/login/device", "expires_in": 900, "interval": 5 }
+            """.data(using: .utf8)!
+            return (self.ok(req), responseJSON)
+        }
+        let service = GitHubAuthService(session: .mock)
+        _ = try await service.requestDeviceCode()
+        XCTAssertEqual(capturedRequest?.url?.absoluteString, "https://github.com/login/device/code")
+        XCTAssertEqual(capturedRequest?.httpMethod, "POST")
+        XCTAssertEqual(capturedRequest?.value(forHTTPHeaderField: "Accept"), "application/json")
+    }
 }

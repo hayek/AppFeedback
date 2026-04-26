@@ -23,7 +23,7 @@ struct GitHubRepo: Decodable, Identifiable, Sendable {
     let isPrivate: Bool
     let owner: Owner
 
-    struct Owner: Decodable {
+    struct Owner: Decodable, Sendable {
         let login: String
     }
 
