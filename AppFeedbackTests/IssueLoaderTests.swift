@@ -5,9 +5,22 @@ import XCTest
 final class IssueLoaderTests: XCTestCase {
     private let repo = RepoConfig(displayName: "Test", owner: "org", repo: "feedback")
 
+    private var cacheURL: URL {
+        let caches = FileManager.default.urls(for: .cachesDirectory, in: .userDomainMask).first!
+        return caches
+            .appendingPathComponent("AppFeedback")
+            .appendingPathComponent("\(repo.owner)-\(repo.repo).json")
+    }
+
     override func setUp() {
         super.setUp()
         MockURLProtocol.requestHandler = nil
+        try? FileManager.default.removeItem(at: cacheURL)
+    }
+
+    override func tearDown() {
+        super.tearDown()
+        try? FileManager.default.removeItem(at: cacheURL)
     }
 
     private func makeIssuesJSON(count: Int) -> Data {
@@ -62,5 +75,29 @@ final class IssueLoaderTests: XCTestCase {
         guard case .failed = loader.state else {
             return XCTFail("Expected .failed")
         }
+    }
+
+    func test_load_preservesCachedData_onNetworkError() async {
+        // First load succeeds and populates cache
+        MockURLProtocol.requestHandler = { req in
+            let res = HTTPURLResponse(url: req.url!, statusCode: 200, httpVersion: nil, headerFields: nil)!
+            return (res, self.makeIssuesJSON(count: 2))
+        }
+        let loader = IssueLoader(config: repo, session: .mock)
+        await loader.load(token: "tok")
+        guard case .loaded(let cached, _) = loader.state else {
+            return XCTFail("Expected .loaded after first fetch")
+        }
+        XCTAssertEqual(cached.count, 2)
+
+        // Second load fails — cached data should be preserved
+        MockURLProtocol.requestHandler = { req in
+            (HTTPURLResponse(url: req.url!, statusCode: 500, httpVersion: nil, headerFields: nil)!, Data())
+        }
+        await loader.load(token: "tok")
+        guard case .loaded(let preserved, _) = loader.state else {
+            return XCTFail("Expected .loaded (stale cache) after failed refresh")
+        }
+        XCTAssertEqual(preserved.count, 2)
     }
 }

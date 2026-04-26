@@ -35,6 +35,7 @@ final class IssueLoader {
 
     func load(token: String) async {
         if case .idle = state { loadFromCache() }
+        let preLoadState = state   // snapshot before overwriting
         state = .loading
 
         do {
@@ -59,7 +60,10 @@ final class IssueLoader {
             saveToCache(issues)
             state = .loaded(issues, Date())
         } catch {
-            if case .loaded = state { return }
+            if case .loaded = preLoadState {
+                state = preLoadState   // restore cached data
+                return
+            }
             state = .failed(error)
         }
     }
