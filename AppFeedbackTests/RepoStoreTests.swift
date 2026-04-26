@@ -1,19 +1,24 @@
 import XCTest
+import SwiftData
 @testable import AppFeedback
 
 @MainActor
 final class RepoStoreTests: XCTestCase {
+    private var container: ModelContainer!
     private var store: RepoStore!
-    private let testSuiteName = "RepoStoreTests-\(UUID())"
 
-    override func setUp() {
-        super.setUp()
-        store = RepoStore(defaults: UserDefaults(suiteName: testSuiteName)!)
+    override func setUp() async throws {
+        try await super.setUp()
+        let schema = Schema([Repo.self])
+        let config = ModelConfiguration(schema: schema, isStoredInMemoryOnly: true)
+        container = try ModelContainer(for: schema, configurations: config)
+        store = RepoStore(context: ModelContext(container))
     }
 
-    override func tearDown() {
-        UserDefaults.standard.removePersistentDomain(forName: testSuiteName)
-        super.tearDown()
+    override func tearDown() async throws {
+        store = nil
+        container = nil
+        try await super.tearDown()
     }
 
     func test_initiallyEmpty() {
@@ -42,12 +47,27 @@ final class RepoStoreTests: XCTestCase {
         XCTAssertEqual(store.repos.first?.displayName, "New")
     }
 
+    func test_hideApp_recordsName() {
+        let repo = RepoConfig(displayName: "T", owner: "o", repo: "r")
+        store.add(repo)
+        store.hideApp("AppA", in: repo.id)
+        XCTAssertEqual(store.hiddenAppsFor(repo.id), ["AppA"])
+    }
+
+    func test_unhideAllApps_clearsNames() {
+        let repo = RepoConfig(displayName: "T", owner: "o", repo: "r")
+        store.add(repo)
+        store.hideApp("AppA", in: repo.id)
+        store.hideApp("AppB", in: repo.id)
+        store.unhideAllApps(in: repo.id)
+        XCTAssertTrue(store.hiddenAppsFor(repo.id).isEmpty)
+    }
+
     func test_persistsAcrossInstances() {
-        let defaults = UserDefaults(suiteName: testSuiteName)!
         let repo = RepoConfig(displayName: "Persisted", owner: "x", repo: "y")
         store.add(repo)
 
-        let store2 = RepoStore(defaults: defaults)
+        let store2 = RepoStore(context: ModelContext(container))
         XCTAssertEqual(store2.repos.first?.displayName, "Persisted")
     }
 }
