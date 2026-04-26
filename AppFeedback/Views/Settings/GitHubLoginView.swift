@@ -48,7 +48,7 @@ struct GitHubLoginView: View {
                     .foregroundStyle(.secondary)
             }
             Spacer()
-            Button("Cancel") { dismiss() }
+            Button("Cancel") { pollTask?.cancel(); dismiss() }
                 .buttonStyle(.plain)
                 .font(.system(size: 12))
                 .foregroundStyle(.secondary)
@@ -182,7 +182,7 @@ struct GitHubLoginView: View {
     }
 
     private func saveSelectedRepo() {
-        guard let selected = selectedRepo else { return }
+        guard let selected = selectedRepo, !oauthToken.isEmpty else { return }
         let trimName = displayName.trimmingCharacters(in: .whitespaces)
         let config = RepoConfig(
             displayName: trimName.isEmpty ? selected.name : trimName,
