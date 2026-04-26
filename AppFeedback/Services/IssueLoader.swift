@@ -20,6 +20,11 @@ final class IssueLoader {
 
     var state: State = .idle
 
+    var isShowingCachedData: Bool {
+        if case .loaded(_, let date) = state { return date == Date(timeIntervalSince1970: 0) }
+        return false
+    }
+
     private let config: RepoConfig
     private let session: URLSession
     private let cacheURL: URL

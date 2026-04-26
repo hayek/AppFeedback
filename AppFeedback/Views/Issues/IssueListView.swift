@@ -14,10 +14,10 @@ struct IssueListView: View {
                     .padding(.vertical, 8)
             }
 
-            if let message = staleBannerMessage {
+            if loader?.isShowingCachedData == true {
                 HStack(spacing: 6) {
                     Image(systemName: "clock.arrow.circlepath")
-                    Text(message)
+                    Text("Showing cached data — refresh to update")
                         .font(.caption)
                 }
                 .foregroundStyle(.secondary)
@@ -107,14 +107,6 @@ struct IssueListView: View {
     }
 
     private var loaderState: IssueLoader.State { loader?.state ?? .idle }
-
-    private var staleBannerMessage: String? {
-        guard let loader else { return nil }
-        if case .loaded(_, let date) = loader.state, date == Date(timeIntervalSince1970: 0) {
-            return "Showing cached data — refresh to update"
-        }
-        return nil
-    }
 
     private func summaryText(total: Int, visible: Int) -> String {
         visible == total

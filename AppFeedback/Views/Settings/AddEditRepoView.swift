@@ -14,10 +14,7 @@ struct AddEditRepoView: View {
     private var isEditing: Bool { existing != nil }
 
     private var isValid: Bool {
-        !displayName.trimmingCharacters(in: .whitespaces).isEmpty
-        && !owner.trimmingCharacters(in: .whitespaces).isEmpty
-        && !repo.trimmingCharacters(in: .whitespaces).isEmpty
-        && !token.trimmingCharacters(in: .whitespaces).isEmpty
+        !displayName.isEmpty && !owner.isEmpty && !repo.isEmpty && !token.isEmpty
     }
 
     var body: some View {
@@ -139,8 +136,6 @@ struct AddEditRepoView: View {
             content()
         }
     }
-
-    // MARK: - Logic
 
     private func populateFromExisting() {
         guard let existing else { return }

@@ -37,6 +37,7 @@ struct SettingsView: View {
                     RepoRowView(
                         repo: repo,
                         color: ColorPalette.color(for: repo.displayName, in: allDisplayNames),
+                        maskedToken: maskedToken(for: repo),
                         isHovered: hoveredId == repo.id,
                         onEdit: { editTarget = repo },
                         onDelete: {
@@ -55,6 +56,13 @@ struct SettingsView: View {
             }
             .padding(.vertical, 8)
         }
+    }
+
+    private func maskedToken(for repo: RepoConfig) -> String {
+        let raw = KeychainService.load(for: repo) ?? ""
+        guard !raw.isEmpty else { return "no token" }
+        guard raw.count > 7 else { return "••••••••" }
+        return String(raw.prefix(4)) + "••••••••"
     }
 
     // MARK: - Empty state
@@ -114,16 +122,10 @@ struct SettingsView: View {
 private struct RepoRowView: View {
     let repo: RepoConfig
     let color: Color
+    let maskedToken: String
     let isHovered: Bool
     let onEdit: () -> Void
     let onDelete: () -> Void
-
-    private var maskedToken: String {
-        let raw = KeychainService.load(for: repo) ?? ""
-        guard !raw.isEmpty else { return "no token" }
-        guard raw.count > 7 else { return "••••••••" }
-        return String(raw.prefix(4)) + "••••••••"
-    }
 
     var body: some View {
         HStack(spacing: 12) {
