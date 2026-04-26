@@ -2,7 +2,7 @@ import SwiftUI
 
 @MainActor
 struct RootView: View {
-    @State private var store = RepoStore()
+    var store: RepoStore
     @State private var loaders: [UUID: IssueLoader] = [:]
     @State private var selection: SidebarSelection?
     @State private var viewModel = IssueListViewModel()

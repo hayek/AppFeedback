@@ -2,13 +2,15 @@ import SwiftUI
 
 @main
 struct AppFeedbackApp: App {
+    @State private var store = RepoStore()
+
     var body: some Scene {
         WindowGroup {
-            RootView()
+            RootView(store: store)
         }
         #if os(macOS)
         Settings {
-            SettingsView(store: RepoStore())
+            SettingsView(store: store)
         }
         #endif
     }
