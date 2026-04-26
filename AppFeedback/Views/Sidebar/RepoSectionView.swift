@@ -5,9 +5,10 @@ struct RepoSectionView: View {
     let issues: [FeedbackIssue]
     let allApps: [String]
     @Binding var selection: SidebarSelection?
+    @State private var isExpanded = true
 
     var body: some View {
-        DisclosureGroup(isExpanded: .constant(true)) {
+        DisclosureGroup(isExpanded: $isExpanded) {
             AppRowView(
                 label: "All Issues",
                 count: issues.count,

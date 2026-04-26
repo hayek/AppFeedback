@@ -44,10 +44,8 @@ struct SettingsView: View {
         }
         .swipeActions(edge: .trailing, allowsFullSwipe: true) {
             Button(role: .destructive) {
-                if let index = store.repos.firstIndex(where: { $0.id == repo.id }) {
-                    KeychainService.delete(for: store.repos[index])
-                    store.remove(id: repo.id)
-                }
+                KeychainService.delete(for: repo)
+                store.remove(id: repo.id)
             } label: {
                 Label("Delete", systemImage: "trash")
             }

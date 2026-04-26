@@ -8,40 +8,10 @@ struct IssueListView: View {
 
     var body: some View {
         VStack(spacing: 0) {
-            HStack(spacing: 12) {
-                HStack {
-                    Image(systemName: "magnifyingglass")
-                        .foregroundStyle(.tertiary)
-                    TextField("Search issues, apps, emails…", text: $viewModel.searchQuery)
-                        .textFieldStyle(.plain)
-                }
-                .padding(8)
-                .background(.secondary.opacity(0.08), in: RoundedRectangle(cornerRadius: 8))
-
-                Picker("Sort", selection: $viewModel.sortOrder) {
-                    Text("Newest").tag(IssueListViewModel.SortOrder.newest)
-                    Text("Oldest").tag(IssueListViewModel.SortOrder.oldest)
-                }
-                .pickerStyle(.segmented)
-                .fixedSize()
-
-                if let onRefresh {
-                    Button {
-                        Task { await onRefresh() }
-                    } label: {
-                        Image(systemName: "arrow.clockwise")
-                    }
-                    .buttonStyle(.plain)
-                    .foregroundStyle(.secondary)
-                }
-            }
-            .padding(.horizontal, 20)
-            .padding(.vertical, 12)
-
             if viewModel.appFilter != nil && !viewModel.filters.isEmpty {
                 FilterBarView(viewModel: viewModel)
                     .padding(.horizontal, 20)
-                    .padding(.bottom, 8)
+                    .padding(.vertical, 8)
             }
 
             Group {
@@ -65,11 +35,31 @@ struct IssueListView: View {
                 }
             }
         }
+        .searchable(text: $viewModel.searchQuery, prompt: "Search issues, apps, emails…")
         #if os(macOS)
         .background(Color(NSColor.controlBackgroundColor))
         #else
         .background(Color(.systemBackground))
         #endif
+        .toolbar {
+            ToolbarItem(placement: .primaryAction) {
+                Picker("Sort", selection: $viewModel.sortOrder) {
+                    Text("Newest").tag(IssueListViewModel.SortOrder.newest)
+                    Text("Oldest").tag(IssueListViewModel.SortOrder.oldest)
+                }
+                .pickerStyle(.segmented)
+                .fixedSize()
+            }
+            if let onRefresh {
+                ToolbarItem(placement: .primaryAction) {
+                    Button {
+                        Task { await onRefresh() }
+                    } label: {
+                        Image(systemName: "arrow.clockwise")
+                    }
+                }
+            }
+        }
     }
 
     @ViewBuilder

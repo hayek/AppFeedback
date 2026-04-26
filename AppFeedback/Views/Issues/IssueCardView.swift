@@ -50,7 +50,8 @@ struct IssueCardView: View {
                             MetaTagView(key: "os", value: os)
                         }
                         if let email = issue.email {
-                            if let mailURL = URL(string: "mailto:\(email)") {
+                            if let encoded = email.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed),
+                               let mailURL = URL(string: "mailto:\(encoded)") {
                                 Link(destination: mailURL) {
                                     MetaTagView(key: "✉", value: email)
                                 }
