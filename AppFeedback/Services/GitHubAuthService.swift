@@ -1,6 +1,8 @@
 import Foundation
 
 actor GitHubAuthService {
+    // Register a GitHub OAuth App at https://github.com/settings/developers
+    // (Device Flow — no client secret needed). Paste the Client ID below.
     static let clientID = "PASTE_YOUR_CLIENT_ID_HERE"
     private static let scope = "repo"
 
@@ -23,6 +25,8 @@ actor GitHubAuthService {
     private let session: URLSession
 
     init(session: URLSession = .shared) {
+        assert(Self.clientID != "PASTE_YOUR_CLIENT_ID_HERE",
+               "Set GitHubAuthService.clientID — register an OAuth App at github.com/settings/developers")
         self.session = session
     }
 
