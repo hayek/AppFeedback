@@ -8,6 +8,9 @@ struct RootView: View {
     @State private var viewModel = IssueListViewModel()
     @State private var showSettings = false
     @State private var columnVisibility: NavigationSplitViewVisibility = .automatic
+    #if os(macOS)
+    @Environment(\.openSettings) private var openSettings
+    #endif
     #if os(iOS)
     @Environment(\.horizontalSizeClass) private var horizontalSizeClass
     #endif
@@ -17,7 +20,13 @@ struct RootView: View {
             SidebarView(store: store, loaders: loaders, selection: $selection)
                 .toolbar {
                     ToolbarItem(placement: .primaryAction) {
-                        Button { showSettings = true } label: {
+                        Button {
+                            #if os(macOS)
+                            openSettings()
+                            #else
+                            showSettings = true
+                            #endif
+                        } label: {
                             Image(systemName: "gear")
                         }
                     }
