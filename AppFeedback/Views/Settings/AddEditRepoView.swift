@@ -10,6 +10,7 @@ struct AddEditRepoView: View {
     @State private var owner = ""
     @State private var repo = ""
     @State private var token = ""
+    @State private var showGitHubLogin = false
 
     private var isEditing: Bool { existing != nil }
 
@@ -23,31 +24,60 @@ struct AddEditRepoView: View {
             Divider()
             ScrollView {
                 VStack(spacing: 20) {
+                    if !isEditing {
+                        Button {
+                            showGitHubLogin = true
+                        } label: {
+                            HStack {
+                                Image(systemName: "person.badge.key.fill")
+                                Text("Sign in with GitHub")
+                                    .fontWeight(.semibold)
+                            }
+                            .frame(maxWidth: .infinity)
+                            .padding(.vertical, 8)
+                        }
+                        .buttonStyle(.borderedProminent)
+                        .controlSize(.large)
+
+                        HStack {
+                            VStack { Divider() }
+                            Text("or enter manually")
+                                .font(.system(size: 11))
+                                .foregroundStyle(.tertiary)
+                            VStack { Divider() }
+                        }
+                    }
+
                     fieldSection(
                         label: "Display Name",
                         hint: "A friendly name shown in the sidebar"
                     ) {
-                        StyledTextField("My App Feedback", text: $displayName)
+                        GroupBox {
+                            StyledTextField("My App Feedback", text: $displayName)
+                        }
                     }
 
                     fieldSection(
                         label: "GitHub Repository",
                         hint: "The owner and repository name on GitHub"
                     ) {
-                        HStack(spacing: 8) {
-                            StyledTextField("owner", text: $owner, monospaced: true)
-                                .autocorrectionDisabled()
-                                #if os(iOS)
-                                .textInputAutocapitalization(.never)
-                                #endif
-                            Text("/")
-                                .foregroundStyle(.tertiary)
-                                .font(.system(size: 14, weight: .light))
-                            StyledTextField("repo-name", text: $repo, monospaced: true)
-                                .autocorrectionDisabled()
-                                #if os(iOS)
-                                .textInputAutocapitalization(.never)
-                                #endif
+                        GroupBox {
+                            HStack(spacing: 0) {
+                                StyledTextField("owner", text: $owner, monospaced: true)
+                                    .autocorrectionDisabled()
+                                    #if os(iOS)
+                                    .textInputAutocapitalization(.never)
+                                    #endif
+                                Text("/")
+                                    .foregroundStyle(.tertiary)
+                                    .font(.system(size: 14, weight: .light))
+                                    .padding(.horizontal, 6)
+                                StyledTextField("repo-name", text: $repo, monospaced: true)
+                                    .autocorrectionDisabled()
+                                    #if os(iOS)
+                                    .textInputAutocapitalization(.never)
+                                    #endif
+                            }
                         }
                     }
 
@@ -55,8 +85,10 @@ struct AddEditRepoView: View {
                         label: "GitHub Token",
                         hint: nil
                     ) {
-                        StyledTextField("ghp_…", text: $token, secure: true, monospaced: true)
-                            .autocorrectionDisabled()
+                        GroupBox {
+                            StyledTextField("ghp_…", text: $token, secure: true, monospaced: true)
+                                .autocorrectionDisabled()
+                        }
                         HStack(spacing: 6) {
                             Image(systemName: "lock.shield")
                                 .font(.system(size: 10))
@@ -75,6 +107,9 @@ struct AddEditRepoView: View {
         .frame(minWidth: 440, minHeight: 320)
         #endif
         .onAppear { populateFromExisting() }
+        .sheet(isPresented: $showGitHubLogin) {
+            GitHubLoginView(store: store)
+        }
     }
 
     // MARK: - Header
@@ -191,14 +226,7 @@ private struct StyledTextField: View {
             }
         }
         .font(monospaced ? .system(size: 12).monospaced() : .system(size: 12))
-        .padding(.horizontal, 10)
-        .padding(.vertical, 8)
-        #if os(macOS)
-        .background(Color(.controlBackgroundColor), in: RoundedRectangle(cornerRadius: 7))
-        .overlay(RoundedRectangle(cornerRadius: 7).stroke(Color(.separatorColor), lineWidth: 0.5))
-        #else
-        .background(.secondary.opacity(0.1), in: RoundedRectangle(cornerRadius: 7))
-        .overlay(RoundedRectangle(cornerRadius: 7).stroke(Color.primary.opacity(0.08), lineWidth: 1))
-        #endif
+        .textFieldStyle(.plain)
+        .padding(.horizontal, 4)
     }
 }
