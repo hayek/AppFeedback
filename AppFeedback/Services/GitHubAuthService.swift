@@ -25,8 +25,6 @@ actor GitHubAuthService {
     private let session: URLSession
 
     init(session: URLSession = .shared) {
-        assert(Self.clientID != "PASTE_YOUR_CLIENT_ID_HERE",
-               "Set GitHubAuthService.clientID — register an OAuth App at github.com/settings/developers")
         self.session = session
     }
 
