@@ -2,6 +2,7 @@ import SwiftUI
 
 struct SettingsView: View {
     @Bindable var store: RepoStore
+    @Environment(CloudSyncStatus.self) private var syncStatus
     @State private var showAdd = false
     @State private var editTarget: RepoConfig?
     @State private var hoveredId: UUID?
@@ -10,6 +11,7 @@ struct SettingsView: View {
 
     var body: some View {
         VStack(spacing: 0) {
+            CloudSyncStatusRow(state: syncStatus.state)
             if store.repos.isEmpty {
                 emptyState
             } else {
