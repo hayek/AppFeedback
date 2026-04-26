@@ -198,10 +198,12 @@ private struct StyledTextField: View {
         .font(monospaced ? .system(size: 12).monospaced() : .system(size: 12))
         .padding(.horizontal, 10)
         .padding(.vertical, 8)
-        .background(.primary.opacity(0.05), in: RoundedRectangle(cornerRadius: 7))
-        .overlay(
-            RoundedRectangle(cornerRadius: 7)
-                .stroke(Color.primary.opacity(0.1), lineWidth: 1)
-        )
+        #if os(macOS)
+        .background(Color(.controlBackgroundColor), in: RoundedRectangle(cornerRadius: 7))
+        .overlay(RoundedRectangle(cornerRadius: 7).stroke(Color(.separatorColor), lineWidth: 0.5))
+        #else
+        .background(.secondary.opacity(0.1), in: RoundedRectangle(cornerRadius: 7))
+        .overlay(RoundedRectangle(cornerRadius: 7).stroke(Color.primary.opacity(0.08), lineWidth: 1))
+        #endif
     }
 }
