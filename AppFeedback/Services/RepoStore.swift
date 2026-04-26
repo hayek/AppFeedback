@@ -1,6 +1,7 @@
 import Foundation
 import Observation
 import SwiftData
+import CoreData
 
 @Observable @MainActor
 final class RepoStore {
@@ -9,12 +10,25 @@ final class RepoStore {
 
     private let context: ModelContext
     nonisolated(unsafe) private var didSaveObserver: NSObjectProtocol?
+    nonisolated(unsafe) private var remoteChangeObserver: NSObjectProtocol?
 
     init(context: ModelContext) {
         self.context = context
         reload()
         didSaveObserver = NotificationCenter.default.addObserver(
             forName: ModelContext.didSave,
+            object: nil,
+            queue: .main
+        ) { [weak self] note in
+            guard let self else { return }
+            // Ignore notifications from our own context — those mutations already called reload().
+            if let sender = note.object as? ModelContext, sender === self.context { return }
+            Task { @MainActor in self.reload() }
+        }
+        // CloudKit pulls merge into the persistent store coordinator and post this notification,
+        // not ModelContext.didSave. Without it, remote changes wouldn't surface to the UI.
+        remoteChangeObserver = NotificationCenter.default.addObserver(
+            forName: .NSPersistentStoreRemoteChange,
             object: nil,
             queue: .main
         ) { [weak self] _ in
@@ -25,6 +39,9 @@ final class RepoStore {
     deinit {
         if let didSaveObserver {
             NotificationCenter.default.removeObserver(didSaveObserver)
+        }
+        if let remoteChangeObserver {
+            NotificationCenter.default.removeObserver(remoteChangeObserver)
         }
     }
 
@@ -61,16 +78,16 @@ final class RepoStore {
     // MARK: - Hidden apps
 
     func hideApp(_ appName: String, in repoId: UUID) {
-        guard let model = fetchModel(id: repoId) else { return }
-        var names = Set(model.hiddenAppNames)
-        names.insert(appName)
-        model.hiddenAppNames = Array(names)
+        guard let model = fetchModel(id: repoId),
+              !model.hiddenAppNames.contains(appName) else { return }
+        model.hiddenAppNames.append(appName)
         save()
         reload()
     }
 
     func unhideAllApps(in repoId: UUID) {
-        guard let model = fetchModel(id: repoId) else { return }
+        guard let model = fetchModel(id: repoId),
+              !model.hiddenAppNames.isEmpty else { return }
         model.hiddenAppNames = []
         save()
         reload()
