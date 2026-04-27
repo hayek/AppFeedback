@@ -5,7 +5,7 @@ import SwiftData
 struct AppFeedbackApp: App {
     private let container: ModelContainer
     @State private var store: RepoStore
-    @State private var syncStatus = CloudSyncStatus()
+    @State private var syncStatus: CloudSyncStatus
 
     init() {
         do {
@@ -20,6 +20,7 @@ struct AppFeedbackApp: App {
             fatalError("Failed to create ModelContainer: \(error)")
         }
         _store = State(initialValue: RepoStore(context: ModelContext(container)))
+        _syncStatus = State(initialValue: CloudSyncStatus())
     }
 
     var body: some Scene {

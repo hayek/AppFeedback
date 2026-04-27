@@ -23,24 +23,27 @@ protocol CloudSyncStatusProviding: AnyObject {
 @Observable @MainActor
 final class CloudSyncStatus: CloudSyncStatusProviding {
     private(set) var state: SyncState = .unknown
+    private(set) var hasBootstrapped: Bool = false
 
     private let container: CKContainer
-    nonisolated(unsafe) private var observer: NSObjectProtocol?
+    private var observerTask: Task<Void, Never>?
 
     init(container: CKContainer = .default()) {
         self.container = container
-        observer = NotificationCenter.default.addObserver(
-            forName: .CKAccountChanged,
-            object: nil,
-            queue: .main
-        ) { [weak self] _ in
-            Task { @MainActor in await self?.refresh() }
+        observerTask = Task { @MainActor [weak self] in
+            // Subscribe before the initial refresh so we don't miss a CKAccountChanged
+            // posted during the bootstrap window.
+            let stream = NotificationCenter.default.notifications(named: .CKAccountChanged)
+            await self?.refresh()
+            self?.hasBootstrapped = true
+            for await _ in stream {
+                await self?.refresh()
+            }
         }
-        Task { await refresh() }
     }
 
-    deinit {
-        if let obs = observer { NotificationCenter.default.removeObserver(obs) }
+    isolated deinit {
+        observerTask?.cancel()
     }
 
     func refresh() async {

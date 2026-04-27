@@ -32,10 +32,10 @@ final class RepoStoreTests: XCTestCase {
         XCTAssertEqual(store.repos.first?.owner, "org")
     }
 
-    func test_remove_deletesRepo() {
+    func test_remove_deletesRepo() async {
         let repo = RepoConfig(displayName: "Test", owner: "org", repo: "feedback")
         store.add(repo)
-        store.remove(id: repo.id)
+        await store.remove(id: repo.id)
         XCTAssertTrue(store.repos.isEmpty)
     }
 

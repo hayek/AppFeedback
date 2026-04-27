@@ -9,40 +9,38 @@ final class RepoStore {
     private(set) var hiddenApps: [UUID: Set<String>] = [:]
 
     private let context: ModelContext
-    nonisolated(unsafe) private var didSaveObserver: NSObjectProtocol?
-    nonisolated(unsafe) private var remoteChangeObserver: NSObjectProtocol?
+    private var didSaveTask: Task<Void, Never>?
+    private var remoteChangeTask: Task<Void, Never>?
 
     init(context: ModelContext) {
         self.context = context
         reload()
-        didSaveObserver = NotificationCenter.default.addObserver(
-            forName: ModelContext.didSave,
-            object: nil,
-            queue: .main
-        ) { [weak self] note in
-            guard let self else { return }
-            // Ignore notifications from our own context — those mutations already called reload().
-            if let sender = note.object as? ModelContext, sender === self.context { return }
-            Task { @MainActor in self.reload() }
+
+        // Filter out notifications from our own context — those mutations already called reload().
+        let ownContext = ObjectIdentifier(context)
+        let didSaves = NotificationCenter.default.notifications(named: ModelContext.didSave)
+            .compactMap { @Sendable note -> Bool? in
+                let senderID = (note.object as? ModelContext).map(ObjectIdentifier.init)
+                return senderID == ownContext ? nil : true
+            }
+        didSaveTask = Task { @MainActor [weak self] in
+            for await _ in didSaves {
+                self?.reload()
+            }
         }
+
         // CloudKit pulls merge into the persistent store coordinator and post this notification,
         // not ModelContext.didSave. Without it, remote changes wouldn't surface to the UI.
-        remoteChangeObserver = NotificationCenter.default.addObserver(
-            forName: .NSPersistentStoreRemoteChange,
-            object: nil,
-            queue: .main
-        ) { [weak self] _ in
-            Task { @MainActor in self?.reload() }
+        remoteChangeTask = Task { @MainActor [weak self] in
+            for await _ in NotificationCenter.default.notifications(named: .NSPersistentStoreRemoteChange) {
+                self?.reload()
+            }
         }
     }
 
-    deinit {
-        if let didSaveObserver {
-            NotificationCenter.default.removeObserver(didSaveObserver)
-        }
-        if let remoteChangeObserver {
-            NotificationCenter.default.removeObserver(remoteChangeObserver)
-        }
+    isolated deinit {
+        didSaveTask?.cancel()
+        remoteChangeTask?.cancel()
     }
 
     // MARK: - Repos
@@ -68,8 +66,10 @@ final class RepoStore {
         reload()
     }
 
-    func remove(id: UUID) {
+    func remove(id: UUID) async {
         guard let model = fetchModel(id: id) else { return }
+        let config = RepoConfig(id: model.id, displayName: model.displayName, owner: model.owner, repo: model.repo)
+        await KeychainService.delete(for: config)
         context.delete(model)
         save()
         reload()
