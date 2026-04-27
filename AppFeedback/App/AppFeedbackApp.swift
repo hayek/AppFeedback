@@ -7,6 +7,7 @@ struct AppFeedbackApp: App {
     @State private var store: RepoStore
     @State private var syncStatus: CloudSyncStatus
     @State private var activityLog: ActivityLog
+    @State private var mailSettings = MailSettings()
 
     init() {
         let isTesting = ProcessInfo.processInfo.environment["XCTestConfigurationFilePath"] != nil
@@ -39,6 +40,7 @@ struct AppFeedbackApp: App {
             RootView(store: store)
                 .environment(syncStatus)
                 .environment(activityLog)
+                .environment(mailSettings)
         }
         .modelContainer(container)
         .commands {
@@ -57,6 +59,7 @@ struct AppFeedbackApp: App {
             SettingsView(store: store)
                 .environment(syncStatus)
                 .environment(activityLog)
+                .environment(mailSettings)
         }
         #endif
     }

@@ -11,6 +11,20 @@ struct SettingsView: View {
     private var allDisplayNames: [String] { store.repos.map(\.displayName).sorted() }
 
     var body: some View {
+        TabView {
+            reposTab
+                .tabItem { Label("Repos", systemImage: "folder") }
+            #if os(macOS)
+            EmailSettingsView()
+                .tabItem { Label("Email", systemImage: "envelope") }
+            #endif
+        }
+        #if os(macOS)
+        .frame(minWidth: 540, minHeight: 380)
+        #endif
+    }
+
+    private var reposTab: some View {
         VStack(spacing: 0) {
             CloudSyncStatusRow(state: syncStatus.state)
             if store.repos.isEmpty {
@@ -20,9 +34,6 @@ struct SettingsView: View {
             }
             addBar
         }
-        #if os(macOS)
-        .frame(minWidth: 500, minHeight: 340)
-        #endif
         .sheet(isPresented: $showAdd) {
             AddEditRepoView(store: store)
         }
