@@ -5,6 +5,12 @@ struct IssueListView: View {
     let loader: IssueLoader?
     let allApps: [String]
     var onRefresh: (() async -> Void)?
+    var repoOwner: String = ""
+    var repoName: String = ""
+
+    #if os(macOS)
+    @State private var composing: ComposeContext?
+    #endif
 
     var body: some View {
         VStack(spacing: 0) {
@@ -88,32 +94,73 @@ struct IssueListView: View {
                     .padding(.horizontal, 2)
 
                     ForEach(visible) { issue in
-                        IssueCardView(
-                            issue: issue,
-                            appColor: ColorPalette.color(for: issue.appName ?? "", in: allApps),
-                            activeApp: viewModel.appFilter,
-                            activeAppVersion: viewModel.filters.appVersion,
-                            activeDevice: viewModel.filters.device,
-                            activeOSVersion: viewModel.filters.osVersion,
-                            onToggleApp: { value in
-                                viewModel.appFilter = viewModel.appFilter == value ? nil : value
-                            },
-                            onToggleAppVersion: { value in
-                                viewModel.filters.appVersion = viewModel.filters.appVersion == value ? nil : value
-                            },
-                            onToggleDevice: { value in
-                                viewModel.filters.device = viewModel.filters.device == value ? nil : value
-                            },
-                            onToggleOSVersion: { value in
-                                viewModel.filters.osVersion = viewModel.filters.osVersion == value ? nil : value
-                            }
-                        )
+                        issueCard(for: issue)
                     }
                 }
                 .padding(.horizontal, 20)
                 .padding(.vertical, 16)
             }
+            #if os(macOS)
+            .sheet(item: $composing) { ctx in
+                ComposeMailView(
+                    recipient: ctx.recipient,
+                    issue: ctx.issue,
+                    repoOwner: repoOwner,
+                    repoName: repoName
+                )
+            }
+            #endif
         }
+    }
+
+    @ViewBuilder
+    private func issueCard(for issue: FeedbackIssue) -> some View {
+        #if os(macOS)
+        IssueCardView(
+            issue: issue,
+            appColor: ColorPalette.color(for: issue.appName ?? "", in: allApps),
+            activeApp: viewModel.appFilter,
+            activeAppVersion: viewModel.filters.appVersion,
+            activeDevice: viewModel.filters.device,
+            activeOSVersion: viewModel.filters.osVersion,
+            onToggleApp: { value in
+                viewModel.appFilter = viewModel.appFilter == value ? nil : value
+            },
+            onToggleAppVersion: { value in
+                viewModel.filters.appVersion = viewModel.filters.appVersion == value ? nil : value
+            },
+            onToggleDevice: { value in
+                viewModel.filters.device = viewModel.filters.device == value ? nil : value
+            },
+            onToggleOSVersion: { value in
+                viewModel.filters.osVersion = viewModel.filters.osVersion == value ? nil : value
+            },
+            onTapEmail: { email in
+                composing = ComposeContext(recipient: email, issue: issue)
+            }
+        )
+        #else
+        IssueCardView(
+            issue: issue,
+            appColor: ColorPalette.color(for: issue.appName ?? "", in: allApps),
+            activeApp: viewModel.appFilter,
+            activeAppVersion: viewModel.filters.appVersion,
+            activeDevice: viewModel.filters.device,
+            activeOSVersion: viewModel.filters.osVersion,
+            onToggleApp: { value in
+                viewModel.appFilter = viewModel.appFilter == value ? nil : value
+            },
+            onToggleAppVersion: { value in
+                viewModel.filters.appVersion = viewModel.filters.appVersion == value ? nil : value
+            },
+            onToggleDevice: { value in
+                viewModel.filters.device = viewModel.filters.device == value ? nil : value
+            },
+            onToggleOSVersion: { value in
+                viewModel.filters.osVersion = viewModel.filters.osVersion == value ? nil : value
+            }
+        )
+        #endif
     }
 
     private var loaderState: IssueLoader.State { loader?.state ?? .idle }
@@ -124,3 +171,11 @@ struct IssueListView: View {
             : "\(visible) of \(total) issues"
     }
 }
+
+#if os(macOS)
+struct ComposeContext: Identifiable {
+    let id = UUID()
+    let recipient: String
+    let issue: FeedbackIssue
+}
+#endif

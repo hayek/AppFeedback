@@ -56,7 +56,9 @@ struct RootView: View {
                         guard let repo = store.repos.first(where: { $0.id == selection.repoId }),
                               let token = await KeychainService.load(for: repo) else { return }
                         await loaders[selection.repoId]?.load(token: token)
-                    }
+                    },
+                    repoOwner: store.repos.first(where: { $0.id == selection.repoId })?.owner ?? "",
+                    repoName: store.repos.first(where: { $0.id == selection.repoId })?.repo ?? ""
                 )
             } else {
                 ContentUnavailableView {

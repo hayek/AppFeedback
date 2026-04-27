@@ -11,6 +11,7 @@ struct IssueCardView: View {
     var onToggleAppVersion: ((String) -> Void)? = nil
     var onToggleDevice: ((String) -> Void)? = nil
     var onToggleOSVersion: ((String) -> Void)? = nil
+    var onTapEmail: ((String) -> Void)? = nil
 
     private var formattedDate: String {
         issue.createdAt.formatted(date: .abbreviated, time: .omitted)
@@ -71,8 +72,15 @@ struct IssueCardView: View {
                             }
                         }
                         if let email = issue.email {
-                            if let encoded = email.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed),
-                               let mailURL = URL(string: "mailto:\(encoded)") {
+                            if let onTapEmail {
+                                Button {
+                                    onTapEmail(email)
+                                } label: {
+                                    MetaTagView(key: "✉", value: email, isActive: false)
+                                }
+                                .buttonStyle(.plain)
+                            } else if let encoded = email.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed),
+                                      let mailURL = URL(string: "mailto:\(encoded)") {
                                 Link(destination: mailURL) {
                                     MetaTagView(key: "✉", value: email, isActive: false)
                                 }
