@@ -9,7 +9,6 @@ struct EmailSettingsView: View {
     @State private var preset: SMTPCredentials.Preset = .gmail
     @State private var host: String = ""
     @State private var port: String = "587"
-    @State private var useSTARTTLS: Bool = true
     @State private var username: String = ""
     @State private var password: String = ""
     @State private var senderName: String = ""
@@ -36,10 +35,6 @@ struct EmailSettingsView: View {
                     .disabled(preset != .custom)
                 TextField("Port", text: $port)
                     .disabled(preset != .custom)
-                if preset == .custom {
-                    Toggle("Use STARTTLS (informational; SwiftMail derives TLS mode from port)",
-                           isOn: $useSTARTTLS)
-                }
                 TextField("Username / from address", text: $username)
                 SecureField("App password", text: $password)
                 TextField("Sender display name", text: $senderName)
@@ -60,7 +55,7 @@ struct EmailSettingsView: View {
             Section("Tools") {
                 HStack {
                     Button("Test Connection") { testConnection() }
-                        .disabled(settings.credentials == nil)
+                        .disabled(username.isEmpty || host.isEmpty || password.isEmpty)
                     Button("Preview") { showPreview() }
                     Spacer()
                     if let testStatus { Text(testStatus).foregroundStyle(.secondary) }
@@ -83,7 +78,6 @@ struct EmailSettingsView: View {
         let d = SMTPCredentials.defaults(for: p)
         host = d.host
         port = String(d.port)
-        useSTARTTLS = d.useSTARTTLS
     }
 
     private func loadFromSettings() async {
@@ -91,7 +85,6 @@ struct EmailSettingsView: View {
             preset = creds.preset
             host = creds.host
             port = String(creds.port)
-            useSTARTTLS = creds.useSTARTTLS
             username = creds.username
             senderName = creds.senderName
         } else {
@@ -126,15 +119,13 @@ struct EmailSettingsView: View {
             preset: preset,
             host: host,
             port: Int(port) ?? 587,
-            useSTARTTLS: useSTARTTLS,
             username: username,
-            password: password,
             senderName: senderName
         )
         settings.credentials = creds
         Task {
-            await KeychainService.saveSMTPPassword(password)
-            saveStatus = "Saved"
+            let ok = await KeychainService.saveSMTPPassword(password)
+            saveStatus = ok ? "Saved" : "Saved settings, but Keychain failed"
         }
     }
 
@@ -155,13 +146,19 @@ struct EmailSettingsView: View {
     // MARK: - Test Connection
 
     private func testConnection() {
-        guard let creds = settings.credentials else { return }
-        let id = activityLog.start(kind: .testConnection, title: "\(creds.host):\(creds.port)")
+        let freshCreds = SMTPCredentials(
+            preset: preset,
+            host: host,
+            port: Int(port) ?? 587,
+            username: username,
+            senderName: senderName
+        )
+        let id = activityLog.start(kind: .testConnection, title: "\(freshCreds.host):\(freshCreds.port)")
         Task {
             #if canImport(SwiftMail)
             do {
                 let sender = MailSender()
-                try await sender.testConnection(creds)
+                try await sender.testConnection(freshCreds, password: password)
                 activityLog.finish(id, status: .success, detail: "Login OK")
                 testStatus = "Connection OK"
             } catch {

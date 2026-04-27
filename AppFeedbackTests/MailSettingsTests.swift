@@ -16,9 +16,7 @@ final class MailSettingsTests: XCTestCase {
             preset: .gmail,
             host: "smtp.gmail.com",
             port: 587,
-            useSTARTTLS: true,
             username: "alice@gmail.com",
-            password: "ignored-here",
             senderName: "Alice"
         )
 
@@ -44,7 +42,6 @@ final class MailSettingsTests: XCTestCase {
     func test_presetDefaults_gmail() {
         XCTAssertEqual(SMTPCredentials.defaults(for: .gmail).host, "smtp.gmail.com")
         XCTAssertEqual(SMTPCredentials.defaults(for: .gmail).port, 587)
-        XCTAssertTrue(SMTPCredentials.defaults(for: .gmail).useSTARTTLS)
     }
 
     func test_presetDefaults_icloud() {

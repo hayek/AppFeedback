@@ -23,29 +23,27 @@ struct SMTPCredentials: Codable, Equatable, Sendable {
     var preset: Preset
     var host: String
     var port: Int
-    var useSTARTTLS: Bool
     var username: String   // doubles as the From address
-    var password: String   // not persisted in this struct's UserDefaults form; lives in Keychain
     var senderName: String
 
     static func defaults(for preset: Preset) -> SMTPCredentials {
         switch preset {
         case .gmail:
             return SMTPCredentials(preset: .gmail, host: "smtp.gmail.com",
-                                   port: 587, useSTARTTLS: true,
-                                   username: "", password: "", senderName: "")
+                                   port: 587,
+                                   username: "", senderName: "")
         case .icloud:
             return SMTPCredentials(preset: .icloud, host: "smtp.mail.me.com",
-                                   port: 587, useSTARTTLS: true,
-                                   username: "", password: "", senderName: "")
+                                   port: 587,
+                                   username: "", senderName: "")
         case .outlook:
             return SMTPCredentials(preset: .outlook, host: "smtp-mail.outlook.com",
-                                   port: 587, useSTARTTLS: true,
-                                   username: "", password: "", senderName: "")
+                                   port: 587,
+                                   username: "", senderName: "")
         case .custom:
             return SMTPCredentials(preset: .custom, host: "",
-                                   port: 587, useSTARTTLS: true,
-                                   username: "", password: "", senderName: "")
+                                   port: 587,
+                                   username: "", senderName: "")
         }
     }
 }
@@ -58,7 +56,7 @@ struct MailTemplate: Codable, Equatable, Sendable {
 }
 
 /// Persists SMTP credential metadata + email header/footer template.
-/// `credentials.password` is NOT written to UserDefaults — store/load via Keychain separately.
+/// Passwords are stored exclusively in Keychain — never in UserDefaults.
 @MainActor
 @Observable
 final class MailSettings {
@@ -91,7 +89,7 @@ final class MailSettings {
 
     private func persistCredentials() {
         if let credentials,
-           let data = try? JSONEncoder().encode(redactingPassword(credentials)) {
+           let data = try? JSONEncoder().encode(credentials) {
             defaults.set(data, forKey: Self.credentialsKey)
         } else {
             defaults.removeObject(forKey: Self.credentialsKey)
@@ -102,11 +100,5 @@ final class MailSettings {
         if let data = try? JSONEncoder().encode(template) {
             defaults.set(data, forKey: Self.templateKey)
         }
-    }
-
-    private func redactingPassword(_ creds: SMTPCredentials) -> SMTPCredentials {
-        var copy = creds
-        copy.password = ""
-        return copy
     }
 }

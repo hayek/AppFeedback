@@ -17,8 +17,8 @@ final class MailComposerTests: XCTestCase {
     -> PlaceholderContext {
         PlaceholderContext(
             sender: SMTPCredentials(
-                preset: .gmail, host: "smtp.gmail.com", port: 587, useSTARTTLS: true,
-                username: "alice@gmail.com", password: "x", senderName: "Alice Example"
+                preset: .gmail, host: "smtp.gmail.com", port: 587,
+                username: "alice@gmail.com", senderName: "Alice Example"
             ),
             recipient: "bob@example.com",
             appName: "MyApp",
@@ -116,6 +116,22 @@ final class MailComposerTests: XCTestCase {
         )
         XCTAssertEqual(email.sender.address, "alice@gmail.com")
         XCTAssertEqual(email.sender.name, "Alice Example")
+    }
+
+    func test_composer_sanitizesHeaderHTML() {
+        let template = MailTemplate(
+            headerHTML: "<p>OK</p><script>alert(1)</script>",
+            footerHTML: ""
+        )
+        let composer = MailComposer()
+        let email = composer.compose(
+            draft: makeDraft(text: "body"),
+            context: makeContext(),
+            template: template
+        )
+        XCTAssertFalse(email.htmlBody?.contains("<script") ?? true)
+        XCTAssertFalse(email.htmlBody?.contains("alert(") ?? true)
+        XCTAssertTrue(email.htmlBody?.contains("<p>OK</p>") ?? false)
     }
 }
 #endif

@@ -11,11 +11,11 @@ final class ComposeMailViewModelTests: XCTestCase {
         var sent: [(SwiftMail.Email, SMTPCredentials)] = []
         var shouldThrow: Error?
 
-        func send(_ email: SwiftMail.Email, using credentials: SMTPCredentials) async throws {
+        func send(_ email: SwiftMail.Email, using credentials: SMTPCredentials, password: String) async throws {
             if let shouldThrow { throw shouldThrow }
             sent.append((email, credentials))
         }
-        func testConnection(_ credentials: SMTPCredentials) async throws {}
+        func testConnection(_ credentials: SMTPCredentials, password: String) async throws {}
         func setShouldThrow(_ error: Error?) { shouldThrow = error }
         func snapshot() -> [(SwiftMail.Email, SMTPCredentials)] { sent }
     }
@@ -23,8 +23,8 @@ final class ComposeMailViewModelTests: XCTestCase {
     private func makeSettings() -> MailSettings {
         let s = MailSettings(defaults: UserDefaults(suiteName: "vm-\(UUID().uuidString)")!)
         s.credentials = SMTPCredentials(
-            preset: .gmail, host: "smtp.gmail.com", port: 587, useSTARTTLS: true,
-            username: "alice@gmail.com", password: "secret", senderName: "Alice"
+            preset: .gmail, host: "smtp.gmail.com", port: 587,
+            username: "alice@gmail.com", senderName: "Alice"
         )
         s.template = .empty
         return s
@@ -40,6 +40,9 @@ final class ComposeMailViewModelTests: XCTestCase {
     }
 
     func test_send_callsSenderAndLogsSuccess() async throws {
+        // Inject a password into Keychain so the VM finds it.
+        await KeychainService.saveSMTPPassword("test-secret")
+
         let sender = FakeSender()
         let log = ActivityLog(persistenceURL: nil)
         let vm = ComposeMailViewModel(
@@ -63,6 +66,8 @@ final class ComposeMailViewModelTests: XCTestCase {
     }
 
     func test_send_failureLogsFailureWithDetail() async throws {
+        await KeychainService.saveSMTPPassword("test-secret")
+
         let sender = FakeSender()
         await sender.setShouldThrow(NSError(domain: "Test", code: 1,
                                             userInfo: [NSLocalizedDescriptionKey: "boom"]))

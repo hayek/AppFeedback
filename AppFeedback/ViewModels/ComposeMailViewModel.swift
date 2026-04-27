@@ -43,6 +43,13 @@ final class ComposeMailViewModel {
 
     func send() async {
         guard let credentials = settings.credentials else { return }
+
+        guard let password = await KeychainService.loadSMTPPassword(), !password.isEmpty else {
+            let id = activityLog.start(kind: .sendEmail, title: "to \(recipient)")
+            activityLog.finish(id, status: .failure, detail: "No SMTP password configured.")
+            return
+        }
+
         let id = activityLog.start(kind: .sendEmail, title: "to \(recipient)")
 
         let issueURL = URL(string: "https://github.com/\(repoOwner)/\(repoName)/issues/\(issue.number)")
@@ -58,7 +65,7 @@ final class ComposeMailViewModel {
         let email = composer.compose(draft: draft, context: context, template: settings.template)
 
         do {
-            try await sender.send(email, using: credentials)
+            try await sender.send(email, using: credentials, password: password)
             activityLog.finish(id, status: .success, detail: nil)
         } catch {
             activityLog.finish(id, status: .failure, detail: error.localizedDescription)
