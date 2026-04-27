@@ -38,9 +38,9 @@ enum HTMLSanitizer {
         var result = ""
         var i = html.startIndex
         while i < html.endIndex {
-            if html[i] == "<", let close = html[i...].firstIndex(of: ">") {
+            if html[i] == "<", let close = findTagClose(in: html, from: i) {
                 let tagToken = String(html[i...close])
-                let inner = tagToken.dropFirst().dropLast()  // drop "<" and ">"
+                let inner = tagToken.dropFirst().dropLast()
                 let isClosing = inner.first == "/"
                 let nameAndAttrs = isClosing ? inner.dropFirst() : inner
                 let parts = nameAndAttrs.split(separator: " ", maxSplits: 1, omittingEmptySubsequences: true)
@@ -65,28 +65,78 @@ enum HTMLSanitizer {
         return result
     }
 
+    /// Find the index of the `>` that closes the tag starting at `start`,
+    /// skipping any `>` that appears inside double or single-quoted attribute values.
+    private static func findTagClose(in s: String, from start: String.Index) -> String.Index? {
+        var i = s.index(after: start)
+        var quote: Character? = nil
+        while i < s.endIndex {
+            let c = s[i]
+            if let q = quote {
+                if c == q { quote = nil }
+            } else if c == "\"" || c == "'" {
+                quote = c
+            } else if c == ">" {
+                return i
+            }
+            i = s.index(after: i)
+        }
+        return nil
+    }
+
     private static func filterAttributes(tag: String, attrs: String) -> String {
         let allowed = allowedAttributesByTag[tag] ?? []
-        let scanner = Scanner(string: attrs)
-        scanner.charactersToBeSkipped = .whitespaces
+        var i = attrs.startIndex
         var kept: [String] = []
-        while !scanner.isAtEnd {
-            guard let key = scanner.scanUpToString("=")?.lowercased().trimmingCharacters(in: .whitespaces),
-                  !key.isEmpty else { break }
-            _ = scanner.scanString("=")
-            var value = ""
-            if scanner.scanString("\"") != nil {
-                value = scanner.scanUpToString("\"") ?? ""
-                _ = scanner.scanString("\"")
-            } else if scanner.scanString("'") != nil {
-                value = scanner.scanUpToString("'") ?? ""
-                _ = scanner.scanString("'")
-            } else {
-                value = scanner.scanUpToCharacters(from: .whitespaces) ?? ""
+
+        while i < attrs.endIndex {
+            // Skip whitespace
+            while i < attrs.endIndex, attrs[i].isWhitespace { i = attrs.index(after: i) }
+            guard i < attrs.endIndex else { break }
+
+            // Read attribute name (until `=`, whitespace, or end).
+            let nameStart = i
+            while i < attrs.endIndex,
+                  attrs[i] != "=",
+                  !attrs[i].isWhitespace,
+                  attrs[i] != "/" {
+                i = attrs.index(after: i)
             }
-            guard allowed.contains(key) else { continue }
-            if key == "href" && value.lowercased().hasPrefix("javascript:") { continue }
-            kept.append("\(key)=\"\(value)\"")
+            let name = attrs[nameStart..<i].lowercased()
+            guard !name.isEmpty else { break }
+
+            // Optional `=` and value.
+            var value = ""
+            var hadValue = false
+            // Skip whitespace before `=`.
+            var j = i
+            while j < attrs.endIndex, attrs[j].isWhitespace { j = attrs.index(after: j) }
+            if j < attrs.endIndex, attrs[j] == "=" {
+                hadValue = true
+                j = attrs.index(after: j)
+                while j < attrs.endIndex, attrs[j].isWhitespace { j = attrs.index(after: j) }
+                if j < attrs.endIndex, (attrs[j] == "\"" || attrs[j] == "'") {
+                    let quote = attrs[j]
+                    j = attrs.index(after: j)
+                    let valueStart = j
+                    while j < attrs.endIndex, attrs[j] != quote { j = attrs.index(after: j) }
+                    value = String(attrs[valueStart..<j])
+                    if j < attrs.endIndex { j = attrs.index(after: j) }   // consume closing quote
+                } else {
+                    let valueStart = j
+                    while j < attrs.endIndex, !attrs[j].isWhitespace { j = attrs.index(after: j) }
+                    value = String(attrs[valueStart..<j])
+                }
+                i = j
+            }
+
+            guard allowed.contains(name) else { continue }
+            if name == "href" && value.lowercased().hasPrefix("javascript:") { continue }
+            if hadValue {
+                kept.append("\(name)=\"\(value)\"")
+            } else {
+                kept.append(name)   // boolean attribute
+            }
         }
         return kept.joined(separator: " ")
     }

@@ -49,4 +49,22 @@ final class HTMLSanitizerTests: XCTestCase {
         XCTAssertFalse(out.contains("<marquee"))
         XCTAssertTrue(out.contains("scrolling"))
     }
+
+    func test_handlesBooleanAttribute() {
+        // <a download> isn't in the href allowlist, so download attr should be dropped.
+        // Bare presence of a non-allowlisted attribute must not hang or corrupt output.
+        let input = "<a download>x</a>"
+        let out = HTMLSanitizer.sanitize(input)
+        XCTAssertTrue(out.contains("<a>"))
+        XCTAssertTrue(out.contains("x"))
+        XCTAssertTrue(out.contains("</a>"))
+    }
+
+    func test_handlesGreaterThanInAttributeValue() {
+        // A literal > inside a quoted attribute value should not terminate the tag early.
+        let input2 = #"<a href="a>b">x</a>"#
+        let out2 = HTMLSanitizer.sanitize(input2)
+        XCTAssertTrue(out2.contains("href=\"a>b\""))
+        XCTAssertTrue(out2.contains(">x</a>"))
+    }
 }
