@@ -8,6 +8,8 @@ struct AppFeedbackApp: App {
     @State private var syncStatus: CloudSyncStatus
     @State private var activityLog: ActivityLog
     @State private var mailSettings = MailSettings()
+    @State private var seenStore: SeenIssueStore
+    @State private var cacheContext: ModelContext
 
     init() {
         let isTesting = ProcessInfo.processInfo.environment["XCTestConfigurationFilePath"] != nil
@@ -33,6 +35,9 @@ struct AppFeedbackApp: App {
             fatalError("Failed to create ModelContainer: \(error)")
         }
         _store = State(initialValue: RepoStore(context: ModelContext(container)))
+        let cloudContext = ModelContext(container)
+        _seenStore = State(initialValue: SeenIssueStore(context: cloudContext))
+        _cacheContext = State(initialValue: ModelContext(container))
         _syncStatus = State(initialValue: CloudSyncStatus())
         let activityLogURL: URL? = isTesting ? nil : {
             let supportDir = FileManager.default
@@ -45,7 +50,7 @@ struct AppFeedbackApp: App {
 
     var body: some Scene {
         WindowGroup {
-            RootView(store: store)
+            RootView(store: store, seenStore: seenStore, cacheContext: cacheContext)
                 .environment(syncStatus)
                 .environment(activityLog)
                 .environment(mailSettings)

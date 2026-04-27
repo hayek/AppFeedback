@@ -1,8 +1,11 @@
 import SwiftUI
+import SwiftData
 
 @MainActor
 struct RootView: View {
     var store: RepoStore
+    var seenStore: SeenIssueStore
+    var cacheContext: ModelContext
     @State private var loaders: [UUID: IssueLoader] = [:]
     @State private var selection: SidebarSelection?
     @State private var viewModel = IssueListViewModel()
@@ -104,6 +107,10 @@ struct RootView: View {
     private func updateViewModel(for selection: SidebarSelection) {
         guard let loader = loaders[selection.repoId],
               case .loaded(let issues, _) = loader.state else { return }
+        let owner = store.repos.first(where: { $0.id == selection.repoId })?.owner ?? ""
+        let repoName = store.repos.first(where: { $0.id == selection.repoId })?.repo  ?? ""
+        viewModel.attachSeenStore(seenStore, owner: owner, repo: repoName)
+        viewModel.applyLoaded(issues)
         viewModel.allIssues = issues
         viewModel.clearFilters()
         switch selection {
@@ -136,7 +143,11 @@ struct RootView: View {
     private func syncLoaders(repos: [RepoConfig]) {
         var newlyAdded: [RepoConfig] = []
         for repo in repos where loaders[repo.id] == nil {
-            loaders[repo.id] = IssueLoader(config: repo, activityLog: activityLog)
+            loaders[repo.id] = IssueLoader(
+                config: repo,
+                activityLog: activityLog,
+                cacheContext: cacheContext
+            )
             newlyAdded.append(repo)
         }
         let ids = Set(repos.map(\.id))

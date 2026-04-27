@@ -14,12 +14,6 @@ struct IssueListView: View {
 
     var body: some View {
         VStack(spacing: 0) {
-            if viewModel.allowsAppFilter || viewModel.appFilter != nil || !viewModel.filters.isEmpty {
-                FilterBarView(viewModel: viewModel)
-                    .padding(.horizontal, 20)
-                    .padding(.vertical, 8)
-            }
-
             if loader?.isShowingCachedData == true {
                 HStack(spacing: 6) {
                     Image(systemName: "clock.arrow.circlepath")
@@ -85,6 +79,10 @@ struct IssueListView: View {
         } else {
             ScrollView {
                 LazyVStack(spacing: 12) {
+                    if viewModel.allowsAppFilter || viewModel.appFilter != nil || !viewModel.filters.isEmpty {
+                        FilterBarView(viewModel: viewModel)
+                    }
+
                     HStack {
                         Text(summaryText(total: viewModel.allIssues.count, visible: visible.count))
                             .font(.system(size: 13, weight: .medium))
@@ -119,6 +117,8 @@ struct IssueListView: View {
         IssueCardView(
             issue: issue,
             appColor: ColorPalette.color(for: issue.appName ?? "", in: allApps),
+            isUnread: viewModel.isUnread(issue),
+            onInteract: { viewModel.markSeen(issue) },
             activeApp: viewModel.appFilter,
             activeAppVersion: viewModel.filters.appVersion,
             activeDevice: viewModel.filters.device,
@@ -143,6 +143,8 @@ struct IssueListView: View {
         IssueCardView(
             issue: issue,
             appColor: ColorPalette.color(for: issue.appName ?? "", in: allApps),
+            isUnread: viewModel.isUnread(issue),
+            onInteract: { viewModel.markSeen(issue) },
             activeApp: viewModel.appFilter,
             activeAppVersion: viewModel.filters.appVersion,
             activeDevice: viewModel.filters.device,
