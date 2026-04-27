@@ -14,7 +14,8 @@ struct SidebarView: View {
                     repo: repo,
                     issues: issues,
                     allApps: apps,
-                    selection: $selection
+                    selection: $selection,
+                    store: store
                 )
             }
         }

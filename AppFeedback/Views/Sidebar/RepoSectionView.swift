@@ -5,10 +5,15 @@ struct RepoSectionView: View {
     let issues: [FeedbackIssue]
     let allApps: [String]
     @Binding var selection: SidebarSelection?
+    var store: RepoStore
     @State private var isExpanded = true
+    @State private var showRemoveConfirmation = false
 
     var body: some View {
-        DisclosureGroup(isExpanded: $isExpanded) {
+        let hiddenSet = store.hiddenAppsFor(repo.id)
+        let visibleApps = allApps.filter { !hiddenSet.contains($0) }
+
+        return DisclosureGroup(isExpanded: $isExpanded) {
             AppRowView(
                 label: "All Issues",
                 count: issues.count,
@@ -18,7 +23,7 @@ struct RepoSectionView: View {
             .onTapGesture { selection = .allIssues(repoId: repo.id) }
             .padding(.leading, 8)
 
-            ForEach(allApps, id: \.self) { app in
+            ForEach(visibleApps, id: \.self) { app in
                 let count = issues.filter { $0.appName == app }.count
                 let color = ColorPalette.color(for: app, in: allApps)
                 AppRowView(
@@ -29,6 +34,17 @@ struct RepoSectionView: View {
                 )
                 .onTapGesture { selection = .app(repoId: repo.id, appName: app) }
                 .padding(.leading, 8)
+                .swipeActions(edge: .trailing, allowsFullSwipe: false) {
+                    Button {
+                        if selection == .app(repoId: repo.id, appName: app) {
+                            selection = nil
+                        }
+                        store.hideApp(app, in: repo.id)
+                    } label: {
+                        Label("Hide", systemImage: "eye.slash")
+                    }
+                    .tint(.orange)
+                }
             }
         } label: {
             Text(repo.displayName)
@@ -36,6 +52,35 @@ struct RepoSectionView: View {
                 .foregroundStyle(.secondary)
                 .textCase(.uppercase)
                 .tracking(0.5)
+                .contextMenu {
+                    if !hiddenSet.isEmpty {
+                        Button {
+                            store.unhideAllApps(in: repo.id)
+                        } label: {
+                            Label("Show All Hidden Apps", systemImage: "eye")
+                        }
+                        Divider()
+                    }
+                    Button(role: .destructive) {
+                        showRemoveConfirmation = true
+                    } label: {
+                        Label("Remove Repo", systemImage: "trash")
+                    }
+                }
+        }
+        .confirmationDialog(
+            "Remove \"\(repo.displayName)\"?",
+            isPresented: $showRemoveConfirmation,
+            titleVisibility: .visible
+        ) {
+            Button("Remove", role: .destructive) {
+                if selection?.repoId == repo.id {
+                    selection = nil
+                }
+                Task { await store.remove(id: repo.id) }
+            }
+        } message: {
+            Text("This will remove the repo from the sidebar. Your GitHub data will not be affected.")
         }
     }
 }
