@@ -20,6 +20,7 @@ struct RichTextEditor: NSViewRepresentable {
     }
 
     func updateNSView(_ nsView: NSScrollView, context: Context) {
+        context.coordinator.parent = self
         guard let textView = nsView.documentView as? NSTextView else { return }
         if textView.attributedString() != attributedText {
             textView.textStorage?.setAttributedString(attributedText)
