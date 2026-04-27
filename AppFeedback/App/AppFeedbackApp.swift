@@ -12,14 +12,22 @@ struct AppFeedbackApp: App {
     init() {
         let isTesting = ProcessInfo.processInfo.environment["XCTestConfigurationFilePath"] != nil
         do {
-            let schema = Schema([Repo.self])
-            let config: ModelConfiguration = isTesting
-                ? ModelConfiguration(schema: schema, isStoredInMemoryOnly: true)
+            let cloudSchema = Schema([Repo.self, SeenIssue.self])
+            let localSchema = Schema([CachedIssue.self])
+            let cloudConfig: ModelConfiguration = isTesting
+                ? ModelConfiguration("cloud", schema: cloudSchema, isStoredInMemoryOnly: true)
                 : ModelConfiguration(
-                    schema: schema,
+                    "cloud",
+                    schema: cloudSchema,
                     cloudKitDatabase: .private("iCloud.com.amirhayek.AppFeedback")
                 )
-            container = try ModelContainer(for: schema, configurations: config)
+            let localConfig: ModelConfiguration = isTesting
+                ? ModelConfiguration("local", schema: localSchema, isStoredInMemoryOnly: true)
+                : ModelConfiguration("local", schema: localSchema, cloudKitDatabase: .none)
+            container = try ModelContainer(
+                for: Repo.self, SeenIssue.self, CachedIssue.self,
+                configurations: cloudConfig, localConfig
+            )
         } catch {
             assertionFailure("Failed to create ModelContainer: \(error)")
             fatalError("Failed to create ModelContainer: \(error)")
