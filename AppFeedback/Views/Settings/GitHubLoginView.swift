@@ -5,18 +5,20 @@ struct GitHubLoginView: View {
     @Environment(\.dismiss) private var dismiss
     @Environment(\.openURL) private var openURL
     @Bindable var store: RepoStore
+    var onCompleted: (() -> Void)? = nil
 
-    @State private var authState: AuthState = .idle
+    @State private var authState: AuthState = .requestingCode
     @State private var oauthToken = ""
     @State private var searchText = ""
     @State private var selectedRepo: GitHubRepo?
     @State private var displayName = ""
     @State private var pollTask: Task<Void, Never>?
+    @State private var isSaving = false
+    @State private var didCopyCode = false
 
     private let service = GitHubAuthService()
 
     enum AuthState {
-        case idle
         case requestingCode
         case waitingForUser(DeviceCodeResponse)
         case fetchingRepos
@@ -33,6 +35,7 @@ struct GitHubLoginView: View {
         #if os(macOS)
         .frame(minWidth: 440, minHeight: 380)
         #endif
+        .task { startDeviceFlow() }
         .onDisappear { pollTask?.cancel() }
     }
 
@@ -63,8 +66,6 @@ struct GitHubLoginView: View {
     @ViewBuilder
     private var content: some View {
         switch authState {
-        case .idle:
-            idleView
         case .requestingCode:
             centeredProgress("Connecting to GitHub…")
         case .waitingForUser(let response):
@@ -78,32 +79,27 @@ struct GitHubLoginView: View {
         }
     }
 
-    private var idleView: some View {
-        VStack(spacing: 16) {
-            Image(systemName: "person.badge.key")
-                .font(.system(size: 44))
-                .foregroundStyle(.secondary)
-            Text("Connect your GitHub account to browse and select a repository.")
-                .font(.system(size: 12))
-                .foregroundStyle(.secondary)
-                .multilineTextAlignment(.center)
-                .frame(maxWidth: 260)
-            Button("Sign in with GitHub") { startDeviceFlow() }
-                .buttonStyle(.borderedProminent)
-        }
-        .frame(maxWidth: .infinity, maxHeight: .infinity)
-        .padding()
-    }
-
     private func waitingView(_ response: DeviceCodeResponse) -> some View {
         VStack(spacing: 20) {
             Text("Enter this code at GitHub")
                 .font(.system(size: 13, weight: .semibold))
-            Text(response.userCode)
-                .font(.system(size: 30, weight: .bold).monospaced())
-                .padding(.horizontal, 24)
-                .padding(.vertical, 12)
-                .background(.quaternary, in: RoundedRectangle(cornerRadius: 10))
+            HStack(spacing: 10) {
+                Text(response.userCode)
+                    .font(.system(size: 30, weight: .bold).monospaced())
+                    .textSelection(.enabled)
+                Button {
+                    copyCode(response.userCode)
+                } label: {
+                    Image(systemName: didCopyCode ? "checkmark" : "doc.on.doc")
+                        .font(.system(size: 14, weight: .medium))
+                        .frame(width: 28, height: 28)
+                }
+                .buttonStyle(.borderless)
+                .help(didCopyCode ? "Copied" : "Copy code")
+            }
+            .padding(.horizontal, 24)
+            .padding(.vertical, 12)
+            .background(.quaternary, in: RoundedRectangle(cornerRadius: 10))
             Button("Open GitHub") {
                 if let url = URL(string: response.verificationUri) { openURL(url) }
             }
@@ -125,7 +121,7 @@ struct GitHubLoginView: View {
             searchText: $searchText,
             selectedRepo: $selectedRepo,
             displayName: $displayName,
-            onSave: saveSelectedRepo
+            onSave: { Task { await saveSelectedRepo() } }
         )
     }
 
@@ -139,7 +135,7 @@ struct GitHubLoginView: View {
                 .foregroundStyle(.secondary)
                 .multilineTextAlignment(.center)
                 .frame(maxWidth: 300)
-            Button("Try Again") { authState = .idle }
+            Button("Try Again") { startDeviceFlow() }
                 .buttonStyle(.bordered)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
@@ -157,6 +153,20 @@ struct GitHubLoginView: View {
     }
 
     // MARK: - Actions
+
+    private func copyCode(_ code: String) {
+        #if os(macOS)
+        NSPasteboard.general.clearContents()
+        NSPasteboard.general.setString(code, forType: .string)
+        #else
+        UIPasteboard.general.string = code
+        #endif
+        didCopyCode = true
+        Task {
+            try? await Task.sleep(for: .seconds(1.5))
+            didCopyCode = false
+        }
+    }
 
     private func startDeviceFlow() {
         authState = .requestingCode
@@ -181,16 +191,21 @@ struct GitHubLoginView: View {
         }
     }
 
-    private func saveSelectedRepo() {
-        guard let selected = selectedRepo, !oauthToken.isEmpty else { return }
+    private func saveSelectedRepo() async {
+        guard !isSaving, let selected = selectedRepo, !oauthToken.isEmpty else { return }
+        isSaving = true
+        defer { isSaving = false }
+
         let trimName = displayName.trimmingCharacters(in: .whitespaces)
         let config = RepoConfig(
             displayName: trimName.isEmpty ? selected.name : trimName,
             owner: selected.owner.login,
             repo: selected.name
         )
+        // Save token first so SettingsView's tokens dictionary doesn't briefly show "no token".
+        await KeychainService.save(token: oauthToken, for: config)
         store.add(config)
-        KeychainService.save(token: oauthToken, for: config)
+        onCompleted?()
         dismiss()
     }
 }
@@ -248,6 +263,7 @@ private struct RepoPickerContent: View {
                             }
                             .padding(.horizontal, 12)
                             .padding(.vertical, 8)
+                            .contentShape(Rectangle())
                         }
                         .buttonStyle(.plain)
                         Divider().padding(.leading, 12)

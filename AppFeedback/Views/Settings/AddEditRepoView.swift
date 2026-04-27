@@ -11,6 +11,7 @@ struct AddEditRepoView: View {
     @State private var repo = ""
     @State private var token = ""
     @State private var showGitHubLogin = false
+    @State private var isSaving = false
 
     private var isEditing: Bool { existing != nil }
 
@@ -106,9 +107,9 @@ struct AddEditRepoView: View {
         #if os(macOS)
         .frame(minWidth: 440, minHeight: 320)
         #endif
-        .onAppear { populateFromExisting() }
+        .task { await populateFromExisting() }
         .sheet(isPresented: $showGitHubLogin) {
-            GitHubLoginView(store: store)
+            GitHubLoginView(store: store, onCompleted: { dismiss() })
         }
     }
 
@@ -130,8 +131,8 @@ struct AddEditRepoView: View {
                     .font(.system(size: 12))
                     .foregroundStyle(.secondary)
 
-                Button(isEditing ? "Save" : "Add") { save() }
-                    .disabled(!isValid)
+                Button(isEditing ? "Save" : "Add") { Task { await save() } }
+                    .disabled(!isValid || isSaving)
                     .buttonStyle(.plain)
                     .font(.system(size: 12, weight: .semibold))
                     .padding(.horizontal, 12)
@@ -172,31 +173,38 @@ struct AddEditRepoView: View {
         }
     }
 
-    private func populateFromExisting() {
+    private func populateFromExisting() async {
         guard let existing else { return }
         displayName = existing.displayName
         owner = existing.owner
         repo = existing.repo
-        token = KeychainService.load(for: existing) ?? ""
+        token = await KeychainService.load(for: existing) ?? ""
     }
 
-    private func save() {
+    private func save() async {
+        guard !isSaving else { return }
+        isSaving = true
+        defer { isSaving = false }
+
         let trimName = displayName.trimmingCharacters(in: .whitespaces)
         let trimOwner = owner.trimmingCharacters(in: .whitespaces)
         let trimRepo = repo.trimmingCharacters(in: .whitespaces)
         let trimToken = token.trimmingCharacters(in: .whitespaces)
 
+        // Write the keychain entry BEFORE inserting/updating the store, so any view
+        // that observes `repos` and refreshes tokens (e.g. SettingsView) sees the
+        // token on its first read.
         if let existing {
             var updated = existing
             updated.displayName = trimName
             updated.owner = trimOwner
             updated.repo = trimRepo
+            await KeychainService.save(token: trimToken, for: updated)
             store.update(updated)
-            KeychainService.save(token: trimToken, for: updated)
         } else {
             let newRepo = RepoConfig(displayName: trimName, owner: trimOwner, repo: trimRepo)
+            await KeychainService.save(token: trimToken, for: newRepo)
             store.add(newRepo)
-            KeychainService.save(token: trimToken, for: newRepo)
         }
         dismiss()
     }
