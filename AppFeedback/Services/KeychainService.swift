@@ -53,4 +53,48 @@ enum KeychainService {
     private static func accountKey(for repo: RepoConfig) -> String {
         "\(repo.owner)/\(repo.repo)"
     }
+
+    private static let smtpAccount = "smtp.password"
+
+    static func saveSMTPPassword(_ password: String) async {
+        let data = Data(password.utf8)
+        let query: [String: Any] = [
+            kSecClass as String:              kSecClassGenericPassword,
+            kSecAttrService as String:        service,
+            kSecAttrAccount as String:        smtpAccount,
+            kSecAttrSynchronizable as String: kCFBooleanTrue!,
+        ]
+        let attributes: [String: Any] = [kSecValueData as String: data]
+        let status = SecItemUpdate(query as CFDictionary, attributes as CFDictionary)
+        if status == errSecItemNotFound {
+            var newItem = query
+            newItem[kSecValueData as String] = data
+            SecItemAdd(newItem as CFDictionary, nil)
+        }
+    }
+
+    static func loadSMTPPassword() async -> String? {
+        let query: [String: Any] = [
+            kSecClass as String:              kSecClassGenericPassword,
+            kSecAttrService as String:        service,
+            kSecAttrAccount as String:        smtpAccount,
+            kSecAttrSynchronizable as String: kCFBooleanTrue!,
+            kSecReturnData as String:         true,
+            kSecMatchLimit as String:         kSecMatchLimitOne,
+        ]
+        var result: AnyObject?
+        guard SecItemCopyMatching(query as CFDictionary, &result) == errSecSuccess,
+              let data = result as? Data else { return nil }
+        return String(data: data, encoding: .utf8)
+    }
+
+    static func deleteSMTPPassword() async {
+        let query: [String: Any] = [
+            kSecClass as String:              kSecClassGenericPassword,
+            kSecAttrService as String:        service,
+            kSecAttrAccount as String:        smtpAccount,
+            kSecAttrSynchronizable as String: kCFBooleanTrue!,
+        ]
+        SecItemDelete(query as CFDictionary)
+    }
 }
