@@ -6,6 +6,7 @@ struct SettingsView: View {
     @State private var showAdd = false
     @State private var editTarget: RepoConfig?
     @State private var hoveredId: UUID?
+    @State private var tokens: [UUID: String] = [:]
 
     private var allDisplayNames: [String] { store.repos.map(\.displayName).sorted() }
 
@@ -28,6 +29,24 @@ struct SettingsView: View {
         .sheet(item: $editTarget) { repo in
             AddEditRepoView(store: store, existing: repo)
         }
+        .task(id: store.repos.map(\.id)) {
+            await refreshTokens()
+        }
+    }
+
+    private func refreshTokens() async {
+        await withTaskGroup(of: (UUID, String?).self) { group in
+            for repo in store.repos {
+                group.addTask { (repo.id, await KeychainService.load(for: repo)) }
+            }
+            var collected: [UUID: String] = [:]
+            for await (id, token) in group {
+                if let token { collected[id] = token }
+            }
+            // If a newer task(id:) run has superseded us, don't overwrite its result.
+            guard !Task.isCancelled else { return }
+            tokens = collected
+        }
     }
 
     // MARK: - Repo list
@@ -43,9 +62,8 @@ struct SettingsView: View {
                         isHovered: hoveredId == repo.id,
                         onEdit: { editTarget = repo },
                         onDelete: {
-                            KeychainService.delete(for: repo)
-                            withAnimation(.easeOut(duration: 0.18)) {
-                                store.remove(id: repo.id)
+                            Task {
+                                await store.remove(id: repo.id)
                             }
                         }
                     )
@@ -61,7 +79,7 @@ struct SettingsView: View {
     }
 
     private func maskedToken(for repo: RepoConfig) -> String {
-        let raw = KeychainService.load(for: repo) ?? ""
+        let raw = tokens[repo.id] ?? ""
         guard !raw.isEmpty else { return "no token" }
         guard raw.count > 7 else { return "••••••••" }
         return String(raw.prefix(4)) + "••••••••"
