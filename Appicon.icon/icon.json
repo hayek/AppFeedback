@@ -40,19 +40,76 @@
   ],
   "groups" : [
     {
+      "blend-mode" : "normal",
+      "blur-material" : 0.15,
       "layers" : [
         {
-          "glass" : false,
-          "image-name" : "33753182_8030061.png",
-          "name" : "33753182_8030061",
+          "blend-mode" : "normal",
+          "fill-specializations" : [
+            {
+              "value" : {
+                "automatic-gradient" : "extended-gray:1.00000,1.00000",
+                "orientation" : {
+                  "start" : {
+                    "x" : 0.5,
+                    "y" : 0
+                  },
+                  "stop" : {
+                    "x" : 0.5,
+                    "y" : 0.7
+                  }
+                }
+              }
+            },
+            {
+              "appearance" : "dark",
+              "value" : {
+                "automatic-gradient" : "extended-gray:0.75000,1.00000",
+                "orientation" : {
+                  "start" : {
+                    "x" : 0.5,
+                    "y" : 0
+                  },
+                  "stop" : {
+                    "x" : 0.5,
+                    "y" : 0.7
+                  }
+                }
+              }
+            }
+          ],
+          "glass" : true,
+          "image-name" : "chat-bubble-svgrepo-com.svg",
+          "name" : "chat-bubble-svgrepo-com",
           "position" : {
-            "scale" : 0.4,
+            "scale" : 1,
             "translation-in-points" : [
-              0,
-              0
+              4.8984375,
+              52.203125
             ]
           }
-        },
+        }
+      ],
+      "lighting" : "combined",
+      "position" : {
+        "scale" : 1.05,
+        "translation-in-points" : [
+          0,
+          0
+        ]
+      },
+      "shadow" : {
+        "kind" : "neutral",
+        "opacity" : 0.5
+      },
+      "specular" : true,
+      "translucency" : {
+        "enabled" : true,
+        "value" : 0.9
+      }
+    },
+    {
+      "layers" : [
         {
           "glass" : false,
           "hidden" : false,
