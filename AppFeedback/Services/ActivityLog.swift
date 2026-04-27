@@ -82,11 +82,10 @@ final class ActivityLog {
         guard let url = persistenceURL else { return }
         pendingFlush?.cancel()
         let snapshot = entries
-        pendingFlush = Task { [weak self] in
+        pendingFlush = Task {
             try? await Task.sleep(nanoseconds: 250_000_000)
             guard !Task.isCancelled else { return }
             await ActivityLog.write(snapshot, to: url)
-            self?.pendingFlush = nil
         }
     }
 
