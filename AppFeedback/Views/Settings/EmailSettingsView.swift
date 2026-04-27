@@ -37,6 +37,17 @@ struct EmailSettingsView: View {
                     .disabled(preset != .custom)
                 TextField("Username / from address", text: $username)
                 SecureField("App password", text: $password)
+                if preset == .gmail {
+                    HStack(spacing: 6) {
+                        Text("Gmail requires a 16-character app password (not your account password). 2-Step Verification must be on.")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                        Spacer(minLength: 8)
+                        Button("Get app password") { openGmailAppPasswords() }
+                            .buttonStyle(.link)
+                            .font(.caption)
+                    }
+                }
                 TextField("Sender display name", text: $senderName)
             }
 
@@ -141,6 +152,19 @@ struct EmailSettingsView: View {
                 documentAttributes: opts),
               let s = String(data: data, encoding: .utf8) else { return "" }
         return s
+    }
+
+    // MARK: - Gmail helper
+
+    private func openGmailAppPasswords() {
+        var components = URLComponents(string: "https://myaccount.google.com/apppasswords")!
+        let trimmed = username.trimmingCharacters(in: .whitespacesAndNewlines)
+        if trimmed.contains("@") {
+            components.queryItems = [URLQueryItem(name: "authuser", value: trimmed)]
+        }
+        if let url = components.url {
+            NSWorkspace.shared.open(url)
+        }
     }
 
     // MARK: - Test Connection
