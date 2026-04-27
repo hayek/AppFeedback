@@ -48,8 +48,8 @@ struct ComposeMailView: View {
             Image(systemName: "envelope.badge")
             Text("Configure email in Settings → Email to send from this app.")
             Spacer()
-            Button("Open Settings…") {
-                NSApp.sendAction(Selector(("showSettingsWindow:")), to: nil, from: nil)
+            SettingsLink {
+                Text("Open Settings…")
             }
         }
         .padding(8)
