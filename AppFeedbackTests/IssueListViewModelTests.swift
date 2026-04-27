@@ -1,4 +1,5 @@
 import XCTest
+import SwiftData
 @testable import AppFeedback
 
 @MainActor
@@ -61,5 +62,62 @@ final class IssueListViewModelTests: XCTestCase {
         ]
         vm.appFilter = "A"
         XCTAssertEqual(Set(vm.uniqueValues(for: \.appVersion)), ["1.0", "2.0"])
+    }
+}
+
+@MainActor
+extension IssueListViewModelTests {
+    private func makeStore() throws -> SeenIssueStore {
+        let schema = Schema([SeenIssue.self])
+        let config = ModelConfiguration(schema: schema, isStoredInMemoryOnly: true)
+        let container = try ModelContainer(for: schema, configurations: config)
+        return SeenIssueStore(context: ModelContext(container))
+    }
+
+    private func issue(_ n: Int) -> FeedbackIssue {
+        FeedbackIssue(
+            number: n, title: "t\(n)",
+            createdAt: Date(timeIntervalSince1970: 1_700_000_000 + Double(n)),
+            rawBody: "", appName: nil, appVersion: nil,
+            device: nil, osVersion: nil, email: nil, description: ""
+        )
+    }
+
+    func test_applyLoaded_marksIssuesUnreadOnFirstLoad() throws {
+        let vm = IssueListViewModel()
+        vm.attachSeenStore(try makeStore(), owner: "o", repo: "r")
+        vm.applyLoaded([issue(1), issue(2), issue(3)])
+        XCTAssertTrue(vm.isUnread(issue(1)))
+        XCTAssertTrue(vm.isUnread(issue(2)))
+        XCTAssertTrue(vm.isUnread(issue(3)))
+    }
+
+    func test_applyLoaded_secondLoadFlushesPreviousAsSeen() throws {
+        let vm = IssueListViewModel()
+        let store = try makeStore()
+        vm.attachSeenStore(store, owner: "o", repo: "r")
+        vm.applyLoaded([issue(1), issue(2)])
+        vm.applyLoaded([issue(1), issue(2), issue(3)]) // flushes 1,2 as seen
+        XCTAssertFalse(vm.isUnread(issue(1)))
+        XCTAssertFalse(vm.isUnread(issue(2)))
+        XCTAssertTrue(vm.isUnread(issue(3)))
+        XCTAssertEqual(store.seenNumbers(owner: "o", repo: "r"), [1, 2])
+    }
+
+    func test_markSeen_clearsDotImmediately() throws {
+        let vm = IssueListViewModel()
+        let store = try makeStore()
+        vm.attachSeenStore(store, owner: "o", repo: "r")
+        vm.applyLoaded([issue(1), issue(2)])
+        vm.markSeen(issue(1))
+        XCTAssertFalse(vm.isUnread(issue(1)))
+        XCTAssertTrue(vm.isUnread(issue(2)))
+        XCTAssertEqual(store.seenNumbers(owner: "o", repo: "r"), [1])
+    }
+
+    func test_isUnread_falseWhenNoStoreAttached() {
+        let vm = IssueListViewModel()
+        vm.applyLoaded([issue(1)])
+        XCTAssertFalse(vm.isUnread(issue(1)))
     }
 }

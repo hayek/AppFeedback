@@ -52,4 +52,44 @@ final class IssueListViewModel {
     func clearFilters() {
         filters = ActiveFilters()
     }
+
+    private var seenStore: SeenIssueStore?
+    private var seenOwner: String = ""
+    private var seenRepo: String = ""
+    private var sessionUnread: Set<Int> = []
+    private var previouslyLoadedNumbers: Set<Int> = []
+
+    func attachSeenStore(_ store: SeenIssueStore, owner: String, repo: String) {
+        if seenOwner != owner || seenRepo != repo {
+            sessionUnread = []
+            previouslyLoadedNumbers = []
+        }
+        self.seenStore = store
+        self.seenOwner = owner
+        self.seenRepo = repo
+    }
+
+    func applyLoaded(_ issues: [FeedbackIssue]) {
+        let numbers = Set(issues.map(\.number))
+        if let store = seenStore {
+            let toFlush = previouslyLoadedNumbers.subtracting(store.seenNumbers(owner: seenOwner, repo: seenRepo))
+            if !toFlush.isEmpty {
+                store.markSeenBulk(owner: seenOwner, repo: seenRepo, issueNumbers: Array(toFlush))
+            }
+            let alreadySeen = store.seenNumbers(owner: seenOwner, repo: seenRepo)
+            sessionUnread = numbers.subtracting(alreadySeen)
+        } else {
+            sessionUnread = []
+        }
+        previouslyLoadedNumbers = numbers
+    }
+
+    func isUnread(_ issue: FeedbackIssue) -> Bool {
+        sessionUnread.contains(issue.number)
+    }
+
+    func markSeen(_ issue: FeedbackIssue) {
+        sessionUnread.remove(issue.number)
+        seenStore?.markSeen(owner: seenOwner, repo: seenRepo, issueNumber: issue.number)
+    }
 }
