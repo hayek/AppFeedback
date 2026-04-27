@@ -3,7 +3,7 @@ import Foundation
 actor GitHubAuthService {
     // Register a GitHub OAuth App at https://github.com/settings/developers
     // (Device Flow — no client secret needed). Paste the Client ID below.
-    static let clientID = "PASTE_YOUR_CLIENT_ID_HERE"
+    static let clientID = "Ov23liFfcJgoMSyp9WpA"
     private static let scope = "repo"
 
     enum AuthError: LocalizedError {
