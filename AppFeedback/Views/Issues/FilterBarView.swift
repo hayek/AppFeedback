@@ -5,6 +5,10 @@ struct FilterBarView: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
+            if viewModel.allowsAppFilter {
+                pillRow(label: "App", values: viewModel.uniqueAppNames,
+                        binding: $viewModel.appFilter)
+            }
             pillRow(label: "Version", values: viewModel.uniqueValues(for: \.appVersion),
                     binding: binding(for: \.appVersion))
             pillRow(label: "Device",  values: viewModel.uniqueValues(for: \.device),

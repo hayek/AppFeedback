@@ -52,20 +52,6 @@ final class IssueListViewModelTests: XCTestCase {
         XCTAssertEqual(vm.visibleIssues.first?.title, "Crash on launch")
     }
 
-    func test_visibleIssues_sortNewest_first() {
-        let vm = IssueListViewModel()
-        vm.allIssues = [makeIssue(number: 1, daysAgo: 5), makeIssue(number: 2, daysAgo: 1)]
-        vm.sortOrder = .newest
-        XCTAssertEqual(vm.visibleIssues.first?.number, 2)
-    }
-
-    func test_visibleIssues_sortOldest_first() {
-        let vm = IssueListViewModel()
-        vm.allIssues = [makeIssue(number: 1, daysAgo: 5), makeIssue(number: 2, daysAgo: 1)]
-        vm.sortOrder = .oldest
-        XCTAssertEqual(vm.visibleIssues.first?.number, 1)
-    }
-
     func test_uniqueAppVersions_forCurrentApp() {
         let vm = IssueListViewModel()
         vm.allIssues = [

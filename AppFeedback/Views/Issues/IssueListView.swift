@@ -8,7 +8,7 @@ struct IssueListView: View {
 
     var body: some View {
         VStack(spacing: 0) {
-            if viewModel.appFilter != nil {
+            if viewModel.allowsAppFilter || viewModel.appFilter != nil || !viewModel.filters.isEmpty {
                 FilterBarView(viewModel: viewModel)
                     .padding(.horizontal, 20)
                     .padding(.vertical, 8)
@@ -38,8 +38,10 @@ struct IssueListView: View {
                             .font(.largeTitle).foregroundStyle(.red)
                         Text(error.localizedDescription).font(.body)
                         if let onRefresh {
-                            Button("Retry") { Task { await onRefresh() } }
-                                .buttonStyle(.borderedProminent)
+                            Button("Retry") {
+                                Task { await onRefresh() }
+                            }
+                            .buttonStyle(.borderedProminent)
                         }
                     }
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
@@ -55,14 +57,6 @@ struct IssueListView: View {
         .background(Color(.systemBackground))
         #endif
         .toolbar {
-            ToolbarItem(placement: .primaryAction) {
-                Picker("Sort", selection: $viewModel.sortOrder) {
-                    Text("Newest").tag(IssueListViewModel.SortOrder.newest)
-                    Text("Oldest").tag(IssueListViewModel.SortOrder.oldest)
-                }
-                .pickerStyle(.segmented)
-                .fixedSize()
-            }
             if let onRefresh {
                 ToolbarItem(placement: .primaryAction) {
                     Button {
@@ -96,7 +90,23 @@ struct IssueListView: View {
                     ForEach(visible) { issue in
                         IssueCardView(
                             issue: issue,
-                            appColor: ColorPalette.color(for: issue.appName ?? "", in: allApps)
+                            appColor: ColorPalette.color(for: issue.appName ?? "", in: allApps),
+                            activeApp: viewModel.appFilter,
+                            activeAppVersion: viewModel.filters.appVersion,
+                            activeDevice: viewModel.filters.device,
+                            activeOSVersion: viewModel.filters.osVersion,
+                            onToggleApp: { value in
+                                viewModel.appFilter = viewModel.appFilter == value ? nil : value
+                            },
+                            onToggleAppVersion: { value in
+                                viewModel.filters.appVersion = viewModel.filters.appVersion == value ? nil : value
+                            },
+                            onToggleDevice: { value in
+                                viewModel.filters.device = viewModel.filters.device == value ? nil : value
+                            },
+                            onToggleOSVersion: { value in
+                                viewModel.filters.osVersion = viewModel.filters.osVersion == value ? nil : value
+                            }
                         )
                     }
                 }

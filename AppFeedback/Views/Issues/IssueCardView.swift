@@ -3,6 +3,14 @@ import SwiftUI
 struct IssueCardView: View {
     let issue: FeedbackIssue
     let appColor: Color
+    var activeApp: String? = nil
+    var activeAppVersion: String? = nil
+    var activeDevice: String? = nil
+    var activeOSVersion: String? = nil
+    var onToggleApp: ((String) -> Void)? = nil
+    var onToggleAppVersion: ((String) -> Void)? = nil
+    var onToggleDevice: ((String) -> Void)? = nil
+    var onToggleOSVersion: ((String) -> Void)? = nil
 
     private var formattedDate: String {
         issue.createdAt.formatted(date: .abbreviated, time: .omitted)
@@ -28,39 +36,48 @@ struct IssueCardView: View {
                         .font(.system(size: 15, weight: .semibold))
                         .foregroundStyle(.primary)
                         .lineLimit(2)
+                    Spacer(minLength: 8)
+                    Text(formattedDate)
+                        .font(.system(size: 11))
+                        .foregroundStyle(.tertiary)
+                        .padding(.top, 2)
+                        .fixedSize()
                 }
 
                 if !issue.description.isEmpty {
-                    Text(attributedDescription)
-                        .font(.system(size: 13))
-                        .foregroundStyle(.primary)
-                        .lineLimit(4)
+                    MarkdownBodyView(text: issue.description)
                 }
 
                 ScrollView(.horizontal, showsIndicators: false) {
                     HStack(spacing: 6) {
                         if let app = issue.appName {
-                            TagView(text: app + (issue.appVersion.map { " v\($0)" } ?? ""),
-                                    color: appColor)
+                            tappable(value: app, onTap: onToggleApp) {
+                                TagView(text: app, color: appColor, isActive: activeApp == app)
+                            }
+                        }
+                        if let version = issue.appVersion {
+                            tappable(value: version, onTap: onToggleAppVersion) {
+                                TagView(text: "v\(version)", color: appColor, isActive: activeAppVersion == version)
+                            }
                         }
                         if let device = issue.device {
-                            MetaTagView(key: "device", value: device)
+                            tappable(value: device, onTap: onToggleDevice) {
+                                MetaTagView(key: "device", value: device, isActive: activeDevice == device)
+                            }
                         }
                         if let os = issue.osVersion {
-                            MetaTagView(key: "os", value: os)
+                            tappable(value: os, onTap: onToggleOSVersion) {
+                                MetaTagView(key: "os", value: os, isActive: activeOSVersion == os)
+                            }
                         }
                         if let email = issue.email {
                             if let encoded = email.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed),
                                let mailURL = URL(string: "mailto:\(encoded)") {
                                 Link(destination: mailURL) {
-                                    MetaTagView(key: "✉", value: email)
+                                    MetaTagView(key: "✉", value: email, isActive: false)
                                 }
                             }
                         }
-                        Spacer(minLength: 0)
-                        Text(formattedDate)
-                            .font(.system(size: 11))
-                            .foregroundStyle(.tertiary)
                     }
                 }
             }
@@ -72,42 +89,215 @@ struct IssueCardView: View {
         .shadow(color: .black.opacity(0.06), radius: 3, y: 1)
     }
 
-    private var attributedDescription: AttributedString {
-        (try? AttributedString(markdown: issue.description)) ?? AttributedString(issue.description)
+    @ViewBuilder
+    private func tappable<Content: View>(
+        value: String,
+        onTap: ((String) -> Void)?,
+        @ViewBuilder content: () -> Content
+    ) -> some View {
+        if let onTap {
+            Button { onTap(value) } label: { content() }
+                .buttonStyle(.plain)
+        } else {
+            content()
+        }
+    }
+}
+
+private struct MarkdownBodyView: View {
+    private let blocks: [MarkdownBlock]
+
+    init(text: String) {
+        self.blocks = MarkdownBlock.parse(text)
+    }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            ForEach(Array(blocks.enumerated()), id: \.offset) { _, block in
+                blockView(block)
+            }
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+    }
+
+    @ViewBuilder
+    private func blockView(_ block: MarkdownBlock) -> some View {
+        switch block {
+        case .heading(let level, let text):
+            Text(inlineMarkdown(text))
+                .font(.system(size: headingSize(level), weight: .semibold))
+                .foregroundStyle(.primary)
+        case .paragraph(let lines):
+            VStack(alignment: .leading, spacing: 2) {
+                ForEach(Array(lines.enumerated()), id: \.offset) { _, line in
+                    Text(inlineMarkdown(line))
+                        .font(.system(size: 13))
+                        .foregroundStyle(.primary)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+            }
+        case .list(let ordered, let items):
+            VStack(alignment: .leading, spacing: 4) {
+                ForEach(Array(items.enumerated()), id: \.offset) { idx, item in
+                    HStack(alignment: .firstTextBaseline, spacing: 8) {
+                        Text(ordered ? "\(idx + 1)." : "•")
+                            .font(.system(size: 13))
+                            .foregroundStyle(.secondary)
+                            .frame(minWidth: 16, alignment: .trailing)
+                        Text(inlineMarkdown(item))
+                            .font(.system(size: 13))
+                            .foregroundStyle(.primary)
+                            .fixedSize(horizontal: false, vertical: true)
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                    }
+                }
+            }
+        }
+    }
+
+    private func headingSize(_ level: Int) -> CGFloat {
+        switch level {
+        case 1: return 17
+        case 2: return 15
+        default: return 14
+        }
+    }
+
+    private func inlineMarkdown(_ s: String) -> AttributedString {
+        var options = AttributedString.MarkdownParsingOptions()
+        options.interpretedSyntax = .inlineOnlyPreservingWhitespace
+        return (try? AttributedString(markdown: s, options: options)) ?? AttributedString(s)
+    }
+}
+
+private enum MarkdownBlock {
+    case heading(level: Int, text: String)
+    case paragraph(lines: [String])
+    case list(ordered: Bool, items: [String])
+
+    static func parse(_ text: String) -> [MarkdownBlock] {
+        var blocks: [MarkdownBlock] = []
+        var paragraph: [String] = []
+        var listItems: [String] = []
+        var listOrdered: Bool? = nil
+
+        func flushParagraph() {
+            if !paragraph.isEmpty {
+                blocks.append(.paragraph(lines: paragraph))
+                paragraph = []
+            }
+        }
+        func flushList() {
+            if let ordered = listOrdered, !listItems.isEmpty {
+                blocks.append(.list(ordered: ordered, items: listItems))
+            }
+            listItems = []
+            listOrdered = nil
+        }
+        func flushAll() { flushParagraph(); flushList() }
+
+        for rawLine in text.components(separatedBy: "\n") {
+            let line = rawLine.trimmingCharacters(in: .whitespaces)
+
+            if line.isEmpty { flushAll(); continue }
+
+            if let (level, content) = parseHeading(line) {
+                flushAll()
+                blocks.append(.heading(level: level, text: content))
+                continue
+            }
+
+            if let item = parseOrderedItem(line) {
+                flushParagraph()
+                if listOrdered == false { flushList() }
+                listOrdered = true
+                listItems.append(item)
+                continue
+            }
+
+            if let item = parseUnorderedItem(line) {
+                flushParagraph()
+                if listOrdered == true { flushList() }
+                listOrdered = false
+                listItems.append(item)
+                continue
+            }
+
+            flushList()
+            paragraph.append(line)
+        }
+        flushAll()
+        return blocks
+    }
+
+    private static func parseHeading(_ line: String) -> (Int, String)? {
+        var level = 0
+        for ch in line {
+            if ch == "#" { level += 1 } else { break }
+            if level > 6 { return nil }
+        }
+        guard level > 0, level < line.count else { return nil }
+        let rest = line.dropFirst(level)
+        guard rest.first == " " else { return nil }
+        return (level, String(rest.drop(while: { $0 == " " })))
+    }
+
+    private static func parseOrderedItem(_ line: String) -> String? {
+        guard let dot = line.firstIndex(of: ".") else { return nil }
+        let prefix = line[line.startIndex..<dot]
+        guard !prefix.isEmpty, prefix.allSatisfy(\.isNumber) else { return nil }
+        let after = line.index(after: dot)
+        guard after < line.endIndex, line[after] == " " else { return nil }
+        return String(line[line.index(after: after)...])
+    }
+
+    private static func parseUnorderedItem(_ line: String) -> String? {
+        guard let first = line.first, first == "-" || first == "*" || first == "+" else { return nil }
+        let rest = line.dropFirst()
+        guard rest.first == " " else { return nil }
+        return String(rest.drop(while: { $0 == " " }))
     }
 }
 
 private struct TagView: View {
     let text: String
     let color: Color
+    let isActive: Bool
     var body: some View {
         Text(text)
             .font(.system(size: 11, weight: .semibold))
             .foregroundStyle(color)
             .padding(.horizontal, 8)
             .padding(.vertical, 3)
-            .background(color.opacity(0.1), in: RoundedRectangle(cornerRadius: 6))
-            .overlay(RoundedRectangle(cornerRadius: 6).stroke(color.opacity(0.25), lineWidth: 1))
+            .background(color.opacity(isActive ? 0.22 : 0.1), in: RoundedRectangle(cornerRadius: 6))
+            .overlay(RoundedRectangle(cornerRadius: 6).stroke(color.opacity(isActive ? 0.6 : 0.25), lineWidth: 1))
     }
 }
 
 private struct MetaTagView: View {
     let key: String
     let value: String
+    let isActive: Bool
     var body: some View {
         HStack(spacing: 4) {
             Text(key)
                 .font(.system(size: 9, weight: .semibold))
                 .textCase(.uppercase)
                 .tracking(0.5)
-                .foregroundStyle(.tertiary)
+                .foregroundStyle(isActive ? AnyShapeStyle(Color.accentColor) : AnyShapeStyle(HierarchicalShapeStyle.tertiary))
             Text(value)
                 .font(.system(size: 11, weight: .medium))
-                .foregroundStyle(.secondary)
+                .foregroundStyle(isActive ? AnyShapeStyle(Color.accentColor) : AnyShapeStyle(HierarchicalShapeStyle.secondary))
         }
         .padding(.horizontal, 8)
         .padding(.vertical, 3)
-        .background(.secondary.opacity(0.08), in: RoundedRectangle(cornerRadius: 6))
-        .overlay(RoundedRectangle(cornerRadius: 6).stroke(.secondary.opacity(0.15), lineWidth: 1))
+        .background(
+            (isActive ? Color.accentColor.opacity(0.12) : Color.secondary.opacity(0.08)),
+            in: RoundedRectangle(cornerRadius: 6)
+        )
+        .overlay(RoundedRectangle(cornerRadius: 6).stroke(
+            isActive ? Color.accentColor.opacity(0.4) : Color.secondary.opacity(0.15),
+            lineWidth: 1
+        ))
     }
 }

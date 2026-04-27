@@ -5,11 +5,13 @@ import Observation
 final class IssueListViewModel {
     var allIssues: [FeedbackIssue] = []
     var searchQuery = ""
-    var sortOrder: SortOrder = .newest
     var appFilter: String? = nil
+    var allowsAppFilter: Bool = false
     var filters = ActiveFilters()
 
-    enum SortOrder { case newest, oldest }
+    var uniqueAppNames: [String] {
+        Array(Set(allIssues.compactMap(\.appName))).sorted()
+    }
 
     struct ActiveFilters {
         var appVersion: String? = nil
@@ -39,9 +41,7 @@ final class IssueListViewModel {
             }
         }
 
-        return list.sorted {
-            sortOrder == .newest ? $0.createdAt > $1.createdAt : $0.createdAt < $1.createdAt
-        }
+        return list.sorted { $0.createdAt > $1.createdAt }
     }
 
     func uniqueValues(for keyPath: KeyPath<FeedbackIssue, String?>) -> [String] {
