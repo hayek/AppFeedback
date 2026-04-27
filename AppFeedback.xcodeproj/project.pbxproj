@@ -39,6 +39,7 @@
 		5186259ECF88622D3F9C91EF /* GitHubAPIModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = 50EF2D601AE7014E90E1F8AF /* GitHubAPIModels.swift */; };
 		531DB32D49CF59E17B8EA499 /* GitHubAuthService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 06966BDC1078923389E15249 /* GitHubAuthService.swift */; };
 		57A1B6E768B25DD22D47D28B /* AppFeedbackTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 98F8C9ECF3F6884F65EFEE8D /* AppFeedbackTests.swift */; };
+		5F6AC69CFA01BF4EEAB94D99 /* ActivityLog.swift in Sources */ = {isa = PBXBuildFile; fileRef = 864A8D0AB787A3FE8CA251F6 /* ActivityLog.swift */; };
 		62FFF150FCEC91F9493CCED9 /* SwiftMail in Frameworks */ = {isa = PBXBuildFile; productRef = 50E79E282BC44074182BC176 /* SwiftMail */; };
 		6645EA25CABF717B2D1B6E09 /* IssueCardView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7B47F8578C6AACFA2B16D08C /* IssueCardView.swift */; };
 		677FA0A37ED1C2356AEE47E1 /* AppFeedbackTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 98F8C9ECF3F6884F65EFEE8D /* AppFeedbackTests.swift */; };
@@ -61,6 +62,7 @@
 		996661BA2AEC20636C5841C9 /* GitHubLoginView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8179D7E75894D24AAF1B685B /* GitHubLoginView.swift */; };
 		9B708FEC07AC11FC2714A83B /* IssueListViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 428A7B5EF942709FB3DA4EE5 /* IssueListViewModel.swift */; };
 		9D6D08D05D3623D6DD8C70CC /* MockURLProtocol.swift in Sources */ = {isa = PBXBuildFile; fileRef = 862BA4BF33A265329E335DDE /* MockURLProtocol.swift */; };
+		9ED2C8220ADAA9745E75AC0F /* ActivityLogTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = EC52FD3E27B1F223D322FA99 /* ActivityLogTests.swift */; };
 		A39AE526357FEEAFB785BCA5 /* MockURLProtocol.swift in Sources */ = {isa = PBXBuildFile; fileRef = 862BA4BF33A265329E335DDE /* MockURLProtocol.swift */; };
 		A5E4894A6D7EF95BFC260B9A /* CloudSyncStatusTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1A5E9D6EA54332099D0A0E76 /* CloudSyncStatusTests.swift */; };
 		A7E7D1F467C7C3110AE5BC29 /* RepoStoreTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 362B178DE65AC41CBE9665EC /* RepoStoreTests.swift */; };
@@ -74,12 +76,14 @@
 		C9CAB46A8636312907588E63 /* FeedbackIssue.swift in Sources */ = {isa = PBXBuildFile; fileRef = F4CA31D8EBA15B135854E873 /* FeedbackIssue.swift */; };
 		CF6DC4E4B879F0BEFD3C2E19 /* IssueLoader.swift in Sources */ = {isa = PBXBuildFile; fileRef = E03BB1B8AFFBECF24C7950C8 /* IssueLoader.swift */; };
 		DA1B584394BD3EE40D2D0324 /* SettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 68B931F0D2D397FA605DCCBA /* SettingsView.swift */; };
+		DB712A98FC036B42A057F0CA /* ActivityLogTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = EC52FD3E27B1F223D322FA99 /* ActivityLogTests.swift */; };
 		DBB188271BB3EFB984EFB998 /* RepoStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = C4E685E33A4C31C05457EAC3 /* RepoStore.swift */; };
 		E1B284FC2FFA5E1D746E4B88 /* RepoTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = B9E1CC5A4E26DBA9C9751A90 /* RepoTests.swift */; };
 		E3611B8BC7E8C7EE99D7407D /* FeedbackIssue.swift in Sources */ = {isa = PBXBuildFile; fileRef = F4CA31D8EBA15B135854E873 /* FeedbackIssue.swift */; };
 		EA29D7D0BC140D0B14DDAAD6 /* GitHubAuthModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = DD959DEDBC95A458BAD75F14 /* GitHubAuthModels.swift */; };
 		EAA87A8FDD3C715F27C72924 /* KeychainService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9FAC042F79EF94F76B9A8077 /* KeychainService.swift */; };
 		F4A10388C761178F5BBDD845 /* CloudSyncStatus.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4EADC7EBFDDAE8FAAA839A09 /* CloudSyncStatus.swift */; };
+		F79ED4BCD9690D28AF41FCF5 /* ActivityLog.swift in Sources */ = {isa = PBXBuildFile; fileRef = 864A8D0AB787A3FE8CA251F6 /* ActivityLog.swift */; };
 		F89204E74E5F3287ABF63651 /* GitHubAPIModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = 50EF2D601AE7014E90E1F8AF /* GitHubAPIModels.swift */; };
 		F9726B0E943C3131909A4868 /* IssueListViewModelTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 10EE93E06CD371298BA38A85 /* IssueListViewModelTests.swift */; };
 /* End PBXBuildFile section */
@@ -125,6 +129,7 @@
 		7D45273CCFDF0900BE1142A5 /* SidebarSelection.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SidebarSelection.swift; sourceTree = "<group>"; };
 		8179D7E75894D24AAF1B685B /* GitHubLoginView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GitHubLoginView.swift; sourceTree = "<group>"; };
 		862BA4BF33A265329E335DDE /* MockURLProtocol.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MockURLProtocol.swift; sourceTree = "<group>"; };
+		864A8D0AB787A3FE8CA251F6 /* ActivityLog.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ActivityLog.swift; sourceTree = "<group>"; };
 		903D78E017E8D55A5529822F /* IssueLoaderTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = IssueLoaderTests.swift; sourceTree = "<group>"; };
 		93179C8985C6D0A9B67E82F8 /* RootView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RootView.swift; sourceTree = "<group>"; };
 		98F8C9ECF3F6884F65EFEE8D /* AppFeedbackTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppFeedbackTests.swift; sourceTree = "<group>"; };
@@ -143,6 +148,7 @@
 		DA2585A8442E3BBFF49D6958 /* AddEditRepoView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AddEditRepoView.swift; sourceTree = "<group>"; };
 		DD959DEDBC95A458BAD75F14 /* GitHubAuthModels.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GitHubAuthModels.swift; sourceTree = "<group>"; };
 		E03BB1B8AFFBECF24C7950C8 /* IssueLoader.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = IssueLoader.swift; sourceTree = "<group>"; };
+		EC52FD3E27B1F223D322FA99 /* ActivityLogTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ActivityLogTests.swift; sourceTree = "<group>"; };
 		F4CA31D8EBA15B135854E873 /* FeedbackIssue.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FeedbackIssue.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
@@ -193,6 +199,7 @@
 		3B6DF00EB6B01E6EE574B73B /* Services */ = {
 			isa = PBXGroup;
 			children = (
+				864A8D0AB787A3FE8CA251F6 /* ActivityLog.swift */,
 				4EADC7EBFDDAE8FAAA839A09 /* CloudSyncStatus.swift */,
 				A2F615F5DA761C32F8566101 /* ColorPalette.swift */,
 				06966BDC1078923389E15249 /* GitHubAuthService.swift */,
@@ -262,6 +269,7 @@
 		CE978052D6951857C3AB9185 /* AppFeedbackTests */ = {
 			isa = PBXGroup;
 			children = (
+				EC52FD3E27B1F223D322FA99 /* ActivityLogTests.swift */,
 				98F8C9ECF3F6884F65EFEE8D /* AppFeedbackTests.swift */,
 				1A5E9D6EA54332099D0A0E76 /* CloudSyncStatusTests.swift */,
 				BBD948EB35D428BC8AD5D517 /* ColorPaletteTests.swift */,
@@ -416,6 +424,7 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				5F6AC69CFA01BF4EEAB94D99 /* ActivityLog.swift in Sources */,
 				498F0869FEC01004955BBB8D /* AddEditRepoView.swift in Sources */,
 				71368B398604FB8ADBA5A14A /* AppFeedbackApp.swift in Sources */,
 				4630F99F04FA2ACAC0C122FF /* AppRowView.swift in Sources */,
@@ -449,6 +458,7 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				9ED2C8220ADAA9745E75AC0F /* ActivityLogTests.swift in Sources */,
 				677FA0A37ED1C2356AEE47E1 /* AppFeedbackTests.swift in Sources */,
 				B9689C8F511CEFFC7154AE31 /* CloudSyncStatusTests.swift in Sources */,
 				83CECBE7C21FE854EA0AC18A /* ColorPaletteTests.swift in Sources */,
@@ -467,6 +477,7 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				F79ED4BCD9690D28AF41FCF5 /* ActivityLog.swift in Sources */,
 				1A5087796E77E3A1B3254A6A /* AddEditRepoView.swift in Sources */,
 				70CBB922382FA90982EC8DB5 /* AppFeedbackApp.swift in Sources */,
 				C8B0A33BDD691C4C94FF30E2 /* AppRowView.swift in Sources */,
@@ -500,6 +511,7 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				DB712A98FC036B42A057F0CA /* ActivityLogTests.swift in Sources */,
 				57A1B6E768B25DD22D47D28B /* AppFeedbackTests.swift in Sources */,
 				A5E4894A6D7EF95BFC260B9A /* CloudSyncStatusTests.swift in Sources */,
 				1FFBC02E1CD2B43D200270EF /* ColorPaletteTests.swift in Sources */,
