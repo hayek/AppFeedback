@@ -20,96 +20,136 @@ struct AddEditRepoView: View {
     }
 
     var body: some View {
+        platformContent
+            .task { await populateFromExisting() }
+            .sheet(isPresented: $showGitHubLogin) {
+                GitHubLoginView(store: store, onCompleted: { dismiss() })
+            }
+    }
+
+    @ViewBuilder
+    private var platformContent: some View {
+        #if os(iOS)
+        NavigationStack {
+            formContent
+                .navigationTitle(isEditing ? "Edit Repository" : "Add Repository")
+                .navigationBarTitleDisplayMode(.inline)
+                .toolbar {
+                    ToolbarItem(placement: .cancellationAction) {
+                        Button { dismiss() } label: {
+                            Image(systemName: "xmark")
+                        }
+                    }
+                    ToolbarItem(placement: .confirmationAction) {
+                        Button { dismiss() } label: {
+                            Image(systemName: "xmark")
+                        }
+                    }
+                }
+        }
+        #else
         VStack(spacing: 0) {
             header
             Divider()
-            ScrollView {
-                VStack(spacing: 20) {
-                    if !isEditing {
-                        Button {
-                            showGitHubLogin = true
-                        } label: {
-                            HStack {
-                                Image(systemName: "person.badge.key.fill")
-                                Text("Sign in with GitHub")
-                                    .fontWeight(.semibold)
-                            }
-                            .frame(maxWidth: .infinity)
-                            .padding(.vertical, 8)
-                        }
-                        .buttonStyle(.borderedProminent)
-                        .controlSize(.large)
-
-                        HStack {
-                            VStack { Divider() }
-                            Text("or enter manually")
-                                .font(.system(size: 11))
-                                .foregroundStyle(.tertiary)
-                            VStack { Divider() }
-                        }
-                    }
-
-                    fieldSection(
-                        label: "Display Name",
-                        hint: "A friendly name shown in the sidebar"
-                    ) {
-                        GroupBox {
-                            StyledTextField("My App Feedback", text: $displayName)
-                        }
-                    }
-
-                    fieldSection(
-                        label: "GitHub Repository",
-                        hint: "The owner and repository name on GitHub"
-                    ) {
-                        GroupBox {
-                            HStack(spacing: 0) {
-                                StyledTextField("owner", text: $owner, monospaced: true)
-                                    .autocorrectionDisabled()
-                                    #if os(iOS)
-                                    .textInputAutocapitalization(.never)
-                                    #endif
-                                Text("/")
-                                    .foregroundStyle(.tertiary)
-                                    .font(.system(size: 14, weight: .light))
-                                    .padding(.horizontal, 6)
-                                StyledTextField("repo-name", text: $repo, monospaced: true)
-                                    .autocorrectionDisabled()
-                                    #if os(iOS)
-                                    .textInputAutocapitalization(.never)
-                                    #endif
-                            }
-                        }
-                    }
-
-                    fieldSection(
-                        label: "GitHub Token",
-                        hint: nil
-                    ) {
-                        GroupBox {
-                            StyledTextField("ghp_…", text: $token, secure: true, monospaced: true)
-                                .autocorrectionDisabled()
-                        }
-                        HStack(spacing: 6) {
-                            Image(systemName: "lock.shield")
-                                .font(.system(size: 10))
-                                .foregroundStyle(.secondary)
-                            Text("Requires repo read access. Stored securely in Keychain.")
-                                .font(.system(size: 11))
-                                .foregroundStyle(.secondary)
-                        }
-                        .padding(.top, 4)
-                    }
-                }
-                .padding(20)
-            }
+            formContent
         }
-        #if os(macOS)
         .frame(minWidth: 440, minHeight: 320)
         #endif
-        .task { await populateFromExisting() }
-        .sheet(isPresented: $showGitHubLogin) {
-            GitHubLoginView(store: store, onCompleted: { dismiss() })
+    }
+
+    private var formContent: some View {
+        ScrollView {
+            VStack(spacing: 20) {
+                if !isEditing {
+                    Button {
+                        showGitHubLogin = true
+                    } label: {
+                        HStack(spacing: 6) {
+                            Image(systemName: "person.badge.key.fill")
+                            Text("Sign in with GitHub")
+                                .fontWeight(.semibold)
+                        }
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 4)
+                    }
+                    .buttonStyle(.borderedProminent)
+
+                    HStack {
+                        VStack { Divider() }
+                        Text("or enter manually")
+                            .font(.system(size: 11))
+                            .foregroundStyle(.tertiary)
+                        VStack { Divider() }
+                    }
+                }
+
+                fieldSection(
+                    label: "Display Name",
+                    hint: "A friendly name shown in the sidebar"
+                ) {
+                    GroupBox {
+                        StyledTextField("My App Feedback", text: $displayName)
+                    }
+                }
+
+                fieldSection(
+                    label: "GitHub Repository",
+                    hint: "The owner and repository name on GitHub"
+                ) {
+                    GroupBox {
+                        HStack(spacing: 0) {
+                            StyledTextField("owner", text: $owner, monospaced: true)
+                                .autocorrectionDisabled()
+                                #if os(iOS)
+                                .textInputAutocapitalization(.never)
+                                #endif
+                            Text("/")
+                                .foregroundStyle(.tertiary)
+                                .font(.system(size: 14, weight: .light))
+                                .padding(.horizontal, 6)
+                            StyledTextField("repo-name", text: $repo, monospaced: true)
+                                .autocorrectionDisabled()
+                                #if os(iOS)
+                                .textInputAutocapitalization(.never)
+                                #endif
+                        }
+                    }
+                }
+
+                fieldSection(
+                    label: "GitHub Token",
+                    hint: nil
+                ) {
+                    GroupBox {
+                        StyledTextField("ghp_…", text: $token, secure: true, monospaced: true)
+                            .autocorrectionDisabled()
+                    }
+                    HStack(spacing: 6) {
+                        Image(systemName: "lock.shield")
+                            .font(.system(size: 10))
+                            .foregroundStyle(.secondary)
+                        Text("Requires repo read access. Stored securely in Keychain.")
+                            .font(.system(size: 11))
+                            .foregroundStyle(.secondary)
+                    }
+                    .padding(.top, 4)
+                }
+
+                #if os(iOS)
+                Button {
+                    Task { await save() }
+                } label: {
+                    Text(isEditing ? "Save" : "Add Repository")
+                        .fontWeight(.semibold)
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 4)
+                }
+                .buttonStyle(.borderedProminent)
+                .disabled(!isValid || isSaving)
+                .padding(.top, 8)
+                #endif
+            }
+            .padding(20)
         }
     }
 
