@@ -105,7 +105,6 @@
 		DKN3ZCEQXITHYXNQZ2F9N11S /* CachedIssue.swift in Sources */ = {isa = PBXBuildFile; fileRef = DKN3ZCEQXITHYXNQZ2F9N11S /* CachedIssue.swift */; };
 		NTCISXHF09RJ8ACEGBNUVG42 /* CachedIssue.swift in Sources */ = {isa = PBXBuildFile; fileRef = DKN3ZCEQXITHYXNQZ2F9N11S /* CachedIssue.swift */; };
 		GECJHE5JTG15BFA344W6C8ED /* CachedIssue.swift in Sources */ = {isa = PBXBuildFile; fileRef = DKN3ZCEQXITHYXNQZ2F9N11S /* CachedIssue.swift */; };
-		M11FD76KLWJQ63J564HY8HEU /* CachedIssue.swift in Sources */ = {isa = PBXBuildFile; fileRef = DKN3ZCEQXITHYXNQZ2F9N11S /* CachedIssue.swift */; };
 		W6LVOGVWLU9GYRB8POL450YQ /* CachedIssueTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8NEAIGDKGDFHJ989BCCPL28E /* CachedIssueTests.swift */; };
 		SRTLDP9CE8BDXS309MMFESMK /* CachedIssueTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8NEAIGDKGDFHJ989BCCPL28E /* CachedIssueTests.swift */; };
 		E1E73AAC7E5ED58A44D5DB71 /* MailComposer.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0FC01BF334B5D65CF0147005 /* MailComposer.swift */; };
@@ -626,7 +625,6 @@
 			files = (
 				DB712A98FC036B42A057F0CA /* ActivityLogTests.swift in Sources */,
 				57A1B6E768B25DD22D47D28B /* AppFeedbackTests.swift in Sources */,
-				M11FD76KLWJQ63J564HY8HEU /* CachedIssue.swift in Sources */,
 				SRTLDP9CE8BDXS309MMFESMK /* CachedIssueTests.swift in Sources */,
 				A5E4894A6D7EF95BFC260B9A /* CloudSyncStatusTests.swift in Sources */,
 				1FFBC02E1CD2B43D200270EF /* ColorPaletteTests.swift in Sources */,
