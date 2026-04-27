@@ -26,6 +26,8 @@ targets:
         MARKETING_VERSION: "1.0"
         CURRENT_PROJECT_VERSION: "1"
         GENERATE_INFOPLIST_FILE: YES
+        CODE_SIGN_ENTITLEMENTS: AppFeedback/AppFeedback.entitlements
+        CODE_SIGN_STYLE: Automatic
 
   AppFeedbackTests:
     type: bundle.unit-test
