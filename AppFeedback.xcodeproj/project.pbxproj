@@ -56,6 +56,7 @@
 		836FFB069E523420DA80733C /* ModelsTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0376C061DCE08A242E9B349A /* ModelsTests.swift */; };
 		83CECBE7C21FE854EA0AC18A /* ColorPaletteTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = BBD948EB35D428BC8AD5D517 /* ColorPaletteTests.swift */; };
 		856830AFA2C9B3E9D9F938D9 /* IssueLoader.swift in Sources */ = {isa = PBXBuildFile; fileRef = E03BB1B8AFFBECF24C7950C8 /* IssueLoader.swift */; };
+		8790006AAD1DBECA214A213C /* ActivityWindow.swift in Sources */ = {isa = PBXBuildFile; fileRef = A3CCABE70C4F9C2F242C34A3 /* ActivityWindow.swift */; };
 		8792D33C9D64EA70301862E5 /* RootView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 93179C8985C6D0A9B67E82F8 /* RootView.swift */; };
 		8BC091FBDEDB2201F66C84EF /* IssueListView.swift in Sources */ = {isa = PBXBuildFile; fileRef = D35D37984A2CF87D2C03479A /* IssueListView.swift */; };
 		95C780F86DEB1FEF68E14805 /* IssueListViewModelTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 10EE93E06CD371298BA38A85 /* IssueListViewModelTests.swift */; };
@@ -75,6 +76,7 @@
 		C9332423AA912E83E6F32921 /* IssueListViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 428A7B5EF942709FB3DA4EE5 /* IssueListViewModel.swift */; };
 		C9CAB46A8636312907588E63 /* FeedbackIssue.swift in Sources */ = {isa = PBXBuildFile; fileRef = F4CA31D8EBA15B135854E873 /* FeedbackIssue.swift */; };
 		CF6DC4E4B879F0BEFD3C2E19 /* IssueLoader.swift in Sources */ = {isa = PBXBuildFile; fileRef = E03BB1B8AFFBECF24C7950C8 /* IssueLoader.swift */; };
+		D38AA4167A78B8BD640F5F0C /* ActivityWindow.swift in Sources */ = {isa = PBXBuildFile; fileRef = A3CCABE70C4F9C2F242C34A3 /* ActivityWindow.swift */; };
 		DA1B584394BD3EE40D2D0324 /* SettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 68B931F0D2D397FA605DCCBA /* SettingsView.swift */; };
 		DB712A98FC036B42A057F0CA /* ActivityLogTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = EC52FD3E27B1F223D322FA99 /* ActivityLogTests.swift */; };
 		DBB188271BB3EFB984EFB998 /* RepoStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = C4E685E33A4C31C05457EAC3 /* RepoStore.swift */; };
@@ -106,7 +108,7 @@
 /* End PBXContainerItemProxy section */
 
 /* Begin PBXFileReference section */
-		005F6BC6E30CFBFB803770A1 /* AppFeedback.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = AppFeedback.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		005F6BC6E30CFBFB803770A1 /* AppFeedback.app */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.application; path = AppFeedback.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		0376C061DCE08A242E9B349A /* ModelsTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ModelsTests.swift; sourceTree = "<group>"; };
 		06966BDC1078923389E15249 /* GitHubAuthService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GitHubAuthService.swift; sourceTree = "<group>"; };
 		10EE93E06CD371298BA38A85 /* IssueListViewModelTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = IssueListViewModelTests.swift; sourceTree = "<group>"; };
@@ -135,6 +137,7 @@
 		98F8C9ECF3F6884F65EFEE8D /* AppFeedbackTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppFeedbackTests.swift; sourceTree = "<group>"; };
 		9FAC042F79EF94F76B9A8077 /* KeychainService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = KeychainService.swift; sourceTree = "<group>"; };
 		A2F615F5DA761C32F8566101 /* ColorPalette.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ColorPalette.swift; sourceTree = "<group>"; };
+		A3CCABE70C4F9C2F242C34A3 /* ActivityWindow.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ActivityWindow.swift; sourceTree = "<group>"; };
 		A5A00E7444118AEC76580EAB /* FilterBarView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FilterBarView.swift; sourceTree = "<group>"; };
 		ADB9724B7CB5D9FF9058FEE4 /* AppFeedbackApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppFeedbackApp.swift; sourceTree = "<group>"; };
 		B9E1CC5A4E26DBA9C9751A90 /* RepoTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RepoTests.swift; sourceTree = "<group>"; };
@@ -214,11 +217,20 @@
 		46287D59043E93648D3A6F07 /* Views */ = {
 			isa = PBXGroup;
 			children = (
+				5B5265B2B0913F9EDE05F558 /* Activity */,
 				5F5949CE390C8FC11AA2B232 /* Issues */,
 				A1235423F6AC682292EBDF93 /* Settings */,
 				214A6FD891694E8FB90A6E72 /* Sidebar */,
 			);
 			path = Views;
+			sourceTree = "<group>";
+		};
+		5B5265B2B0913F9EDE05F558 /* Activity */ = {
+			isa = PBXGroup;
+			children = (
+				A3CCABE70C4F9C2F242C34A3 /* ActivityWindow.swift */,
+			);
+			path = Activity;
 			sourceTree = "<group>";
 		};
 		5F5949CE390C8FC11AA2B232 /* Issues */ = {
@@ -425,6 +437,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				5F6AC69CFA01BF4EEAB94D99 /* ActivityLog.swift in Sources */,
+				D38AA4167A78B8BD640F5F0C /* ActivityWindow.swift in Sources */,
 				498F0869FEC01004955BBB8D /* AddEditRepoView.swift in Sources */,
 				71368B398604FB8ADBA5A14A /* AppFeedbackApp.swift in Sources */,
 				4630F99F04FA2ACAC0C122FF /* AppRowView.swift in Sources */,
@@ -478,6 +491,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				F79ED4BCD9690D28AF41FCF5 /* ActivityLog.swift in Sources */,
+				8790006AAD1DBECA214A213C /* ActivityWindow.swift in Sources */,
 				1A5087796E77E3A1B3254A6A /* AddEditRepoView.swift in Sources */,
 				70CBB922382FA90982EC8DB5 /* AppFeedbackApp.swift in Sources */,
 				C8B0A33BDD691C4C94FF30E2 /* AppRowView.swift in Sources */,
@@ -550,11 +564,7 @@
 				CODE_SIGN_IDENTITY = "iPhone Developer";
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
-				DEVELOPMENT_TEAM = Q7U5734Q3T;
 				GENERATE_INFOPLIST_FILE = YES;
-				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
-				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPad = "UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
-				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPhone = "UIInterfaceOrientationPortrait UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
 				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
@@ -597,7 +607,6 @@
 				CODE_SIGN_STYLE = Automatic;
 				COMBINE_HIDPI_IMAGES = YES;
 				CURRENT_PROJECT_VERSION = 1;
-				DEVELOPMENT_TEAM = Q7U5734Q3T;
 				GENERATE_INFOPLIST_FILE = YES;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
@@ -799,11 +808,7 @@
 				CODE_SIGN_IDENTITY = "iPhone Developer";
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
-				DEVELOPMENT_TEAM = Q7U5734Q3T;
 				GENERATE_INFOPLIST_FILE = YES;
-				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
-				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPad = "UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
-				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPhone = "UIInterfaceOrientationPortrait UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
 				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
@@ -826,7 +831,6 @@
 				CODE_SIGN_STYLE = Automatic;
 				COMBINE_HIDPI_IMAGES = YES;
 				CURRENT_PROJECT_VERSION = 1;
-				DEVELOPMENT_TEAM = Q7U5734Q3T;
 				GENERATE_INFOPLIST_FILE = YES;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",

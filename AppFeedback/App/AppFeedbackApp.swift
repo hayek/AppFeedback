@@ -41,7 +41,18 @@ struct AppFeedbackApp: App {
                 .environment(activityLog)
         }
         .modelContainer(container)
+        .commands {
+            #if os(macOS)
+            CommandGroup(after: .windowList) {
+                ActivityMenuCommand()
+            }
+            #endif
+        }
         #if os(macOS)
+        Window("Activity", id: "activity") {
+            ActivityWindow()
+                .environment(activityLog)
+        }
         Settings {
             SettingsView(store: store)
                 .environment(syncStatus)
@@ -50,3 +61,16 @@ struct AppFeedbackApp: App {
         #endif
     }
 }
+
+#if os(macOS)
+private struct ActivityMenuCommand: View {
+    @Environment(\.openWindow) private var openWindow
+
+    var body: some View {
+        Button("Activity") {
+            openWindow(id: "activity")
+        }
+        .keyboardShortcut("0", modifiers: [.command, .option])
+    }
+}
+#endif
