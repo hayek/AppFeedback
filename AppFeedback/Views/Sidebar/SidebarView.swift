@@ -4,22 +4,36 @@ struct SidebarView: View {
     @Bindable var store: RepoStore
     let loaders: [UUID: IssueLoader]
     @Binding var selection: SidebarSelection?
+    var onAddRepo: () -> Void = {}
 
     var body: some View {
-        List {
-            ForEach(store.repos) { repo in
-                let issues = issuesFor(repo)
-                let apps = allAppsFor(issues)
-                RepoSectionView(
-                    repo: repo,
-                    issues: issues,
-                    allApps: apps,
-                    selection: $selection,
-                    store: store
-                )
+        Group {
+            if store.repos.isEmpty {
+                ContentUnavailableView {
+                    Label("No Repos", systemImage: "tray")
+                } description: {
+                    Text("Add a GitHub repo to start collecting feedback.")
+                } actions: {
+                    Button("+ Add Repo") { onAddRepo() }
+                        .buttonStyle(.borderedProminent)
+                }
+            } else {
+                List {
+                    ForEach(store.repos) { repo in
+                        let issues = issuesFor(repo)
+                        let apps = allAppsFor(issues)
+                        RepoSectionView(
+                            repo: repo,
+                            issues: issues,
+                            allApps: apps,
+                            selection: $selection,
+                            store: store
+                        )
+                    }
+                }
+                .listStyle(.sidebar)
             }
         }
-        .listStyle(.sidebar)
         .navigationTitle("Feedback")
         #if os(macOS)
         .frame(minWidth: 200)

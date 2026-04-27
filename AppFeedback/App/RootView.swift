@@ -18,7 +18,7 @@ struct RootView: View {
 
     var body: some View {
         NavigationSplitView(columnVisibility: $columnVisibility) {
-            SidebarView(store: store, loaders: loaders, selection: $selection)
+            SidebarView(store: store, loaders: loaders, selection: $selection, onAddRepo: { showAddRepo = true })
                 .toolbar {
                     ToolbarItem(placement: .primaryAction) {
                         Button {
