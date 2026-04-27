@@ -102,6 +102,12 @@
 		DCD80C3DDF8D746ACF14A72B /* ComposeMailView.swift in Sources */ = {isa = PBXBuildFile; fileRef = DC95DA13A9067D760F468A64 /* ComposeMailView.swift */; };
 		DECF813444D0EBF84A396179 /* MailComposerTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 23A9BA2E68773A9401ABCE89 /* MailComposerTests.swift */; };
 		E1B284FC2FFA5E1D746E4B88 /* RepoTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = B9E1CC5A4E26DBA9C9751A90 /* RepoTests.swift */; };
+		DKN3ZCEQXITHYXNQZ2F9N11S /* CachedIssue.swift in Sources */ = {isa = PBXBuildFile; fileRef = DKN3ZCEQXITHYXNQZ2F9N11S /* CachedIssue.swift */; };
+		NTCISXHF09RJ8ACEGBNUVG42 /* CachedIssue.swift in Sources */ = {isa = PBXBuildFile; fileRef = DKN3ZCEQXITHYXNQZ2F9N11S /* CachedIssue.swift */; };
+		GECJHE5JTG15BFA344W6C8ED /* CachedIssue.swift in Sources */ = {isa = PBXBuildFile; fileRef = DKN3ZCEQXITHYXNQZ2F9N11S /* CachedIssue.swift */; };
+		M11FD76KLWJQ63J564HY8HEU /* CachedIssue.swift in Sources */ = {isa = PBXBuildFile; fileRef = DKN3ZCEQXITHYXNQZ2F9N11S /* CachedIssue.swift */; };
+		W6LVOGVWLU9GYRB8POL450YQ /* CachedIssueTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8NEAIGDKGDFHJ989BCCPL28E /* CachedIssueTests.swift */; };
+		SRTLDP9CE8BDXS309MMFESMK /* CachedIssueTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8NEAIGDKGDFHJ989BCCPL28E /* CachedIssueTests.swift */; };
 		E1E73AAC7E5ED58A44D5DB71 /* MailComposer.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0FC01BF334B5D65CF0147005 /* MailComposer.swift */; };
 		E3611B8BC7E8C7EE99D7407D /* FeedbackIssue.swift in Sources */ = {isa = PBXBuildFile; fileRef = F4CA31D8EBA15B135854E873 /* FeedbackIssue.swift */; };
 		EA29D7D0BC140D0B14DDAAD6 /* GitHubAuthModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = DD959DEDBC95A458BAD75F14 /* GitHubAuthModels.swift */; };
@@ -132,7 +138,7 @@
 /* End PBXContainerItemProxy section */
 
 /* Begin PBXFileReference section */
-		005F6BC6E30CFBFB803770A1 /* AppFeedback.app */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.application; path = AppFeedback.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		005F6BC6E30CFBFB803770A1 /* AppFeedback.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = AppFeedback.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		0376C061DCE08A242E9B349A /* ModelsTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ModelsTests.swift; sourceTree = "<group>"; };
 		06966BDC1078923389E15249 /* GitHubAuthService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GitHubAuthService.swift; sourceTree = "<group>"; };
 		0FC01BF334B5D65CF0147005 /* MailComposer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MailComposer.swift; sourceTree = "<group>"; };
@@ -175,10 +181,13 @@
 		ADB9724B7CB5D9FF9058FEE4 /* AppFeedbackApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppFeedbackApp.swift; sourceTree = "<group>"; };
 		AE7215BA1A0BAA6222B021CC /* HTMLSanitizerTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HTMLSanitizerTests.swift; sourceTree = "<group>"; };
 		B9E1CC5A4E26DBA9C9751A90 /* RepoTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RepoTests.swift; sourceTree = "<group>"; };
+		DKN3ZCEQXITHYXNQZ2F9N11S /* CachedIssue.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CachedIssue.swift; sourceTree = "<group>"; };
+		8NEAIGDKGDFHJ989BCCPL28E /* CachedIssueTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CachedIssueTests.swift; sourceTree = "<group>"; };
 		BB29F50E5FCD4805C5960079 /* SidebarView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SidebarView.swift; sourceTree = "<group>"; };
 		BBD948EB35D428BC8AD5D517 /* ColorPaletteTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ColorPaletteTests.swift; sourceTree = "<group>"; };
 		BCF69ED394B26CCA8C1563FA /* AppFeedback.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = AppFeedback.entitlements; sourceTree = "<group>"; };
 		C4E685E33A4C31C05457EAC3 /* RepoStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RepoStore.swift; sourceTree = "<group>"; };
+		C5009AAC2F9FF01F00612541 /* Appicon.icon */ = {isa = PBXFileReference; lastKnownFileType = folder.iconcomposer.icon; path = Appicon.icon; sourceTree = "<group>"; };
 		CB4F1AB8C4EA41A8708C1EA3 /* RepoConfig.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RepoConfig.swift; sourceTree = "<group>"; };
 		D35D37984A2CF87D2C03479A /* IssueListView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = IssueListView.swift; sourceTree = "<group>"; };
 		D6103AF9E531E723A81DA281 /* AppFeedback.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = AppFeedback.app; sourceTree = BUILT_PRODUCTS_DIR; };
@@ -307,6 +316,7 @@
 		B015C42C126643558CDC8C2A /* Models */ = {
 			isa = PBXGroup;
 			children = (
+				DKN3ZCEQXITHYXNQZ2F9N11S /* CachedIssue.swift */,
 				F4CA31D8EBA15B135854E873 /* FeedbackIssue.swift */,
 				50EF2D601AE7014E90E1F8AF /* GitHubAPIModels.swift */,
 				DD959DEDBC95A458BAD75F14 /* GitHubAuthModels.swift */,
@@ -333,6 +343,7 @@
 			children = (
 				EC52FD3E27B1F223D322FA99 /* ActivityLogTests.swift */,
 				98F8C9ECF3F6884F65EFEE8D /* AppFeedbackTests.swift */,
+				8NEAIGDKGDFHJ989BCCPL28E /* CachedIssueTests.swift */,
 				1A5E9D6EA54332099D0A0E76 /* CloudSyncStatusTests.swift */,
 				BBD948EB35D428BC8AD5D517 /* ColorPaletteTests.swift */,
 				44217CE722F7BB9B95104162 /* ComposeMailViewModelTests.swift */,
@@ -372,6 +383,7 @@
 		F2C92B65D74897BDED885B02 = {
 			isa = PBXGroup;
 			children = (
+				C5009AAC2F9FF01F00612541 /* Appicon.icon */,
 				312D687933940BA780263C7D /* AppFeedback */,
 				CE978052D6951857C3AB9185 /* AppFeedbackTests */,
 				C476069CF208AC38179610EC /* Products */,
@@ -505,6 +517,7 @@
 				498F0869FEC01004955BBB8D /* AddEditRepoView.swift in Sources */,
 				71368B398604FB8ADBA5A14A /* AppFeedbackApp.swift in Sources */,
 				4630F99F04FA2ACAC0C122FF /* AppRowView.swift in Sources */,
+				GECJHE5JTG15BFA344W6C8ED /* CachedIssue.swift in Sources */,
 				302B3F175D4ECEA78AD65FBE /* CloudSyncStatus.swift in Sources */,
 				7FFFB0770659A4F9F59648F9 /* CloudSyncStatusRow.swift in Sources */,
 				2691E53189E014D7B36A236C /* ColorPalette.swift in Sources */,
@@ -545,6 +558,7 @@
 			files = (
 				9ED2C8220ADAA9745E75AC0F /* ActivityLogTests.swift in Sources */,
 				677FA0A37ED1C2356AEE47E1 /* AppFeedbackTests.swift in Sources */,
+				W6LVOGVWLU9GYRB8POL450YQ /* CachedIssueTests.swift in Sources */,
 				B9689C8F511CEFFC7154AE31 /* CloudSyncStatusTests.swift in Sources */,
 				83CECBE7C21FE854EA0AC18A /* ColorPaletteTests.swift in Sources */,
 				BD8D747D2BEDD8B474FBE101 /* ComposeMailViewModelTests.swift in Sources */,
@@ -571,6 +585,7 @@
 				1A5087796E77E3A1B3254A6A /* AddEditRepoView.swift in Sources */,
 				70CBB922382FA90982EC8DB5 /* AppFeedbackApp.swift in Sources */,
 				C8B0A33BDD691C4C94FF30E2 /* AppRowView.swift in Sources */,
+				NTCISXHF09RJ8ACEGBNUVG42 /* CachedIssue.swift in Sources */,
 				F4A10388C761178F5BBDD845 /* CloudSyncStatus.swift in Sources */,
 				06D39198121162064798816A /* CloudSyncStatusRow.swift in Sources */,
 				1FC6FF311F9D78628F13989A /* ColorPalette.swift in Sources */,
@@ -611,6 +626,8 @@
 			files = (
 				DB712A98FC036B42A057F0CA /* ActivityLogTests.swift in Sources */,
 				57A1B6E768B25DD22D47D28B /* AppFeedbackTests.swift in Sources */,
+				M11FD76KLWJQ63J564HY8HEU /* CachedIssue.swift in Sources */,
+				SRTLDP9CE8BDXS309MMFESMK /* CachedIssueTests.swift in Sources */,
 				A5E4894A6D7EF95BFC260B9A /* CloudSyncStatusTests.swift in Sources */,
 				1FFBC02E1CD2B43D200270EF /* ColorPaletteTests.swift in Sources */,
 				511E4FABEC0FCAB412BC471E /* ComposeMailViewModelTests.swift in Sources */,
@@ -652,7 +669,9 @@
 				CODE_SIGN_IDENTITY = "iPhone Developer";
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = Q7U5734Q3T;
 				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_KEY_UISupportedInterfaceOrientations = "UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown";
 				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
@@ -695,6 +714,7 @@
 				CODE_SIGN_STYLE = Automatic;
 				COMBINE_HIDPI_IMAGES = YES;
 				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = Q7U5734Q3T;
 				GENERATE_INFOPLIST_FILE = YES;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
@@ -896,7 +916,9 @@
 				CODE_SIGN_IDENTITY = "iPhone Developer";
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = Q7U5734Q3T;
 				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_KEY_UISupportedInterfaceOrientations = "UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown";
 				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
@@ -919,6 +941,7 @@
 				CODE_SIGN_STYLE = Automatic;
 				COMBINE_HIDPI_IMAGES = YES;
 				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = Q7U5734Q3T;
 				GENERATE_INFOPLIST_FILE = YES;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
