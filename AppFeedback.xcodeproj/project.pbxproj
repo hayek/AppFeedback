@@ -39,6 +39,7 @@
 		5186259ECF88622D3F9C91EF /* GitHubAPIModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = 50EF2D601AE7014E90E1F8AF /* GitHubAPIModels.swift */; };
 		531DB32D49CF59E17B8EA499 /* GitHubAuthService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 06966BDC1078923389E15249 /* GitHubAuthService.swift */; };
 		57A1B6E768B25DD22D47D28B /* AppFeedbackTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 98F8C9ECF3F6884F65EFEE8D /* AppFeedbackTests.swift */; };
+		62FFF150FCEC91F9493CCED9 /* SwiftMail in Frameworks */ = {isa = PBXBuildFile; productRef = 50E79E282BC44074182BC176 /* SwiftMail */; };
 		6645EA25CABF717B2D1B6E09 /* IssueCardView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7B47F8578C6AACFA2B16D08C /* IssueCardView.swift */; };
 		677FA0A37ED1C2356AEE47E1 /* AppFeedbackTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 98F8C9ECF3F6884F65EFEE8D /* AppFeedbackTests.swift */; };
 		6F4322ADD276DC8E84E3ACEF /* FilterBarView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A5A00E7444118AEC76580EAB /* FilterBarView.swift */; };
@@ -101,7 +102,7 @@
 /* End PBXContainerItemProxy section */
 
 /* Begin PBXFileReference section */
-		005F6BC6E30CFBFB803770A1 /* AppFeedback.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = AppFeedback.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		005F6BC6E30CFBFB803770A1 /* AppFeedback.app */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.application; path = AppFeedback.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		0376C061DCE08A242E9B349A /* ModelsTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ModelsTests.swift; sourceTree = "<group>"; };
 		06966BDC1078923389E15249 /* GitHubAuthService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GitHubAuthService.swift; sourceTree = "<group>"; };
 		10EE93E06CD371298BA38A85 /* IssueListViewModelTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = IssueListViewModelTests.swift; sourceTree = "<group>"; };
@@ -144,6 +145,17 @@
 		E03BB1B8AFFBECF24C7950C8 /* IssueLoader.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = IssueLoader.swift; sourceTree = "<group>"; };
 		F4CA31D8EBA15B135854E873 /* FeedbackIssue.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FeedbackIssue.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
+
+/* Begin PBXFrameworksBuildPhase section */
+		FC2D3271F35D1471178721AF /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				62FFF150FCEC91F9493CCED9 /* SwiftMail in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXFrameworksBuildPhase section */
 
 /* Begin PBXGroup section */
 		1C0514C3BDE047C16447B825 /* App */ = {
@@ -290,6 +302,7 @@
 			buildConfigurationList = 37E358632307B92B73FE3002 /* Build configuration list for PBXNativeTarget "AppFeedback_macOS" */;
 			buildPhases = (
 				4CFB28CA28AF90A575B6EA97 /* Sources */,
+				FC2D3271F35D1471178721AF /* Frameworks */,
 			);
 			buildRules = (
 			);
@@ -297,6 +310,7 @@
 			);
 			name = AppFeedback_macOS;
 			packageProductDependencies = (
+				50E79E282BC44074182BC176 /* SwiftMail */,
 			);
 			productName = AppFeedback_macOS;
 			productReference = D6103AF9E531E723A81DA281 /* AppFeedback.app */;
@@ -381,6 +395,9 @@
 			);
 			mainGroup = F2C92B65D74897BDED885B02;
 			minimizedProjectReferenceProxies = 1;
+			packageReferences = (
+				72244056B72316DC730F3129 /* XCRemoteSwiftPackageReference "SwiftMail" */,
+			);
 			preferredProjectObjectVersion = 77;
 			productRefGroup = C476069CF208AC38179610EC /* Products */;
 			projectDirPath = "";
@@ -521,11 +538,7 @@
 				CODE_SIGN_IDENTITY = "iPhone Developer";
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
-				DEVELOPMENT_TEAM = Q7U5734Q3T;
 				GENERATE_INFOPLIST_FILE = YES;
-				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
-				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPad = "UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
-				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPhone = "UIInterfaceOrientationPortrait UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
 				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
@@ -568,7 +581,6 @@
 				CODE_SIGN_STYLE = Automatic;
 				COMBINE_HIDPI_IMAGES = YES;
 				CURRENT_PROJECT_VERSION = 1;
-				DEVELOPMENT_TEAM = Q7U5734Q3T;
 				GENERATE_INFOPLIST_FILE = YES;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
@@ -770,11 +782,7 @@
 				CODE_SIGN_IDENTITY = "iPhone Developer";
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
-				DEVELOPMENT_TEAM = Q7U5734Q3T;
 				GENERATE_INFOPLIST_FILE = YES;
-				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
-				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPad = "UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
-				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPhone = "UIInterfaceOrientationPortrait UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
 				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
@@ -797,7 +805,6 @@
 				CODE_SIGN_STYLE = Automatic;
 				COMBINE_HIDPI_IMAGES = YES;
 				CURRENT_PROJECT_VERSION = 1;
-				DEVELOPMENT_TEAM = Q7U5734Q3T;
 				GENERATE_INFOPLIST_FILE = YES;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
@@ -861,6 +868,25 @@
 			defaultConfigurationName = Debug;
 		};
 /* End XCConfigurationList section */
+
+/* Begin XCRemoteSwiftPackageReference section */
+		72244056B72316DC730F3129 /* XCRemoteSwiftPackageReference "SwiftMail" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/Cocoanetics/SwiftMail";
+			requirement = {
+				kind = upToNextMajorVersion;
+				minimumVersion = 1.0.0;
+			};
+		};
+/* End XCRemoteSwiftPackageReference section */
+
+/* Begin XCSwiftPackageProductDependency section */
+		50E79E282BC44074182BC176 /* SwiftMail */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 72244056B72316DC730F3129 /* XCRemoteSwiftPackageReference "SwiftMail" */;
+			productName = SwiftMail;
+		};
+/* End XCSwiftPackageProductDependency section */
 	};
 	rootObject = 2055BE55033CEB050CECB882 /* Project object */;
 }

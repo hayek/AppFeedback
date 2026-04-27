@@ -9,6 +9,11 @@ configs:
   Debug: debug
   Release: release
 
+packages:
+  SwiftMail:
+    url: https://github.com/Cocoanetics/SwiftMail
+    from: 1.0.0
+
 targets:
   AppFeedback:
     type: application
@@ -19,6 +24,10 @@ targets:
     sources:
       - path: AppFeedback
         createIntermediateGroups: true
+    dependencies:
+      - package: SwiftMail
+        product: SwiftMail
+        platforms: [macOS]
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: com.amirhayek.AppFeedback
