@@ -3,6 +3,8 @@ import SwiftUI
 struct IssueCardView: View {
     let issue: FeedbackIssue
     let appColor: Color
+    var isUnread: Bool = false
+    var onInteract: (() -> Void)? = nil
     var activeApp: String? = nil
     var activeAppVersion: String? = nil
     var activeDevice: String? = nil
@@ -29,6 +31,13 @@ struct IssueCardView: View {
 
             VStack(alignment: .leading, spacing: 8) {
                 HStack(alignment: .top, spacing: 8) {
+                    if isUnread {
+                        Circle()
+                            .fill(Color.accentColor)
+                            .frame(width: 8, height: 8)
+                            .padding(.top, 6)
+                            .accessibilityLabel("Unread")
+                    }
                     Text("#\(issue.number)")
                         .font(.system(size: 11, weight: .medium))
                         .foregroundStyle(.tertiary)
@@ -37,6 +46,7 @@ struct IssueCardView: View {
                         .font(.system(size: 15, weight: .semibold))
                         .foregroundStyle(.primary)
                         .lineLimit(2)
+                        .textSelection(.enabled)
                     Spacer(minLength: 8)
                     Text(formattedDate)
                         .font(.system(size: 11))
@@ -47,6 +57,7 @@ struct IssueCardView: View {
 
                 if !issue.description.isEmpty {
                     MarkdownBodyView(text: issue.description)
+                        .textSelection(.enabled)
                 }
 
                 ScrollView(.horizontal, showsIndicators: false) {
@@ -74,6 +85,7 @@ struct IssueCardView: View {
                         if let email = issue.email {
                             if let onTapEmail {
                                 Button {
+                                    onInteract?()
                                     onTapEmail(email)
                                 } label: {
                                     MetaTagView(key: "✉", value: email, isActive: false)
@@ -84,6 +96,7 @@ struct IssueCardView: View {
                                 Link(destination: mailURL) {
                                     MetaTagView(key: "✉", value: email, isActive: false)
                                 }
+                                .simultaneousGesture(TapGesture().onEnded { onInteract?() })
                             }
                         }
                     }
@@ -95,6 +108,8 @@ struct IssueCardView: View {
         .background(.background)
         .clipShape(RoundedRectangle(cornerRadius: 10))
         .shadow(color: .black.opacity(0.06), radius: 3, y: 1)
+        .contentShape(Rectangle())
+        .onTapGesture { onInteract?() }
     }
 
     @ViewBuilder
@@ -104,7 +119,10 @@ struct IssueCardView: View {
         @ViewBuilder content: () -> Content
     ) -> some View {
         if let onTap {
-            Button { onTap(value) } label: { content() }
+            Button {
+                onInteract?()
+                onTap(value)
+            } label: { content() }
                 .buttonStyle(.plain)
         } else {
             content()
