@@ -60,9 +60,10 @@ enum KeychainService {
     static func saveSMTPPassword(_ password: String) async -> Bool {
         let data = Data(password.utf8)
         let query: [String: Any] = [
-            kSecClass as String:       kSecClassGenericPassword,
-            kSecAttrService as String: service,
-            kSecAttrAccount as String: smtpAccount,
+            kSecClass as String:              kSecClassGenericPassword,
+            kSecAttrService as String:        service,
+            kSecAttrAccount as String:        smtpAccount,
+            kSecAttrSynchronizable as String: kCFBooleanTrue!,
         ]
         let attributes: [String: Any] = [kSecValueData as String: data]
         let status = SecItemUpdate(query as CFDictionary, attributes as CFDictionary)
@@ -77,11 +78,12 @@ enum KeychainService {
 
     static func loadSMTPPassword() async -> String? {
         let query: [String: Any] = [
-            kSecClass as String:       kSecClassGenericPassword,
-            kSecAttrService as String: service,
-            kSecAttrAccount as String: smtpAccount,
-            kSecReturnData as String:  true,
-            kSecMatchLimit as String:  kSecMatchLimitOne,
+            kSecClass as String:              kSecClassGenericPassword,
+            kSecAttrService as String:        service,
+            kSecAttrAccount as String:        smtpAccount,
+            kSecAttrSynchronizable as String: kCFBooleanTrue!,
+            kSecReturnData as String:         true,
+            kSecMatchLimit as String:         kSecMatchLimitOne,
         ]
         var result: AnyObject?
         guard SecItemCopyMatching(query as CFDictionary, &result) == errSecSuccess,
@@ -91,9 +93,10 @@ enum KeychainService {
 
     static func deleteSMTPPassword() async {
         let query: [String: Any] = [
-            kSecClass as String:       kSecClassGenericPassword,
-            kSecAttrService as String: service,
-            kSecAttrAccount as String: smtpAccount,
+            kSecClass as String:              kSecClassGenericPassword,
+            kSecAttrService as String:        service,
+            kSecAttrAccount as String:        smtpAccount,
+            kSecAttrSynchronizable as String: kCFBooleanTrue!,
         ]
         SecItemDelete(query as CFDictionary)
     }
