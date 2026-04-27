@@ -9,6 +9,7 @@ struct RootView: View {
     @State private var showSettings = false
     @State private var showAddRepo = false
     @State private var columnVisibility: NavigationSplitViewVisibility = .automatic
+    @Environment(ActivityLog.self) private var activityLog
     #if os(macOS)
     @Environment(\.openSettings) private var openSettings
     #endif
@@ -133,7 +134,7 @@ struct RootView: View {
     private func syncLoaders(repos: [RepoConfig]) {
         var newlyAdded: [RepoConfig] = []
         for repo in repos where loaders[repo.id] == nil {
-            loaders[repo.id] = IssueLoader(config: repo)
+            loaders[repo.id] = IssueLoader(config: repo, activityLog: activityLog)
             newlyAdded.append(repo)
         }
         let ids = Set(repos.map(\.id))

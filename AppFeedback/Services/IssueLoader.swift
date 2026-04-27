@@ -29,10 +29,12 @@ final class IssueLoader {
     private let session: URLSession
     private let cacheURL: URL
     private var inFlight: (token: String, task: Task<Void, Never>)?
+    private let activityLog: ActivityLog?
 
-    init(config: RepoConfig, session: URLSession = .shared) {
+    init(config: RepoConfig, session: URLSession = .shared, activityLog: ActivityLog? = nil) {
         self.config = config
         self.session = session
+        self.activityLog = activityLog
         let caches = FileManager.default.urls(for: .cachesDirectory, in: .userDomainMask).first!
         self.cacheURL = caches
             .appendingPathComponent("AppFeedback")
@@ -64,6 +66,8 @@ final class IssueLoader {
         let preLoadState = state   // snapshot before overwriting
         state = .loading
 
+        let entryID = activityLog?.start(kind: .fetchIssues, title: "\(config.owner)/\(config.repo)")
+
         do {
             let raw = try await fetchAllPages(token: token)
             let issues = raw
@@ -85,12 +89,21 @@ final class IssueLoader {
                 }
             saveToCache(issues)
             state = .loaded(issues, Date())
+            if let entryID {
+                activityLog?.finish(entryID, status: .success, detail: "\(issues.count) issue\(issues.count == 1 ? "" : "s")")
+            }
         } catch {
             if case .loaded = preLoadState {
                 state = preLoadState   // restore cached data
+                if let entryID {
+                    activityLog?.finish(entryID, status: .failure, detail: error.localizedDescription)
+                }
                 return
             }
             state = .failed(error)
+            if let entryID {
+                activityLog?.finish(entryID, status: .failure, detail: error.localizedDescription)
+            }
         }
     }
 
