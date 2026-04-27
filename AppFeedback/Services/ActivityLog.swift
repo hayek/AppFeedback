@@ -25,15 +25,16 @@ struct ActivityLogEntry: Identifiable, Codable, Equatable, Sendable {
 @MainActor
 @Observable
 final class ActivityLog {
-    /// Newest first.
     private(set) var entries: [ActivityLogEntry] = []
 
     private let cap: Int
     private let persistenceURL: URL?
+    private var pendingFlush: Task<Void, Never>?
 
     init(persistenceURL: URL?, cap: Int = 500) {
         self.persistenceURL = persistenceURL
         self.cap = cap
+        load()
     }
 
     @discardableResult
@@ -50,6 +51,7 @@ final class ActivityLog {
         if entries.count > cap {
             entries.removeLast(entries.count - cap)
         }
+        scheduleFlush()
         return entry.id
     }
 
@@ -57,9 +59,70 @@ final class ActivityLog {
         guard let idx = entries.firstIndex(where: { $0.id == id }) else { return }
         entries[idx].status = status
         entries[idx].detail = detail
+        scheduleFlush()
     }
 
     func clearAll() {
         entries.removeAll()
+        scheduleFlush()
     }
+
+    // MARK: - Persistence
+
+    private func load() {
+        guard let url = persistenceURL,
+              let data = try? Data(contentsOf: url),
+              let decoded = try? Self.decoder.decode([ActivityLogEntry].self, from: data) else {
+            return
+        }
+        entries = decoded
+    }
+
+    private func scheduleFlush() {
+        guard let url = persistenceURL else { return }
+        pendingFlush?.cancel()
+        let snapshot = entries
+        pendingFlush = Task { [weak self] in
+            try? await Task.sleep(nanoseconds: 250_000_000)
+            guard !Task.isCancelled else { return }
+            await ActivityLog.write(snapshot, to: url)
+            self?.pendingFlush = nil
+        }
+    }
+
+    nonisolated private static func write(_ entries: [ActivityLogEntry], to url: URL) async {
+        try? FileManager.default.createDirectory(
+            at: url.deletingLastPathComponent(),
+            withIntermediateDirectories: true
+        )
+        guard let data = try? encoder.encode(entries) else { return }
+        try? data.write(to: url, options: .atomic)
+    }
+
+    // MARK: - Test hooks
+
+    func flushForTesting() async throws {
+        guard let url = persistenceURL else { return }
+        pendingFlush?.cancel()
+        pendingFlush = nil
+        await Self.write(entries, to: url)
+    }
+
+    func loadForTesting() async throws {
+        load()
+    }
+
+    // MARK: - JSON coders
+
+    nonisolated private static let encoder: JSONEncoder = {
+        let e = JSONEncoder()
+        e.dateEncodingStrategy = .iso8601
+        return e
+    }()
+
+    nonisolated private static let decoder: JSONDecoder = {
+        let d = JSONDecoder()
+        d.dateDecodingStrategy = .iso8601
+        return d
+    }()
 }

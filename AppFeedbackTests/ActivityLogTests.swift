@@ -66,4 +66,44 @@ final class ActivityLogTests: XCTestCase {
 
         XCTAssertTrue(log.entries.isEmpty)
     }
+
+    private func makeTempURL() -> URL {
+        let dir = FileManager.default.temporaryDirectory
+            .appendingPathComponent("ActivityLogTests-\(UUID().uuidString)", isDirectory: true)
+        try? FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
+        return dir.appendingPathComponent("activity.json")
+    }
+
+    func test_persistence_roundTrip() async throws {
+        let url = makeTempURL()
+        defer { try? FileManager.default.removeItem(at: url.deletingLastPathComponent()) }
+
+        let log = ActivityLog(persistenceURL: url)
+        let id = log.start(kind: .sendEmail, title: "to bob@example.com")
+        log.finish(id, status: .success, detail: "OK")
+        try await log.flushForTesting()
+
+        let log2 = ActivityLog(persistenceURL: url)
+        try await log2.loadForTesting()
+
+        XCTAssertEqual(log2.entries.count, 1)
+        XCTAssertEqual(log2.entries[0].title, "to bob@example.com")
+        XCTAssertEqual(log2.entries[0].status, .success)
+        XCTAssertEqual(log2.entries[0].detail, "OK")
+    }
+
+    func test_clearAll_overwritesPersistedFile() async throws {
+        let url = makeTempURL()
+        defer { try? FileManager.default.removeItem(at: url.deletingLastPathComponent()) }
+
+        let log = ActivityLog(persistenceURL: url)
+        _ = log.start(kind: .sendEmail, title: "a")
+        try await log.flushForTesting()
+        log.clearAll()
+        try await log.flushForTesting()
+
+        let log2 = ActivityLog(persistenceURL: url)
+        try await log2.loadForTesting()
+        XCTAssertTrue(log2.entries.isEmpty)
+    }
 }
