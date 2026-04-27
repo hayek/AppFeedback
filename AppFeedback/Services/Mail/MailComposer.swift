@@ -6,7 +6,7 @@ import AppKit
 import SwiftMail
 #endif
 
-struct DraftMessage: Sendable {
+struct DraftMessage: @unchecked Sendable {
     var recipient: String
     var subject: String
     var body: NSAttributedString
