@@ -25,11 +25,11 @@ final class CloudSyncStatus: CloudSyncStatusProviding {
     private(set) var state: SyncState = .unknown
     private(set) var hasBootstrapped: Bool = false
 
-    private let container: CKContainer
+    private let container: CKContainer?
     private var observerTask: Task<Void, Never>?
 
-    init(container: CKContainer = .default()) {
-        self.container = container
+    init(container: CKContainer? = nil) {
+        self.container = container ?? Self.defaultContainerForCurrentEnvironment()
         observerTask = Task { @MainActor [weak self] in
             // Subscribe before the initial refresh so we don't miss a CKAccountChanged
             // posted during the bootstrap window.
@@ -46,7 +46,21 @@ final class CloudSyncStatus: CloudSyncStatusProviding {
         observerTask?.cancel()
     }
 
+    private static func defaultContainerForCurrentEnvironment() -> CKContainer? {
+        // CKContainer.default() crashes when the host process lacks CloudKit
+        // entitlements (e.g. an unsigned unit-test bundle). Skip it in that case.
+        guard ProcessInfo.processInfo.environment["XCTestConfigurationFilePath"] == nil else {
+            return nil
+        }
+        return .default()
+    }
+
     func refresh() async {
+        guard let container else {
+            state = .unavailable(reason: .temporarilyUnavailable)
+            hasBootstrapped = true
+            return
+        }
         do {
             let status = try await container.accountStatus()
             switch status {

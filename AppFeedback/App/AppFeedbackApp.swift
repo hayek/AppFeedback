@@ -8,12 +8,15 @@ struct AppFeedbackApp: App {
     @State private var syncStatus: CloudSyncStatus
 
     init() {
+        let isTesting = ProcessInfo.processInfo.environment["XCTestConfigurationFilePath"] != nil
         do {
             let schema = Schema([Repo.self])
-            let config = ModelConfiguration(
-                schema: schema,
-                cloudKitDatabase: .private("iCloud.com.amirhayek.AppFeedback")
-            )
+            let config: ModelConfiguration = isTesting
+                ? ModelConfiguration(schema: schema, isStoredInMemoryOnly: true)
+                : ModelConfiguration(
+                    schema: schema,
+                    cloudKitDatabase: .private("iCloud.com.amirhayek.AppFeedback")
+                )
             container = try ModelContainer(for: schema, configurations: config)
         } catch {
             assertionFailure("Failed to create ModelContainer: \(error)")
