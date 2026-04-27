@@ -1,7 +1,15 @@
 import Foundation
+import os
 
 final class MockURLProtocol: URLProtocol {
-    static var requestHandler: ((URLRequest) throws -> (HTTPURLResponse, Data))?
+    typealias Handler = @Sendable (URLRequest) throws -> (HTTPURLResponse, Data)
+
+    private static let handlerStorage = OSAllocatedUnfairLock<Handler?>(initialState: nil)
+
+    static var requestHandler: Handler? {
+        get { handlerStorage.withLock { $0 } }
+        set { handlerStorage.withLock { $0 = newValue } }
+    }
 
     override class func canInit(with request: URLRequest) -> Bool { true }
     override class func canonicalRequest(for request: URLRequest) -> URLRequest { request }

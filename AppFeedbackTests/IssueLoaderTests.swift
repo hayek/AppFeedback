@@ -78,10 +78,11 @@ final class IssueLoaderTests: XCTestCase {
     }
 
     func test_load_preservesCachedData_onNetworkError() async {
+        let firstData = makeIssuesJSON(count: 2)
         // First load succeeds and populates cache
         MockURLProtocol.requestHandler = { req in
             let res = HTTPURLResponse(url: req.url!, statusCode: 200, httpVersion: nil, headerFields: nil)!
-            return (res, self.makeIssuesJSON(count: 2))
+            return (res, firstData)
         }
         let loader = IssueLoader(config: repo, session: .mock)
         await loader.load(token: "tok")

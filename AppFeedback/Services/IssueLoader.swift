@@ -28,6 +28,7 @@ final class IssueLoader {
     private let config: RepoConfig
     private let session: URLSession
     private let cacheURL: URL
+    private var inFlight: (token: String, task: Task<Void, Never>)?
 
     init(config: RepoConfig, session: URLSession = .shared) {
         self.config = config
@@ -39,6 +40,26 @@ final class IssueLoader {
     }
 
     func load(token: String) async {
+        let task: Task<Void, Never>
+        if let existing = inFlight, existing.token == token {
+            task = existing.task
+        } else {
+            // New token (or no in-flight): supersede any prior task. The orphaned task
+            // continues but its result is overwritten by ours when it lands.
+            inFlight?.task.cancel()
+            let newTask = Task { @MainActor [weak self] in
+                await self?.performLoad(token: token)
+                if self?.inFlight?.token == token { self?.inFlight = nil }
+            }
+            inFlight = (token, newTask)
+            task = newTask
+        }
+        // Awaiters share the in-flight task; cancellation of one awaiter does not cancel
+        // the shared work — other awaiters still get the result.
+        await task.value
+    }
+
+    private func performLoad(token: String) async {
         if case .idle = state { loadFromCache() }
         let preLoadState = state   // snapshot before overwriting
         state = .loading
