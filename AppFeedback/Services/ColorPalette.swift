@@ -1,11 +1,46 @@
 import SwiftUI
+import AppKit
 
 enum ColorPalette {
-    static let palette: [Color] = [
-        Color(hex: "4ef8d0"), Color(hex: "7b8cff"), Color(hex: "ff6b8a"), Color(hex: "ffb347"),
-        Color(hex: "a78bfa"), Color(hex: "34d399"), Color(hex: "f87171"), Color(hex: "60a5fa"),
-        Color(hex: "fbbf24"), Color(hex: "e879f9"), Color(hex: "38bdf8"), Color(hex: "fb923c"),
+    struct Swatch: Hashable {
+        let name: String
+        let hex: String
+    }
+
+    static let swatches: [Swatch] = [
+        Swatch(name: "Mint",       hex: "4ef8d0"),
+        Swatch(name: "Periwinkle", hex: "7b8cff"),
+        Swatch(name: "Rose",       hex: "ff6b8a"),
+        Swatch(name: "Apricot",    hex: "ffb347"),
+        Swatch(name: "Lavender",   hex: "a78bfa"),
+        Swatch(name: "Emerald",    hex: "34d399"),
+        Swatch(name: "Coral",      hex: "f87171"),
+        Swatch(name: "Sky",        hex: "60a5fa"),
+        Swatch(name: "Amber",      hex: "fbbf24"),
+        Swatch(name: "Orchid",     hex: "e879f9"),
+        Swatch(name: "Cyan",       hex: "38bdf8"),
+        Swatch(name: "Tangerine",  hex: "fb923c"),
     ]
+
+    static let paletteHex: [String] = swatches.map(\.hex)
+    static let palette: [Color] = paletteHex.map(Color.init(hex:))
+
+    static func name(forHex hex: String) -> String? {
+        swatches.first { $0.hex == hex }?.name
+    }
+
+    /// Filled colored circle as an NSImage. macOS strips SwiftUI tinting from
+    /// menu items, but `Image(nsImage:)` with `isTemplate = false` survives.
+    static func swatchImage(hex: String, diameter: CGFloat = 12) -> NSImage {
+        let size = NSSize(width: diameter, height: diameter)
+        let image = NSImage(size: size, flipped: false) { rect in
+            NSColor(Color(hex: hex)).setFill()
+            NSBezierPath(ovalIn: rect).fill()
+            return true
+        }
+        image.isTemplate = false
+        return image
+    }
 
     static func color(for appName: String, in allApps: [String]) -> Color {
         let sorted = allApps.sorted()

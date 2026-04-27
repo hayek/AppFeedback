@@ -7,6 +7,7 @@ struct IssueListView: View {
     var onRefresh: (() async -> Void)?
     var repoOwner: String = ""
     var repoName: String = ""
+    var appColorOverrides: [String: String] = [:]
 
     #if os(macOS)
     @State private var composing: ComposeContext?
@@ -111,12 +112,19 @@ struct IssueListView: View {
         }
     }
 
+    private func appColor(for appName: String) -> Color {
+        if let hex = appColorOverrides[appName] {
+            return Color(hex: hex)
+        }
+        return ColorPalette.color(for: appName, in: allApps)
+    }
+
     @ViewBuilder
     private func issueCard(for issue: FeedbackIssue) -> some View {
         #if os(macOS)
         IssueCardView(
             issue: issue,
-            appColor: ColorPalette.color(for: issue.appName ?? "", in: allApps),
+            appColor: appColor(for: issue.appName ?? ""),
             isUnread: viewModel.isUnread(issue),
             onInteract: { viewModel.markSeen(issue) },
             activeApp: viewModel.appFilter,
@@ -142,7 +150,7 @@ struct IssueListView: View {
         #else
         IssueCardView(
             issue: issue,
-            appColor: ColorPalette.color(for: issue.appName ?? "", in: allApps),
+            appColor: appColor(for: issue.appName ?? ""),
             isUnread: viewModel.isUnread(issue),
             onInteract: { viewModel.markSeen(issue) },
             activeApp: viewModel.appFilter,

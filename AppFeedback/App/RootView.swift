@@ -61,7 +61,8 @@ struct RootView: View {
                         await loaders[selection.repoId]?.load(token: token)
                     },
                     repoOwner: store.repos.first(where: { $0.id == selection.repoId })?.owner ?? "",
-                    repoName: store.repos.first(where: { $0.id == selection.repoId })?.repo ?? ""
+                    repoName: store.repos.first(where: { $0.id == selection.repoId })?.repo ?? "",
+                    appColorOverrides: store.appColors[selection.repoId] ?? [:]
                 )
             } else {
                 ContentUnavailableView {

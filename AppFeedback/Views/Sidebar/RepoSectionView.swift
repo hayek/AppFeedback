@@ -25,7 +25,12 @@ struct RepoSectionView: View {
 
             ForEach(visibleApps, id: \.self) { app in
                 let count = issues.filter { $0.appName == app }.count
-                let color = ColorPalette.color(for: app, in: allApps)
+                let color: Color = {
+                    if let hex = store.colorHexFor(app: app, in: repo.id) {
+                        return Color(hex: hex)
+                    }
+                    return ColorPalette.color(for: app, in: allApps)
+                }()
                 AppRowView(
                     label: app,
                     count: count,
@@ -34,6 +39,29 @@ struct RepoSectionView: View {
                 )
                 .onTapGesture { selection = .app(repoId: repo.id, appName: app) }
                 .padding(.leading, 8)
+                .contextMenu {
+                    Menu {
+                        ForEach(ColorPalette.swatches, id: \.self) { swatch in
+                            Button {
+                                store.setColor(swatch.hex, forApp: app, in: repo.id)
+                            } label: {
+                                Image(nsImage: ColorPalette.swatchImage(hex: swatch.hex))
+                                Text(swatch.name)
+                            }
+                        }
+                    } label: {
+                        Label("Color", systemImage: "paintpalette")
+                    }
+                    Divider()
+                    Button {
+                        if selection == .app(repoId: repo.id, appName: app) {
+                            selection = nil
+                        }
+                        store.hideApp(app, in: repo.id)
+                    } label: {
+                        Label("Hide", systemImage: "eye.slash")
+                    }
+                }
                 .swipeActions(edge: .trailing, allowsFullSwipe: false) {
                     Button {
                         if selection == .app(repoId: repo.id, appName: app) {

@@ -7,6 +7,7 @@ import CoreData
 final class RepoStore {
     private(set) var repos: [RepoConfig] = []
     private(set) var hiddenApps: [UUID: Set<String>] = [:]
+    private(set) var appColors: [UUID: [String: String]] = [:]
 
     private let context: ModelContext
     private let hiddenAppStore: HiddenAppStore?
@@ -95,6 +96,20 @@ final class RepoStore {
         hiddenApps[repoId] ?? []
     }
 
+    // MARK: - App colors
+
+    func setColor(_ hex: String, forApp appName: String, in repoId: UUID) {
+        guard let model = fetchModel(id: repoId) else { return }
+        if model.appColors[appName] == hex { return }
+        model.appColors[appName] = hex
+        save()
+        reload()
+    }
+
+    func colorHexFor(app appName: String, in repoId: UUID) -> String? {
+        appColors[repoId]?[appName]
+    }
+
     // MARK: - Internal
 
     private func fetchModel(id: UUID) -> Repo? {
@@ -125,7 +140,11 @@ final class RepoStore {
                 newHiddenApps[model.id] = Set(model.hiddenAppNames)
             }
         }
+        let newAppColors = Dictionary(
+            uniqueKeysWithValues: models.map { ($0.id, $0.appColors) }
+        )
         if repos != newRepos { repos = newRepos }
         if hiddenApps != newHiddenApps { hiddenApps = newHiddenApps }
+        if appColors != newAppColors { appColors = newAppColors }
     }
 }

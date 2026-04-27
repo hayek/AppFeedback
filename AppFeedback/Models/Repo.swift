@@ -8,6 +8,7 @@ final class Repo {
     var owner: String = ""
     var repo: String = ""
     var hiddenAppNames: [String] = []
+    var appColors: [String: String] = [:]
     var createdAt: Date = Date()
 
     init(
@@ -16,6 +17,7 @@ final class Repo {
         owner: String,
         repo: String,
         hiddenAppNames: [String] = [],
+        appColors: [String: String] = [:],
         createdAt: Date = Date()
     ) {
         self.id = id
@@ -23,6 +25,7 @@ final class Repo {
         self.owner = owner
         self.repo = repo
         self.hiddenAppNames = hiddenAppNames
+        self.appColors = appColors
         self.createdAt = createdAt
     }
 }

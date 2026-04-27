@@ -76,6 +76,23 @@ final class RepoStoreTests: XCTestCase {
         XCTAssertEqual(store2.repos.first?.displayName, "Persisted")
     }
 
+    func test_setColor_storesAndReadsHex() {
+        let repo = RepoConfig(displayName: "T", owner: "o", repo: "r")
+        store.add(repo)
+        store.setColor("4ef8d0", forApp: "AppA", in: repo.id)
+        XCTAssertEqual(store.colorHexFor(app: "AppA", in: repo.id), "4ef8d0")
+        XCTAssertNil(store.colorHexFor(app: "AppB", in: repo.id))
+    }
+
+    func test_setColor_persistsAcrossInstances() {
+        let repo = RepoConfig(displayName: "T", owner: "o", repo: "r")
+        store.add(repo)
+        store.setColor("ff6b8a", forApp: "AppA", in: repo.id)
+
+        let store2 = RepoStore(context: ModelContext(container))
+        XCTAssertEqual(store2.colorHexFor(app: "AppA", in: repo.id), "ff6b8a")
+    }
+
     func test_hideApp_writesToHiddenAppStore() throws {
         let repo = RepoConfig(displayName: "T", owner: "o", repo: "r")
         store.add(repo)
