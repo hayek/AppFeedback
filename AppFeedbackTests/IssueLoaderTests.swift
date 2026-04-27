@@ -1,26 +1,30 @@
 import XCTest
+import SwiftData
 @testable import AppFeedback
 
 @MainActor
 final class IssueLoaderTests: XCTestCase {
     private let repo = RepoConfig(displayName: "Test", owner: "org", repo: "feedback")
-
-    private var cacheURL: URL {
-        let caches = FileManager.default.urls(for: .cachesDirectory, in: .userDomainMask).first!
-        return caches
-            .appendingPathComponent("AppFeedback")
-            .appendingPathComponent("\(repo.owner)-\(repo.repo).json")
-    }
+    private var container: ModelContainer!
+    private var context: ModelContext!
 
     override func setUp() {
         super.setUp()
         MockURLProtocol.requestHandler = nil
-        try? FileManager.default.removeItem(at: cacheURL)
+        let schema = Schema([CachedIssue.self])
+        let config = ModelConfiguration(schema: schema, isStoredInMemoryOnly: true)
+        container = try! ModelContainer(for: schema, configurations: config)
+        context = ModelContext(container)
     }
 
     override func tearDown() {
+        container = nil
+        context = nil
         super.tearDown()
-        try? FileManager.default.removeItem(at: cacheURL)
+    }
+
+    private func makeLoader() -> IssueLoader {
+        IssueLoader(config: repo, session: .mock, cacheContext: context)
     }
 
     private func makeIssuesJSON(count: Int) -> Data {
@@ -43,7 +47,7 @@ final class IssueLoaderTests: XCTestCase {
             let res = HTTPURLResponse(url: req.url!, statusCode: 200, httpVersion: nil, headerFields: nil)!
             return (res, data)
         }
-        let loader = IssueLoader(config: repo, session: .mock)
+        let loader = makeLoader()
         await loader.load(token: "tok")
         guard case .loaded(let issues, _) = loader.state else {
             return XCTFail("Expected .loaded")
@@ -58,7 +62,7 @@ final class IssueLoaderTests: XCTestCase {
         MockURLProtocol.requestHandler = { req in
             (HTTPURLResponse(url: req.url!, statusCode: 200, httpVersion: nil, headerFields: nil)!, body)
         }
-        let loader = IssueLoader(config: repo, session: .mock)
+        let loader = makeLoader()
         await loader.load(token: "tok")
         guard case .loaded(let issues, _) = loader.state else {
             return XCTFail("Expected .loaded")
@@ -70,7 +74,7 @@ final class IssueLoaderTests: XCTestCase {
         MockURLProtocol.requestHandler = { req in
             (HTTPURLResponse(url: req.url!, statusCode: 401, httpVersion: nil, headerFields: nil)!, Data())
         }
-        let loader = IssueLoader(config: repo, session: .mock)
+        let loader = makeLoader()
         await loader.load(token: "tok")
         guard case .failed = loader.state else {
             return XCTFail("Expected .failed")
@@ -79,19 +83,17 @@ final class IssueLoaderTests: XCTestCase {
 
     func test_load_preservesCachedData_onNetworkError() async {
         let firstData = makeIssuesJSON(count: 2)
-        // First load succeeds and populates cache
         MockURLProtocol.requestHandler = { req in
             let res = HTTPURLResponse(url: req.url!, statusCode: 200, httpVersion: nil, headerFields: nil)!
             return (res, firstData)
         }
-        let loader = IssueLoader(config: repo, session: .mock)
+        let loader = makeLoader()
         await loader.load(token: "tok")
         guard case .loaded(let cached, _) = loader.state else {
             return XCTFail("Expected .loaded after first fetch")
         }
         XCTAssertEqual(cached.count, 2)
 
-        // Second load fails — cached data should be preserved
         MockURLProtocol.requestHandler = { req in
             (HTTPURLResponse(url: req.url!, statusCode: 500, httpVersion: nil, headerFields: nil)!, Data())
         }
@@ -100,5 +102,24 @@ final class IssueLoaderTests: XCTestCase {
             return XCTFail("Expected .loaded (stale cache) after failed refresh")
         }
         XCTAssertEqual(preserved.count, 2)
+    }
+
+    func test_load_persistsToSwiftDataCache_andReloadsOnSecondLoaderInit() async throws {
+        let data = makeIssuesJSON(count: 2)
+        MockURLProtocol.requestHandler = { req in
+            (HTTPURLResponse(url: req.url!, statusCode: 200, httpVersion: nil, headerFields: nil)!, data)
+        }
+        await makeLoader().load(token: "tok")
+
+        // New loader, same context — should hydrate from cache before any network.
+        MockURLProtocol.requestHandler = { req in
+            (HTTPURLResponse(url: req.url!, statusCode: 500, httpVersion: nil, headerFields: nil)!, Data())
+        }
+        let second = makeLoader()
+        await second.load(token: "tok")
+        guard case .loaded(let issues, _) = second.state else {
+            return XCTFail("Expected .loaded from cache")
+        }
+        XCTAssertEqual(issues.count, 2)
     }
 }

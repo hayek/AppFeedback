@@ -1,5 +1,6 @@
 import Foundation
 import Observation
+import SwiftData
 
 @Observable @MainActor
 final class IssueLoader {
@@ -27,18 +28,20 @@ final class IssueLoader {
 
     private let config: RepoConfig
     private let session: URLSession
-    private let cacheURL: URL
+    private let cacheContext: ModelContext?
     private var inFlight: (token: String, task: Task<Void, Never>)?
     private let activityLog: ActivityLog?
 
-    init(config: RepoConfig, session: URLSession = .shared, activityLog: ActivityLog? = nil) {
+    init(
+        config: RepoConfig,
+        session: URLSession = .shared,
+        activityLog: ActivityLog? = nil,
+        cacheContext: ModelContext? = nil
+    ) {
         self.config = config
         self.session = session
         self.activityLog = activityLog
-        let caches = FileManager.default.urls(for: .cachesDirectory, in: .userDomainMask).first!
-        self.cacheURL = caches
-            .appendingPathComponent("AppFeedback")
-            .appendingPathComponent("\(config.owner)-\(config.repo).json")
+        self.cacheContext = cacheContext
     }
 
     func load(token: String) async {
@@ -138,17 +141,31 @@ final class IssueLoader {
     }
 
     private func loadFromCache() {
-        guard let data = try? Data(contentsOf: cacheURL),
-              let issues = try? JSONDecoder().decode([FeedbackIssue].self, from: data)
-        else { return }
+        guard let context = cacheContext else { return }
+        let owner = config.owner
+        let name = config.repo
+        let predicate = #Predicate<CachedIssue> {
+            $0.repoOwner == owner && $0.repoName == name
+        }
+        let descriptor = FetchDescriptor<CachedIssue>(predicate: predicate)
+        guard let rows = try? context.fetch(descriptor), !rows.isEmpty else { return }
+        let issues = rows.map { $0.toFeedbackIssue() }
         state = .loaded(issues, Date(timeIntervalSince1970: 0))
     }
 
     private func saveToCache(_ issues: [FeedbackIssue]) {
-        try? FileManager.default.createDirectory(
-            at: cacheURL.deletingLastPathComponent(),
-            withIntermediateDirectories: true
-        )
-        try? JSONEncoder().encode(issues).write(to: cacheURL)
+        guard let context = cacheContext else { return }
+        let owner = config.owner
+        let name = config.repo
+        let predicate = #Predicate<CachedIssue> {
+            $0.repoOwner == owner && $0.repoName == name
+        }
+        if let existing = try? context.fetch(FetchDescriptor<CachedIssue>(predicate: predicate)) {
+            for row in existing { context.delete(row) }
+        }
+        for issue in issues {
+            context.insert(CachedIssue.from(issue, repoOwner: owner, repoName: name))
+        }
+        try? context.save()
     }
 }
