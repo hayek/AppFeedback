@@ -7,6 +7,7 @@ struct RootView: View {
     @State private var selection: SidebarSelection?
     @State private var viewModel = IssueListViewModel()
     @State private var showSettings = false
+    @State private var showAddRepo = false
     @State private var columnVisibility: NavigationSplitViewVisibility = .automatic
     #if os(macOS)
     @Environment(\.openSettings) private var openSettings
@@ -52,31 +53,42 @@ struct RootView: View {
                     allApps: allApps(for: selection.repoId),
                     onRefresh: {
                         guard let repo = store.repos.first(where: { $0.id == selection.repoId }),
-                              let token = KeychainService.load(for: repo) else { return }
+                              let token = await KeychainService.load(for: repo) else { return }
                         await loaders[selection.repoId]?.load(token: token)
                     }
                 )
             } else {
-                ContentUnavailableView(
-                    "No repo selected",
-                    systemImage: "tray",
-                    description: Text("Add a repo in Settings, then select it from the sidebar.")
-                )
+                ContentUnavailableView {
+                    Label("No repo selected", systemImage: "tray")
+                } description: {
+                    Text("Add a repo in Settings, then select it from the sidebar.")
+                } actions: {
+                    Button("+ Add Repo") { showAddRepo = true }
+                        .buttonStyle(.borderedProminent)
+                }
             }
         }
         .sheet(isPresented: $showSettings) {
             SettingsView(store: store)
         }
+        .sheet(isPresented: $showAddRepo) {
+            AddEditRepoView(store: store)
+        }
         .onChange(of: selection) { _, newValue in
             guard let newValue else { return }
             updateViewModel(for: newValue)
         }
+        .onChange(of: selectedLoadedSignature) { _, _ in
+            if let selection { updateViewModel(for: selection) }
+        }
         .onChange(of: store.repos) { _, newRepos in
             syncLoaders(repos: newRepos)
+            autoSelectIfNeeded(repos: newRepos)
         }
         .task {
             syncLoaders(repos: store.repos)
-            loadAllRepos()
+            autoSelectIfNeeded(repos: store.repos)
+            await loadAllRepos()
         }
     }
 
@@ -92,24 +104,58 @@ struct RootView: View {
         viewModel.allIssues = issues
         viewModel.clearFilters()
         switch selection {
-        case .allIssues:          viewModel.appFilter = nil
-        case .app(_, let name):   viewModel.appFilter = name
+        case .allIssues:
+            viewModel.appFilter = nil
+            viewModel.allowsAppFilter = true
+        case .app(_, let name):
+            viewModel.appFilter = name
+            viewModel.allowsAppFilter = false
+        }
+    }
+
+    private var selectedLoadedSignature: String {
+        guard let selection,
+              let loader = loaders[selection.repoId],
+              case .loaded(let issues, let date) = loader.state else { return "" }
+        return "\(selection.repoId)-\(issues.count)-\(date.timeIntervalSince1970)"
+    }
+
+    private func autoSelectIfNeeded(repos: [RepoConfig]) {
+        if selection == nil, let first = repos.first {
+            selection = .allIssues(repoId: first.id)
+            return
+        }
+        if let current = selection, !repos.contains(where: { $0.id == current.repoId }) {
+            selection = repos.first.map { .allIssues(repoId: $0.id) }
         }
     }
 
     private func syncLoaders(repos: [RepoConfig]) {
+        var newlyAdded: [RepoConfig] = []
         for repo in repos where loaders[repo.id] == nil {
             loaders[repo.id] = IssueLoader(config: repo)
+            newlyAdded.append(repo)
         }
         let ids = Set(repos.map(\.id))
         loaders = loaders.filter { ids.contains($0.key) }
+        if !newlyAdded.isEmpty {
+            Task { await loadRepos(newlyAdded) }
+        }
     }
 
-    private func loadAllRepos() {
-        for repo in store.repos {
-            guard let loader = loaders[repo.id],
-                  let token = KeychainService.load(for: repo) else { continue }
-            Task { await loader.load(token: token) }
+    private func loadAllRepos() async {
+        await loadRepos(store.repos)
+    }
+
+    private func loadRepos(_ repos: [RepoConfig]) async {
+        await withTaskGroup(of: Void.self) { group in
+            for repo in repos {
+                guard let loader = loaders[repo.id] else { continue }
+                group.addTask {
+                    guard let token = await KeychainService.load(for: repo) else { return }
+                    await loader.load(token: token)
+                }
+            }
         }
     }
 }
