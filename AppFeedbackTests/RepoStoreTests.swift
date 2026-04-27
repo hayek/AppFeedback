@@ -6,17 +6,22 @@ import SwiftData
 final class RepoStoreTests: XCTestCase {
     private var container: ModelContainer!
     private var store: RepoStore!
+    private var sharedContext: ModelContext!
 
     override func setUp() async throws {
         try await super.setUp()
-        let schema = Schema([Repo.self])
+        let schema = Schema([Repo.self, HiddenApp.self])
         let config = ModelConfiguration(schema: schema, isStoredInMemoryOnly: true)
         container = try ModelContainer(for: schema, configurations: config)
-        store = RepoStore(context: ModelContext(container))
+        let ctx = ModelContext(container)
+        sharedContext = ctx
+        let hidden = HiddenAppStore(context: ctx)
+        store = RepoStore(context: ctx, hiddenAppStore: hidden)
     }
 
     override func tearDown() async throws {
         store = nil
+        sharedContext = nil
         container = nil
         try await super.tearDown()
     }
@@ -69,5 +74,16 @@ final class RepoStoreTests: XCTestCase {
 
         let store2 = RepoStore(context: ModelContext(container))
         XCTAssertEqual(store2.repos.first?.displayName, "Persisted")
+    }
+
+    func test_hideApp_writesToHiddenAppStore() throws {
+        let repo = RepoConfig(displayName: "T", owner: "o", repo: "r")
+        store.add(repo)
+        store.hideApp("AppA", in: repo.id)
+        let rows = try sharedContext.fetch(FetchDescriptor<HiddenApp>())
+        XCTAssertEqual(rows.count, 1)
+        XCTAssertEqual(rows.first?.appName, "AppA")
+        XCTAssertEqual(rows.first?.repoOwner, "o")
+        XCTAssertEqual(rows.first?.repoName, "r")
     }
 }

@@ -113,6 +113,12 @@
 		5A842A827A59B992CDED167A /* SeenIssueStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6A5FA78610C0112620EA8C1F /* SeenIssueStore.swift */; };
 		99DC39C8349019A758F298CC /* SeenIssueStoreTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4A61DB4903AD862AE5EF8BFC /* SeenIssueStoreTests.swift */; };
 		D2D59E3E5AA43A39E45D2C13 /* SeenIssueStoreTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4A61DB4903AD862AE5EF8BFC /* SeenIssueStoreTests.swift */; };
+		HA01CC95121CEEBDED66AD61 /* HiddenApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = HAREF15A0511AD505BA423C92 /* HiddenApp.swift */; };
+		HA02CC95121CEEBDED66AD62 /* HiddenApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = HAREF15A0511AD505BA423C92 /* HiddenApp.swift */; };
+		HA03CC95121CEEBDED66AD63 /* HiddenAppStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = HAREF78610C0112620EA8C13 /* HiddenAppStore.swift */; };
+		HA04CC95121CEEBDED66AD64 /* HiddenAppStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = HAREF78610C0112620EA8C13 /* HiddenAppStore.swift */; };
+		HA05CC95121CEEBDED66AD65 /* HiddenAppStoreTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = HAREFB4903AD862AE5EF8B4 /* HiddenAppStoreTests.swift */; };
+		HA06CC95121CEEBDED66AD66 /* HiddenAppStoreTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = HAREFB4903AD862AE5EF8B4 /* HiddenAppStoreTests.swift */; };
 		E1E73AAC7E5ED58A44D5DB71 /* MailComposer.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0FC01BF334B5D65CF0147005 /* MailComposer.swift */; };
 		E3611B8BC7E8C7EE99D7407D /* FeedbackIssue.swift in Sources */ = {isa = PBXBuildFile; fileRef = F4CA31D8EBA15B135854E873 /* FeedbackIssue.swift */; };
 		EA29D7D0BC140D0B14DDAAD6 /* GitHubAuthModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = DD959DEDBC95A458BAD75F14 /* GitHubAuthModels.swift */; };
@@ -191,6 +197,9 @@
 		7E65159D0511AD505BA423C9 /* SeenIssue.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SeenIssue.swift; sourceTree = "<group>"; };
 		6A5FA78610C0112620EA8C1F /* SeenIssueStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SeenIssueStore.swift; sourceTree = "<group>"; };
 		4A61DB4903AD862AE5EF8BFC /* SeenIssueStoreTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SeenIssueStoreTests.swift; sourceTree = "<group>"; };
+		HAREF15A0511AD505BA423C92 /* HiddenApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HiddenApp.swift; sourceTree = "<group>"; };
+		HAREF78610C0112620EA8C13 /* HiddenAppStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HiddenAppStore.swift; sourceTree = "<group>"; };
+		HAREFB4903AD862AE5EF8B4 /* HiddenAppStoreTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HiddenAppStoreTests.swift; sourceTree = "<group>"; };
 		BB29F50E5FCD4805C5960079 /* SidebarView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SidebarView.swift; sourceTree = "<group>"; };
 		BBD948EB35D428BC8AD5D517 /* ColorPaletteTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ColorPaletteTests.swift; sourceTree = "<group>"; };
 		BCF69ED394B26CCA8C1563FA /* AppFeedback.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = AppFeedback.entitlements; sourceTree = "<group>"; };
@@ -275,6 +284,7 @@
 				9FAC042F79EF94F76B9A8077 /* KeychainService.swift */,
 				C4E685E33A4C31C05457EAC3 /* RepoStore.swift */,
 				6A5FA78610C0112620EA8C1F /* SeenIssueStore.swift */,
+				HAREF78610C0112620EA8C13 /* HiddenAppStore.swift */,
 				154D33A2A9F298ABBC3EFCF1 /* Mail */,
 			);
 			path = Services;
@@ -332,6 +342,7 @@
 				21BC609BC2D10473659865E1 /* Repo.swift */,
 				CB4F1AB8C4EA41A8708C1EA3 /* RepoConfig.swift */,
 				7E65159D0511AD505BA423C9 /* SeenIssue.swift */,
+				HAREF15A0511AD505BA423C92 /* HiddenApp.swift */,
 				7D45273CCFDF0900BE1142A5 /* SidebarSelection.swift */,
 			);
 			path = Models;
@@ -359,6 +370,7 @@
 				44217CE722F7BB9B95104162 /* ComposeMailViewModelTests.swift */,
 				7A20FA7E90167D159840CB34 /* GitHubAuthTests.swift */,
 				4A61DB4903AD862AE5EF8BFC /* SeenIssueStoreTests.swift */,
+				HAREFB4903AD862AE5EF8B4 /* HiddenAppStoreTests.swift */,
 				AE7215BA1A0BAA6222B021CC /* HTMLSanitizerTests.swift */,
 				1E82DAEA39278D09C6F83D6A /* IssueBodyParserTests.swift */,
 				10EE93E06CD371298BA38A85 /* IssueListViewModelTests.swift */,
@@ -557,6 +569,8 @@
 				17DFCB3D1828D23DB77E472B /* RepoStore.swift in Sources */,
 				CA026CC95121CEEBDED66AD6 /* SeenIssue.swift in Sources */,
 				75C67A5435F07F65F2F978A5 /* SeenIssueStore.swift in Sources */,
+				HA01CC95121CEEBDED66AD61 /* HiddenApp.swift in Sources */,
+				HA03CC95121CEEBDED66AD63 /* HiddenAppStore.swift in Sources */,
 				79A65545F063297C0A62B4B2 /* RichTextEditor.swift in Sources */,
 				C630FC9D5EC159FD8D9C100C /* RootView.swift in Sources */,
 				DA1B584394BD3EE40D2D0324 /* SettingsView.swift in Sources */,
@@ -586,6 +600,7 @@
 				02CD1D56F06F44F045B838EA /* ModelsTests.swift in Sources */,
 				A7E7D1F467C7C3110AE5BC29 /* RepoStoreTests.swift in Sources */,
 				99DC39C8349019A758F298CC /* SeenIssueStoreTests.swift in Sources */,
+				HA05CC95121CEEBDED66AD65 /* HiddenAppStoreTests.swift in Sources */,
 				E1B284FC2FFA5E1D746E4B88 /* RepoTests.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
@@ -628,6 +643,8 @@
 				DBB188271BB3EFB984EFB998 /* RepoStore.swift in Sources */,
 				EA160E65D713C5EAA758CF94 /* SeenIssue.swift in Sources */,
 				5A842A827A59B992CDED167A /* SeenIssueStore.swift in Sources */,
+				HA02CC95121CEEBDED66AD62 /* HiddenApp.swift in Sources */,
+				HA04CC95121CEEBDED66AD64 /* HiddenAppStore.swift in Sources */,
 				D46E62043B3D0B92986143BC /* RichTextEditor.swift in Sources */,
 				8792D33C9D64EA70301862E5 /* RootView.swift in Sources */,
 				391FB12149E53F097791666F /* SettingsView.swift in Sources */,
@@ -657,6 +674,7 @@
 				836FFB069E523420DA80733C /* ModelsTests.swift in Sources */,
 				3205B78847815D3A10940230 /* RepoStoreTests.swift in Sources */,
 				D2D59E3E5AA43A39E45D2C13 /* SeenIssueStoreTests.swift in Sources */,
+				HA06CC95121CEEBDED66AD66 /* HiddenAppStoreTests.swift in Sources */,
 				3C6E952703DE6A0762C09A98 /* RepoTests.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;

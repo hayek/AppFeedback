@@ -9,12 +9,13 @@ struct AppFeedbackApp: App {
     @State private var activityLog: ActivityLog
     @State private var mailSettings = MailSettings()
     @State private var seenStore: SeenIssueStore
+    @State private var hiddenAppStore: HiddenAppStore
     @State private var cacheContext: ModelContext
 
     init() {
         let isTesting = ProcessInfo.processInfo.environment["XCTestConfigurationFilePath"] != nil
         do {
-            let cloudSchema = Schema([Repo.self, SeenIssue.self])
+            let cloudSchema = Schema([Repo.self, SeenIssue.self, HiddenApp.self])
             let localSchema = Schema([CachedIssue.self])
             let cloudConfig: ModelConfiguration = isTesting
                 ? ModelConfiguration("cloud", schema: cloudSchema, isStoredInMemoryOnly: true)
@@ -27,16 +28,18 @@ struct AppFeedbackApp: App {
                 ? ModelConfiguration("local", schema: localSchema, isStoredInMemoryOnly: true)
                 : ModelConfiguration("local", schema: localSchema, cloudKitDatabase: .none)
             container = try ModelContainer(
-                for: Repo.self, SeenIssue.self, CachedIssue.self,
+                for: Repo.self, SeenIssue.self, HiddenApp.self, CachedIssue.self,
                 configurations: cloudConfig, localConfig
             )
         } catch {
             assertionFailure("Failed to create ModelContainer: \(error)")
             fatalError("Failed to create ModelContainer: \(error)")
         }
-        _store = State(initialValue: RepoStore(context: ModelContext(container)))
         let cloudContext = ModelContext(container)
+        let hiddenAppStoreLocal = HiddenAppStore(context: cloudContext)
         _seenStore = State(initialValue: SeenIssueStore(context: cloudContext))
+        _hiddenAppStore = State(initialValue: hiddenAppStoreLocal)
+        _store = State(initialValue: RepoStore(context: ModelContext(container), hiddenAppStore: hiddenAppStoreLocal))
         _cacheContext = State(initialValue: ModelContext(container))
         _syncStatus = State(initialValue: CloudSyncStatus())
         let activityLogURL: URL? = isTesting ? nil : {

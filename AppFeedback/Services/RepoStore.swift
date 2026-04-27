@@ -9,11 +9,13 @@ final class RepoStore {
     private(set) var hiddenApps: [UUID: Set<String>] = [:]
 
     private let context: ModelContext
+    private let hiddenAppStore: HiddenAppStore?
     private var didSaveTask: Task<Void, Never>?
     private var remoteChangeTask: Task<Void, Never>?
 
-    init(context: ModelContext) {
+    init(context: ModelContext, hiddenAppStore: HiddenAppStore? = nil) {
         self.context = context
+        self.hiddenAppStore = hiddenAppStore
         reload()
 
         // Filter out notifications from our own context — those mutations already called reload().
@@ -78,18 +80,14 @@ final class RepoStore {
     // MARK: - Hidden apps
 
     func hideApp(_ appName: String, in repoId: UUID) {
-        guard let model = fetchModel(id: repoId),
-              !model.hiddenAppNames.contains(appName) else { return }
-        model.hiddenAppNames.append(appName)
-        save()
+        guard let model = fetchModel(id: repoId) else { return }
+        hiddenAppStore?.hide(owner: model.owner, repo: model.repo, appName: appName)
         reload()
     }
 
     func unhideAllApps(in repoId: UUID) {
-        guard let model = fetchModel(id: repoId),
-              !model.hiddenAppNames.isEmpty else { return }
-        model.hiddenAppNames = []
-        save()
+        guard let model = fetchModel(id: repoId) else { return }
+        hiddenAppStore?.unhideAll(owner: model.owner, repo: model.repo)
         reload()
     }
 
@@ -115,9 +113,18 @@ final class RepoStore {
         let newRepos = models.map {
             RepoConfig(id: $0.id, displayName: $0.displayName, owner: $0.owner, repo: $0.repo)
         }
-        let newHiddenApps = Dictionary(
-            uniqueKeysWithValues: models.map { ($0.id, Set($0.hiddenAppNames)) }
-        )
+        // Build hidden-app map from HiddenAppStore (CloudKit-synced) with one-time
+        // best-effort migration from legacy Repo.hiddenAppNames into HiddenApp rows.
+        var newHiddenApps: [UUID: Set<String>] = [:]
+        for model in models {
+            if let store = hiddenAppStore {
+                store.migrateLegacy(owner: model.owner, repo: model.repo, legacyNames: model.hiddenAppNames)
+                newHiddenApps[model.id] = store.hiddenApps(owner: model.owner, repo: model.repo)
+            } else {
+                // Fallback for tests that don't inject a store: read from legacy field.
+                newHiddenApps[model.id] = Set(model.hiddenAppNames)
+            }
+        }
         if repos != newRepos { repos = newRepos }
         if hiddenApps != newHiddenApps { hiddenApps = newHiddenApps }
     }
