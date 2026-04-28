@@ -37,6 +37,7 @@ targets:
         GENERATE_INFOPLIST_FILE: YES
         CODE_SIGN_ENTITLEMENTS: AppFeedback/AppFeedback.entitlements
         CODE_SIGN_STYLE: Automatic
+        DEVELOPMENT_TEAM: Q7U5734Q3T
 
   AppFeedbackTests:
     type: bundle.unit-test
