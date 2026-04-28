@@ -16,9 +16,14 @@ struct RootView: View {
     @Environment(ActivityLog.self) private var activityLog
     @Environment(IntelligenceSettings.self) private var intelligenceSettings
     @Environment(IntelligenceService.self) private var intelligenceService
+    @Environment(NotificationSettings.self) private var notificationSettings
+    @Environment(NotificationRouter.self) private var notificationRouter
+    @Environment(\.notificationService) private var notificationService
     #if os(macOS)
     @Environment(\.openSettings) private var openSettings
     #endif
+
+    private static let backlogSnapshotKey = "appfeedback.notifications.backlogSnapshotted"
 
     var body: some View {
         NavigationSplitView(columnVisibility: $columnVisibility) {
@@ -115,6 +120,17 @@ struct RootView: View {
                 viewModel.invalidateTranslations()
             }
         }
+        // MARK: Notification tap routing
+        .onChange(of: notificationRouter.pendingIssueKey) { _, key in
+            guard let key else { return }
+            notificationRouter.pendingIssueKey = nil
+            Task { await handleNotificationTap(key: key) }
+        }
+        // MARK: First-load backlog snapshot
+        .onChange(of: allLoadedRepoGroups.isEmpty) { _, isEmpty in
+            guard !isEmpty else { return }
+            maybeSnapshotBacklog()
+        }
     }
 
     private func allApps(for repoId: UUID) -> [String] {
@@ -189,5 +205,71 @@ struct RootView: View {
                 }
             }
         }
+    }
+
+    // MARK: - Notification Tap Routing
+
+    /// All currently-loaded (owner, repo, issues) groups across every repo.
+    private var allLoadedRepoGroups: [NotificationService.RepoIssues] {
+        store.repos.compactMap { repo -> NotificationService.RepoIssues? in
+            guard let loader = loaders[repo.id],
+                  case .loaded(let issues, _) = loader.state else { return nil }
+            return (owner: repo.owner, repo: repo.repo, issues: issues)
+        }
+    }
+
+    /// Find a FeedbackIssue matching `"owner/repo#number"` across all loaded loaders.
+    private func findIssue(for key: String) -> (repoId: UUID, issue: FeedbackIssue)? {
+        // Key format: owner/repo#number
+        let parts = key.split(separator: "#", maxSplits: 1)
+        guard parts.count == 2,
+              let number = Int(parts[1]) else { return nil }
+        let ownerRepo = String(parts[0]) // "owner/repo"
+
+        for repo in store.repos where "\(repo.owner)/\(repo.repo)" == ownerRepo {
+            if let loader = loaders[repo.id],
+               case .loaded(let issues, _) = loader.state,
+               let issue = issues.first(where: { $0.number == number }) {
+                return (repo.id, issue)
+            }
+        }
+        return nil
+    }
+
+    private func handleNotificationTap(key: String) async {
+        // Try immediate lookup
+        if let match = findIssue(for: key) {
+            selectIssue(repoId: match.repoId, issue: match.issue)
+            return
+        }
+
+        // Not found — trigger a full refresh then retry once
+        await loadAllRepos()
+        if let match = findIssue(for: key) {
+            selectIssue(repoId: match.repoId, issue: match.issue)
+        }
+    }
+
+    private func selectIssue(repoId: UUID, issue: FeedbackIssue) {
+        // Navigate the sidebar to the correct repo; onChange(of: selection) → updateViewModel
+        // will populate the issue list. Use the issue title as a temporary search query so
+        // the tapped issue is immediately visible at the top.
+        selection = .allIssues(repoId: repoId)
+        viewModel.searchQuery = issue.title
+    }
+
+    // MARK: - First-Load Backlog Snapshot
+
+    private func maybeSnapshotBacklog() {
+        guard notificationSettings.hasRequestedAuthorization,
+              notificationSettings.isEnabled,
+              !UserDefaults.standard.bool(forKey: Self.backlogSnapshotKey),
+              let service = notificationService else { return }
+
+        let groups = allLoadedRepoGroups
+        guard !groups.isEmpty else { return }
+
+        service.snapshotExistingIssues(loadedByRepo: groups)
+        UserDefaults.standard.set(true, forKey: Self.backlogSnapshotKey)
     }
 }
