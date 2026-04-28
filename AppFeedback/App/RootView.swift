@@ -1,17 +1,6 @@
 import SwiftUI
 import SwiftData
 
-// TODO: wired up by Task 17
-private final class _DummyIntelligenceProvider: IntelligenceProvider, @unchecked Sendable {
-    @MainActor var availability: IntelligenceAvailability { .osTooOld }
-    func summarize(issues: [FeedbackIssue], targetLanguage: String) async throws -> IssueSummaryDTO {
-        throw IntelligenceError.unavailable
-    }
-    func translate(text: String, from sourceCode: String?, to targetCode: String) async throws -> String {
-        throw IntelligenceError.unavailable
-    }
-}
-
 @MainActor
 struct RootView: View {
     var store: RepoStore
@@ -20,12 +9,13 @@ struct RootView: View {
     @State private var loaders: [UUID: IssueLoader] = [:]
     @State private var selection: SidebarSelection?
     @State private var viewModel = IssueListViewModel()
-    // TODO: wired up by Task 17
-    @State private var summaryVM = UnreadSummaryViewModel(provider: _DummyIntelligenceProvider())
+    @State private var summaryVM: UnreadSummaryViewModel?
     @State private var showSettings = false
     @State private var showAddRepo = false
     @State private var columnVisibility: NavigationSplitViewVisibility = .automatic
     @Environment(ActivityLog.self) private var activityLog
+    @Environment(IntelligenceSettings.self) private var intelligenceSettings
+    @Environment(IntelligenceService.self) private var intelligenceService
     #if os(macOS)
     @Environment(\.openSettings) private var openSettings
     #endif
@@ -64,21 +54,25 @@ struct RootView: View {
                 }
         } detail: {
             if let selection {
-                IssueListView(
-                    viewModel: viewModel,
-                    loader: loaders[selection.repoId],
-                    allApps: allApps(for: selection.repoId),
-                    onRefresh: {
-                        guard let repo = store.repos.first(where: { $0.id == selection.repoId }),
-                              let token = await KeychainService.load(for: repo) else { return }
-                        await loaders[selection.repoId]?.load(token: token)
-                    },
-                    repoOwner: store.repos.first(where: { $0.id == selection.repoId })?.owner ?? "",
-                    repoName: store.repos.first(where: { $0.id == selection.repoId })?.repo ?? "",
-                    appColorOverrides: store.appColors[selection.repoId] ?? [:],
-                    summaryVM: summaryVM,
-                    summaryCollapseKey: "\(store.repos.first(where: { $0.id == selection.repoId })?.owner ?? "")/\(store.repos.first(where: { $0.id == selection.repoId })?.repo ?? "")"
-                )
+                if let summaryVM {
+                    IssueListView(
+                        viewModel: viewModel,
+                        loader: loaders[selection.repoId],
+                        allApps: allApps(for: selection.repoId),
+                        onRefresh: {
+                            guard let repo = store.repos.first(where: { $0.id == selection.repoId }),
+                                  let token = await KeychainService.load(for: repo) else { return }
+                            await loaders[selection.repoId]?.load(token: token)
+                        },
+                        repoOwner: store.repos.first(where: { $0.id == selection.repoId })?.owner ?? "",
+                        repoName: store.repos.first(where: { $0.id == selection.repoId })?.repo ?? "",
+                        appColorOverrides: store.appColors[selection.repoId] ?? [:],
+                        summaryVM: summaryVM,
+                        summaryCollapseKey: "\(store.repos.first(where: { $0.id == selection.repoId })?.owner ?? "")/\(store.repos.first(where: { $0.id == selection.repoId })?.repo ?? "")"
+                    )
+                } else {
+                    ProgressView()
+                }
             } else {
                 ContentUnavailableView {
                     Label("No repo selected", systemImage: "tray")
@@ -108,9 +102,28 @@ struct RootView: View {
             autoSelectIfNeeded(repos: newRepos)
         }
         .task {
+            if summaryVM == nil {
+                summaryVM = UnreadSummaryViewModel(provider: intelligenceService)
+            }
+            viewModel.attachIntelligence(
+                provider: intelligenceService,
+                settings: intelligenceSettings,
+                cacheContext: cacheContext
+            )
             syncLoaders(repos: store.repos)
             autoSelectIfNeeded(repos: store.repos)
             await loadAllRepos()
+        }
+        .onChange(of: intelligenceSettings.targetLanguageCode) { _, _ in
+            viewModel.invalidateTranslations()
+            viewModel.startTranslationsIfNeeded()
+        }
+        .onChange(of: intelligenceSettings.translationEnabled) { _, enabled in
+            if enabled {
+                viewModel.startTranslationsIfNeeded()
+            } else {
+                viewModel.invalidateTranslations()
+            }
         }
     }
 

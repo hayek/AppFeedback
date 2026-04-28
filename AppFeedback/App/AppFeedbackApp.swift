@@ -11,6 +11,8 @@ struct AppFeedbackApp: App {
     @State private var seenStore: SeenIssueStore
     @State private var hiddenAppStore: HiddenAppStore
     @State private var cacheContext: ModelContext
+    @State private var intelligenceSettings: IntelligenceSettings
+    @State private var intelligenceService: IntelligenceService
 
     init() {
         let isTesting = ProcessInfo.processInfo.environment["XCTestConfigurationFilePath"] != nil
@@ -49,6 +51,8 @@ struct AppFeedbackApp: App {
             return supportDir.appendingPathComponent("activity.json")
         }()
         _activityLog = State(initialValue: ActivityLog(persistenceURL: activityLogURL))
+        _intelligenceSettings = State(initialValue: IntelligenceSettings())
+        _intelligenceService = State(initialValue: IntelligenceService())
     }
 
     var body: some Scene {
@@ -57,6 +61,8 @@ struct AppFeedbackApp: App {
                 .environment(syncStatus)
                 .environment(activityLog)
                 .environment(mailSettings)
+                .environment(intelligenceSettings)
+                .environment(intelligenceService)
         }
         .modelContainer(container)
         .commands {
@@ -76,6 +82,8 @@ struct AppFeedbackApp: App {
                 .environment(syncStatus)
                 .environment(activityLog)
                 .environment(mailSettings)
+                .environment(intelligenceSettings)
+                .environment(intelligenceService)
         }
         .windowResizability(.contentMinSize)
         #endif
