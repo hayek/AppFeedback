@@ -16,6 +16,10 @@ final class CachedIssue {
     var email: String?
     var issueDescription: String = ""
     var labelsJSON: String?
+    var detectedLanguageCode: String?
+    var translatedTitle: String?
+    var translatedBody: String?
+    var translationTargetLanguage: String?
 
     init(
         repoOwner: String,
@@ -59,7 +63,11 @@ final class CachedIssue {
             osVersion: osVersion,
             email: email,
             description: issueDescription,
-            labels: Self.decode(labelsJSON)
+            labels: Self.decode(labelsJSON),
+            detectedLanguageCode: detectedLanguageCode,
+            translatedTitle: translatedTitle,
+            translatedBody: translatedBody,
+            translationTargetLanguage: translationTargetLanguage
         )
     }
 

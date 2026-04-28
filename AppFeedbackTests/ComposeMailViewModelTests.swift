@@ -35,7 +35,7 @@ final class ComposeMailViewModelTests: XCTestCase {
             number: 7, title: "Crash", createdAt: Date(),
             rawBody: "", appName: "MyApp", appVersion: "1.0",
             device: "Mac", osVersion: "14.0", email: "bob@example.com",
-            description: "Crash on launch"
+            description: "Crash on launch", labels: []
         )
     }
 

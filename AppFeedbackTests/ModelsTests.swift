@@ -23,7 +23,7 @@ final class ModelsTests: XCTestCase {
         let issue = FeedbackIssue(
             number: 42, title: "Test", createdAt: Date(), rawBody: "",
             appName: nil, appVersion: nil, device: nil, osVersion: nil,
-            email: nil, description: ""
+            email: nil, description: "", labels: []
         )
         XCTAssertEqual(issue.id, 42)
     }

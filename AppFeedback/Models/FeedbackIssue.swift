@@ -49,6 +49,22 @@ struct FeedbackIssue: Identifiable, Codable, Sendable {
     let email: String?
     let description: String
     let labels: [IssueLabel]
+    var detectedLanguageCode: String?
+    var translatedTitle: String?
+    var translatedBody: String?
+    var translationTargetLanguage: String?
 
     var id: Int { number }
+
+    func displayedTitle(translated: Bool) -> String {
+        translated ? (translatedTitle ?? title) : title
+    }
+
+    func displayedBody(translated: Bool) -> String {
+        translated ? (translatedBody ?? description) : description
+    }
+
+    var hasTranslation: Bool {
+        translatedTitle != nil || translatedBody != nil
+    }
 }

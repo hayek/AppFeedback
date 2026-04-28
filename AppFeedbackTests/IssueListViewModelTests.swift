@@ -20,7 +20,7 @@ final class IssueListViewModelTests: XCTestCase {
             createdAt: Date().addingTimeInterval(-daysAgo * 86400),
             rawBody: "", appName: appName, appVersion: appVersion,
             device: device, osVersion: osVersion, email: email,
-            description: "desc \(number)"
+            description: "desc \(number)", labels: []
         )
     }
 
@@ -79,7 +79,7 @@ extension IssueListViewModelTests {
             number: n, title: "t\(n)",
             createdAt: Date(timeIntervalSince1970: 1_700_000_000 + Double(n)),
             rawBody: "", appName: nil, appVersion: nil,
-            device: nil, osVersion: nil, email: nil, description: ""
+            device: nil, osVersion: nil, email: nil, description: "", labels: []
         )
     }
 

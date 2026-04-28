@@ -10,7 +10,7 @@ final class CachedIssueTests: XCTestCase {
             createdAt: Date(timeIntervalSince1970: 1_700_000_000),
             rawBody: "raw", appName: "Foo", appVersion: "1.2",
             device: "iPhone", osVersion: "17.0",
-            email: "a@b.com", description: "desc"
+            email: "a@b.com", description: "desc", labels: []
         )
         let cached = CachedIssue.from(issue, repoOwner: "org", repoName: "repo")
         let restored = cached.toFeedbackIssue()
@@ -25,6 +25,26 @@ final class CachedIssueTests: XCTestCase {
         XCTAssertEqual(restored.rawBody, "raw")
         XCTAssertEqual(cached.repoOwner, "org")
         XCTAssertEqual(cached.repoName, "repo")
+    }
+
+    func test_cachedIssue_storesTranslationFields() {
+        let issue = FeedbackIssue(
+            number: 42, title: "Hola", createdAt: Date(),
+            rawBody: "Hola mundo", appName: "App", appVersion: "1",
+            device: "Mac", osVersion: "14", email: nil,
+            description: "Hola mundo", labels: []
+        )
+        let cached = CachedIssue.from(issue, repoOwner: "o", repoName: "r")
+        cached.detectedLanguageCode = "es"
+        cached.translatedTitle = "Hello"
+        cached.translatedBody = "Hello world"
+        cached.translationTargetLanguage = "en"
+
+        let round = cached.toFeedbackIssue()
+        XCTAssertEqual(round.detectedLanguageCode, "es")
+        XCTAssertEqual(round.translatedTitle, "Hello")
+        XCTAssertEqual(round.translatedBody, "Hello world")
+        XCTAssertEqual(round.translationTargetLanguage, "en")
     }
 
     func test_inMemoryContainer_persistsAndFetches() throws {
