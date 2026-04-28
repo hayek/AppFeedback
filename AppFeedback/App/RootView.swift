@@ -124,9 +124,8 @@ struct RootView: View {
             }
         }
         // MARK: Notification tap routing
-        .onChange(of: notificationRouter.pendingIssueKey) { _, key in
-            guard let key else { return }
-            notificationRouter.pendingIssueKey = nil
+        .onChange(of: notificationRouter.pendingIssueKey) { _, _ in
+            guard let key = notificationRouter.consume() else { return }
             Task { await handleNotificationTap(key: key) }
         }
         // MARK: First-load backlog snapshot
