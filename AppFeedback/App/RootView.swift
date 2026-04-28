@@ -252,10 +252,12 @@ struct RootView: View {
 
     private func selectIssue(repoId: UUID, issue: FeedbackIssue) {
         // Navigate the sidebar to the correct repo; onChange(of: selection) → updateViewModel
-        // will populate the issue list. Use the issue title as a temporary search query so
-        // the tapped issue is immediately visible at the top.
+        // will populate the issue list. Clear all filters so the issue is visible, then
+        // set highlightedIssueNumber to mark it directly without touching searchQuery.
         selection = .allIssues(repoId: repoId)
-        viewModel.searchQuery = issue.title
+        viewModel.clearFilters()
+        viewModel.appFilter = nil
+        viewModel.highlightedIssueNumber = issue.number
     }
 
     // MARK: - First-Load Backlog Snapshot

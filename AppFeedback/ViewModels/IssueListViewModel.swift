@@ -13,6 +13,8 @@ final class IssueListViewModel {
     var appFilter: String? = nil
     var allowsAppFilter: Bool = false
     var filters = ActiveFilters()
+    /// Set by deep-link notification tap to highlight a specific issue.
+    var highlightedIssueNumber: Int? = nil
 
     var uniqueAppNames: [String] {
         Array(Set(allIssues.compactMap(\.appName))).sorted()
