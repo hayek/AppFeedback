@@ -73,4 +73,24 @@ final class NotificationServiceTests: XCTestCase {
         await svc.diffAndNotify(loadedByRepo: [("foo", "bar", [issue(1)])])
         XCTAssertEqual(center.addedRequests.count, 0)
     }
+
+    func test_diffAndNotify_postsSummaryWhenMoreThanThree() async {
+        let issues = (1...4).map { issue($0, title: "t\($0)") }
+        await service().diffAndNotify(loadedByRepo: [("foo", "bar", issues)])
+        XCTAssertEqual(center.addedRequests.count, 1)
+        let req = center.addedRequests[0]
+        XCTAssertEqual(req.content.title, "4 new issues")
+        XCTAssertNil(req.content.userInfo["issueKey"])
+        XCTAssertEqual(req.content.threadIdentifier, "appfeedback.newissue")
+    }
+
+    func test_diffAndNotify_summaryCountsAcrossRepos() async {
+        let svc = service()
+        await svc.diffAndNotify(loadedByRepo: [
+            ("a", "b", [issue(1), issue(2), issue(3)]),
+            ("c", "d", [issue(1), issue(2)])
+        ])
+        XCTAssertEqual(center.addedRequests.count, 1)
+        XCTAssertEqual(center.addedRequests[0].content.title, "5 new issues")
+    }
 }
