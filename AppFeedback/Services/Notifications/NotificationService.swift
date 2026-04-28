@@ -67,7 +67,7 @@ final class NotificationService: NSObject {
         content.title = "\(count) new issues"
         content.threadIdentifier = "appfeedback.newissue"
         content.sound = .default
-        let id = "appfeedback.summary.\(Int(Date().timeIntervalSince1970))"
+        let id = "appfeedback.summary.\(UUID().uuidString)"
         let req = UNNotificationRequest(identifier: id, content: content, trigger: nil)
         try? await center.add(req)
     }
