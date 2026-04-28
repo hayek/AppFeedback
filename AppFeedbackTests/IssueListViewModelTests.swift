@@ -120,4 +120,60 @@ extension IssueListViewModelTests {
         vm.applyLoaded([issue(1)])
         XCTAssertFalse(vm.isUnread(issue(1)))
     }
+
+    func test_translation_skipsTargetLanguageIssues() async {
+        let mock = MockIntelligenceProvider()
+        let settings = IntelligenceSettings(defaults: UserDefaults(suiteName: UUID().uuidString)!)
+        settings.targetLanguageCode = "en"
+
+        let vm = IssueListViewModel()
+        let englishIssue = FeedbackIssue(
+            number: 1,
+            title: "Crash on launch when opening settings page repeatedly",
+            createdAt: Date(),
+            rawBody: "App crashes",
+            appName: "App", appVersion: nil, device: nil, osVersion: nil, email: nil,
+            description: "App crashes when I open settings repeatedly on macOS.",
+            labels: []
+        )
+        vm.allIssues = [englishIssue]
+        let context = ModelContext(try! ModelContainer(for: CachedIssue.self,
+            configurations: ModelConfiguration(isStoredInMemoryOnly: true)))
+        vm.attachIntelligence(provider: mock, settings: settings, cacheContext: context)
+
+        vm.startTranslationsIfNeeded()
+        try? await Task.sleep(nanoseconds: 50_000_000)
+        XCTAssertEqual(mock.translateCalls.count, 0)
+    }
+
+    func test_translation_translatesNonTargetLanguage() async {
+        let mock = MockIntelligenceProvider()
+        let settings = IntelligenceSettings(defaults: UserDefaults(suiteName: UUID().uuidString)!)
+        settings.targetLanguageCode = "en"
+
+        let vm = IssueListViewModel()
+        let spanishIssue = FeedbackIssue(
+            number: 2,
+            title: "La aplicación se cierra inesperadamente",
+            createdAt: Date(),
+            rawBody: "",
+            appName: "App", appVersion: nil, device: nil, osVersion: nil, email: nil,
+            description: "La aplicación se cierra cuando abro la página de configuración.",
+            labels: []
+        )
+        vm.allIssues = [spanishIssue]
+        let context = ModelContext(try! ModelContainer(for: CachedIssue.self,
+            configurations: ModelConfiguration(isStoredInMemoryOnly: true)))
+        vm.attachIntelligence(provider: mock, settings: settings, cacheContext: context)
+
+        vm.startTranslationsIfNeeded()
+
+        for _ in 0..<50 {
+            if mock.translateCalls.count >= 2 { break }
+            try? await Task.sleep(nanoseconds: 20_000_000)
+        }
+        XCTAssertEqual(mock.translateCalls.count, 2)
+        XCTAssertEqual(vm.allIssues[0].translationTargetLanguage, "en")
+        XCTAssertEqual(vm.allIssues[0].translatedTitle, "[t] La aplicación se cierra inesperadamente")
+    }
 }

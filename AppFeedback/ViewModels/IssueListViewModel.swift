@@ -1,9 +1,14 @@
 import Foundation
 import Observation
+import SwiftData
 
 @Observable @MainActor
 final class IssueListViewModel {
     var allIssues: [FeedbackIssue] = []
+
+    var unreadIssues: [FeedbackIssue] {
+        allIssues.filter { sessionUnread.contains($0.number) }
+    }
     var searchQuery = ""
     var appFilter: String? = nil
     var allowsAppFilter: Bool = false
@@ -90,6 +95,7 @@ final class IssueListViewModel {
             sessionUnread = []
         }
         previouslyLoadedNumbers = numbers
+        startTranslationsIfNeeded()
     }
 
     func isUnread(_ issue: FeedbackIssue) -> Bool {
@@ -99,5 +105,119 @@ final class IssueListViewModel {
     func markSeen(_ issue: FeedbackIssue) {
         sessionUnread.remove(issue.number)
         seenStore?.markSeen(owner: seenOwner, repo: seenRepo, issueNumber: issue.number)
+    }
+
+    private(set) var intelligenceProvider: IntelligenceProvider?
+    private(set) var intelligenceSettings: IntelligenceSettings?
+    private var cacheContext: ModelContext?
+    private var translationTasks: [Int: Task<Void, Never>] = [:]
+
+    func attachIntelligence(
+        provider: IntelligenceProvider,
+        settings: IntelligenceSettings,
+        cacheContext: ModelContext
+    ) {
+        self.intelligenceProvider = provider
+        self.intelligenceSettings = settings
+        self.cacheContext = cacheContext
+    }
+
+    func startTranslationsIfNeeded() {
+        guard let provider = intelligenceProvider,
+              let settings = intelligenceSettings,
+              settings.translationEnabled,
+              provider.availability == .available else { return }
+
+        let target = settings.targetLanguageCode
+        for issue in allIssues {
+            if issue.translatedTitle != nil && issue.translatedBody != nil
+                && issue.translationTargetLanguage == target { continue }
+            if translationTasks[issue.number] != nil { continue }
+
+            let detected = LanguageDetector.detect(issue.title + "\n" + issue.description)
+            guard let detected, !detected.hasPrefix(target) else { continue }
+
+            translationTasks[issue.number] = Task { [weak self] in
+                await self?.translate(issue: issue, detected: detected, target: target)
+            }
+        }
+    }
+
+    @MainActor
+    private func translate(issue: FeedbackIssue, detected: String, target: String) async {
+        defer { translationTasks[issue.number] = nil }
+        guard let provider = intelligenceProvider else { return }
+        do {
+            async let titleT = provider.translate(text: issue.title, from: detected, to: target)
+            async let bodyT = provider.translate(text: issue.description, from: detected, to: target)
+            let (newTitle, newBody) = try await (titleT, bodyT)
+            try Task.checkCancellation()
+
+            if let idx = allIssues.firstIndex(where: { $0.number == issue.number }) {
+                allIssues[idx].detectedLanguageCode = detected
+                allIssues[idx].translatedTitle = newTitle
+                allIssues[idx].translatedBody = newBody
+                allIssues[idx].translationTargetLanguage = target
+            }
+            if let context = cacheContext {
+                persistTranslation(
+                    issueNumber: issue.number,
+                    detected: detected,
+                    title: newTitle,
+                    body: newBody,
+                    target: target,
+                    context: context
+                )
+            }
+        } catch {
+            // Silent — leave originals in place.
+        }
+    }
+
+    private func persistTranslation(
+        issueNumber: Int,
+        detected: String,
+        title: String,
+        body: String,
+        target: String,
+        context: ModelContext
+    ) {
+        let owner = seenOwner
+        let repo = seenRepo
+        let descriptor = FetchDescriptor<CachedIssue>(predicate: #Predicate { cached in
+            cached.repoOwner == owner && cached.repoName == repo && cached.number == issueNumber
+        })
+        if let existing = try? context.fetch(descriptor).first {
+            existing.detectedLanguageCode = detected
+            existing.translatedTitle = title
+            existing.translatedBody = body
+            existing.translationTargetLanguage = target
+            try? context.save()
+        }
+    }
+
+    func invalidateTranslations() {
+        for (_, task) in translationTasks { task.cancel() }
+        translationTasks.removeAll()
+        for i in allIssues.indices {
+            allIssues[i].translatedTitle = nil
+            allIssues[i].translatedBody = nil
+            allIssues[i].translationTargetLanguage = nil
+        }
+        if let context = cacheContext {
+            let owner = seenOwner
+            let repo = seenRepo
+            let descriptor = FetchDescriptor<CachedIssue>(predicate: #Predicate { cached in
+                cached.repoOwner == owner && cached.repoName == repo
+            })
+            if let rows = try? context.fetch(descriptor) {
+                for row in rows {
+                    row.translatedTitle = nil
+                    row.translatedBody = nil
+                    row.translationTargetLanguage = nil
+                }
+                try? context.save()
+            }
+        }
     }
 }
