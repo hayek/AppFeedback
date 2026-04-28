@@ -27,15 +27,7 @@ final class IntelligenceService: IntelligenceProvider {
         set { _summarySession = newValue }
     }
     @ObservationIgnored
-    @available(macOS 26, iOS 26, *)
-    private var translationSession: LanguageModelSession? {
-        get { _translationSession as? LanguageModelSession }
-        set { _translationSession = newValue }
-    }
-    @ObservationIgnored
     private var _summarySession: Any?
-    @ObservationIgnored
-    private var _translationSession: Any?
     #endif
 
     init() {}
@@ -120,12 +112,8 @@ extension IntelligenceService {
     fileprivate func runTranslate(text: String, from sourceCode: String?, to targetCode: String) async throws -> String {
         let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty else { return text }
-        let session = await MainActor.run { () -> LanguageModelSession in
-            if let s = translationSession { return s }
-            let s = LanguageModelSession(instructions: translationInstructions)
-            translationSession = s
-            return s
-        }
+        let instructions = await MainActor.run { translationInstructions }
+        let session = LanguageModelSession(instructions: instructions)
         let targetName = Locale(identifier: "en").localizedString(forLanguageCode: targetCode) ?? targetCode
         let sourceName = sourceCode.flatMap {
             Locale(identifier: "en").localizedString(forLanguageCode: $0)
