@@ -112,8 +112,8 @@ extension EnvironmentValues {
 extension NotificationService {
     func requestAuthorizationIfNeeded() async {
         guard !settings.hasRequestedAuthorization else { return }
-        settings.hasRequestedAuthorization = true
         let granted = (try? await center.requestAuthorization(options: [.alert, .sound])) ?? false
+        settings.hasRequestedAuthorization = true
         settings.isEnabled = granted
     }
 
