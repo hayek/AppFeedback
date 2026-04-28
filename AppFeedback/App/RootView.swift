@@ -23,7 +23,10 @@ struct RootView: View {
     @Environment(\.openSettings) private var openSettings
     #endif
 
-    private static let backlogSnapshotKey = "appfeedback.notifications.backlogSnapshotted"
+    /// Legacy single-Bool key — read-once for migration, then deleted.
+    private static let legacyBacklogSnapshotKey = "appfeedback.notifications.backlogSnapshotted"
+    /// New per-repo set key: stores Set<String> of "owner/repo" strings.
+    private static let snapshottedReposKey = "appfeedback.notifications.snapshottedRepos"
 
     var body: some View {
         NavigationSplitView(columnVisibility: $columnVisibility) {
@@ -127,8 +130,7 @@ struct RootView: View {
             Task { await handleNotificationTap(key: key) }
         }
         // MARK: First-load backlog snapshot
-        .onChange(of: allLoadedRepoGroups.isEmpty) { _, isEmpty in
-            guard !isEmpty else { return }
+        .onChange(of: repoGroupSignature) { _, _ in
             maybeSnapshotBacklog()
         }
     }
@@ -262,16 +264,51 @@ struct RootView: View {
 
     // MARK: - First-Load Backlog Snapshot
 
+    /// Signature that changes whenever a loaded repo's issue count changes.
+    /// Using "owner/repo:count" strings to make the trigger Equatable and content-sensitive.
+    private var repoGroupSignature: [String] {
+        allLoadedRepoGroups.map { "\($0.owner)/\($0.repo):\($0.issues.count)" }.sorted()
+    }
+
     private func maybeSnapshotBacklog() {
         guard notificationSettings.hasRequestedAuthorization,
               notificationSettings.isEnabled,
-              !UserDefaults.standard.bool(forKey: Self.backlogSnapshotKey),
               let service = notificationService else { return }
 
+        let defaults = UserDefaults.standard
+
+        // Migrate legacy single-Bool flag: if it was true, seed the new Set with all
+        // currently-loaded repos so we don't flood them with old-backlog notifications.
+        if defaults.bool(forKey: Self.legacyBacklogSnapshotKey) {
+            var seeded = snapshottedRepos()
+            for group in allLoadedRepoGroups {
+                seeded.insert("\(group.owner)/\(group.repo)")
+            }
+            save(snapshottedRepos: seeded)
+            defaults.removeObject(forKey: Self.legacyBacklogSnapshotKey)
+        }
+
+        var alreadySnapshotted = snapshottedRepos()
         let groups = allLoadedRepoGroups
         guard !groups.isEmpty else { return }
 
-        service.snapshotExistingIssues(loadedByRepo: groups)
-        UserDefaults.standard.set(true, forKey: Self.backlogSnapshotKey)
+        for group in groups {
+            let repoKey = "\(group.owner)/\(group.repo)"
+            guard !alreadySnapshotted.contains(repoKey) else { continue }
+            // Snapshot only this repo's issue keys.
+            service.snapshotExistingIssues(loadedByRepo: [(group.owner, group.repo, group.issues)])
+            alreadySnapshotted.insert(repoKey)
+        }
+
+        save(snapshottedRepos: alreadySnapshotted)
+    }
+
+    private func snapshottedRepos() -> Set<String> {
+        let array = UserDefaults.standard.stringArray(forKey: Self.snapshottedReposKey) ?? []
+        return Set(array)
+    }
+
+    private func save(snapshottedRepos: Set<String>) {
+        UserDefaults.standard.set(Array(snapshottedRepos), forKey: Self.snapshottedReposKey)
     }
 }
