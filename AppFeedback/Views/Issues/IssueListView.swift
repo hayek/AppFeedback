@@ -8,6 +8,8 @@ struct IssueListView: View {
     var repoOwner: String = ""
     var repoName: String = ""
     var appColorOverrides: [String: String] = [:]
+    @Bindable var summaryVM: UnreadSummaryViewModel
+    let summaryCollapseKey: String
 
     #if os(macOS)
     @State private var composing: ComposeContext?
@@ -84,6 +86,12 @@ struct IssueListView: View {
                         FilterBarView(viewModel: viewModel)
                     }
 
+                    UnreadSummaryView(
+                        state: summaryVM.state,
+                        collapseKey: summaryCollapseKey
+                    )
+                    .padding(.horizontal, 2)
+
                     HStack {
                         Text(summaryText(total: viewModel.allIssues.count, visible: visible.count))
                             .font(.system(size: 13, weight: .medium))
@@ -98,6 +106,12 @@ struct IssueListView: View {
                 }
                 .padding(.horizontal, 20)
                 .padding(.vertical, 16)
+                .task(id: summaryTaskID) {
+                    await summaryVM.update(
+                        unread: viewModel.unreadIssues,
+                        targetLanguage: viewModel.intelligenceSettings?.targetLanguageCode ?? "en"
+                    )
+                }
             }
             #if os(macOS)
             .sheet(item: $composing) { ctx in
@@ -182,6 +196,12 @@ struct IssueListView: View {
     }
 
     private var loaderState: IssueLoader.State { loader?.state ?? .idle }
+
+    private var summaryTaskID: String {
+        let unread = viewModel.unreadIssues.map(\.number).sorted().map(String.init).joined(separator: ",")
+        let lang = viewModel.intelligenceSettings?.targetLanguageCode ?? "en"
+        return "\(lang)|\(unread)"
+    }
 
     private func summaryText(total: Int, visible: Int) -> String {
         visible == total

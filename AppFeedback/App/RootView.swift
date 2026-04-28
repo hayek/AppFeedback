@@ -1,6 +1,17 @@
 import SwiftUI
 import SwiftData
 
+// TODO: wired up by Task 17
+private final class _DummyIntelligenceProvider: IntelligenceProvider, @unchecked Sendable {
+    @MainActor var availability: IntelligenceAvailability { .osTooOld }
+    func summarize(issues: [FeedbackIssue], targetLanguage: String) async throws -> IssueSummaryDTO {
+        throw IntelligenceError.unavailable
+    }
+    func translate(text: String, from sourceCode: String?, to targetCode: String) async throws -> String {
+        throw IntelligenceError.unavailable
+    }
+}
+
 @MainActor
 struct RootView: View {
     var store: RepoStore
@@ -9,6 +20,8 @@ struct RootView: View {
     @State private var loaders: [UUID: IssueLoader] = [:]
     @State private var selection: SidebarSelection?
     @State private var viewModel = IssueListViewModel()
+    // TODO: wired up by Task 17
+    @State private var summaryVM = UnreadSummaryViewModel(provider: _DummyIntelligenceProvider())
     @State private var showSettings = false
     @State private var showAddRepo = false
     @State private var columnVisibility: NavigationSplitViewVisibility = .automatic
@@ -62,7 +75,9 @@ struct RootView: View {
                     },
                     repoOwner: store.repos.first(where: { $0.id == selection.repoId })?.owner ?? "",
                     repoName: store.repos.first(where: { $0.id == selection.repoId })?.repo ?? "",
-                    appColorOverrides: store.appColors[selection.repoId] ?? [:]
+                    appColorOverrides: store.appColors[selection.repoId] ?? [:],
+                    summaryVM: summaryVM,
+                    summaryCollapseKey: "\(store.repos.first(where: { $0.id == selection.repoId })?.owner ?? "")/\(store.repos.first(where: { $0.id == selection.repoId })?.repo ?? "")"
                 )
             } else {
                 ContentUnavailableView {
