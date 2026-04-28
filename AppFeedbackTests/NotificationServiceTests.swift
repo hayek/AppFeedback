@@ -93,4 +93,40 @@ final class NotificationServiceTests: XCTestCase {
         XCTAssertEqual(center.addedRequests.count, 1)
         XCTAssertEqual(center.addedRequests[0].content.title, "5 new issues")
     }
+
+    func test_requestAuthorizationIfNeeded_promptsOnceAndMarksFlag() async {
+        let settings = NotificationSettings(defaults: defaults)
+        let svc = NotificationService(
+            center: center, notifiedStore: notified, settings: settings, router: NotificationRouter()
+        )
+        center.authorizationGranted = true
+        await svc.requestAuthorizationIfNeeded()
+        XCTAssertTrue(settings.hasRequestedAuthorization)
+        XCTAssertTrue(settings.isEnabled)
+        XCTAssertEqual(center.requestedOptions, [.alert, .sound])
+
+        // Second call should be a no-op.
+        center.requestedOptions = nil
+        await svc.requestAuthorizationIfNeeded()
+        XCTAssertNil(center.requestedOptions)
+    }
+
+    func test_requestAuthorizationIfNeeded_deniedKeepsDisabled() async {
+        let settings = NotificationSettings(defaults: defaults)
+        let svc = NotificationService(
+            center: center, notifiedStore: notified, settings: settings, router: NotificationRouter()
+        )
+        center.authorizationGranted = false
+        await svc.requestAuthorizationIfNeeded()
+        XCTAssertTrue(settings.hasRequestedAuthorization)
+        XCTAssertFalse(settings.isEnabled)
+    }
+
+    func test_snapshotExistingIssues_marksAllAsNotifiedWithoutPosting() async {
+        let svc = service()
+        svc.snapshotExistingIssues(loadedByRepo: [("foo", "bar", [issue(1), issue(2)])])
+        XCTAssertEqual(center.addedRequests.count, 0)
+        await svc.diffAndNotify(loadedByRepo: [("foo", "bar", [issue(1), issue(2)])])
+        XCTAssertEqual(center.addedRequests.count, 0)
+    }
 }

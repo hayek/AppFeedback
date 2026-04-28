@@ -71,3 +71,47 @@ final class NotificationService: NSObject {
         try? await center.add(req)
     }
 }
+
+extension NotificationService: UNUserNotificationCenterDelegate {
+    nonisolated func userNotificationCenter(
+        _ center: UNUserNotificationCenter,
+        willPresent notification: UNNotification,
+        withCompletionHandler completionHandler: @escaping (UNNotificationPresentationOptions) -> Void
+    ) {
+        // Foreground: suppress banner — issue is already visible in the list.
+        completionHandler([])
+    }
+
+    nonisolated func userNotificationCenter(
+        _ center: UNUserNotificationCenter,
+        didReceive response: UNNotificationResponse,
+        withCompletionHandler completionHandler: @escaping () -> Void
+    ) {
+        let key = response.notification.request.content.userInfo["issueKey"] as? String
+        Task { @MainActor in
+            if let key { self.router.pendingIssueKey = key }
+        }
+        completionHandler()
+    }
+}
+
+extension NotificationService {
+    func requestAuthorizationIfNeeded() async {
+        guard !settings.hasRequestedAuthorization else { return }
+        settings.hasRequestedAuthorization = true
+        let granted = (try? await center.requestAuthorization(options: [.alert, .sound])) ?? false
+        settings.isEnabled = granted
+    }
+
+    /// Mark all currently-loaded issues as already-notified, so the user isn't spammed
+    /// with the existing backlog when notifications are first enabled.
+    func snapshotExistingIssues(loadedByRepo: [RepoIssues]) {
+        var keys: [String] = []
+        for group in loadedByRepo {
+            for issue in group.issues {
+                keys.append(NotifiedIssueStore.issueKey(owner: group.owner, repo: group.repo, number: issue.number))
+            }
+        }
+        notifiedStore.snapshot(keys)
+    }
+}
