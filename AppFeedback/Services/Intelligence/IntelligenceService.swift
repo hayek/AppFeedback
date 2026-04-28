@@ -101,8 +101,26 @@ enum IntelligenceError: Error {
 @available(macOS 26, iOS 26, *)
 extension IntelligenceService {
     fileprivate func runSummarize(issues: [FeedbackIssue], targetLanguage: String) async throws -> IssueSummaryDTO {
-        // Implemented in Task 8
-        throw IntelligenceError.unavailable
+        guard !issues.isEmpty else { throw IntelligenceError.empty }
+        let session = await MainActor.run { () -> LanguageModelSession in
+            if let cached = self.summarySession { return cached }
+            let s = LanguageModelSession(instructions: self.summaryInstructions)
+            self.summarySession = s
+            return s
+        }
+        let prompt = SummaryPromptBuilder.build(issues: issues, targetLanguage: targetLanguage)
+        do {
+            let response = try await session.respond(to: prompt, generating: IssueSummary.self)
+            return IssueSummaryDTO(response.content)
+        } catch let error as LanguageModelSession.GenerationError {
+            if case .guardrailViolation = error {
+                return IssueSummaryDTO(
+                    headline: "\(issues.count) unread issues",
+                    bullets: []
+                )
+            }
+            throw error
+        }
     }
     fileprivate func runTranslate(text: String, from sourceCode: String?, to targetCode: String) async throws -> String {
         // Implemented in Task 9
