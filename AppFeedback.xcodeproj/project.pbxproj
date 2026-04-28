@@ -30,6 +30,7 @@
 		1FC6FF311F9D78628F13989A /* ColorPalette.swift in Sources */ = {isa = PBXBuildFile; fileRef = A2F615F5DA761C32F8566101 /* ColorPalette.swift */; };
 		1FFBC02E1CD2B43D200270EF /* ColorPaletteTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = BBD948EB35D428BC8AD5D517 /* ColorPaletteTests.swift */; };
 		2037D35C3B023DEC580F759A /* CachedIssueTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4F7FE6EA498426A4D5808CA6 /* CachedIssueTests.swift */; };
+		2435F6C267E1A3BCB8A18E3B /* IntelligenceSettingsSection.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6C81A296860E49F3AC70386D /* IntelligenceSettingsSection.swift */; };
 		2458F0500B5FF5AE2AAC56E0 /* GitHubAuthService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 06966BDC1078923389E15249 /* GitHubAuthService.swift */; };
 		25866AE52D41DF210553EC0C /* HiddenAppStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = C897756C0C9A16325888F788 /* HiddenAppStore.swift */; };
 		25F7B59FEC7FE618A2DDE973 /* IssueBodyParser.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2EA9ED253AAB1648CE69C3C8 /* IssueBodyParser.swift */; };
@@ -151,6 +152,7 @@
 		F1B6AC532ABA0EB668646805 /* UnreadSummaryViewModelTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 00F960BE036D65B0E276B47E /* UnreadSummaryViewModelTests.swift */; };
 		F3AD0B937BC2C7295D0B4EFD /* MailComposer.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0FC01BF334B5D65CF0147005 /* MailComposer.swift */; };
 		F4A10388C761178F5BBDD845 /* CloudSyncStatus.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4EADC7EBFDDAE8FAAA839A09 /* CloudSyncStatus.swift */; };
+		F5E83CB89F5F135F10AD6A47 /* IntelligenceSettingsSection.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6C81A296860E49F3AC70386D /* IntelligenceSettingsSection.swift */; };
 		F79ED4BCD9690D28AF41FCF5 /* ActivityLog.swift in Sources */ = {isa = PBXBuildFile; fileRef = 864A8D0AB787A3FE8CA251F6 /* ActivityLog.swift */; };
 		F863D4FFED4F52066E8991F9 /* SummaryPromptBuilderTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 62DC52276485A5BFAF893961 /* SummaryPromptBuilderTests.swift */; };
 		F89204E74E5F3287ABF63651 /* GitHubAPIModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = 50EF2D601AE7014E90E1F8AF /* GitHubAPIModels.swift */; };
@@ -210,6 +212,7 @@
 		62DC52276485A5BFAF893961 /* SummaryPromptBuilderTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SummaryPromptBuilderTests.swift; sourceTree = "<group>"; };
 		68B931F0D2D397FA605DCCBA /* SettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsView.swift; sourceTree = "<group>"; };
 		6BABB38B3390AB1C37B91504 /* AppFeedbackTests.xctest */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.cfbundle; path = AppFeedbackTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
+		6C81A296860E49F3AC70386D /* IntelligenceSettingsSection.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = IntelligenceSettingsSection.swift; sourceTree = "<group>"; };
 		710A53166721A8AB169D5504 /* SeenIssue.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SeenIssue.swift; sourceTree = "<group>"; };
 		74EC251FE14CC5A2EFB9BB14 /* AppRowView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppRowView.swift; sourceTree = "<group>"; };
 		7A20FA7E90167D159840CB34 /* GitHubAuthTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GitHubAuthTests.swift; sourceTree = "<group>"; };
@@ -369,6 +372,7 @@
 				49269C3629BF0756B51F7C1D /* CloudSyncStatusRow.swift */,
 				997018B54F967FD27571808D /* EmailSettingsView.swift */,
 				8179D7E75894D24AAF1B685B /* GitHubLoginView.swift */,
+				6C81A296860E49F3AC70386D /* IntelligenceSettingsSection.swift */,
 				68B931F0D2D397FA605DCCBA /* SettingsView.swift */,
 			);
 			path = Settings;
@@ -623,6 +627,7 @@
 				C20DEE744F36E1EA4A7CDB84 /* IntelligenceProvider.swift in Sources */,
 				CEE908C0A858F0CA26064BAF /* IntelligenceService.swift in Sources */,
 				C35E9EDEFB24A2900A80D7A0 /* IntelligenceSettings.swift in Sources */,
+				2435F6C267E1A3BCB8A18E3B /* IntelligenceSettingsSection.swift in Sources */,
 				1CF1DBFBD18235D25DF8D101 /* IssueBodyParser.swift in Sources */,
 				6645EA25CABF717B2D1B6E09 /* IssueCardView.swift in Sources */,
 				8BC091FBDEDB2201F66C84EF /* IssueListView.swift in Sources */,
@@ -711,6 +716,7 @@
 				42DCD3ABA7391F9EDD0C1F9B /* IntelligenceProvider.swift in Sources */,
 				3305E47FF701B2C78B5E955B /* IntelligenceService.swift in Sources */,
 				6F839A78507D97B7A718506A /* IntelligenceSettings.swift in Sources */,
+				F5E83CB89F5F135F10AD6A47 /* IntelligenceSettingsSection.swift in Sources */,
 				25F7B59FEC7FE618A2DDE973 /* IssueBodyParser.swift in Sources */,
 				3D2D22659A73D049363DE6D9 /* IssueCardView.swift in Sources */,
 				1577DC0BC8722C947D30CCA1 /* IssueListView.swift in Sources */,

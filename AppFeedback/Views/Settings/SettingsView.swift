@@ -24,6 +24,8 @@ private struct WindowResizableAccessor: NSViewRepresentable {
 struct SettingsView: View {
     @Bindable var store: RepoStore
     @Environment(CloudSyncStatus.self) private var syncStatus
+    @Environment(IntelligenceSettings.self) private var intelligenceSettings
+    @Environment(IntelligenceService.self) private var intelligenceService
     @State private var showAdd = false
     @State private var editTarget: RepoConfig?
     @State private var hoveredId: UUID?
@@ -38,6 +40,16 @@ struct SettingsView: View {
             #if os(macOS)
             EmailSettingsView()
                 .tabItem { Label("Email", systemImage: "envelope") }
+            IntelligenceSettingsSection(
+                settings: intelligenceSettings,
+                availability: intelligenceService.availability,
+                onOpenSystemSettings: {
+                    if let url = URL(string: "x-apple.systempreferences:com.apple.AppleIntelligenceSettings") {
+                        NSWorkspace.shared.open(url)
+                    }
+                }
+            )
+            .tabItem { Label("Intelligence", systemImage: "sparkles") }
             #endif
         }
         #if os(macOS)
