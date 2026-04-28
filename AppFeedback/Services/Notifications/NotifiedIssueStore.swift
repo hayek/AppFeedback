@@ -8,6 +8,7 @@ final class NotifiedIssueStore {
     private let defaults: UserDefaults
     private let cap: Int
     private let key = "appfeedback.notifiedIssueIDs"
+    private var cache: Set<String>?
 
     init(defaults: UserDefaults = .standard, cap: Int = 5_000) {
         self.defaults = defaults
@@ -15,13 +16,13 @@ final class NotifiedIssueStore {
     }
 
     func contains(_ id: String) -> Bool {
-        loadOrdered().contains(id)
+        loadCache().contains(id)
     }
 
     func insert(_ ids: [String]) {
         guard !ids.isEmpty else { return }
         var ordered = loadOrdered()
-        let existing = Set(ordered)
+        let existing = loadCache()
         for id in ids where !existing.contains(id) {
             ordered.append(id)
         }
@@ -29,6 +30,7 @@ final class NotifiedIssueStore {
             ordered.removeFirst(ordered.count - cap)
         }
         defaults.set(ordered, forKey: key)
+        cache = Set(ordered)
     }
 
     func snapshot(_ ids: [String]) {
@@ -37,5 +39,12 @@ final class NotifiedIssueStore {
 
     private func loadOrdered() -> [String] {
         defaults.array(forKey: key) as? [String] ?? []
+    }
+
+    private func loadCache() -> Set<String> {
+        if let cache { return cache }
+        let c = Set(loadOrdered())
+        cache = c
+        return c
     }
 }
