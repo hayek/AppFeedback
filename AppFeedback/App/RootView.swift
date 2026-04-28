@@ -19,9 +19,6 @@ struct RootView: View {
     #if os(macOS)
     @Environment(\.openSettings) private var openSettings
     #endif
-    #if os(iOS)
-    @Environment(\.horizontalSizeClass) private var horizontalSizeClass
-    #endif
 
     var body: some View {
         NavigationSplitView(columnVisibility: $columnVisibility) {
@@ -38,19 +35,6 @@ struct RootView: View {
                             Image(systemName: "gear")
                         }
                     }
-                    #if os(iOS)
-                    ToolbarItem(placement: .navigationBarLeading) {
-                        if horizontalSizeClass == .compact {
-                            Button {
-                                withAnimation {
-                                    columnVisibility = columnVisibility == .all ? .detailOnly : .all
-                                }
-                            } label: {
-                                Image(systemName: "sidebar.left")
-                            }
-                        }
-                    }
-                    #endif
                 }
         } detail: {
             if let selection {

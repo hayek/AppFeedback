@@ -1,5 +1,7 @@
 import SwiftUI
+#if os(macOS)
 import AppKit
+#endif
 
 enum ColorPalette {
     struct Swatch: Hashable {
@@ -29,6 +31,7 @@ enum ColorPalette {
         swatches.first { $0.hex == hex }?.name
     }
 
+    #if os(macOS)
     /// Filled colored circle as an NSImage. macOS strips SwiftUI tinting from
     /// menu items, but `Image(nsImage:)` with `isTemplate = false` survives.
     static func swatchImage(hex: String, diameter: CGFloat = 12) -> NSImage {
@@ -41,6 +44,7 @@ enum ColorPalette {
         image.isTemplate = false
         return image
     }
+    #endif
 
     static func color(for appName: String, in allApps: [String]) -> Color {
         let sorted = allApps.sorted()

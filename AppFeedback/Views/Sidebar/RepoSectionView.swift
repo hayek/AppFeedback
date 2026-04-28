@@ -20,6 +20,8 @@ struct RepoSectionView: View {
                 color: .secondary,
                 isSelected: selection == .allIssues(repoId: repo.id)
             )
+            .tag(SidebarSelection.allIssues(repoId: repo.id))
+            .contentShape(Rectangle())
             .onTapGesture { selection = .allIssues(repoId: repo.id) }
             .padding(.leading, 8)
 
@@ -37,6 +39,8 @@ struct RepoSectionView: View {
                     color: color,
                     isSelected: selection == .app(repoId: repo.id, appName: app)
                 )
+                .tag(SidebarSelection.app(repoId: repo.id, appName: app))
+                .contentShape(Rectangle())
                 .onTapGesture { selection = .app(repoId: repo.id, appName: app) }
                 .padding(.leading, 8)
                 .contextMenu {
@@ -45,7 +49,11 @@ struct RepoSectionView: View {
                             Button {
                                 store.setColor(swatch.hex, forApp: app, in: repo.id)
                             } label: {
+                                #if os(macOS)
                                 Image(nsImage: ColorPalette.swatchImage(hex: swatch.hex))
+                                #else
+                                Circle().fill(Color(hex: swatch.hex))
+                                #endif
                                 Text(swatch.name)
                             }
                         }

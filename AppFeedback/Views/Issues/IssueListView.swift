@@ -59,6 +59,10 @@ struct IssueListView: View {
         #else
         .background(Color(.systemBackground))
         #endif
+        .refreshable {
+            await onRefresh?()
+        }
+        #if os(macOS)
         .toolbar {
             if let onRefresh {
                 ToolbarItem(placement: .primaryAction) {
@@ -70,6 +74,7 @@ struct IssueListView: View {
                 }
             }
         }
+        #endif
     }
 
     @ViewBuilder

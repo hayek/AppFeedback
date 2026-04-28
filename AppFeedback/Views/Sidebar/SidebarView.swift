@@ -18,7 +18,7 @@ struct SidebarView: View {
                         .buttonStyle(.borderedProminent)
                 }
             } else {
-                List {
+                List(selection: $selection) {
                     ForEach(store.repos) { repo in
                         let issues = issuesFor(repo)
                         let apps = allAppsFor(issues)
