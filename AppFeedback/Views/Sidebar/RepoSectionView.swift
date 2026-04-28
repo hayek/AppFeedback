@@ -15,7 +15,7 @@ struct RepoSectionView: View {
 
         return DisclosureGroup(isExpanded: $isExpanded) {
             AppRowView(
-                label: "All Issues",
+                label: "All Apps",
                 count: issues.count,
                 color: .secondary,
                 isSelected: selection == .allIssues(repoId: repo.id)
