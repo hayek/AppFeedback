@@ -34,7 +34,8 @@ targets:
         SWIFT_VERSION: "5.9"
         MARKETING_VERSION: "1.0"
         CURRENT_PROJECT_VERSION: "1"
-        GENERATE_INFOPLIST_FILE: YES
+        GENERATE_INFOPLIST_FILE: NO
+        INFOPLIST_FILE: AppFeedback/Info.plist
         CODE_SIGN_ENTITLEMENTS: AppFeedback/AppFeedback.entitlements
         CODE_SIGN_STYLE: Automatic
         DEVELOPMENT_TEAM: Q7U5734Q3T
