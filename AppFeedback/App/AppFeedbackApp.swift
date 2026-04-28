@@ -1,5 +1,6 @@
 import SwiftUI
 import SwiftData
+import UserNotifications
 
 @main
 struct AppFeedbackApp: App {
@@ -13,6 +14,14 @@ struct AppFeedbackApp: App {
     @State private var cacheContext: ModelContext
     @State private var intelligenceSettings: IntelligenceSettings
     @State private var intelligenceService: IntelligenceService
+    @State private var notificationSettings: NotificationSettings
+    @State private var notificationService: NotificationService
+    @State private var notificationRouter: NotificationRouter
+    #if os(iOS)
+    @State private var iosRefreshDriver: iOSBackgroundRefreshDriver
+    #elseif os(macOS)
+    @State private var macRefreshDriver: MacBackgroundRefreshDriver
+    #endif
 
     init() {
         let isTesting = ProcessInfo.processInfo.environment["XCTestConfigurationFilePath"] != nil
@@ -53,6 +62,45 @@ struct AppFeedbackApp: App {
         _activityLog = State(initialValue: ActivityLog(persistenceURL: activityLogURL))
         _intelligenceSettings = State(initialValue: IntelligenceSettings())
         _intelligenceService = State(initialValue: IntelligenceService())
+
+        let settings = NotificationSettings()
+        let router = NotificationRouter()
+        let notifiedStore = NotifiedIssueStore()
+        let service = NotificationService(
+            center: UNUserNotificationCenter.current(),
+            notifiedStore: notifiedStore,
+            settings: settings,
+            router: router
+        )
+        UNUserNotificationCenter.current().delegate = service
+
+        _notificationSettings = State(initialValue: settings)
+        _notificationRouter = State(initialValue: router)
+        _notificationService = State(initialValue: service)
+
+        let activityLogValue = _activityLog.wrappedValue
+        #if os(iOS)
+        let driver = iOSBackgroundRefreshDriver(
+            store: _store.wrappedValue,
+            cacheContext: _cacheContext.wrappedValue,
+            notificationService: service,
+            settings: settings,
+            activityLog: activityLogValue
+        )
+        driver.register()
+        driver.scheduleNextRefresh()
+        _iosRefreshDriver = State(initialValue: driver)
+        #elseif os(macOS)
+        let driver = MacBackgroundRefreshDriver(
+            store: _store.wrappedValue,
+            cacheContext: _cacheContext.wrappedValue,
+            notificationService: service,
+            settings: settings,
+            activityLog: activityLogValue
+        )
+        driver.startIfEnabled()
+        _macRefreshDriver = State(initialValue: driver)
+        #endif
     }
 
     var body: some Scene {
@@ -63,6 +111,17 @@ struct AppFeedbackApp: App {
                 .environment(mailSettings)
                 .environment(intelligenceSettings)
                 .environment(intelligenceService)
+                .environment(notificationSettings)
+                .environment(notificationRouter)
+                .environment(\.notificationService, notificationService)
+                .task { await notificationService.requestAuthorizationIfNeeded() }
+                .onChange(of: notificationSettings.isEnabled) { _, isOn in
+                    #if os(macOS)
+                    if isOn { macRefreshDriver.startIfEnabled() } else { macRefreshDriver.stop() }
+                    #else
+                    if isOn { iosRefreshDriver.scheduleNextRefresh() }
+                    #endif
+                }
         }
         .modelContainer(container)
         .commands {
@@ -84,6 +143,9 @@ struct AppFeedbackApp: App {
                 .environment(mailSettings)
                 .environment(intelligenceSettings)
                 .environment(intelligenceService)
+                .environment(notificationSettings)
+                .environment(notificationRouter)
+                .environment(\.notificationService, notificationService)
         }
         .windowResizability(.contentMinSize)
         #endif
