@@ -1,4 +1,25 @@
 import SwiftUI
+#if os(macOS)
+import AppKit
+#endif
+
+#if os(macOS)
+private struct WindowResizableAccessor: NSViewRepresentable {
+    func makeNSView(context: Context) -> NSView {
+        let v = NSView()
+        DispatchQueue.main.async {
+            guard let window = v.window else { return }
+            window.styleMask.insert(.resizable)
+            window.collectionBehavior.insert(.fullScreenNone)
+            window.minSize = NSSize(width: 540, height: 380)
+            window.maxSize = NSSize(width: CGFloat.greatestFiniteMagnitude,
+                                    height: CGFloat.greatestFiniteMagnitude)
+        }
+        return v
+    }
+    func updateNSView(_ nsView: NSView, context: Context) {}
+}
+#endif
 
 struct SettingsView: View {
     @Bindable var store: RepoStore
@@ -20,7 +41,11 @@ struct SettingsView: View {
             #endif
         }
         #if os(macOS)
-        .frame(minWidth: 540, minHeight: 380)
+        .frame(
+            minWidth: 540, idealWidth: 720, maxWidth: .infinity,
+            minHeight: 380, idealHeight: 620, maxHeight: .infinity
+        )
+        .background(WindowResizableAccessor())
         #endif
     }
 

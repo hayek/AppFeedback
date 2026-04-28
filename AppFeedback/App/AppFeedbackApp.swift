@@ -77,6 +77,7 @@ struct AppFeedbackApp: App {
                 .environment(activityLog)
                 .environment(mailSettings)
         }
+        .windowResizability(.contentMinSize)
         #endif
     }
 }

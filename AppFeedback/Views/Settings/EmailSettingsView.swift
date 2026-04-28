@@ -63,6 +63,10 @@ struct EmailSettingsView: View {
                     .frame(minHeight: 120)
             }
 
+            Section("Placeholders") {
+                placeholdersHint
+            }
+
             Section("Tools") {
                 HStack {
                     Button("Test Connection") { testConnection() }
@@ -139,6 +143,45 @@ struct EmailSettingsView: View {
             saveStatus = ok ? "Saved" : "Saved settings, but Keychain failed"
         }
     }
+
+    // MARK: - Placeholders hint
+
+    private var placeholdersHint: some View {
+        VStack(alignment: .leading, spacing: 6) {
+            Text("Drop these tokens into the header or footer — they'll be replaced when the email is sent.")
+                .font(.caption)
+                .foregroundStyle(.secondary)
+            Grid(alignment: .leadingFirstTextBaseline,
+                 horizontalSpacing: 10, verticalSpacing: 2) {
+                ForEach(Self.placeholderHints, id: \.token) { hint in
+                    GridRow {
+                        Text(hint.token)
+                            .font(.system(.caption, design: .monospaced))
+                            .foregroundStyle(.primary)
+                        Text(hint.descriptionText)
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    }
+                }
+            }
+        }
+        .padding(.top, 4)
+    }
+
+    private struct PlaceholderHint {
+        let token: String
+        let descriptionText: String
+    }
+
+    private static let placeholderHints: [PlaceholderHint] = [
+        .init(token: "{{sender_name}}",     descriptionText: "Your sender display name"),
+        .init(token: "{{sender_email}}",    descriptionText: "Your from address"),
+        .init(token: "{{recipient_email}}", descriptionText: "The recipient's email"),
+        .init(token: "{{app_name}}",        descriptionText: "App the issue belongs to"),
+        .init(token: "{{issue_title}}",     descriptionText: "Title of the issue"),
+        .init(token: "{{issue_url}}",       descriptionText: "Link to the issue"),
+        .init(token: "{{date}}",            descriptionText: "Current date and time")
+    ]
 
     // MARK: - Helpers
 
