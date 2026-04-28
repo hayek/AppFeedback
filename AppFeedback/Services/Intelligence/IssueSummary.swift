@@ -7,19 +7,19 @@ import FoundationModels
 @available(macOS 26, iOS 26, *)
 @Generable
 struct IssueSummary: Equatable, Sendable {
-    @Guide(description: "A 1-sentence headline summarizing the unread issues")
+    @Guide(description: "A 1-sentence headline summarizing all of the new feedback overall")
     var headline: String
 
-    @Guide(description: "3-5 themed bullets, each grouping related issues")
-    var bullets: [Bullet]
+    @Guide(description: "Per-theme sections. Combine similar issues into a single section and discuss them. Aim for 2-5 sections.")
+    var sections: [Section]
 
     @Generable
-    struct Bullet: Equatable, Sendable {
-        @Guide(description: "Short description of the theme")
-        var text: String
+    struct Section: Equatable, Sendable {
+        @Guide(description: "Short title naming the theme (e.g. 'Login failures', 'Crash on launch')")
+        var title: String
 
-        @Guide(description: "How many of the unread issues fall under this theme")
-        var issueCount: Int
+        @Guide(description: "1-3 sentences of plain prose describing this theme: what users reported, any common patterns, rough counts. No bullets or markdown.")
+        var body: String
     }
 }
 #endif
@@ -27,11 +27,11 @@ struct IssueSummary: Equatable, Sendable {
 /// Plain-Swift mirror used by views and tests so they don't need FoundationModels.
 struct IssueSummaryDTO: Equatable, Sendable {
     var headline: String
-    var bullets: [Bullet]
+    var sections: [Section]
 
-    struct Bullet: Equatable, Sendable {
-        var text: String
-        var issueCount: Int
+    struct Section: Equatable, Sendable {
+        var title: String
+        var body: String
     }
 }
 
@@ -40,7 +40,7 @@ struct IssueSummaryDTO: Equatable, Sendable {
 extension IssueSummaryDTO {
     init(_ summary: IssueSummary) {
         self.headline = summary.headline
-        self.bullets = summary.bullets.map { Bullet(text: $0.text, issueCount: $0.issueCount) }
+        self.sections = summary.sections.map { Section(title: $0.title, body: $0.body) }
     }
 }
 #endif

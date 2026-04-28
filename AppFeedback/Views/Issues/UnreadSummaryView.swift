@@ -61,23 +61,21 @@ struct UnreadSummaryView: View {
                     }
                     .buttonStyle(.plain)
 
-                    if !collapsed {
-                        VStack(alignment: .leading, spacing: 4) {
-                            ForEach(Array(summary.bullets.enumerated()), id: \.offset) { _, bullet in
-                                HStack(alignment: .firstTextBaseline, spacing: 6) {
-                                    Text("•").foregroundStyle(.tertiary)
-                                    Text(bullet.text)
+                    if !collapsed, !summary.sections.isEmpty {
+                        VStack(alignment: .leading, spacing: 10) {
+                            ForEach(Array(summary.sections.enumerated()), id: \.offset) { _, section in
+                                VStack(alignment: .leading, spacing: 2) {
+                                    Text(section.title)
+                                        .font(.system(size: 12, weight: .semibold))
+                                    Text(section.body)
                                         .font(.system(size: 12))
-                                    Spacer()
-                                    Text("\(bullet.issueCount)")
-                                        .font(.system(size: 11, weight: .medium).monospacedDigit())
                                         .foregroundStyle(.secondary)
-                                        .padding(.horizontal, 6)
-                                        .padding(.vertical, 1)
-                                        .background(.secondary.opacity(0.12), in: Capsule())
+                                        .fixedSize(horizontal: false, vertical: true)
                                 }
+                                .frame(maxWidth: .infinity, alignment: .leading)
                             }
                         }
+                        .padding(.top, 2)
                     }
                 }
             }

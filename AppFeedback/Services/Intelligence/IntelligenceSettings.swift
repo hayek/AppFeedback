@@ -21,9 +21,25 @@ final class IntelligenceSettings {
         self.targetLanguageCode = storedLanguage.isEmpty ? Self.systemLanguageCode() : storedLanguage
     }
 
+    /// Languages Apple Intelligence currently supports for on-device generation.
+    /// Keep in sync with Apple's supported list.
+    static let appleIntelligenceSupportedLanguageCodes: Set<String> = [
+        "en", "fr", "de", "it", "ja", "ko", "pt", "es", "zh-Hans", "vi"
+    ]
+
+    /// The user's preferred language if Apple Intelligence supports it, otherwise English.
     static func systemLanguageCode() -> String {
-        if let code = Locale.current.language.languageCode?.identifier, !code.isEmpty {
-            return code
+        for preferred in Locale.preferredLanguages {
+            let locale = Locale(identifier: preferred)
+            if let script = locale.language.script?.identifier,
+               let base = locale.language.languageCode?.identifier {
+                let scripted = "\(base)-\(script)"
+                if appleIntelligenceSupportedLanguageCodes.contains(scripted) { return scripted }
+            }
+            if let base = locale.language.languageCode?.identifier,
+               appleIntelligenceSupportedLanguageCodes.contains(base) {
+                return base
+            }
         }
         return "en"
     }

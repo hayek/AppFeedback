@@ -74,7 +74,7 @@ final class UnreadSummaryViewModelTests: XCTestCase {
         let mock = MockIntelligenceProvider()
         mock.summarizeHandler = { issues, _ in
             try? await Task.sleep(nanoseconds: 80_000_000)
-            return IssueSummaryDTO(headline: "\(issues.count)", bullets: [])
+            return IssueSummaryDTO(headline: "\(issues.count)", sections: [])
         }
         let vm = UnreadSummaryViewModel(provider: mock, debounceMs: 0)
         await vm.update(unread: [issue(1), issue(2)], targetLanguage: "en")

@@ -8,9 +8,13 @@ import FoundationModels
 final class IntelligenceService: IntelligenceProvider {
     private(set) var availability: IntelligenceAvailability = .osTooOld
     private let summaryInstructions = """
-    You are a concise product manager summarizing unread user feedback.
-    Group related issues into 3-5 themes. Be specific, factual, and avoid speculation.
-    Each bullet must include the count of issues that fall under its theme.
+    You are a concise product manager summarizing new user feedback.
+    Produce a structured summary:
+      • headline: one sentence covering all of the new feedback overall.
+      • sections: 2-5 themed sections. Each section combines similar/related issues into one theme.
+        - title: a short, specific theme name (e.g. "Login failures", "Crash on launch").
+        - body: 1-3 sentences of plain prose describing what users reported, common patterns, and rough counts (e.g. "three users mentioned…"). No bullets, no markdown.
+    Combine similar issues into the same section instead of repeating them. Be specific and factual; avoid speculation and filler.
     Always respond in the requested target language.
     """
     private let translationInstructions = """
@@ -104,7 +108,7 @@ extension IntelligenceService {
             if case .guardrailViolation = error {
                 return IssueSummaryDTO(
                     headline: "\(issues.count) unread issues",
-                    bullets: []
+                    sections: []
                 )
             }
             throw error

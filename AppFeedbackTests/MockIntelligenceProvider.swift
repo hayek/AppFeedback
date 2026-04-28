@@ -6,7 +6,7 @@ final class MockIntelligenceProvider: IntelligenceProvider, @unchecked Sendable 
     var summarizeHandler: ([FeedbackIssue], String) async throws -> IssueSummaryDTO = { issues, _ in
         IssueSummaryDTO(
             headline: "\(issues.count) unread issues",
-            bullets: [.init(text: "stub", issueCount: issues.count)]
+            sections: [.init(title: "Stub theme", body: "stub body for \(issues.count) issues")]
         )
     }
     var translateHandler: (String, String?, String) async throws -> String = { text, _, _ in

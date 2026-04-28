@@ -124,7 +124,7 @@ struct IssueListView: View {
                     .task(id: summaryTaskID) {
                         await summaryVM.update(
                             unread: viewModel.unreadIssues,
-                            targetLanguage: viewModel.intelligenceSettings?.targetLanguageCode ?? "en"
+                            targetLanguage: targetLanguageCode
                         )
                     }
                 }
@@ -191,7 +191,7 @@ struct IssueListView: View {
                 composing = ComposeContext(recipient: email, issue: issue)
             },
             intelligenceAvailable: viewModel.intelligenceProvider?.availability.isReady ?? false,
-            targetLanguageCode: viewModel.intelligenceSettings?.targetLanguageCode ?? "en",
+            targetLanguageCode: targetLanguageCode,
             isTranslating: viewModel.isTranslating(issue),
             isHighlighted: viewModel.highlightedIssueNumber == issue.number
         )
@@ -222,7 +222,7 @@ struct IssueListView: View {
                 viewModel.filters.issueType.toggleMembership(type)
             },
             intelligenceAvailable: viewModel.intelligenceProvider?.availability.isReady ?? false,
-            targetLanguageCode: viewModel.intelligenceSettings?.targetLanguageCode ?? "en",
+            targetLanguageCode: targetLanguageCode,
             isTranslating: viewModel.isTranslating(issue),
             isHighlighted: viewModel.highlightedIssueNumber == issue.number
         )
@@ -231,10 +231,13 @@ struct IssueListView: View {
 
     private var loaderState: IssueLoader.State { loader?.state ?? .idle }
 
+    private var targetLanguageCode: String {
+        viewModel.intelligenceSettings?.targetLanguageCode ?? IntelligenceSettings.systemLanguageCode()
+    }
+
     private var summaryTaskID: String {
         let unread = viewModel.unreadIssues.map(\.number).sorted().map(String.init).joined(separator: ",")
-        let lang = viewModel.intelligenceSettings?.targetLanguageCode ?? "en"
-        return "\(lang)|\(unread)"
+        return "\(targetLanguageCode)|\(unread)"
     }
 
     private func summaryText(total: Int, visible: Int) -> String {

@@ -9,9 +9,9 @@ enum SummaryPromptBuilder {
         let extra = max(0, issues.count - issueCap)
 
         var lines: [String] = []
-        lines.append("Summarize the following unread feedback issues.")
+        lines.append("Summarize the following new feedback issues.")
         lines.append("Target output language: \(languageDisplayName(targetLanguage)).")
-        lines.append("Group related issues into 3-5 themed bullets, each with an issueCount.")
+        lines.append("Output a one-sentence overall headline plus 2-5 themed sections. Each section has a short title and a 1-3 sentence prose body. Combine similar issues into a single section and mention rough counts inline. No bullets, lists, or markdown in the body text.")
         lines.append("")
 
         for issue in included {
