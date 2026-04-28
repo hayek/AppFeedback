@@ -17,8 +17,9 @@ final class IssueListViewModel {
         var appVersion: String? = nil
         var device: String? = nil
         var osVersion: String? = nil
+        var issueType: IssueType? = nil
 
-        var isEmpty: Bool { appVersion == nil && device == nil && osVersion == nil }
+        var isEmpty: Bool { appVersion == nil && device == nil && osVersion == nil && issueType == nil }
     }
 
     var visibleIssues: [FeedbackIssue] {
@@ -30,6 +31,7 @@ final class IssueListViewModel {
         if let v = filters.appVersion { list = list.filter { $0.appVersion == v } }
         if let d = filters.device     { list = list.filter { $0.device == d } }
         if let o = filters.osVersion  { list = list.filter { $0.osVersion == o } }
+        if let t = filters.issueType  { list = list.filter { $0.labels.issueType?.type == t } }
 
         if !searchQuery.isEmpty {
             let q = searchQuery.lowercased()
@@ -42,6 +44,12 @@ final class IssueListViewModel {
         }
 
         return list.sorted { $0.createdAt > $1.createdAt }
+    }
+
+    var uniqueIssueTypes: [IssueType] {
+        let base = appFilter.map { app in allIssues.filter { $0.appName == app } } ?? allIssues
+        let types = base.compactMap { $0.labels.issueType?.type }
+        return Array(Set(types)).sorted { $0.displayName < $1.displayName }
     }
 
     func uniqueValues(for keyPath: KeyPath<FeedbackIssue, String?>) -> [String] {

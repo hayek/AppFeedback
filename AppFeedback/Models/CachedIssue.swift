@@ -15,6 +15,7 @@ final class CachedIssue {
     var osVersion: String?
     var email: String?
     var issueDescription: String = ""
+    var labelsJSON: String?
 
     init(
         repoOwner: String,
@@ -28,7 +29,8 @@ final class CachedIssue {
         device: String?,
         osVersion: String?,
         email: String?,
-        issueDescription: String
+        issueDescription: String,
+        labels: [IssueLabel] = []
     ) {
         self.repoOwner = repoOwner
         self.repoName = repoName
@@ -42,6 +44,7 @@ final class CachedIssue {
         self.osVersion = osVersion
         self.email = email
         self.issueDescription = issueDescription
+        self.labelsJSON = Self.encode(labels)
     }
 
     func toFeedbackIssue() -> FeedbackIssue {
@@ -55,7 +58,8 @@ final class CachedIssue {
             device: device,
             osVersion: osVersion,
             email: email,
-            description: issueDescription
+            description: issueDescription,
+            labels: Self.decode(labelsJSON)
         )
     }
 
@@ -72,7 +76,18 @@ final class CachedIssue {
             device: issue.device,
             osVersion: issue.osVersion,
             email: issue.email,
-            issueDescription: issue.description
+            issueDescription: issue.description,
+            labels: issue.labels
         )
+    }
+
+    private static func encode(_ labels: [IssueLabel]) -> String? {
+        guard !labels.isEmpty, let data = try? JSONEncoder().encode(labels) else { return nil }
+        return String(data: data, encoding: .utf8)
+    }
+
+    private static func decode(_ json: String?) -> [IssueLabel] {
+        guard let json, let data = json.data(using: .utf8) else { return [] }
+        return (try? JSONDecoder().decode([IssueLabel].self, from: data)) ?? []
     }
 }

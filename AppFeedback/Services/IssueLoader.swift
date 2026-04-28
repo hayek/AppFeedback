@@ -67,7 +67,10 @@ final class IssueLoader {
     private func performLoad(token: String) async {
         if case .idle = state { loadFromCache() }
         let preLoadState = state   // snapshot before overwriting
-        state = .loading
+        // Keep showing cached data while fetching; only flip to .loading when we have
+        // nothing to show. Otherwise SwiftUI Observation coalesces cache→loading writes
+        // in the same tick and the cached state never renders.
+        if case .loaded = state {} else { state = .loading }
 
         let entryID = activityLog?.start(kind: .fetchIssues, title: "\(config.owner)/\(config.repo)")
 
@@ -87,7 +90,8 @@ final class IssueLoader {
                         device:      parsed.device,
                         osVersion:   parsed.osVersion,
                         email:       parsed.email,
-                        description: parsed.description
+                        description: parsed.description,
+                        labels:      gh.labels.map { IssueLabel(name: $0.name, colorHex: $0.color) }
                     )
                 }
             saveToCache(issues)

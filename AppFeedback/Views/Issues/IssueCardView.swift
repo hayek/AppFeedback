@@ -13,6 +13,8 @@ struct IssueCardView: View {
     var onToggleAppVersion: ((String) -> Void)? = nil
     var onToggleDevice: ((String) -> Void)? = nil
     var onToggleOSVersion: ((String) -> Void)? = nil
+    var activeIssueType: IssueType? = nil
+    var onToggleIssueType: ((IssueType) -> Void)? = nil
     var onTapEmail: ((String) -> Void)? = nil
 
     private var formattedDate: String {
@@ -38,10 +40,21 @@ struct IssueCardView: View {
                             .padding(.top, 6)
                             .accessibilityLabel("Unread")
                     }
-                    Text("#\(issue.number)")
-                        .font(.system(size: 11, weight: .medium))
-                        .foregroundStyle(.tertiary)
-                        .padding(.top, 2)
+                    HStack(spacing: 4) {
+                        Text("#\(issue.number)")
+                            .font(.system(size: 11, weight: .medium))
+                        if let typed = issue.labels.issueType {
+                            IssueTypeIconButton(
+                                type: typed.type,
+                                isActive: activeIssueType == typed.type,
+                                onTap: onToggleIssueType.map { handler in
+                                    { onInteract?(); handler(typed.type) }
+                                }
+                            )
+                        }
+                    }
+                    .foregroundStyle(.tertiary)
+                    .padding(.top, 2)
                     Text(issue.title)
                         .font(.system(size: 15, weight: .semibold))
                         .foregroundStyle(.primary)
@@ -62,6 +75,9 @@ struct IssueCardView: View {
 
                 ScrollView(.horizontal, showsIndicators: false) {
                     HStack(spacing: 6) {
+                        ForEach(issue.labels.withoutTypeAndUserSubmitted, id: \.name) { label in
+                            LabelChipView(label: label)
+                        }
                         if let app = issue.appName {
                             tappable(value: app, onTap: onToggleApp) {
                                 TagView(text: app, color: appColor, isActive: activeApp == app)
@@ -282,6 +298,51 @@ private enum MarkdownBlock {
         let rest = line.dropFirst()
         guard rest.first == " " else { return nil }
         return String(rest.drop(while: { $0 == " " }))
+    }
+}
+
+private struct IssueTypeIconButton: View {
+    let type: IssueType
+    let isActive: Bool
+    let onTap: (() -> Void)?
+
+    var body: some View {
+        let icon = Image(systemName: type.systemImage)
+            .font(.system(size: 9, weight: .medium))
+            .foregroundStyle(isActive ? AnyShapeStyle(Color.primary.opacity(0.75)) : AnyShapeStyle(HierarchicalShapeStyle.tertiary))
+            .help(type.displayName)
+            .accessibilityLabel("Filter by \(type.displayName)")
+
+        if let onTap {
+            Button(action: onTap) { icon }
+                .buttonStyle(.plain)
+        } else {
+            icon
+        }
+    }
+}
+
+private struct LabelChipView: View {
+    let label: IssueLabel
+
+    var body: some View {
+        let color = Color(hex: label.colorHex)
+        Text(label.name)
+            .font(.system(size: 11, weight: .semibold))
+            .foregroundStyle(color.contrastingForeground)
+            .padding(.horizontal, 8)
+            .padding(.vertical, 3)
+            .background(color, in: RoundedRectangle(cornerRadius: 6))
+            .overlay(RoundedRectangle(cornerRadius: 6).stroke(color.opacity(0.5), lineWidth: 0.5))
+    }
+}
+
+private extension Color {
+    var contrastingForeground: Color {
+        // GitHub-style: pick black/white based on perceived luminance of the hex color.
+        guard let components = cgColor?.components, components.count >= 3 else { return .white }
+        let luminance = 0.299 * components[0] + 0.587 * components[1] + 0.114 * components[2]
+        return luminance > 0.6 ? .black : .white
     }
 }
 

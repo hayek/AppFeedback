@@ -143,6 +143,10 @@ struct IssueListView: View {
             onToggleOSVersion: { value in
                 viewModel.filters.osVersion = viewModel.filters.osVersion == value ? nil : value
             },
+            activeIssueType: viewModel.filters.issueType,
+            onToggleIssueType: { type in
+                viewModel.filters.issueType = viewModel.filters.issueType == type ? nil : type
+            },
             onTapEmail: { email in
                 composing = ComposeContext(recipient: email, issue: issue)
             }
@@ -168,6 +172,10 @@ struct IssueListView: View {
             },
             onToggleOSVersion: { value in
                 viewModel.filters.osVersion = viewModel.filters.osVersion == value ? nil : value
+            },
+            activeIssueType: viewModel.filters.issueType,
+            onToggleIssueType: { type in
+                viewModel.filters.issueType = viewModel.filters.issueType == type ? nil : type
             }
         )
         #endif

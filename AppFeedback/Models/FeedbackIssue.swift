@@ -1,5 +1,42 @@
 import Foundation
 
+struct IssueLabel: Codable, Sendable, Hashable {
+    let name: String
+    let colorHex: String
+}
+
+enum IssueType: String {
+    case bug
+    case featureRequest = "feature-request"
+
+    var displayName: String {
+        switch self {
+        case .bug: return "Bug"
+        case .featureRequest: return "Feature"
+        }
+    }
+
+    var systemImage: String {
+        switch self {
+        case .bug: return "ant.fill"
+        case .featureRequest: return "sparkles"
+        }
+    }
+}
+
+extension Array where Element == IssueLabel {
+    var issueType: (type: IssueType, color: String)? {
+        for label in self {
+            if let t = IssueType(rawValue: label.name) { return (t, label.colorHex) }
+        }
+        return nil
+    }
+
+    var withoutTypeAndUserSubmitted: [IssueLabel] {
+        filter { IssueType(rawValue: $0.name) == nil && $0.name != "user-submitted" }
+    }
+}
+
 struct FeedbackIssue: Identifiable, Codable, Sendable {
     let number: Int
     let title: String
@@ -11,6 +48,7 @@ struct FeedbackIssue: Identifiable, Codable, Sendable {
     let osVersion: String?
     let email: String?
     let description: String
+    let labels: [IssueLabel]
 
     var id: Int { number }
 }
