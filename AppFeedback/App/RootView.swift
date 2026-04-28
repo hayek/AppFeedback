@@ -132,6 +132,9 @@ struct RootView: View {
         .onChange(of: repoGroupSignature) { _, _ in
             maybeSnapshotBacklog()
         }
+        .onChange(of: notificationSettings.isEnabled) { _, isOn in
+            if isOn { maybeSnapshotBacklog() }
+        }
     }
 
     private func allApps(for repoId: UUID) -> [String] {
