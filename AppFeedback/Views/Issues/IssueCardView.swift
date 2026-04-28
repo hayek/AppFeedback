@@ -124,7 +124,7 @@ struct IssueCardView: View {
                         ForEach(issue.labels.withoutTypeAndUserSubmitted, id: \.name) { label in
                             LabelChipView(label: label)
                         }
-                        if let app = issue.appName {
+                        if let app = issue.appName, activeApp != app {
                             tappable(value: app, onTap: onToggleApp) {
                                 TagView(text: app, color: appColor, isActive: activeApp == app)
                             }
