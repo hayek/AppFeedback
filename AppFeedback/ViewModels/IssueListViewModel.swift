@@ -83,7 +83,16 @@ final class IssueListViewModel {
     }
 
     func applyLoaded(_ issues: [FeedbackIssue]) {
-        allIssues = issues
+        let priorByNumber = Dictionary(uniqueKeysWithValues: allIssues.map { ($0.number, $0) })
+        allIssues = issues.map { fresh in
+            guard let prior = priorByNumber[fresh.number] else { return fresh }
+            var merged = fresh
+            merged.detectedLanguageCode = fresh.detectedLanguageCode ?? prior.detectedLanguageCode
+            merged.translatedTitle = fresh.translatedTitle ?? prior.translatedTitle
+            merged.translatedBody = fresh.translatedBody ?? prior.translatedBody
+            merged.translationTargetLanguage = fresh.translationTargetLanguage ?? prior.translationTargetLanguage
+            return merged
+        }
         let numbers = Set(issues.map(\.number))
         if let store = seenStore {
             let toFlush = previouslyLoadedNumbers.subtracting(store.seenNumbers(owner: seenOwner, repo: seenRepo))
