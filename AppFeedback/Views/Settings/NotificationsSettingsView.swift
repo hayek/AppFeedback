@@ -11,6 +11,14 @@ struct NotificationsSettingsView: View {
     let service: NotificationService
     @State private var systemDenied: Bool = false
 
+    private var foregroundNotificationName: Notification.Name {
+        #if canImport(UIKit)
+        UIApplication.didBecomeActiveNotification
+        #else
+        NSApplication.didBecomeActiveNotification
+        #endif
+    }
+
     var body: some View {
         Form {
             Section {
@@ -31,6 +39,9 @@ struct NotificationsSettingsView: View {
             }
         }
         .task { await refreshSystemStatus() }
+        .onReceive(NotificationCenter.default.publisher(for: foregroundNotificationName)) { _ in
+            Task { await refreshSystemStatus() }
+        }
     }
 
     private func ensureAuthorization() async {
