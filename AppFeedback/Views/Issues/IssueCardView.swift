@@ -19,8 +19,10 @@ struct IssueCardView: View {
     var intelligenceAvailable: Bool = false
     var targetLanguageCode: String = "en"
     var isTranslating: Bool = false
+    var isHighlighted: Bool = false
 
     @State private var showOriginal: Bool = false
+    @State private var highlightActive: Bool = false
 
     private var translationVisible: Bool { issue.hasTranslation && !showOriginal }
 
@@ -166,10 +168,24 @@ struct IssueCardView: View {
             .padding(.vertical, 14)
         }
         .background(.background)
+        .background(
+            RoundedRectangle(cornerRadius: 10)
+                .fill(Color.accentColor.opacity(highlightActive ? 0.15 : 0))
+                .animation(.easeOut(duration: 0.6), value: highlightActive)
+        )
         .clipShape(RoundedRectangle(cornerRadius: 10))
         .shadow(color: .black.opacity(0.06), radius: 3, y: 1)
         .contentShape(Rectangle())
         .onTapGesture { onInteract?() }
+        .onChange(of: isHighlighted) { _, newValue in
+            if newValue {
+                highlightActive = true
+                Task {
+                    try? await Task.sleep(for: .seconds(1.5))
+                    highlightActive = false
+                }
+            }
+        }
     }
 
     @ViewBuilder

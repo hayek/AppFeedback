@@ -85,37 +85,50 @@ struct IssueListView: View {
                 .foregroundStyle(.secondary)
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
         } else {
-            ScrollView {
-                LazyVStack(spacing: 12) {
-                    if viewModel.allowsAppFilter || viewModel.appFilter != nil || !viewModel.filters.isEmpty {
-                        FilterBarView(viewModel: viewModel)
+            ScrollViewReader { proxy in
+                ScrollView {
+                    LazyVStack(spacing: 12) {
+                        if viewModel.allowsAppFilter || viewModel.appFilter != nil || !viewModel.filters.isEmpty {
+                            FilterBarView(viewModel: viewModel)
+                        }
+
+                        UnreadSummaryView(
+                            state: summaryVM.state,
+                            collapseKey: summaryCollapseKey
+                        )
+                        .padding(.horizontal, 2)
+
+                        HStack {
+                            Text(summaryText(total: viewModel.allIssues.count, visible: visible.count))
+                                .font(.system(size: 13, weight: .medium))
+                                .foregroundStyle(.secondary)
+                            Spacer()
+                        }
+                        .padding(.horizontal, 2)
+
+                        ForEach(visible) { issue in
+                            issueCard(for: issue)
+                                .id(issue.number)
+                        }
                     }
-
-                    UnreadSummaryView(
-                        state: summaryVM.state,
-                        collapseKey: summaryCollapseKey
-                    )
-                    .padding(.horizontal, 2)
-
-                    HStack {
-                        Text(summaryText(total: viewModel.allIssues.count, visible: visible.count))
-                            .font(.system(size: 13, weight: .medium))
-                            .foregroundStyle(.secondary)
-                        Spacer()
-                    }
-                    .padding(.horizontal, 2)
-
-                    ForEach(visible) { issue in
-                        issueCard(for: issue)
+                    .padding(.horizontal, 20)
+                    .padding(.vertical, 16)
+                    .task(id: summaryTaskID) {
+                        await summaryVM.update(
+                            unread: viewModel.unreadIssues,
+                            targetLanguage: viewModel.intelligenceSettings?.targetLanguageCode ?? "en"
+                        )
                     }
                 }
-                .padding(.horizontal, 20)
-                .padding(.vertical, 16)
-                .task(id: summaryTaskID) {
-                    await summaryVM.update(
-                        unread: viewModel.unreadIssues,
-                        targetLanguage: viewModel.intelligenceSettings?.targetLanguageCode ?? "en"
-                    )
+                .onChange(of: viewModel.highlightedIssueNumber) { _, newValue in
+                    guard let number = newValue else { return }
+                    withAnimation {
+                        proxy.scrollTo(number, anchor: .top)
+                    }
+                    Task {
+                        try? await Task.sleep(for: .seconds(1.5))
+                        viewModel.highlightedIssueNumber = nil
+                    }
                 }
             }
             #if os(macOS)
@@ -170,7 +183,9 @@ struct IssueListView: View {
                 composing = ComposeContext(recipient: email, issue: issue)
             },
             intelligenceAvailable: viewModel.intelligenceProvider?.availability.isReady ?? false,
-            targetLanguageCode: viewModel.intelligenceSettings?.targetLanguageCode ?? "en", isTranslating: viewModel.isTranslating(issue)
+            targetLanguageCode: viewModel.intelligenceSettings?.targetLanguageCode ?? "en",
+            isTranslating: viewModel.isTranslating(issue),
+            isHighlighted: viewModel.highlightedIssueNumber == issue.number
         )
         #else
         IssueCardView(
@@ -199,7 +214,9 @@ struct IssueListView: View {
                 viewModel.filters.issueType = viewModel.filters.issueType == type ? nil : type
             },
             intelligenceAvailable: viewModel.intelligenceProvider?.availability.isReady ?? false,
-            targetLanguageCode: viewModel.intelligenceSettings?.targetLanguageCode ?? "en", isTranslating: viewModel.isTranslating(issue)
+            targetLanguageCode: viewModel.intelligenceSettings?.targetLanguageCode ?? "en",
+            isTranslating: viewModel.isTranslating(issue),
+            isHighlighted: viewModel.highlightedIssueNumber == issue.number
         )
         #endif
     }
