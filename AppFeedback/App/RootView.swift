@@ -65,6 +65,10 @@ struct RootView: View {
                         summaryVM: summaryVM,
                         summaryCollapseKey: "\(owner)/\(name)"
                     )
+                    #if os(iOS)
+                    .navigationTitle(navigationTitle(for: selection))
+                    .navigationBarTitleDisplayMode(.inline)
+                    #endif
                 } else {
                     ProgressView()
                 }
@@ -136,6 +140,17 @@ struct RootView: View {
             if isOn { maybeSnapshotBacklog() }
         }
     }
+
+    #if os(iOS)
+    private func navigationTitle(for selection: SidebarSelection) -> String {
+        switch selection {
+        case .allIssues:
+            return "All Apps"
+        case .app(_, let appName):
+            return appName
+        }
+    }
+    #endif
 
     private func allApps(for repoId: UUID) -> [String] {
         guard let loader = loaders[repoId],
