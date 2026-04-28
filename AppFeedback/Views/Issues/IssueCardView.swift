@@ -162,7 +162,21 @@ struct IssueCardView: View {
                             }
                         }
                     }
+                    .padding(.horizontal, 12)
                 }
+                .mask(
+                    LinearGradient(
+                        stops: [
+                            .init(color: .clear, location: 0.0),
+                            .init(color: .black, location: 0.04),
+                            .init(color: .black, location: 0.96),
+                            .init(color: .clear, location: 1.0)
+                        ],
+                        startPoint: .leading,
+                        endPoint: .trailing
+                    )
+                )
+                .padding(.horizontal, -12)
             }
             .padding(.horizontal, 16)
             .padding(.vertical, 14)
