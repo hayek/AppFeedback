@@ -26,6 +26,8 @@ struct SettingsView: View {
     @Environment(CloudSyncStatus.self) private var syncStatus
     @Environment(IntelligenceSettings.self) private var intelligenceSettings
     @Environment(IntelligenceService.self) private var intelligenceService
+    @Environment(NotificationSettings.self) private var notificationSettings
+    @Environment(\.notificationService) private var notificationService
     #if os(iOS)
     @Environment(\.dismiss) private var dismiss
     #endif
@@ -61,6 +63,10 @@ struct SettingsView: View {
                 }
             )
             .tabItem { Label("Intelligence", systemImage: "sparkles") }
+            if let notificationService {
+                NotificationsSettingsView(settings: notificationSettings, service: notificationService)
+                    .tabItem { Label("Notifications", systemImage: "bell") }
+            }
         }
         .frame(
             minWidth: 540, idealWidth: 720, maxWidth: .infinity,
@@ -107,6 +113,18 @@ struct SettingsView: View {
                         Text("Tap a repository to edit. Swipe left to remove.")
                     } else {
                         Text("Add a GitHub repository to start browsing feedback.")
+                    }
+                }
+
+                if let notificationService {
+                    Section {
+                        NavigationLink {
+                            NotificationsSettingsView(settings: notificationSettings, service: notificationService)
+                                .navigationTitle("Notifications")
+                                .navigationBarTitleDisplayMode(.large)
+                        } label: {
+                            Label("Notifications", systemImage: "bell")
+                        }
                     }
                 }
             }

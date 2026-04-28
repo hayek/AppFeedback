@@ -1,4 +1,5 @@
 import Foundation
+import SwiftUI
 import UserNotifications
 
 @MainActor
@@ -92,6 +93,19 @@ extension NotificationService: UNUserNotificationCenterDelegate {
             if let key { self.router.pendingIssueKey = key }
         }
         completionHandler()
+    }
+}
+
+// MARK: - SwiftUI Environment
+
+private struct NotificationServiceKey: EnvironmentKey {
+    static let defaultValue: NotificationService? = nil
+}
+
+extension EnvironmentValues {
+    var notificationService: NotificationService? {
+        get { self[NotificationServiceKey.self] }
+        set { self[NotificationServiceKey.self] = newValue }
     }
 }
 
