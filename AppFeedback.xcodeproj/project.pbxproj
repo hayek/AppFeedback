@@ -40,6 +40,7 @@
 		2C178B6BDA408AF752A96ECA /* GitHubAuthTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7A20FA7E90167D159840CB34 /* GitHubAuthTests.swift */; };
 		2D9CBD7A7B3A15DE812102A2 /* IntelligenceSettingsTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 99AFF17F125B757AF2DDA56C /* IntelligenceSettingsTests.swift */; };
 		2EAC138DDFD25ED8DB286CDA /* LanguageDetector.swift in Sources */ = {isa = PBXBuildFile; fileRef = C08DA18B97C3208E26F81439 /* LanguageDetector.swift */; };
+		2EF4C6D6EF0267D67B94195C /* UnreadSummaryView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2146AEEE96ACCB5EB3265B3E /* UnreadSummaryView.swift */; };
 		302B3F175D4ECEA78AD65FBE /* CloudSyncStatus.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4EADC7EBFDDAE8FAAA839A09 /* CloudSyncStatus.swift */; };
 		30F1CB706C0706655B42707A /* SidebarView.swift in Sources */ = {isa = PBXBuildFile; fileRef = BB29F50E5FCD4805C5960079 /* SidebarView.swift */; };
 		3205B78847815D3A10940230 /* RepoStoreTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 362B178DE65AC41CBE9665EC /* RepoStoreTests.swift */; };
@@ -108,6 +109,7 @@
 		9ED2C8220ADAA9745E75AC0F /* ActivityLogTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = EC52FD3E27B1F223D322FA99 /* ActivityLogTests.swift */; };
 		A39AE526357FEEAFB785BCA5 /* MockURLProtocol.swift in Sources */ = {isa = PBXBuildFile; fileRef = 862BA4BF33A265329E335DDE /* MockURLProtocol.swift */; };
 		A5E4894A6D7EF95BFC260B9A /* CloudSyncStatusTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1A5E9D6EA54332099D0A0E76 /* CloudSyncStatusTests.swift */; };
+		A6E7C025885D4D8E82BC66D5 /* UnreadSummaryView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2146AEEE96ACCB5EB3265B3E /* UnreadSummaryView.swift */; };
 		A7E7D1F467C7C3110AE5BC29 /* RepoStoreTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 362B178DE65AC41CBE9665EC /* RepoStoreTests.swift */; };
 		AD72C524AE9F03E7E1FD6484 /* KeychainService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9FAC042F79EF94F76B9A8077 /* KeychainService.swift */; };
 		B0497F396DF93412A1B1C2B7 /* GitHubAuthTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7A20FA7E90167D159840CB34 /* GitHubAuthTests.swift */; };
@@ -185,6 +187,7 @@
 		14204B0FB15E1C987B6ADC0F /* MailSender.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MailSender.swift; sourceTree = "<group>"; };
 		1A5E9D6EA54332099D0A0E76 /* CloudSyncStatusTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CloudSyncStatusTests.swift; sourceTree = "<group>"; };
 		1E82DAEA39278D09C6F83D6A /* IssueBodyParserTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = IssueBodyParserTests.swift; sourceTree = "<group>"; };
+		2146AEEE96ACCB5EB3265B3E /* UnreadSummaryView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UnreadSummaryView.swift; sourceTree = "<group>"; };
 		21BC609BC2D10473659865E1 /* Repo.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Repo.swift; sourceTree = "<group>"; };
 		23A9BA2E68773A9401ABCE89 /* MailComposerTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MailComposerTests.swift; sourceTree = "<group>"; };
 		246E5DA82B7EDBD9337F68E9 /* RepoSectionView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RepoSectionView.swift; sourceTree = "<group>"; };
@@ -354,6 +357,7 @@
 				A5A00E7444118AEC76580EAB /* FilterBarView.swift */,
 				7B47F8578C6AACFA2B16D08C /* IssueCardView.swift */,
 				D35D37984A2CF87D2C03479A /* IssueListView.swift */,
+				2146AEEE96ACCB5EB3265B3E /* UnreadSummaryView.swift */,
 			);
 			path = Issues;
 			sourceTree = "<group>";
@@ -642,6 +646,7 @@
 				74B69DFC16D5840BEE1A575A /* SidebarSelection.swift in Sources */,
 				C5F9AD045CE8F894837E968F /* SidebarView.swift in Sources */,
 				E4DEE5AFC2FF2F643F556BF6 /* SummaryPromptBuilder.swift in Sources */,
+				A6E7C025885D4D8E82BC66D5 /* UnreadSummaryView.swift in Sources */,
 				562460209F2D73146B278AD2 /* UnreadSummaryViewModel.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
@@ -729,6 +734,7 @@
 				00D2184620E75F5220E16288 /* SidebarSelection.swift in Sources */,
 				30F1CB706C0706655B42707A /* SidebarView.swift in Sources */,
 				97AD207D583CC4107CD4E2B9 /* SummaryPromptBuilder.swift in Sources */,
+				2EF4C6D6EF0267D67B94195C /* UnreadSummaryView.swift in Sources */,
 				C199B80C174E5C3EB1790074 /* UnreadSummaryViewModel.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
