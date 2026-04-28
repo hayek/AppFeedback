@@ -13,9 +13,9 @@ struct FilterBarView: View {
             pillRow(label: "Version", values: viewModel.uniqueValues(for: \.appVersion),
                     binding: binding(for: \.appVersion))
             pillRow(label: "Device",  values: viewModel.uniqueValues(for: \.device),
-                    binding: binding(for: \.device))
+                    binding: binding(for: \.device), display: DeviceName.friendly)
             pillRow(label: "OS",      values: viewModel.uniqueValues(for: \.osVersion),
-                    binding: binding(for: \.osVersion))
+                    binding: binding(for: \.osVersion), display: OSVersionFormat.display)
         }
         .padding(12)
         .background(.background)
@@ -50,7 +50,7 @@ struct FilterBarView: View {
     }
 
     @ViewBuilder
-    private func pillRow(label: String, values: [String], binding: Binding<String?>) -> some View {
+    private func pillRow(label: String, values: [String], binding: Binding<String?>, display: ((String) -> String)? = nil) -> some View {
         if !values.isEmpty {
             HStack(spacing: 8) {
                 Text(label)
@@ -64,7 +64,7 @@ struct FilterBarView: View {
                     HStack(spacing: 6) {
                         ForEach(values, id: \.self) { value in
                             PillButton(
-                                title: value,
+                                title: display?(value) ?? value,
                                 isActive: binding.wrappedValue == value
                             ) {
                                 binding.wrappedValue = binding.wrappedValue == value ? nil : value

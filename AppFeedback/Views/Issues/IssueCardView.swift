@@ -136,12 +136,12 @@ struct IssueCardView: View {
                         }
                         if let device = issue.device {
                             tappable(value: device, onTap: onToggleDevice) {
-                                MetaTagView(key: "device", value: device, isActive: activeDevice == device)
+                                MetaTagView(key: "device", value: DeviceName.friendly(device), isActive: activeDevice == device)
                             }
                         }
                         if let os = issue.osVersion {
                             tappable(value: os, onTap: onToggleOSVersion) {
-                                MetaTagView(key: "os", value: os, isActive: activeOSVersion == os)
+                                MetaTagView(key: "os", value: OSVersionFormat.display(os), isActive: activeOSVersion == os)
                             }
                         }
                         if let email = issue.email {
