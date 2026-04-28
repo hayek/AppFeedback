@@ -55,20 +55,23 @@ struct RootView: View {
         } detail: {
             if let selection {
                 if let summaryVM {
+                    let repo = store.repos.first(where: { $0.id == selection.repoId })
+                    let owner = repo?.owner ?? ""
+                    let name = repo?.repo ?? ""
                     IssueListView(
                         viewModel: viewModel,
                         loader: loaders[selection.repoId],
                         allApps: allApps(for: selection.repoId),
                         onRefresh: {
-                            guard let repo = store.repos.first(where: { $0.id == selection.repoId }),
+                            guard let repo,
                                   let token = await KeychainService.load(for: repo) else { return }
                             await loaders[selection.repoId]?.load(token: token)
                         },
-                        repoOwner: store.repos.first(where: { $0.id == selection.repoId })?.owner ?? "",
-                        repoName: store.repos.first(where: { $0.id == selection.repoId })?.repo ?? "",
+                        repoOwner: owner,
+                        repoName: name,
                         appColorOverrides: store.appColors[selection.repoId] ?? [:],
                         summaryVM: summaryVM,
-                        summaryCollapseKey: "\(store.repos.first(where: { $0.id == selection.repoId })?.owner ?? "")/\(store.repos.first(where: { $0.id == selection.repoId })?.repo ?? "")"
+                        summaryCollapseKey: "\(owner)/\(name)"
                     )
                 } else {
                     ProgressView()

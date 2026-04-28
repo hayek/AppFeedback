@@ -16,16 +16,9 @@ final class IntelligenceSettings {
 
     init(defaults: UserDefaults = .standard) {
         self.defaults = defaults
-        if defaults.object(forKey: Self.translationEnabledKey) == nil {
-            self.translationEnabled = true
-        } else {
-            self.translationEnabled = defaults.bool(forKey: Self.translationEnabledKey)
-        }
-        if let stored = defaults.string(forKey: Self.targetLanguageKey), !stored.isEmpty {
-            self.targetLanguageCode = stored
-        } else {
-            self.targetLanguageCode = Self.systemLanguageCode()
-        }
+        self.translationEnabled = (defaults.object(forKey: Self.translationEnabledKey) as? Bool) ?? true
+        let storedLanguage = defaults.string(forKey: Self.targetLanguageKey) ?? ""
+        self.targetLanguageCode = storedLanguage.isEmpty ? Self.systemLanguageCode() : storedLanguage
     }
 
     static func systemLanguageCode() -> String {
@@ -35,7 +28,6 @@ final class IntelligenceSettings {
         return "en"
     }
 
-    /// Curated picker list. Keep small; users can pick "Other…" elsewhere.
     static let pickerOptions: [(code: String, displayName: String)] = [
         ("en", "English"),
         ("es", "Spanish"),

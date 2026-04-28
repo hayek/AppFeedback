@@ -31,7 +31,6 @@ enum SummaryPromptBuilder {
 
     static func stripCodeBlocks(_ text: String) -> String {
         var result = text
-        // Fenced ``` blocks
         while let openRange = result.range(of: "```") {
             let afterOpen = openRange.upperBound
             if let closeRange = result.range(of: "```", range: afterOpen..<result.endIndex) {
@@ -41,11 +40,9 @@ enum SummaryPromptBuilder {
                 break
             }
         }
-        // 4-space indented blocks (line-by-line)
-        let kept = result.split(separator: "\n", omittingEmptySubsequences: false)
+        return result.split(separator: "\n", omittingEmptySubsequences: false)
             .filter { !$0.hasPrefix("    ") }
             .joined(separator: "\n")
-        return kept
     }
 
     private static func languageDisplayName(_ code: String) -> String {

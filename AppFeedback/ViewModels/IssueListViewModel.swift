@@ -95,7 +95,15 @@ final class IssueListViewModel {
             sessionUnread = []
         }
         previouslyLoadedNumbers = numbers
+        detectLanguagesForLoadedIssues()
         startTranslationsIfNeeded()
+    }
+
+    private func detectLanguagesForLoadedIssues() {
+        for i in allIssues.indices where allIssues[i].detectedLanguageCode == nil {
+            let combined = allIssues[i].title + "\n" + allIssues[i].description
+            allIssues[i].detectedLanguageCode = LanguageDetector.detect(combined) ?? ""
+        }
     }
 
     func isUnread(_ issue: FeedbackIssue) -> Bool {
@@ -126,7 +134,7 @@ final class IssueListViewModel {
         guard let provider = intelligenceProvider,
               let settings = intelligenceSettings,
               settings.translationEnabled,
-              provider.availability == .available else { return }
+              provider.availability.isReady else { return }
 
         let target = settings.targetLanguageCode
         for issue in allIssues {
@@ -134,8 +142,8 @@ final class IssueListViewModel {
                 && issue.translationTargetLanguage == target { continue }
             if translationTasks[issue.number] != nil { continue }
 
-            let detected = LanguageDetector.detect(issue.title + "\n" + issue.description)
-            guard let detected, !detected.hasPrefix(target) else { continue }
+            guard let detected = issue.detectedLanguageCode, !detected.isEmpty,
+                  !detected.hasPrefix(target) else { continue }
 
             translationTasks[issue.number] = Task { [weak self] in
                 await self?.translate(issue: issue, detected: detected, target: target)
@@ -170,7 +178,6 @@ final class IssueListViewModel {
                 )
             }
         } catch {
-            // Silent — leave originals in place.
         }
     }
 
@@ -209,6 +216,7 @@ final class IssueListViewModel {
             let repo = seenRepo
             let descriptor = FetchDescriptor<CachedIssue>(predicate: #Predicate { cached in
                 cached.repoOwner == owner && cached.repoName == repo
+                    && cached.translationTargetLanguage != nil
             })
             if let rows = try? context.fetch(descriptor) {
                 for row in rows {

@@ -164,7 +164,7 @@ struct IssueListView: View {
             onTapEmail: { email in
                 composing = ComposeContext(recipient: email, issue: issue)
             },
-            intelligenceAvailable: viewModel.intelligenceProvider?.availability == .available,
+            intelligenceAvailable: viewModel.intelligenceProvider?.availability.isReady ?? false,
             targetLanguageCode: viewModel.intelligenceSettings?.targetLanguageCode ?? "en"
         )
         #else
@@ -193,7 +193,7 @@ struct IssueListView: View {
             onToggleIssueType: { type in
                 viewModel.filters.issueType = viewModel.filters.issueType == type ? nil : type
             },
-            intelligenceAvailable: viewModel.intelligenceProvider?.availability == .available,
+            intelligenceAvailable: viewModel.intelligenceProvider?.availability.isReady ?? false,
             targetLanguageCode: viewModel.intelligenceSettings?.targetLanguageCode ?? "en"
         )
         #endif

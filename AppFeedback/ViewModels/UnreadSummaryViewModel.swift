@@ -26,7 +26,7 @@ final class UnreadSummaryViewModel {
     func update(unread: [FeedbackIssue], targetLanguage: String) async {
         currentTask?.cancel()
 
-        if provider.availability != .available {
+        if !provider.availability.isReady {
             state = .unavailable
             return
         }
@@ -47,7 +47,6 @@ final class UnreadSummaryViewModel {
                 if Task.isCancelled { return }
                 await MainActor.run { self?.state = .ready(result) }
             } catch is CancellationError {
-                // Silent.
             } catch {
                 if Task.isCancelled { return }
                 let message = error.localizedDescription

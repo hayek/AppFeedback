@@ -25,8 +25,7 @@ struct IssueCardView: View {
 
     private var needsTranslationButUnavailable: Bool {
         guard !intelligenceAvailable else { return false }
-        let combined = issue.title + "\n" + issue.description
-        guard let detected = LanguageDetector.detect(combined) else { return false }
+        guard let detected = issue.detectedLanguageCode, !detected.isEmpty else { return false }
         return !detected.hasPrefix(targetLanguageCode)
     }
 

@@ -44,22 +44,19 @@ final class IntelligenceService: IntelligenceProvider {
 
     func recomputeAvailability() {
         #if canImport(FoundationModels)
-        if #available(macOS 26, iOS 26, *) {
-            switch SystemLanguageModel.default.availability {
-            case .available:
-                availability = .available
-            case .unavailable(let reason):
-                switch reason {
-                case .appleIntelligenceNotEnabled: availability = .appleIntelligenceNotEnabled
-                case .modelNotReady: availability = .modelNotReady
-                case .deviceNotEligible: availability = .deviceNotEligible
-                @unknown default: availability = .deviceNotEligible
-                }
-            @unknown default:
-                availability = .deviceNotEligible
-            }
-        } else {
+        guard #available(macOS 26, iOS 26, *) else {
             availability = .osTooOld
+            return
+        }
+        guard case .unavailable(let reason) = SystemLanguageModel.default.availability else {
+            availability = .available
+            return
+        }
+        switch reason {
+        case .appleIntelligenceNotEnabled: availability = .appleIntelligenceNotEnabled
+        case .modelNotReady: availability = .modelNotReady
+        case .deviceNotEligible: availability = .deviceNotEligible
+        @unknown default: availability = .deviceNotEligible
         }
         #else
         availability = .osTooOld
@@ -88,7 +85,7 @@ final class IntelligenceService: IntelligenceProvider {
 
     @MainActor
     private func checkAvailable() throws {
-        if availability != .available { throw IntelligenceError.unavailable }
+        if !availability.isReady { throw IntelligenceError.unavailable }
     }
 }
 
