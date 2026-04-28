@@ -172,10 +172,10 @@ struct RootView: View {
         viewModel.clearFilters()
         switch selection {
         case .allIssues:
-            viewModel.appFilter = nil
+            viewModel.appFilter = []
             viewModel.allowsAppFilter = true
         case .app(_, let name):
-            viewModel.appFilter = name
+            viewModel.appFilter = [name]
             viewModel.allowsAppFilter = false
         }
     }
@@ -279,7 +279,7 @@ struct RootView: View {
         // set highlightedIssueNumber to mark it directly without touching searchQuery.
         selection = .allIssues(repoId: repoId)
         viewModel.clearFilters()
-        viewModel.appFilter = nil
+        viewModel.appFilter = []
         viewModel.highlightedIssueNumber = issue.number
     }
 

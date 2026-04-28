@@ -13,7 +13,7 @@ final class IssueListViewModel {
         allIssues.filter { sessionUnread.contains($0.number) && !hiddenApps.contains($0.appName ?? "") }
     }
     var searchQuery = ""
-    var appFilter: String? = nil
+    var appFilter: Set<String> = []
     var allowsAppFilter: Bool = false
     var filters = ActiveFilters()
     /// Set by deep-link notification tap to highlight a specific issue.
@@ -24,12 +24,12 @@ final class IssueListViewModel {
     }
 
     struct ActiveFilters {
-        var appVersion: String? = nil
-        var device: String? = nil
-        var osVersion: String? = nil
-        var issueType: IssueType? = nil
+        var appVersion: Set<String> = []
+        var device: Set<String> = []
+        var osVersion: Set<String> = []
+        var issueType: Set<IssueType> = []
 
-        var isEmpty: Bool { appVersion == nil && device == nil && osVersion == nil && issueType == nil }
+        var isEmpty: Bool { appVersion.isEmpty && device.isEmpty && osVersion.isEmpty && issueType.isEmpty }
     }
 
     var visibleIssues: [FeedbackIssue] {
@@ -41,13 +41,13 @@ final class IssueListViewModel {
             list = list.filter { !hiddenApps.contains($0.appName ?? "") }
         }
 
-        if let app = appFilter {
-            list = list.filter { $0.appName == app }
+        if !appFilter.isEmpty {
+            list = list.filter { appFilter.contains($0.appName ?? "") }
         }
-        if let v = filters.appVersion { list = list.filter { $0.appVersion == v } }
-        if let d = filters.device     { list = list.filter { $0.device == d } }
-        if let o = filters.osVersion  { list = list.filter { $0.osVersion == o } }
-        if let t = filters.issueType  { list = list.filter { $0.labels.issueType?.type == t } }
+        if !filters.appVersion.isEmpty { list = list.filter { filters.appVersion.contains($0.appVersion ?? "") } }
+        if !filters.device.isEmpty     { list = list.filter { filters.device.contains($0.device ?? "") } }
+        if !filters.osVersion.isEmpty  { list = list.filter { filters.osVersion.contains($0.osVersion ?? "") } }
+        if !filters.issueType.isEmpty  { list = list.filter { ($0.labels.issueType?.type).map { filters.issueType.contains($0) } ?? false } }
 
         if !searchQuery.isEmpty {
             let q = searchQuery.lowercased()
@@ -76,12 +76,13 @@ final class IssueListViewModel {
     /// All issues with hidden apps filtered out, optionally narrowed to the selected app.
     private var visibleBase: [FeedbackIssue] {
         let withoutHidden = hiddenApps.isEmpty ? allIssues : allIssues.filter { !hiddenApps.contains($0.appName ?? "") }
-        return appFilter.map { app in withoutHidden.filter { $0.appName == app } } ?? withoutHidden
+        return appFilter.isEmpty ? withoutHidden : withoutHidden.filter { appFilter.contains($0.appName ?? "") }
     }
 
     func clearFilters() {
         filters = ActiveFilters()
     }
+
 
     private var seenStore: SeenIssueStore?
     private var seenOwner: String = ""
@@ -282,5 +283,11 @@ final class IssueListViewModel {
                 try? context.save()
             }
         }
+    }
+}
+
+extension Set {
+    mutating func toggleMembership(_ element: Element) {
+        if contains(element) { remove(element) } else { insert(element) }
     }
 }

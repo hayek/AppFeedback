@@ -5,15 +5,15 @@ struct IssueCardView: View {
     let appColor: Color
     var isUnread: Bool = false
     var onInteract: (() -> Void)? = nil
-    var activeApp: String? = nil
-    var activeAppVersion: String? = nil
-    var activeDevice: String? = nil
-    var activeOSVersion: String? = nil
+    var activeApp: Set<String> = []
+    var activeAppVersion: Set<String> = []
+    var activeDevice: Set<String> = []
+    var activeOSVersion: Set<String> = []
     var onToggleApp: ((String) -> Void)? = nil
     var onToggleAppVersion: ((String) -> Void)? = nil
     var onToggleDevice: ((String) -> Void)? = nil
     var onToggleOSVersion: ((String) -> Void)? = nil
-    var activeIssueType: IssueType? = nil
+    var activeIssueType: Set<IssueType> = []
     var onToggleIssueType: ((IssueType) -> Void)? = nil
     var onTapEmail: ((String) -> Void)? = nil
     var intelligenceAvailable: Bool = false
@@ -66,7 +66,7 @@ struct IssueCardView: View {
                         if let typed = issue.labels.issueType {
                             IssueTypeIconButton(
                                 type: typed.type,
-                                isActive: activeIssueType == typed.type,
+                                isActive: activeIssueType.contains(typed.type),
                                 onTap: onToggleIssueType.map { handler in
                                     { onInteract?(); handler(typed.type) }
                                 }
@@ -124,24 +124,24 @@ struct IssueCardView: View {
                         ForEach(issue.labels.withoutTypeAndUserSubmitted, id: \.name) { label in
                             LabelChipView(label: label)
                         }
-                        if let app = issue.appName, activeApp != app {
+                        if let app = issue.appName, !activeApp.contains(app) {
                             tappable(value: app, onTap: onToggleApp) {
-                                TagView(text: app, color: appColor, isActive: activeApp == app)
+                                TagView(text: app, color: appColor, isActive: activeApp.contains(app))
                             }
                         }
                         if let version = issue.appVersion {
                             tappable(value: version, onTap: onToggleAppVersion) {
-                                TagView(text: "v\(version)", color: appColor, isActive: activeAppVersion == version)
+                                TagView(text: "v\(version)", color: appColor, isActive: activeAppVersion.contains(version))
                             }
                         }
                         if let device = issue.device {
                             tappable(value: device, onTap: onToggleDevice) {
-                                MetaTagView(key: "device", value: DeviceName.friendly(device), isActive: activeDevice == device)
+                                MetaTagView(key: "device", value: DeviceName.friendly(device), isActive: activeDevice.contains(device))
                             }
                         }
                         if let os = issue.osVersion {
                             tappable(value: os, onTap: onToggleOSVersion) {
-                                MetaTagView(key: "os", value: OSVersionFormat.display(os), isActive: activeOSVersion == os)
+                                MetaTagView(key: "os", value: OSVersionFormat.display(os), isActive: activeOSVersion.contains(os))
                             }
                         }
                         if let email = issue.email {

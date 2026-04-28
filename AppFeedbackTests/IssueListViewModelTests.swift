@@ -33,7 +33,7 @@ final class IssueListViewModelTests: XCTestCase {
     func test_visibleIssues_appFilter() {
         let vm = IssueListViewModel()
         vm.allIssues = [makeIssue(number: 1, appName: "A"), makeIssue(number: 2, appName: "B")]
-        vm.appFilter = "A"
+        vm.appFilter = ["A"]
         XCTAssertEqual(vm.visibleIssues.count, 1)
         XCTAssertEqual(vm.visibleIssues.first?.number, 1)
     }
@@ -41,7 +41,7 @@ final class IssueListViewModelTests: XCTestCase {
     func test_visibleIssues_versionPillFilter() {
         let vm = IssueListViewModel()
         vm.allIssues = [makeIssue(number: 1, appVersion: "1.0"), makeIssue(number: 2, appVersion: "2.0")]
-        vm.filters.appVersion = "1.0"
+        vm.filters.appVersion = ["1.0"]
         XCTAssertEqual(vm.visibleIssues.count, 1)
     }
 
@@ -60,7 +60,7 @@ final class IssueListViewModelTests: XCTestCase {
             makeIssue(number: 2, appName: "A", appVersion: "2.0"),
             makeIssue(number: 3, appName: "B", appVersion: "3.0"),
         ]
-        vm.appFilter = "A"
+        vm.appFilter = ["A"]
         XCTAssertEqual(Set(vm.uniqueValues(for: \.appVersion)), ["1.0", "2.0"])
     }
 

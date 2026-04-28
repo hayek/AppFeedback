@@ -80,15 +80,23 @@ struct IssueListView: View {
     @ViewBuilder
     private var issueList: some View {
         let visible = viewModel.visibleIssues
+        let showsFilterBar = viewModel.allowsAppFilter || !viewModel.appFilter.isEmpty || !viewModel.filters.isEmpty
         if visible.isEmpty {
-            Text("No issues found")
-                .foregroundStyle(.secondary)
-                .frame(maxWidth: .infinity, maxHeight: .infinity)
+            VStack(spacing: 0) {
+                if showsFilterBar {
+                    FilterBarView(viewModel: viewModel)
+                        .padding(.horizontal, 20)
+                        .padding(.top, 16)
+                }
+                Text("No issues found")
+                    .foregroundStyle(.secondary)
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+            }
         } else {
             ScrollViewReader { proxy in
                 ScrollView {
                     LazyVStack(spacing: 12) {
-                        if viewModel.allowsAppFilter || viewModel.appFilter != nil || !viewModel.filters.isEmpty {
+                        if showsFilterBar {
                             FilterBarView(viewModel: viewModel)
                         }
 
@@ -164,20 +172,20 @@ struct IssueListView: View {
             activeDevice: viewModel.filters.device,
             activeOSVersion: viewModel.filters.osVersion,
             onToggleApp: { value in
-                viewModel.appFilter = viewModel.appFilter == value ? nil : value
+                viewModel.appFilter.toggleMembership(value)
             },
             onToggleAppVersion: { value in
-                viewModel.filters.appVersion = viewModel.filters.appVersion == value ? nil : value
+                viewModel.filters.appVersion.toggleMembership(value)
             },
             onToggleDevice: { value in
-                viewModel.filters.device = viewModel.filters.device == value ? nil : value
+                viewModel.filters.device.toggleMembership(value)
             },
             onToggleOSVersion: { value in
-                viewModel.filters.osVersion = viewModel.filters.osVersion == value ? nil : value
+                viewModel.filters.osVersion.toggleMembership(value)
             },
             activeIssueType: viewModel.filters.issueType,
             onToggleIssueType: { type in
-                viewModel.filters.issueType = viewModel.filters.issueType == type ? nil : type
+                viewModel.filters.issueType.toggleMembership(type)
             },
             onTapEmail: { email in
                 composing = ComposeContext(recipient: email, issue: issue)
@@ -198,20 +206,20 @@ struct IssueListView: View {
             activeDevice: viewModel.filters.device,
             activeOSVersion: viewModel.filters.osVersion,
             onToggleApp: { value in
-                viewModel.appFilter = viewModel.appFilter == value ? nil : value
+                viewModel.appFilter.toggleMembership(value)
             },
             onToggleAppVersion: { value in
-                viewModel.filters.appVersion = viewModel.filters.appVersion == value ? nil : value
+                viewModel.filters.appVersion.toggleMembership(value)
             },
             onToggleDevice: { value in
-                viewModel.filters.device = viewModel.filters.device == value ? nil : value
+                viewModel.filters.device.toggleMembership(value)
             },
             onToggleOSVersion: { value in
-                viewModel.filters.osVersion = viewModel.filters.osVersion == value ? nil : value
+                viewModel.filters.osVersion.toggleMembership(value)
             },
             activeIssueType: viewModel.filters.issueType,
             onToggleIssueType: { type in
-                viewModel.filters.issueType = viewModel.filters.issueType == type ? nil : type
+                viewModel.filters.issueType.toggleMembership(type)
             },
             intelligenceAvailable: viewModel.intelligenceProvider?.availability.isReady ?? false,
             targetLanguageCode: viewModel.intelligenceSettings?.targetLanguageCode ?? "en",
