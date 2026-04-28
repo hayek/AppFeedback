@@ -16,6 +16,19 @@ struct IssueCardView: View {
     var activeIssueType: IssueType? = nil
     var onToggleIssueType: ((IssueType) -> Void)? = nil
     var onTapEmail: ((String) -> Void)? = nil
+    var intelligenceAvailable: Bool = false
+    var targetLanguageCode: String = "en"
+
+    @State private var showOriginal: Bool = false
+
+    private var translationVisible: Bool { issue.hasTranslation && !showOriginal }
+
+    private var needsTranslationButUnavailable: Bool {
+        guard !intelligenceAvailable else { return false }
+        let combined = issue.title + "\n" + issue.description
+        guard let detected = LanguageDetector.detect(combined) else { return false }
+        return !detected.hasPrefix(targetLanguageCode)
+    }
 
     private var formattedDate: String {
         issue.createdAt.formatted(date: .abbreviated, time: .omitted)
@@ -55,7 +68,7 @@ struct IssueCardView: View {
                     }
                     .foregroundStyle(.tertiary)
                     .padding(.top, 2)
-                    Text(issue.title)
+                    Text(issue.displayedTitle(translated: translationVisible))
                         .font(.system(size: 15, weight: .semibold))
                         .foregroundStyle(.primary)
                         .lineLimit(2)
@@ -68,9 +81,25 @@ struct IssueCardView: View {
                         .fixedSize()
                 }
 
-                if !issue.description.isEmpty {
-                    MarkdownBodyView(text: issue.description)
+                let bodyText = issue.displayedBody(translated: translationVisible)
+                if !bodyText.isEmpty {
+                    MarkdownBodyView(text: bodyText)
                         .textSelection(.enabled)
+                }
+
+                if issue.hasTranslation {
+                    Button(showOriginal ? "Show translation" : "Show original") {
+                        showOriginal.toggle()
+                    }
+                    .font(.system(size: 11, weight: .medium))
+                    .buttonStyle(.plain)
+                    .foregroundStyle(.secondary)
+                    .padding(.top, 4)
+                } else if needsTranslationButUnavailable {
+                    Text("Apple Intelligence required to translate")
+                        .font(.system(size: 11))
+                        .foregroundStyle(.tertiary)
+                        .padding(.top, 4)
                 }
 
                 ScrollView(.horizontal, showsIndicators: false) {
