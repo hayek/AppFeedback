@@ -123,8 +123,26 @@ extension IntelligenceService {
         }
     }
     fileprivate func runTranslate(text: String, from sourceCode: String?, to targetCode: String) async throws -> String {
-        // Implemented in Task 9
-        throw IntelligenceError.unavailable
+        let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else { return text }
+        let session = await MainActor.run { () -> LanguageModelSession in
+            if let s = translationSession { return s }
+            let s = LanguageModelSession(instructions: translationInstructions)
+            translationSession = s
+            return s
+        }
+        let targetName = Locale(identifier: "en").localizedString(forLanguageCode: targetCode) ?? targetCode
+        let sourceName = sourceCode.flatMap {
+            Locale(identifier: "en").localizedString(forLanguageCode: $0)
+        }
+        let prompt: String
+        if let sourceName {
+            prompt = "Translate this from \(sourceName) to \(targetName):\n\n\(trimmed)"
+        } else {
+            prompt = "Translate this to \(targetName):\n\n\(trimmed)"
+        }
+        let response = try await session.respond(to: prompt)
+        return response.content.trimmingCharacters(in: .whitespacesAndNewlines)
     }
 }
 #endif
