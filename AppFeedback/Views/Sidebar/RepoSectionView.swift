@@ -104,7 +104,7 @@ struct RepoSectionView: View {
             DisclosureGroup(isExpanded: $isExpanded) {
                 AppRowView(
                     label: "All Apps",
-                    count: issues.count,
+                    count: issues.filter { !hiddenSet.contains($0.appName ?? "") }.count,
                     color: .secondary,
                     isSelected: selection == .allIssues(repoId: repo.id)
                 )

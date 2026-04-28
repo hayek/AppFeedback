@@ -63,6 +63,60 @@ final class IssueListViewModelTests: XCTestCase {
         vm.appFilter = "A"
         XCTAssertEqual(Set(vm.uniqueValues(for: \.appVersion)), ["1.0", "2.0"])
     }
+
+    func test_hiddenApps_excludedFromVisibleIssues() {
+        let vm = IssueListViewModel()
+        vm.allIssues = [
+            makeIssue(number: 1, appName: "Foo"),
+            makeIssue(number: 2, appName: "Bar"),
+            makeIssue(number: 3, appName: "Foo"),
+        ]
+        vm.hiddenApps = ["Foo"]
+        let visible = vm.visibleIssues
+        XCTAssertEqual(visible.count, 1)
+        XCTAssertEqual(visible.first?.number, 2)
+    }
+
+    func test_hiddenApps_excludedFromUniqueAppNames() {
+        let vm = IssueListViewModel()
+        vm.allIssues = [
+            makeIssue(number: 1, appName: "Foo"),
+            makeIssue(number: 2, appName: "Bar"),
+        ]
+        vm.hiddenApps = ["Foo"]
+        XCTAssertEqual(vm.uniqueAppNames, ["Bar"])
+        XCTAssertFalse(vm.uniqueAppNames.contains("Foo"))
+    }
+
+    func test_hiddenApps_excludedFromUniqueValues() {
+        let vm = IssueListViewModel()
+        vm.allIssues = [
+            makeIssue(number: 1, appName: "Foo", appVersion: "2.0"),
+            makeIssue(number: 2, appName: "Bar", appVersion: "1.0"),
+        ]
+        vm.hiddenApps = ["Foo"]
+        XCTAssertEqual(vm.uniqueValues(for: \.appVersion), ["1.0"])
+    }
+
+    func test_hiddenApps_emptyByDefault() {
+        let vm = IssueListViewModel()
+        vm.allIssues = [makeIssue(number: 1, appName: "Foo"), makeIssue(number: 2, appName: "Bar")]
+        XCTAssertEqual(vm.visibleIssues.count, 2)
+    }
+
+    func test_hiddenApps_excludedFromUnreadIssues() throws {
+        let vm = IssueListViewModel()
+        vm.attachSeenStore(try makeStore(), owner: "o", repo: "r")
+        vm.allIssues = [
+            makeIssue(number: 10, appName: "Foo"),
+            makeIssue(number: 11, appName: "Bar"),
+        ]
+        vm.hiddenApps = ["Foo"]
+        vm.applyLoaded(vm.allIssues) // marks both as unread
+        let unread = vm.unreadIssues
+        XCTAssertFalse(unread.contains(where: { $0.number == 10 }), "Foo issue should not be unread-visible")
+        XCTAssertTrue(unread.contains(where: { $0.number == 11 }), "Bar issue should be unread-visible")
+    }
 }
 
 @MainActor

@@ -5,9 +5,12 @@ import SwiftData
 @Observable @MainActor
 final class IssueListViewModel {
     var allIssues: [FeedbackIssue] = []
+    /// App names that are hidden for the current repo. Issues whose `appName`
+    /// is in this set are excluded from all derived properties and counts.
+    var hiddenApps: Set<String> = []
 
     var unreadIssues: [FeedbackIssue] {
-        allIssues.filter { sessionUnread.contains($0.number) }
+        allIssues.filter { sessionUnread.contains($0.number) && !hiddenApps.contains($0.appName ?? "") }
     }
     var searchQuery = ""
     var appFilter: String? = nil
@@ -17,7 +20,7 @@ final class IssueListViewModel {
     var highlightedIssueNumber: Int? = nil
 
     var uniqueAppNames: [String] {
-        Array(Set(allIssues.compactMap(\.appName))).sorted()
+        Array(Set(allIssues.compactMap(\.appName).filter { !hiddenApps.contains($0) })).sorted()
     }
 
     struct ActiveFilters {
@@ -31,6 +34,12 @@ final class IssueListViewModel {
 
     var visibleIssues: [FeedbackIssue] {
         var list = allIssues
+
+        // Defensively hide any issue whose app is in the hidden set — this covers
+        // the .allIssues (cross-app) view and the edge case of a hidden single app.
+        if !hiddenApps.isEmpty {
+            list = list.filter { !hiddenApps.contains($0.appName ?? "") }
+        }
 
         if let app = appFilter {
             list = list.filter { $0.appName == app }
@@ -54,14 +63,20 @@ final class IssueListViewModel {
     }
 
     var uniqueIssueTypes: [IssueType] {
-        let base = appFilter.map { app in allIssues.filter { $0.appName == app } } ?? allIssues
+        let base = visibleBase
         let types = base.compactMap { $0.labels.issueType?.type }
         return Array(Set(types)).sorted { $0.displayName < $1.displayName }
     }
 
     func uniqueValues(for keyPath: KeyPath<FeedbackIssue, String?>) -> [String] {
-        let base = appFilter.map { app in allIssues.filter { $0.appName == app } } ?? allIssues
+        let base = visibleBase
         return Array(Set(base.compactMap { $0[keyPath: keyPath] })).sorted()
+    }
+
+    /// All issues with hidden apps filtered out, optionally narrowed to the selected app.
+    private var visibleBase: [FeedbackIssue] {
+        let withoutHidden = hiddenApps.isEmpty ? allIssues : allIssues.filter { !hiddenApps.contains($0.appName ?? "") }
+        return appFilter.map { app in withoutHidden.filter { $0.appName == app } } ?? withoutHidden
     }
 
     func clearFilters() {

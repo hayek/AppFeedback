@@ -100,6 +100,9 @@ struct RootView: View {
             syncLoaders(repos: newRepos)
             autoSelectIfNeeded(repos: newRepos)
         }
+        .onChange(of: store.hiddenApps) { _, _ in
+            if let selection { viewModel.hiddenApps = store.hiddenAppsFor(selection.repoId) }
+        }
         .task {
             if summaryVM == nil {
                 summaryVM = UnreadSummaryViewModel(provider: intelligenceService)
@@ -163,6 +166,7 @@ struct RootView: View {
               case .loaded(let issues, _) = loader.state else { return }
         let owner = store.repos.first(where: { $0.id == selection.repoId })?.owner ?? ""
         let repoName = store.repos.first(where: { $0.id == selection.repoId })?.repo  ?? ""
+        viewModel.hiddenApps = store.hiddenAppsFor(selection.repoId)
         viewModel.attachSeenStore(seenStore, owner: owner, repo: repoName)
         viewModel.applyLoaded(issues)
         viewModel.clearFilters()

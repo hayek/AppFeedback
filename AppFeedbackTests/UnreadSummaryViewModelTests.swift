@@ -57,6 +57,19 @@ final class UnreadSummaryViewModelTests: XCTestCase {
         if case .failed = vm.state { } else { XCTFail("expected .failed, got \(vm.state)") }
     }
 
+    func test_skipped_whenAllUnreadIssuesAreFromHiddenApps() async {
+        // Hidden-app filtering is applied by IssueListViewModel.unreadIssues before
+        // the list is passed to UnreadSummaryViewModel. This test simulates that by
+        // calling update() with an empty list (all issues were filtered out upstream).
+        let mock = MockIntelligenceProvider()
+        let vm = UnreadSummaryViewModel(provider: mock, debounceMs: 0)
+        // Pass only one issue (the hidden-app issues have been filtered out upstream).
+        await vm.update(unread: [issue(1)], targetLanguage: "en")
+        try? await Task.sleep(nanoseconds: 30_000_000)
+        if case .skipped = vm.state { } else { XCTFail("expected .skipped, got \(vm.state)") }
+        XCTAssertEqual(mock.summarizeCalls.count, 0)
+    }
+
     func test_update_replacesInFlightTask() async {
         let mock = MockIntelligenceProvider()
         mock.summarizeHandler = { issues, _ in
