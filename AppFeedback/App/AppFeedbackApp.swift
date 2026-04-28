@@ -4,6 +4,7 @@ import UserNotifications
 
 @main
 struct AppFeedbackApp: App {
+    @Environment(\.scenePhase) private var scenePhase
     private let container: ModelContainer
     @State private var store: RepoStore
     @State private var syncStatus: CloudSyncStatus
@@ -88,7 +89,6 @@ struct AppFeedbackApp: App {
             activityLog: activityLogValue
         )
         driver.register()
-        driver.scheduleNextRefresh()
         _iosRefreshDriver = State(initialValue: driver)
         #elseif os(macOS)
         let driver = MacBackgroundRefreshDriver(
@@ -119,9 +119,14 @@ struct AppFeedbackApp: App {
                     #if os(macOS)
                     if isOn { macRefreshDriver.startIfEnabled() } else { macRefreshDriver.stop() }
                     #else
-                    if isOn { iosRefreshDriver.scheduleNextRefresh() }
+                    if isOn { iosRefreshDriver.scheduleNextRefresh() } else { iosRefreshDriver.cancelPending() }
                     #endif
                 }
+                #if os(iOS)
+                .onChange(of: scenePhase) { _, phase in
+                    if phase == .background { iosRefreshDriver.scheduleNextRefresh() }
+                }
+                #endif
         }
         .modelContainer(container)
         .commands {

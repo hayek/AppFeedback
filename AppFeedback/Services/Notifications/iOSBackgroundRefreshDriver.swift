@@ -50,6 +50,10 @@ final class iOSBackgroundRefreshDriver {
         try? BGTaskScheduler.shared.submit(request)
     }
 
+    func cancelPending() {
+        BGTaskScheduler.shared.cancel(taskRequestWithIdentifier: Self.taskIdentifier)
+    }
+
     private func runRefresh() async {
         guard settings.isEnabled else { return }
         var loaded: [NotificationService.RepoIssues] = []
