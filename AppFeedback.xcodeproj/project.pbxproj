@@ -72,6 +72,7 @@
 		562460209F2D73146B278AD2 /* UnreadSummaryViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = F21997922568B439D705E5DA /* UnreadSummaryViewModel.swift */; };
 		57A1B6E768B25DD22D47D28B /* AppFeedbackTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 98F8C9ECF3F6884F65EFEE8D /* AppFeedbackTests.swift */; };
 		5C4FCEBFD6AD267C76FEF3AA /* HiddenApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5A7F74F71D395BBAB4CC3F68 /* HiddenApp.swift */; };
+		5D65487C7B26AF4292BFA1EF /* MacBackgroundRefreshDriver.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8B91F454579F86D9B14B7FD4 /* MacBackgroundRefreshDriver.swift */; };
 		5F6AC69CFA01BF4EEAB94D99 /* ActivityLog.swift in Sources */ = {isa = PBXBuildFile; fileRef = 864A8D0AB787A3FE8CA251F6 /* ActivityLog.swift */; };
 		602B6984BFE8A8CA1E5B04DC /* HiddenAppStoreTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 41C06FE0EC13B6437BBFA4E7 /* HiddenAppStoreTests.swift */; };
 		616AAE2479CF4436F4CF1741 /* iOSBackgroundRefreshDriver.swift in Sources */ = {isa = PBXBuildFile; fileRef = 07F4F74C21ED56A576353D2B /* iOSBackgroundRefreshDriver.swift */; };
@@ -169,6 +170,7 @@
 		EA29D7D0BC140D0B14DDAAD6 /* GitHubAuthModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = DD959DEDBC95A458BAD75F14 /* GitHubAuthModels.swift */; };
 		EAA87A8FDD3C715F27C72924 /* KeychainService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9FAC042F79EF94F76B9A8077 /* KeychainService.swift */; };
 		EEB865554CAEE36E3BBF661F /* NotificationsSettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 76F517911AEFC8F2CB8939A1 /* NotificationsSettingsView.swift */; };
+		F13DB2F749781777309599FE /* MacBackgroundRefreshDriver.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8B91F454579F86D9B14B7FD4 /* MacBackgroundRefreshDriver.swift */; };
 		F17717FE03E3326169322D19 /* SeenIssueStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7C2C5DAC5F75353FC55ACF04 /* SeenIssueStore.swift */; };
 		F1B6AC532ABA0EB668646805 /* UnreadSummaryViewModelTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 00F960BE036D65B0E276B47E /* UnreadSummaryViewModelTests.swift */; };
 		F3AD0B937BC2C7295D0B4EFD /* MailComposer.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0FC01BF334B5D65CF0147005 /* MailComposer.swift */; };
@@ -251,6 +253,7 @@
 		8190A2B4D5CDFCE9437EA19A /* IntelligenceProvider.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = IntelligenceProvider.swift; sourceTree = "<group>"; };
 		862BA4BF33A265329E335DDE /* MockURLProtocol.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MockURLProtocol.swift; sourceTree = "<group>"; };
 		864A8D0AB787A3FE8CA251F6 /* ActivityLog.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ActivityLog.swift; sourceTree = "<group>"; };
+		8B91F454579F86D9B14B7FD4 /* MacBackgroundRefreshDriver.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MacBackgroundRefreshDriver.swift; sourceTree = "<group>"; };
 		903D78E017E8D55A5529822F /* IssueLoaderTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = IssueLoaderTests.swift; sourceTree = "<group>"; };
 		93179C8985C6D0A9B67E82F8 /* RootView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RootView.swift; sourceTree = "<group>"; };
 		98F8C9ECF3F6884F65EFEE8D /* AppFeedbackTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppFeedbackTests.swift; sourceTree = "<group>"; };
@@ -384,6 +387,7 @@
 			isa = PBXGroup;
 			children = (
 				07F4F74C21ED56A576353D2B /* iOSBackgroundRefreshDriver.swift */,
+				8B91F454579F86D9B14B7FD4 /* MacBackgroundRefreshDriver.swift */,
 				FD9AB58E2036FC872B5EAA5D /* NotificationRouter.swift */,
 				9E431E7417E9ECB0AA05E07E /* NotificationService.swift */,
 				E7E1CD7C8E8BF3B31A2C6E80 /* NotificationSettings.swift */,
@@ -688,6 +692,7 @@
 				6DB0F938BCB5391069094753 /* IssueSummary.swift in Sources */,
 				EAA87A8FDD3C715F27C72924 /* KeychainService.swift in Sources */,
 				2EAC138DDFD25ED8DB286CDA /* LanguageDetector.swift in Sources */,
+				5D65487C7B26AF4292BFA1EF /* MacBackgroundRefreshDriver.swift in Sources */,
 				F3AD0B937BC2C7295D0B4EFD /* MailComposer.swift in Sources */,
 				1292A3DBE0EBE94AD93E72F3 /* MailSender.swift in Sources */,
 				7017D648A77ACA96C64498FE /* MailSettings.swift in Sources */,
@@ -788,6 +793,7 @@
 				D96411C0D1AE455836FCFE56 /* IssueSummary.swift in Sources */,
 				AD72C524AE9F03E7E1FD6484 /* KeychainService.swift in Sources */,
 				0ABF90F2A3F44E5C2F984840 /* LanguageDetector.swift in Sources */,
+				F13DB2F749781777309599FE /* MacBackgroundRefreshDriver.swift in Sources */,
 				E1E73AAC7E5ED58A44D5DB71 /* MailComposer.swift in Sources */,
 				CCD0C830DFEA15E57CA49F72 /* MailSender.swift in Sources */,
 				2B3A290B5E263B975A93D76E /* MailSettings.swift in Sources */,
