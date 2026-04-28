@@ -91,7 +91,8 @@ extension IntelligenceService {
         guard !issues.isEmpty else { throw IntelligenceError.empty }
         let session = await MainActor.run { () -> LanguageModelSession in
             if let cached = self.summarySession { return cached }
-            let s = LanguageModelSession(instructions: self.summaryInstructions)
+            let model = SystemLanguageModel(guardrails: .permissiveContentTransformations)
+            let s = LanguageModelSession(model: model, instructions: self.summaryInstructions)
             self.summarySession = s
             return s
         }
@@ -113,7 +114,8 @@ extension IntelligenceService {
         let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty else { return text }
         let instructions = await MainActor.run { translationInstructions }
-        let session = LanguageModelSession(instructions: instructions)
+        let model = SystemLanguageModel(guardrails: .permissiveContentTransformations)
+        let session = LanguageModelSession(model: model, instructions: instructions)
         let targetName = Locale(identifier: "en").localizedString(forLanguageCode: targetCode) ?? targetCode
         let sourceName = sourceCode.flatMap {
             Locale(identifier: "en").localizedString(forLanguageCode: $0)
