@@ -18,10 +18,16 @@ struct IssueCardView: View {
     var onTapEmail: ((String) -> Void)? = nil
     var intelligenceAvailable: Bool = false
     var targetLanguageCode: String = "en"
+    var isTranslating: Bool = false
 
     @State private var showOriginal: Bool = false
 
     private var translationVisible: Bool { issue.hasTranslation && !showOriginal }
+
+    private var sourceLanguageDisplayName: String? {
+        guard let code = issue.detectedLanguageCode, !code.isEmpty else { return nil }
+        return Locale.current.localizedString(forLanguageCode: code)
+    }
 
     private var needsTranslationButUnavailable: Bool {
         guard !intelligenceAvailable else { return false }
@@ -86,13 +92,23 @@ struct IssueCardView: View {
                         .textSelection(.enabled)
                 }
 
-                if issue.hasTranslation {
-                    Button(showOriginal ? "Show translation" : "Show original") {
-                        showOriginal.toggle()
+                if isTranslating {
+                    ShimmeringText("Translating…")
+                        .font(.system(size: 11, weight: .medium))
+                        .padding(.top, 4)
+                } else if issue.hasTranslation {
+                    HStack(spacing: 4) {
+                        Button(showOriginal ? "Show translation" : "Show original") {
+                            showOriginal.toggle()
+                        }
+                        .buttonStyle(.plain)
+                        .foregroundStyle(.secondary)
+                        if let from = sourceLanguageDisplayName {
+                            Text("(translated from \(from))")
+                                .foregroundStyle(.tertiary)
+                        }
                     }
                     .font(.system(size: 11, weight: .medium))
-                    .buttonStyle(.plain)
-                    .foregroundStyle(.secondary)
                     .padding(.top, 4)
                 } else if needsTranslationButUnavailable {
                     Text("Apple Intelligence required to translate")
@@ -414,5 +430,33 @@ private struct MetaTagView: View {
             isActive ? Color.accentColor.opacity(0.4) : Color.secondary.opacity(0.15),
             lineWidth: 1
         ))
+    }
+}
+
+private struct ShimmeringText: View {
+    let text: String
+    @State private var phase: CGFloat = -1
+
+    init(_ text: String) { self.text = text }
+
+    var body: some View {
+        Text(text)
+            .foregroundStyle(.secondary)
+            .overlay(
+                LinearGradient(
+                    colors: [.clear, .white.opacity(0.7), .clear],
+                    startPoint: .leading,
+                    endPoint: .trailing
+                )
+                .frame(width: 80)
+                .offset(x: phase * 160)
+                .blendMode(.plusLighter)
+                .mask(Text(text))
+            )
+            .onAppear {
+                withAnimation(.linear(duration: 1.4).repeatForever(autoreverses: false)) {
+                    phase = 1
+                }
+            }
     }
 }

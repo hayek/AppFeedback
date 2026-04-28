@@ -165,7 +165,7 @@ struct IssueListView: View {
                 composing = ComposeContext(recipient: email, issue: issue)
             },
             intelligenceAvailable: viewModel.intelligenceProvider?.availability.isReady ?? false,
-            targetLanguageCode: viewModel.intelligenceSettings?.targetLanguageCode ?? "en"
+            targetLanguageCode: viewModel.intelligenceSettings?.targetLanguageCode ?? "en", isTranslating: viewModel.isTranslating(issue)
         )
         #else
         IssueCardView(
@@ -194,7 +194,7 @@ struct IssueListView: View {
                 viewModel.filters.issueType = viewModel.filters.issueType == type ? nil : type
             },
             intelligenceAvailable: viewModel.intelligenceProvider?.availability.isReady ?? false,
-            targetLanguageCode: viewModel.intelligenceSettings?.targetLanguageCode ?? "en"
+            targetLanguageCode: viewModel.intelligenceSettings?.targetLanguageCode ?? "en", isTranslating: viewModel.isTranslating(issue)
         )
         #endif
     }

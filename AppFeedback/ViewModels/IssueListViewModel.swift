@@ -121,6 +121,11 @@ final class IssueListViewModel {
     private(set) var intelligenceSettings: IntelligenceSettings?
     private var cacheContext: ModelContext?
     private var translationTasks: [Int: Task<Void, Never>] = [:]
+    private(set) var translatingNumbers: Set<Int> = []
+
+    func isTranslating(_ issue: FeedbackIssue) -> Bool {
+        translatingNumbers.contains(issue.number)
+    }
 
     func attachIntelligence(
         provider: IntelligenceProvider,
@@ -151,6 +156,7 @@ final class IssueListViewModel {
                   !detected.hasPrefix(target) else { continue }
 
             let issue = allIssues[i]
+            translatingNumbers.insert(issue.number)
             translationTasks[issue.number] = Task { [weak self] in
                 await self?.translate(issue: issue, detected: detected, target: target)
             }
@@ -159,7 +165,10 @@ final class IssueListViewModel {
 
     @MainActor
     private func translate(issue: FeedbackIssue, detected: String, target: String) async {
-        defer { translationTasks[issue.number] = nil }
+        defer {
+            translationTasks[issue.number] = nil
+            translatingNumbers.remove(issue.number)
+        }
         guard let provider = intelligenceProvider else { return }
         do {
             async let titleT = provider.translate(text: issue.title, from: detected, to: target)
@@ -234,6 +243,7 @@ final class IssueListViewModel {
     func invalidateTranslations() {
         for (_, task) in translationTasks { task.cancel() }
         translationTasks.removeAll()
+        translatingNumbers.removeAll()
         for i in allIssues.indices {
             allIssues[i].translatedTitle = nil
             allIssues[i].translatedBody = nil
