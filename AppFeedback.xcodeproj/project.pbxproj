@@ -178,7 +178,7 @@
 /* End PBXContainerItemProxy section */
 
 /* Begin PBXFileReference section */
-		005F6BC6E30CFBFB803770A1 /* AppFeedback.app */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.application; path = AppFeedback.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		005F6BC6E30CFBFB803770A1 /* AppFeedback.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = AppFeedback.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		00F960BE036D65B0E276B47E /* UnreadSummaryViewModelTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UnreadSummaryViewModelTests.swift; sourceTree = "<group>"; };
 		037248630ABDD42BE4DC6D3C /* IssueSummary.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = IssueSummary.swift; sourceTree = "<group>"; };
 		0376C061DCE08A242E9B349A /* ModelsTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ModelsTests.swift; sourceTree = "<group>"; };
@@ -243,6 +243,7 @@
 		BCF69ED394B26CCA8C1563FA /* AppFeedback.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = AppFeedback.entitlements; sourceTree = "<group>"; };
 		C08DA18B97C3208E26F81439 /* LanguageDetector.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LanguageDetector.swift; sourceTree = "<group>"; };
 		C4E685E33A4C31C05457EAC3 /* RepoStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RepoStore.swift; sourceTree = "<group>"; };
+		C5009AB42FA0A2C700612541 /* Appicon.icon */ = {isa = PBXFileReference; lastKnownFileType = folder.iconcomposer.icon; path = Appicon.icon; sourceTree = "<group>"; };
 		C820036DA685AB28006B7941 /* LanguageDetectorTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LanguageDetectorTests.swift; sourceTree = "<group>"; };
 		C897756C0C9A16325888F788 /* HiddenAppStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HiddenAppStore.swift; sourceTree = "<group>"; };
 		CB4F1AB8C4EA41A8708C1EA3 /* RepoConfig.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RepoConfig.swift; sourceTree = "<group>"; };
@@ -472,6 +473,7 @@
 		F2C92B65D74897BDED885B02 = {
 			isa = PBXGroup;
 			children = (
+				C5009AB42FA0A2C700612541 /* Appicon.icon */,
 				312D687933940BA780263C7D /* AppFeedback */,
 				CE978052D6951857C3AB9185 /* AppFeedbackTests */,
 				C476069CF208AC38179610EC /* Products */,
@@ -795,13 +797,14 @@
 		0B275B463A0AAB2D07CB5C16 /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				ASSETCATALOG_COMPILER_APPICON_NAME = Appicon;
 				CODE_SIGN_ENTITLEMENTS = AppFeedback/AppFeedback.entitlements;
 				CODE_SIGN_IDENTITY = "iPhone Developer";
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
 				DEVELOPMENT_TEAM = Q7U5734Q3T;
 				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_KEY_UISupportedInterfaceOrientations = "UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown";
 				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
@@ -1041,13 +1044,14 @@
 		E10F2EB0FD772E4F3432A692 /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				ASSETCATALOG_COMPILER_APPICON_NAME = Appicon;
 				CODE_SIGN_ENTITLEMENTS = AppFeedback/AppFeedback.entitlements;
 				CODE_SIGN_IDENTITY = "iPhone Developer";
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
 				DEVELOPMENT_TEAM = Q7U5734Q3T;
 				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_KEY_UISupportedInterfaceOrientations = "UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown";
 				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",

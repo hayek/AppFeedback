@@ -38,9 +38,7 @@ final class IntelligenceService: IntelligenceProvider {
     private var _translationSession: Any?
     #endif
 
-    init() {
-        recomputeAvailability()
-    }
+    init() {}
 
     func recomputeAvailability() {
         #if canImport(FoundationModels)

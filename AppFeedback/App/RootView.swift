@@ -115,6 +115,9 @@ struct RootView: View {
             )
             syncLoaders(repos: store.repos)
             autoSelectIfNeeded(repos: store.repos)
+            Task.detached(priority: .utility) { @MainActor in
+                intelligenceService.recomputeAvailability()
+            }
             await loadAllRepos()
         }
         .onChange(of: intelligenceSettings.targetLanguageCode) { _, _ in
