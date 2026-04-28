@@ -146,7 +146,6 @@ struct RootView: View {
         let repoName = store.repos.first(where: { $0.id == selection.repoId })?.repo  ?? ""
         viewModel.attachSeenStore(seenStore, owner: owner, repo: repoName)
         viewModel.applyLoaded(issues)
-        viewModel.allIssues = issues
         viewModel.clearFilters()
         switch selection {
         case .allIssues:

@@ -83,6 +83,7 @@ final class IssueListViewModel {
     }
 
     func applyLoaded(_ issues: [FeedbackIssue]) {
+        allIssues = issues
         let numbers = Set(issues.map(\.number))
         if let store = seenStore {
             let toFlush = previouslyLoadedNumbers.subtracting(store.seenNumbers(owner: seenOwner, repo: seenRepo))
