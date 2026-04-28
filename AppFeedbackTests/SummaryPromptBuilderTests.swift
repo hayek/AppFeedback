@@ -20,13 +20,13 @@ final class SummaryPromptBuilderTests: XCTestCase {
     }
 
     func test_build_truncatesBodyTo200Chars() {
-        let long = String(repeating: "a", count: 500)
+        let long = String(repeating: "Z", count: 500)
         let prompt = SummaryPromptBuilder.build(
             issues: [issue(number: 1, title: "T", body: long)],
             targetLanguage: "en"
         )
-        let aRun = prompt.components(separatedBy: "a").count - 1
-        XCTAssertLessThanOrEqual(aRun, 200)
+        let zCount = prompt.filter { $0 == "Z" }.count
+        XCTAssertLessThanOrEqual(zCount, 200)
     }
 
     func test_build_stripsFencedCodeBlocks() {

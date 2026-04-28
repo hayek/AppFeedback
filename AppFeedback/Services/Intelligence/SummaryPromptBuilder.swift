@@ -9,9 +9,9 @@ enum SummaryPromptBuilder {
         let extra = max(0, issues.count - issueCap)
 
         var lines: [String] = []
-        lines.append("Provide concise digest of issues below.")
-        lines.append("Output should use this verbiose code: \(languageDisplayName(targetLanguage)).")
-        lines.append("Cluster the issues into 3-5 themed bullets; report issueCount per group.")
+        lines.append("Summarize the following unread feedback issues.")
+        lines.append("Target output language: \(languageDisplayName(targetLanguage)).")
+        lines.append("Group related issues into 3-5 themed bullets, each with an issueCount.")
         lines.append("")
 
         for issue in included {
