@@ -26,6 +26,9 @@ struct SettingsView: View {
     @Environment(CloudSyncStatus.self) private var syncStatus
     @Environment(IntelligenceSettings.self) private var intelligenceSettings
     @Environment(IntelligenceService.self) private var intelligenceService
+    #if os(iOS)
+    @Environment(\.dismiss) private var dismiss
+    #endif
     @State private var showAdd = false
     @State private var editTarget: RepoConfig?
     @State private var hoveredId: UUID?
@@ -34,10 +37,18 @@ struct SettingsView: View {
     private var allDisplayNames: [String] { store.repos.map(\.displayName).sorted() }
 
     var body: some View {
+        #if os(iOS)
+        iosBody
+        #else
+        macBody
+        #endif
+    }
+
+    #if os(macOS)
+    private var macBody: some View {
         TabView {
             reposTab
                 .tabItem { Label("Repos", systemImage: "folder") }
-            #if os(macOS)
             EmailSettingsView()
                 .tabItem { Label("Email", systemImage: "envelope") }
             IntelligenceSettingsSection(
@@ -50,16 +61,156 @@ struct SettingsView: View {
                 }
             )
             .tabItem { Label("Intelligence", systemImage: "sparkles") }
-            #endif
         }
-        #if os(macOS)
         .frame(
             minWidth: 540, idealWidth: 720, maxWidth: .infinity,
             minHeight: 380, idealHeight: 620, maxHeight: .infinity
         )
         .background(WindowResizableAccessor())
-        #endif
     }
+    #endif
+
+    #if os(iOS)
+    private var iosBody: some View {
+        NavigationStack {
+            Form {
+                Section {
+                    iCloudStatusRow
+                }
+
+                Section {
+                    ForEach(store.repos) { repo in
+                        NavigationLink {
+                            AddEditRepoView(store: store, existing: repo, embedInNavigation: false)
+                        } label: {
+                            iosRepoRow(repo)
+                        }
+                    }
+                    .onDelete { offsets in
+                        Task {
+                            for index in offsets {
+                                await store.remove(id: store.repos[index].id)
+                            }
+                        }
+                    }
+
+                    Button {
+                        showAdd = true
+                    } label: {
+                        Label("Add Repository", systemImage: "plus.circle.fill")
+                            .symbolRenderingMode(.hierarchical)
+                    }
+                } header: {
+                    Text("Repositories")
+                } footer: {
+                    if !store.repos.isEmpty {
+                        Text("Tap a repository to edit. Swipe left to remove.")
+                    } else {
+                        Text("Add a GitHub repository to start browsing feedback.")
+                    }
+                }
+            }
+            .navigationTitle("Settings")
+            .navigationBarTitleDisplayMode(.large)
+            .toolbar {
+                ToolbarItem(placement: .confirmationAction) {
+                    Button("Done") { dismiss() }
+                }
+                if !store.repos.isEmpty {
+                    ToolbarItem(placement: .navigationBarLeading) {
+                        EditButton()
+                    }
+                }
+            }
+            .sheet(isPresented: $showAdd) {
+                AddEditRepoView(store: store)
+            }
+            .task(id: store.repos.map(\.id)) {
+                await refreshTokens()
+            }
+        }
+    }
+
+    private var iCloudStatusRow: some View {
+        let style = iCloudStyle(for: syncStatus.state)
+        return HStack(spacing: 12) {
+            Image(systemName: style.icon)
+                .font(.system(size: 22))
+                .foregroundStyle(style.tint)
+                .frame(width: 28)
+            VStack(alignment: .leading, spacing: 2) {
+                Text(style.title)
+                    .font(.body)
+                if let detail = style.detail {
+                    Text(detail)
+                        .font(.footnote)
+                        .foregroundStyle(.secondary)
+                }
+            }
+            Spacer()
+            if style.showsOpenSettings {
+                Button("Open") {
+                    if let url = URL(string: UIApplication.openSettingsURLString) {
+                        UIApplication.shared.open(url)
+                    }
+                }
+                .font(.subheadline)
+            }
+        }
+        .padding(.vertical, 2)
+    }
+
+    private struct IOSCloudStyle {
+        let icon: String
+        let tint: Color
+        let title: String
+        let detail: String?
+        let showsOpenSettings: Bool
+    }
+
+    private func iCloudStyle(for state: SyncState) -> IOSCloudStyle {
+        switch state {
+        case .unknown:
+            return .init(icon: "icloud", tint: .secondary, title: "Checking iCloud…", detail: nil, showsOpenSettings: false)
+        case .syncing:
+            return .init(icon: "checkmark.icloud.fill", tint: .green, title: "Syncing via iCloud", detail: nil, showsOpenSettings: false)
+        case .unavailable(let reason):
+            let detail: String = switch reason {
+            case .notSignedIn:            "Sign in to sync across devices."
+            case .restricted:             "iCloud is restricted on this device."
+            case .temporarilyUnavailable: "Try again in a moment."
+            }
+            return .init(icon: "icloud.slash.fill", tint: .orange, title: "iCloud Unavailable", detail: detail, showsOpenSettings: true)
+        case .error(let message):
+            return .init(icon: "exclamationmark.icloud.fill", tint: .red, title: "iCloud Error", detail: message, showsOpenSettings: false)
+        }
+    }
+
+    private func iosRepoRow(_ repo: RepoConfig) -> some View {
+        let color = ColorPalette.color(for: repo.displayName, in: allDisplayNames)
+        return HStack(spacing: 12) {
+            ZStack {
+                RoundedRectangle(cornerRadius: 7, style: .continuous)
+                    .fill(color.gradient)
+                    .frame(width: 30, height: 30)
+                Image(systemName: "folder.fill")
+                    .font(.system(size: 14, weight: .semibold))
+                    .foregroundStyle(.white)
+            }
+            VStack(alignment: .leading, spacing: 2) {
+                Text(repo.displayName)
+                    .font(.body)
+                    .foregroundStyle(.primary)
+                Text("\(repo.owner)/\(repo.repo)")
+                    .font(.footnote)
+                    .foregroundStyle(.secondary)
+                    .lineLimit(1)
+                    .truncationMode(.middle)
+            }
+        }
+        .padding(.vertical, 2)
+    }
+    #endif
 
     private var reposTab: some View {
         VStack(spacing: 0) {

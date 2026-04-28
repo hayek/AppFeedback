@@ -5,6 +5,7 @@ struct AddEditRepoView: View {
     @Bindable var store: RepoStore
 
     var existing: RepoConfig?
+    var embedInNavigation: Bool = true
 
     @State private var displayName = ""
     @State private var owner = ""
@@ -30,22 +31,17 @@ struct AddEditRepoView: View {
     @ViewBuilder
     private var platformContent: some View {
         #if os(iOS)
-        NavigationStack {
-            formContent
-                .navigationTitle(isEditing ? "Edit Repository" : "Add Repository")
-                .navigationBarTitleDisplayMode(.inline)
-                .toolbar {
-                    ToolbarItem(placement: .cancellationAction) {
-                        Button { dismiss() } label: {
-                            Image(systemName: "xmark")
+        if embedInNavigation {
+            NavigationStack {
+                iosForm
+                    .toolbar {
+                        ToolbarItem(placement: .cancellationAction) {
+                            Button("Cancel") { dismiss() }
                         }
                     }
-                    ToolbarItem(placement: .confirmationAction) {
-                        Button { dismiss() } label: {
-                            Image(systemName: "xmark")
-                        }
-                    }
-                }
+            }
+        } else {
+            iosForm
         }
         #else
         VStack(spacing: 0) {
@@ -56,6 +52,14 @@ struct AddEditRepoView: View {
         .frame(minWidth: 440, minHeight: 320)
         #endif
     }
+
+    #if os(iOS)
+    private var iosForm: some View {
+        formContent
+            .navigationTitle(isEditing ? "Edit Repository" : "Add Repository")
+            .navigationBarTitleDisplayMode(.inline)
+    }
+    #endif
 
     private var formContent: some View {
         ScrollView {

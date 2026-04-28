@@ -123,6 +123,7 @@
 		C40C31553933350C02218269 /* CachedIssue.swift in Sources */ = {isa = PBXBuildFile; fileRef = ED152BDBBB643F768E8F162F /* CachedIssue.swift */; };
 		C471A8F27F52397728A3BD9B /* HTMLSanitizer.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1F35CF9445124909B460DEC /* HTMLSanitizer.swift */; };
 		C5009AC82FA0AF1400612541 /* AppFeedbackIcon.icon in Resources */ = {isa = PBXBuildFile; fileRef = C5009AC62FA0AC1C00612541 /* AppFeedbackIcon.icon */; };
+		C5009ACA2FA0B1D100612541 /* AppFeedbackIcon.icon in Resources */ = {isa = PBXBuildFile; fileRef = C5009AC62FA0AC1C00612541 /* AppFeedbackIcon.icon */; };
 		C56D8EA8057DECBBE89E57B6 /* SummaryPromptBuilderTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 62DC52276485A5BFAF893961 /* SummaryPromptBuilderTests.swift */; };
 		C5F9AD045CE8F894837E968F /* SidebarView.swift in Sources */ = {isa = PBXBuildFile; fileRef = BB29F50E5FCD4805C5960079 /* SidebarView.swift */; };
 		C630FC9D5EC159FD8D9C100C /* RootView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 93179C8985C6D0A9B67E82F8 /* RootView.swift */; };
@@ -527,6 +528,7 @@
 			buildConfigurationList = 19AF0B312B2E0704A89DEBA1 /* Build configuration list for PBXNativeTarget "AppFeedback_iOS" */;
 			buildPhases = (
 				BB957D77255FA8F5A30CF2EA /* Sources */,
+				C5009AC92FA0B1CD00612541 /* Resources */,
 			);
 			buildRules = (
 			);
@@ -607,6 +609,14 @@
 			buildActionMask = 2147483647;
 			files = (
 				C5009AC82FA0AF1400612541 /* AppFeedbackIcon.icon in Resources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		C5009AC92FA0B1CD00612541 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				C5009ACA2FA0B1D100612541 /* AppFeedbackIcon.icon in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
