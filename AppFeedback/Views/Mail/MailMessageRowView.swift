@@ -10,6 +10,13 @@ struct MailMessageRowView: View {
 
     private var attachments: [MailAttachment] { message.attachments ?? [] }
 
+    private var senderLine: String {
+        if let name = message.fromName, !name.isEmpty {
+            return "\(name) (\(message.fromAddress))"
+        }
+        return message.fromAddress
+    }
+
     var body: some View {
         VStack(alignment: .leading, spacing: 4) {
             header
@@ -37,7 +44,7 @@ struct MailMessageRowView: View {
                     .lineLimit(2)
             }
             HStack {
-                Text("From: \(message.fromName ?? message.fromAddress)")
+                Text("From: \(senderLine)")
                     .font(.caption)
                     .foregroundStyle(.secondary)
                 Spacer()
