@@ -80,7 +80,8 @@ struct IssueListView: View {
     @ViewBuilder
     private var issueList: some View {
         let visible = viewModel.visibleIssues
-        let showsFilterBar = viewModel.allowsAppFilter || !viewModel.appFilter.isEmpty || !viewModel.filters.isEmpty
+        let hasActiveFilter = !viewModel.appFilter.isEmpty || !viewModel.filters.isEmpty
+        let showsFilterBar = !viewModel.allIssues.isEmpty || hasActiveFilter
         if visible.isEmpty {
             VStack(spacing: 0) {
                 if showsFilterBar {
