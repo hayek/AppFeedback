@@ -80,9 +80,11 @@ private struct ActivityRow: View {
 
     private var iconName: String {
         switch entry.kind {
-        case .fetchIssues:     return "arrow.down.circle"
-        case .sendEmail:       return "paperplane"
-        case .testConnection:  return "checkmark.shield"
+        case .fetchIssues:        return "arrow.down.circle"
+        case .sendEmail:          return "paperplane"
+        case .testConnection:     return "checkmark.shield"
+        case .fetchMail:          return "envelope.badge"
+        case .downloadAttachment: return "paperclip"
         }
     }
 
