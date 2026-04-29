@@ -38,6 +38,7 @@ struct NotificationsSettingsView: View {
                 Text("Checks for new GitHub issues in the background and posts a local notification when new ones arrive.")
             }
         }
+        .formStyle(.grouped)
         .task { await refreshSystemStatus() }
         .onReceive(NotificationCenter.default.publisher(for: foregroundNotificationName)) { _ in
             Task { await refreshSystemStatus() }
