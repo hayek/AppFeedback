@@ -13,8 +13,11 @@ struct MailThreadView: View {
     let repoOwner: String
     let repoName: String
 
+    @Environment(MailSyncCoordinatorHolder.self) private var coordinatorHolder: MailSyncCoordinatorHolder?
+
     @State private var isExpanded: Bool = true
     @State private var replyTarget: ReplyTarget? = nil
+    @State private var isRefreshing: Bool = false
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
@@ -56,19 +59,43 @@ struct MailThreadView: View {
     }
 
     private var header: some View {
-        Button(action: { withAnimation { isExpanded.toggle() } }) {
-            HStack(spacing: 6) {
-                Image(systemName: isExpanded ? "chevron.down" : "chevron.right")
-                    .foregroundStyle(.secondary)
-                Text(headerLine)
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-                Spacer()
+        HStack(spacing: 6) {
+            Button(action: { withAnimation { isExpanded.toggle() } }) {
+                HStack(spacing: 6) {
+                    Image(systemName: isExpanded ? "chevron.down" : "chevron.right")
+                        .foregroundStyle(.secondary)
+                    Text(headerLine)
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                    Spacer()
+                }
+                .contentShape(Rectangle())
             }
-            .padding(.vertical, 4)
-            .contentShape(Rectangle())
+            .buttonStyle(.plain)
+
+            Button(action: refreshNow) {
+                if isRefreshing {
+                    ProgressView().controlSize(.small)
+                } else {
+                    Image(systemName: "arrow.clockwise")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
+            }
+            .buttonStyle(.plain)
+            .disabled(coordinatorHolder?.coordinator == nil || isRefreshing)
+            .help("Check for new replies")
         }
-        .buttonStyle(.plain)
+        .padding(.vertical, 4)
+    }
+
+    private func refreshNow() {
+        guard let coordinator = coordinatorHolder?.coordinator else { return }
+        isRefreshing = true
+        Task {
+            await coordinator.pollNow()
+            isRefreshing = false
+        }
     }
 
     private var replyButton: some View {
