@@ -10,7 +10,7 @@ final class MailAccountLocalState {
     var sentUIDValidity: UInt32 = 0
     var lastSuccessfulPollAt: Date? = nil
     var consecutiveFailures: Int = 0
-    /// Tracks consecutive backfill failures so the coordinator can cap retries (see I7).
+    /// Tracks consecutive backfill failures so the coordinator can cap retries.
     var backfillFailureCount: Int = 0
 
     init(

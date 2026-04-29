@@ -50,9 +50,9 @@ struct MailComposer {
         """
 
         let combinedText = [
-            plainText(from: cleanedHeader),
+            HTMLSanitizer.plainText(from: cleanedHeader),
             bodyText,
-            plainText(from: cleanedFooter)
+            HTMLSanitizer.plainText(from: cleanedFooter)
         ].filter { !$0.isEmpty }.joined(separator: "\n\n")
 
         var email = SwiftMail.Email(
@@ -132,8 +132,5 @@ struct MailComposer {
          .replacingOccurrences(of: ">", with: "&gt;")
     }
 
-    private func plainText(from html: String) -> String {
-        HTMLSanitizer.plainText(from: html)
-    }
 }
 #endif

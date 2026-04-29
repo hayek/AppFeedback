@@ -18,16 +18,23 @@ final class MailThreadStore {
 
     /// Cached result of `recentThreadsForFallback` so multiple `recordInbound` calls within
     /// a single poll cycle each re-use the same snapshot rather than issuing N fetches.
-    private var cachedCandidates: [MailThread]? = nil
+    /// Invalidated by every successful write so newly-created threads are immediately visible
+    /// to subsequent subject-fallback resolution within the same poll batch.
+    private var cachedCandidates: [MailThread]?
     private var candidatesCachedAt: Date = .distantPast
-    private let candidateCacheTTL: TimeInterval = 1.0
 
-    private func recentThreadCandidatesCached(limit: Int) -> [MailThread] {
+    /// One poll cycle is the design horizon — the cache exists to amortize per-message
+    /// fetches inside a single batch, not to live across user-visible time windows.
+    private static let candidateCacheTTL: TimeInterval = 1.0
+    private static let candidateFallbackLimit: Int = 200
+
+    private func recentThreadCandidatesCached() -> [MailThread] {
         let now = Date()
-        if let cached = cachedCandidates, now.timeIntervalSince(candidatesCachedAt) < candidateCacheTTL {
+        if let cached = cachedCandidates,
+           now.timeIntervalSince(candidatesCachedAt) < Self.candidateCacheTTL {
             return cached
         }
-        let fresh = recentThreadsForFallback(limit: limit)
+        let fresh = recentThreadsForFallback(limit: Self.candidateFallbackLimit)
         cachedCandidates = fresh
         candidatesCachedAt = now
         return fresh
@@ -120,6 +127,7 @@ final class MailThreadStore {
         do {
             try context.save()
             version += 1
+            cachedCandidates = nil
         } catch {
             assertionFailure("MailThreadStore save failed: \(error)")
         }
@@ -146,7 +154,7 @@ final class MailThreadStore {
                 let looksLikeReply = ThreadMatcher.stripReplyPrefixes(message.subject) != message.subject
 
                 if looksLikeReply {
-                    let recentThreads = self.recentThreadCandidatesCached(limit: 200)
+                    let recentThreads = self.recentThreadCandidatesCached()
                     let candidates: [ThreadMatcher.Candidate] = recentThreads.map { thread in
                         ThreadMatcher.Candidate(
                             messageID: thread.messageIDRoot,
@@ -245,6 +253,7 @@ final class MailThreadStore {
         do {
             try context.save()
             version += 1
+            cachedCandidates = nil
         } catch {
             assertionFailure("MailThreadStore save failed: \(error)")
         }

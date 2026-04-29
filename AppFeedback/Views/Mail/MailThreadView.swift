@@ -79,7 +79,7 @@ struct MailThreadView: View {
                 inReplyTo: last.inReplyTo,
                 references: last.referencesAsArray
             )
-            // M5: When the last message is outbound, reply to the first recipient (not our own from address).
+            // When the last message is outbound, reply to the first recipient (not our own from address).
             let replyRecipient = last.direction == .outbound
                 ? (last.toAddresses.first ?? last.fromAddress)
                 : last.fromAddress

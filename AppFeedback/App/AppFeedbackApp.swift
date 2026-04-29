@@ -104,11 +104,10 @@ struct AppFeedbackApp: App {
         #if canImport(SwiftMail)
         let imapProvider = IMAPClientProvider(accountStore: mailAccountStoreLocal)
         let localStateStore = MailAccountLocalStateStore(context: ModelContext(container))
-        // I1: Provide real CachedIssue titles to ThreadMatcher for backfill subject matching.
+        // Provide real CachedIssue titles to ThreadMatcher for backfill subject matching.
         // Capture `container` as a local constant so the @Sendable closure doesn't capture `self`.
-        // NOTE (I8): This provider returns titles from ALL repos; ThreadMatcher.matchToIssue does not
-        // currently disambiguate cross-repo title collisions. A future improvement is to filter by
-        // sender/recipient domain → repo. For v1, the highest-number heuristic is acceptable.
+        // The provider returns titles from ALL repos; ThreadMatcher.matchToIssue does not yet
+        // disambiguate cross-repo title collisions — for v1, the highest-number heuristic is acceptable.
         let titlesContainer = container
         let coordinator = MailSyncCoordinator(
             client: imapProvider,

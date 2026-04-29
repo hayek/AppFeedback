@@ -74,7 +74,9 @@ enum MailTemplatePlainText {
                 .replacingOccurrences(of: "\u{2029}", with: "\n")
         }
         #endif
-        return html
+        // iOS lacks NSAttributedString HTML rendering; fall back to regex tag-strip so
+        // template previews show readable plain text rather than raw markup.
+        return HTMLSanitizer.plainText(from: html)
     }
 
     static func toHTML(_ text: String) -> String {
