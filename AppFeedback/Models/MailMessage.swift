@@ -26,16 +26,12 @@ final class MailMessage {
         set { directionRaw = newValue.rawValue }
     }
 
-    var headers: MailMessageHeaders {
-        MailMessageHeaders(
-            messageID: messageID,
-            inReplyTo: inReplyTo,
-            references: references.isEmpty ? [] : references.split(separator: "\n").map(String.init)
-        )
-    }
-
     var referencesAsArray: [String] {
         references.isEmpty ? [] : references.split(separator: "\n").map(String.init)
+    }
+
+    var headers: MailMessageHeaders {
+        MailMessageHeaders(messageID: messageID, inReplyTo: inReplyTo, references: referencesAsArray)
     }
 
     init(

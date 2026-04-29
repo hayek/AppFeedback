@@ -3,7 +3,7 @@ import SwiftData
 
 @Model
 final class MailAccountLocalState {
-    var accountID: UUID = UUID()
+    @Attribute(.unique) var accountID: UUID = UUID()
     var inboxLastUID: UInt32 = 0
     var inboxUIDValidity: UInt32 = 0
     var sentLastUID: UInt32 = 0
