@@ -12,8 +12,9 @@ final class MailThread {
     var issueRepoName: String = ""
     var issueNumber: Int = 0           // 0 = unlinked
     var matchSourceRaw: String = MatchSource.direct.rawValue
+    // CloudKit requires to-many relationships to be optional.
     @Relationship(deleteRule: .cascade, inverse: \MailMessage.thread)
-    var messages: [MailMessage] = []
+    var messages: [MailMessage]? = []
 
     enum MatchSource: String, Sendable { case direct, header, subjectFallback, backfillFuzzy }
     var matchSource: MatchSource {
@@ -33,7 +34,7 @@ final class MailThread {
         issueRepoName: String = "",
         issueNumber: Int = 0,
         matchSourceRaw: String = MatchSource.direct.rawValue,
-        messages: [MailMessage] = []
+        messages: [MailMessage]? = []
     ) {
         self.id = id
         self.messageIDRoot = messageIDRoot

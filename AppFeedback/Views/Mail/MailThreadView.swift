@@ -47,11 +47,11 @@ struct MailThreadView: View {
     }
 
     private var sortedMessages: [MailMessage] {
-        thread.messages.sorted { $0.date < $1.date }
+        (thread.messages ?? []).sorted { $0.date < $1.date }
     }
 
     private var headerLine: String {
-        let count = thread.messages.count
+        let count = thread.messages?.count ?? 0
         let suffix = count == 1 ? "message" : "messages"
         let lastReply = relativeAgo(from: thread.lastMessageAt)
         return "\(count) \(suffix) — last reply \(lastReply)"

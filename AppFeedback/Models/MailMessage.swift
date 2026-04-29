@@ -21,8 +21,9 @@ final class MailMessage {
     /// IMAP folder name (e.g. "INBOX"). Empty for outbound messages.
     var folder: String = ""
     var thread: MailThread? = nil
+    // CloudKit requires to-many relationships to be optional.
     @Relationship(deleteRule: .cascade, inverse: \MailAttachment.message)
-    var attachments: [MailAttachment] = []
+    var attachments: [MailAttachment]? = []
 
     enum Direction: String, Sendable { case outbound, inbound }
     var direction: Direction {
@@ -55,7 +56,7 @@ final class MailMessage {
         uid: Int = 0,
         folder: String = "",
         thread: MailThread? = nil,
-        attachments: [MailAttachment] = []
+        attachments: [MailAttachment]? = []
     ) {
         self.id = id
         self.messageID = messageID

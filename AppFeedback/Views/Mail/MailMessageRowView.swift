@@ -8,12 +8,14 @@ struct MailMessageRowView: View {
 
     @State private var isExpanded: Bool = false
 
+    private var attachments: [MailAttachment] { message.attachments ?? [] }
+
     var body: some View {
         VStack(alignment: .leading, spacing: 4) {
             header
             if isExpanded {
                 bodyView
-                if !message.attachments.isEmpty {
+                if !attachments.isEmpty {
                     attachmentsRow
                 }
             } else {
@@ -47,9 +49,9 @@ struct MailMessageRowView: View {
             .font(.caption)
             .foregroundStyle(.secondary)
             .lineLimit(2)
-        if !message.attachments.isEmpty {
+        if !attachments.isEmpty {
             Label(
-                "\(message.attachments.count) attachment\(message.attachments.count == 1 ? "" : "s")",
+                "\(attachments.count) attachment\(attachments.count == 1 ? "" : "s")",
                 systemImage: "paperclip"
             )
             .font(.caption2)
@@ -66,7 +68,7 @@ struct MailMessageRowView: View {
 
     private var attachmentsRow: some View {
         HStack(spacing: 6) {
-            ForEach(message.attachments) { attachment in
+            ForEach(attachments) { attachment in
                 AttachmentChipView(
                     attachment: attachment,
                     uid: UInt32(max(0, message.uid)),
