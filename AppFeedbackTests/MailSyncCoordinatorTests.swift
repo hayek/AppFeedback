@@ -149,7 +149,8 @@ final class MailSyncCoordinatorTests: XCTestCase {
         let (coordinator, _, _, localStateStore, _) = makeCoordinator(mock: mock, context: context)
 
         // Ensure account is set up so localState can be read
-        let accountID = await MainActor.run { self.accountStore(in: context)?.id } ?? UUID()
+        let accountIDOptional = await MainActor.run { self.accountStore(in: context)?.id }
+        let accountID = try XCTUnwrap(accountIDOptional)
         _ = localStateStore.ensure(accountID: accountID)
 
         await coordinator.pollNow()
@@ -166,24 +167,7 @@ final class MailSyncCoordinatorTests: XCTestCase {
 
     func test_pollNow_whilePollInFlight_isCoalesced() async throws {
         let context = try makeContext()
-        let mock = MockIMAPClient()
-
-        // Use a slow response to ensure the first poll is still "in flight" when the second arrives.
-        // In actor-sequential tests, we can't truly parallelise without tasks, so instead we use
-        // the actor's inFlight flag by calling a second pollNow synchronously after the first has
-        // set inFlight=true inside pollOnce. We do this by adding a small async hook.
-        //
-        // Practical approach: send two independent Tasks to pollNow and let actor serialisation
-        // handle it. The mock returns two responses; we expect only one inbox call because the
-        // second pollNow returns immediately when inFlight is true.
-
-        // Use an actor-checked slow path: give the mock a successful response with a real delay.
-        // Since actors are re-entrant on await, the second pollNow will observe inFlight == true
-        // while the first is suspended inside client.listInbox.
-
-        // Instrument the mock to introduce an artificial suspension
         let slowMock = SlowMockIMAPClient()
-        slowMock.inboxResponses = [.success([makeParsed()]), .success([makeParsed(messageID: "<other@x.com>")])]
 
         let threadStore = MailThreadStore(context: context)
         let accountStore = MailAccountStore(context: context)
@@ -205,13 +189,18 @@ final class MailSyncCoordinatorTests: XCTestCase {
             knownIssueTitlesProvider: { [] }
         )
 
-        // Fire two pollNow calls concurrently
+        // Start the first poll — it will block inside listInbox at the gate.
         async let first: Void = coordinator.pollNow()
+        // Wait until the first call has entered listInbox and is parked at the gate.
+        await slowMock.waitForFirstEntry()
+        // Fire the second poll — coordinator sees inFlight == true and returns immediately.
         async let second: Void = coordinator.pollNow()
-        _ = await (first, second)
+        _ = await second              // returns without calling listInbox
+        await slowMock.unblock()      // release the first call
+        _ = await first
 
-        // Only 1 inbox call should have been made (second was coalesced)
-        XCTAssertEqual(slowMock.inboxCallCount, 1, "Second pollNow should be coalesced when inFlight is true")
+        let count = await slowMock.inboxCallCount
+        XCTAssertEqual(count, 1, "Second pollNow should be coalesced when inFlight is true")
     }
 
     // MARK: - Test 4: backfillCompleted flips after first successful sent scan
@@ -310,35 +299,43 @@ final class MailSyncCoordinatorTests: XCTestCase {
 
 // MARK: - SlowMockIMAPClient
 
-/// A mock that suspends briefly inside listInbox to allow actor re-entrancy tests.
-final class SlowMockIMAPClient: IMAPClientProtocol, @unchecked Sendable {
-    var inboxResponses: [Result<[ParsedInboundMessage], Error>] = []
-    var sentResponses: [Result<[ParsedInboundMessage], Error>] = []
-    var inboxCallCount = 0
-    var sentCallCount = 0
+/// A deterministic mock that parks `listInbox` at a `CheckedContinuation` gate,
+/// letting the test control exactly when the call resumes. This avoids the
+/// scheduler-dependent `Task.yield()` approach.
+actor SlowMockIMAPClient: IMAPClientProtocol {
+    private(set) var inboxCallCount = 0
+
+    /// Gate that blocks listInbox until `unblock()` is called.
+    private var gate: CheckedContinuation<Void, Never>?
+    /// Continuation that fires once `listInbox` has incremented the counter and parked.
+    private var entered: CheckedContinuation<Void, Never>?
+
+    /// Suspends until `listInbox` has been entered and is waiting at the gate.
+    func waitForFirstEntry() async {
+        await withCheckedContinuation { cont in
+            if inboxCallCount > 0 {
+                cont.resume()
+            } else {
+                self.entered = cont
+            }
+        }
+    }
+
+    /// Releases the gate so that the blocked `listInbox` call can return.
+    func unblock() {
+        gate?.resume()
+        gate = nil
+    }
 
     func listInbox(sinceUID: UInt32) async throws -> [ParsedInboundMessage] {
         inboxCallCount += 1
-        // Minimal async suspension to allow other tasks to interleave
-        await Task.yield()
-        guard !inboxResponses.isEmpty else { return [] }
-        let result = inboxResponses.removeFirst()
-        switch result {
-        case .success(let msgs): return msgs
-        case .failure(let err): throw err
-        }
+        entered?.resume()
+        entered = nil
+        await withCheckedContinuation { cont in self.gate = cont }
+        return []
     }
 
-    func listSent(sinceDate: Date) async throws -> [ParsedInboundMessage] {
-        sentCallCount += 1
-        guard !sentResponses.isEmpty else { return [] }
-        let result = sentResponses.removeFirst()
-        switch result {
-        case .success(let msgs): return msgs
-        case .failure(let err): throw err
-        }
-    }
-
+    func listSent(sinceDate: Date) async throws -> [ParsedInboundMessage] { [] }
     func fetchAttachmentBytes(uid: UInt32, folder: String, partID: String) async throws -> Data { Data() }
     func testConnection() async throws { }
 }

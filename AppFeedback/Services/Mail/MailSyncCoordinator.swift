@@ -216,7 +216,7 @@ actor MailSyncCoordinator {
 
     /// Performs the one-time backfill of the Sent folder.
     private func runBackfill(accountID: UUID) async {
-        let oneYearAgo = Date(timeIntervalSinceNow: -365 * 24 * 3600)
+        let oneYearAgo = clock().addingTimeInterval(-365 * 24 * 3600)
         let backfillLogID = await MainActor.run {
             self.activityLog.start(kind: .fetchMail, title: "Backfill sent folder")
         }
