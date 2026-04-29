@@ -28,24 +28,31 @@ struct AppFeedbackApp: App {
     init() {
         let isTesting = ProcessInfo.processInfo.environment["XCTestConfigurationFilePath"] != nil
         do {
-            let cloudSchema = Schema([Repo.self, SeenIssue.self, HiddenApp.self, MailAccount.self, MailThread.self, MailMessage.self, MailAttachment.self])
-            let localSchema = Schema([CachedIssue.self, MailAttachmentLocal.self, MailAccountLocalState.self])
-            let cloudConfig: ModelConfiguration = isTesting
-                ? ModelConfiguration("cloud", schema: cloudSchema, isStoredInMemoryOnly: true)
-                : ModelConfiguration(
+            if isTesting {
+                // In-process test host: single in-memory config, no CloudKit validation.
+                let testConfig = ModelConfiguration(isStoredInMemoryOnly: true, cloudKitDatabase: .none)
+                container = try ModelContainer(
+                    for: Repo.self, SeenIssue.self, HiddenApp.self, MailAccount.self,
+                        MailThread.self, MailMessage.self, MailAttachment.self,
+                        CachedIssue.self, MailAttachmentLocal.self, MailAccountLocalState.self,
+                    configurations: testConfig
+                )
+            } else {
+                let cloudSchema = Schema([Repo.self, SeenIssue.self, HiddenApp.self, MailAccount.self, MailThread.self, MailMessage.self, MailAttachment.self])
+                let localSchema = Schema([CachedIssue.self, MailAttachmentLocal.self, MailAccountLocalState.self])
+                let cloudConfig = ModelConfiguration(
                     "cloud",
                     schema: cloudSchema,
                     cloudKitDatabase: .private("iCloud.com.amirhayek.AppFeedback")
                 )
-            let localConfig: ModelConfiguration = isTesting
-                ? ModelConfiguration("local", schema: localSchema, isStoredInMemoryOnly: true)
-                : ModelConfiguration("local", schema: localSchema, cloudKitDatabase: .none)
-            container = try ModelContainer(
-                for: Repo.self, SeenIssue.self, HiddenApp.self, MailAccount.self,
-                    MailThread.self, MailMessage.self, MailAttachment.self,
-                    CachedIssue.self, MailAttachmentLocal.self, MailAccountLocalState.self,
-                configurations: cloudConfig, localConfig
-            )
+                let localConfig = ModelConfiguration("local", schema: localSchema, cloudKitDatabase: .none)
+                container = try ModelContainer(
+                    for: Repo.self, SeenIssue.self, HiddenApp.self, MailAccount.self,
+                        MailThread.self, MailMessage.self, MailAttachment.self,
+                        CachedIssue.self, MailAttachmentLocal.self, MailAccountLocalState.self,
+                    configurations: cloudConfig, localConfig
+                )
+            }
         } catch {
             assertionFailure("Failed to create ModelContainer: \(error)")
             fatalError("Failed to create ModelContainer: \(error)")
