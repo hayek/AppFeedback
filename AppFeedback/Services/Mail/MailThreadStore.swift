@@ -11,6 +11,14 @@ final class MailThreadStore {
         self.context = context
     }
 
+    // MARK: - Resolution enum
+
+    private enum Resolution {
+        case existingHeader(MailThread)
+        case existingReferences(MailThread)
+        case new(MailThread)
+    }
+
     // MARK: - recordOutbound
 
     @discardableResult
@@ -29,7 +37,7 @@ final class MailThreadStore {
         }
 
         // Determine which thread to append to (header-based lookup)
-        let thread = resolveThread(
+        let resolution = resolveThread(
             inReplyTo: replyHeaders?.inReplyTo,
             references: replyHeaders?.references ?? [],
             fallback: {
@@ -47,6 +55,22 @@ final class MailThreadStore {
                 return newThread
             }
         )
+
+        let thread: MailThread
+        switch resolution {
+        case .existingHeader(let t):
+            // Matched via inReplyTo — leave matchSource as previously set
+            thread = t
+        case .existingReferences(let t):
+            // Matched via references chain — upgrade matchSource to .header if currently .direct
+            if t.matchSource == .direct {
+                t.matchSource = .header
+            }
+            thread = t
+        case .new(let t):
+            // New thread created in fallback — matchSource already set to .direct
+            thread = t
+        }
 
         // Update thread metadata
         thread.lastMessageAt = max(thread.lastMessageAt, date)
@@ -71,7 +95,11 @@ final class MailThreadStore {
         )
         context.insert(msg)
 
-        try? context.save()
+        do {
+            try context.save()
+        } catch {
+            assertionFailure("MailThreadStore save failed: \(error)")
+        }
         return msg
     }
 
@@ -85,7 +113,7 @@ final class MailThreadStore {
         }
 
         // Determine thread via direct header lookup only (no ThreadMatcher)
-        let thread = resolveThread(
+        let resolution = resolveThread(
             inReplyTo: message.inReplyTo,
             references: message.references,
             fallback: {
@@ -103,6 +131,21 @@ final class MailThreadStore {
                 return newThread
             }
         )
+
+        let thread: MailThread
+        switch resolution {
+        case .existingHeader(let t):
+            // Matched via inReplyTo — set matchSource to .header
+            t.matchSource = .header
+            thread = t
+        case .existingReferences(let t):
+            // Matched via references chain — set matchSource to .header
+            t.matchSource = .header
+            thread = t
+        case .new(let t):
+            // New orphan thread — matchSource already .direct (placeholder)
+            thread = t
+        }
 
         // Update thread metadata
         thread.lastMessageAt = max(thread.lastMessageAt, message.date)
@@ -141,7 +184,11 @@ final class MailThreadStore {
             context.insert(attachment)
         }
 
-        try? context.save()
+        do {
+            try context.save()
+        } catch {
+            assertionFailure("MailThreadStore save failed: \(error)")
+        }
         return msg
     }
 
@@ -151,21 +198,28 @@ final class MailThreadStore {
         thread.issueRepoOwner = owner
         thread.issueRepoName = repo
         thread.issueNumber = number
-        try? context.save()
+        do {
+            try context.save()
+        } catch {
+            assertionFailure("MailThreadStore save failed: \(error)")
+        }
     }
 
     // MARK: - threads(forIssue:)
 
     func threads(forIssue issue: (owner: String, repo: String, number: Int)) -> [MailThread] {
-        // SwiftData #Predicate does not support tuple captures, so fetch-then-filter.
-        let allThreads = (try? context.fetch(FetchDescriptor<MailThread>(
+        let owner = issue.owner
+        let repo = issue.repo
+        let number = issue.number
+        let descriptor = FetchDescriptor<MailThread>(
+            predicate: #Predicate {
+                $0.issueRepoOwner == owner &&
+                $0.issueRepoName == repo &&
+                $0.issueNumber == number
+            },
             sortBy: [SortDescriptor(\.lastMessageAt, order: .reverse)]
-        ))) ?? []
-        return allThreads.filter {
-            $0.issueRepoOwner == issue.owner &&
-            $0.issueRepoName == issue.repo &&
-            $0.issueNumber == issue.number
-        }
+        )
+        return (try? context.fetch(descriptor)) ?? []
     }
 
     // MARK: - mergeThreads
@@ -173,6 +227,9 @@ final class MailThreadStore {
     func mergeThreads(into keep: MailThread, drop: MailThread) {
         // Collect messageIDs already in keep for dedupe
         let keepMessageIDs = Set(keep.messages.map(\.messageID))
+
+        // Capture drop's max date BEFORE reparenting (drop.messages will change after reparent)
+        let dropMaxDate = drop.messages.map(\.date).max()
 
         // Reparent messages from drop to keep (skip duplicates)
         for msg in drop.messages {
@@ -185,10 +242,7 @@ final class MailThreadStore {
         }
 
         // Update keep's lastMessageAt to the max across all reparented messages
-        let allDates = keep.messages.map(\.date)
-        if let maxDate = allDates.max() {
-            keep.lastMessageAt = max(keep.lastMessageAt, maxDate)
-        }
+        keep.lastMessageAt = max(keep.lastMessageAt, dropMaxDate ?? .distantPast)
 
         // Union participants
         keep.participants = unionPreservingOrder(keep.participants, drop.participants)
@@ -196,14 +250,21 @@ final class MailThreadStore {
         // Delete the dropped thread
         context.delete(drop)
 
-        try? context.save()
+        do {
+            try context.save()
+        } catch {
+            assertionFailure("MailThreadStore save failed: \(error)")
+        }
     }
 
     // MARK: - Private helpers
 
     private func findMessage(byMessageID messageID: String) -> MailMessage? {
-        let all = (try? context.fetch(FetchDescriptor<MailMessage>())) ?? []
-        return all.first(where: { $0.messageID == messageID })
+        var descriptor = FetchDescriptor<MailMessage>(
+            predicate: #Predicate { $0.messageID == messageID }
+        )
+        descriptor.fetchLimit = 1
+        return try? context.fetch(descriptor).first
     }
 
     /// Resolve a thread from inReplyTo / references headers, or call `fallback` to create a new one.
@@ -211,26 +272,26 @@ final class MailThreadStore {
         inReplyTo: String?,
         references: [String],
         fallback: () -> MailThread
-    ) -> MailThread {
+    ) -> Resolution {
         // 1. Check inReplyTo against any stored MailMessage.messageID
         if let inReplyTo, !inReplyTo.isEmpty,
            let parent = findMessage(byMessageID: inReplyTo),
            let parentThread = parent.thread {
-            return parentThread
+            return .existingHeader(parentThread)
         }
 
-        // 2. Walk references chain — pick the thread of the newest matching message
+        // 2. Walk references chain — one predicated fetch per reference ID, early-return on first hit
+        //    Pick the thread of the newest matching message across all references.
         if !references.isEmpty {
-            let allMessages = (try? context.fetch(FetchDescriptor<MailMessage>())) ?? []
-            let matched = allMessages.filter { references.contains($0.messageID) && $0.thread != nil }
-            if let newest = matched.max(by: { ($0.date) < ($1.date) }),
+            let candidates = references.compactMap { findMessage(byMessageID: $0) }
+            if let newest = candidates.max(by: { $0.date < $1.date }),
                let thread = newest.thread {
-                return thread
+                return .existingReferences(thread)
             }
         }
 
         // 3. No match — invoke fallback to create a new thread
-        return fallback()
+        return .new(fallback())
     }
 
     /// Merge `additions` into `base`, preserving insertion order and skipping duplicates.

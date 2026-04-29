@@ -399,4 +399,128 @@ final class MailThreadStoreTests: XCTestCase {
         let rows = try context.fetch(FetchDescriptor<MailAttachment>())
         XCTAssertEqual(rows.count, 2)
     }
+
+    // MARK: - Test 11: recordInbound resolves thread via references chain (no inReplyTo)
+
+    func test_recordInbound_referencesChain_appendsToExistingThread() throws {
+        let context = try makeContext()
+        let store = MailThreadStore(context: context)
+
+        // Create an existing message/thread
+        let existing = store.recordOutbound(
+            messageID: "<old@x>",
+            repoOwner: "owner", repoName: "repo", issueNumber: 7,
+            from: "a@x.com", fromName: nil,
+            to: ["b@x.com"], cc: [],
+            subject: "Original",
+            bodyPlain: "Original body", bodyHTML: nil,
+            date: Date(timeIntervalSinceNow: -500),
+            replyHeaders: nil
+        )
+        let originalThread = existing.thread
+        XCTAssertNotNil(originalThread)
+
+        // Record an inbound with NO inReplyTo, but references contains the existing messageID
+        let inbound = store.recordInbound(message: makeParsed(
+            messageID: "<new-via-refs@x>",
+            inReplyTo: nil,
+            references: ["<old@x>"]
+        ))
+
+        XCTAssertNotNil(inbound, "Should return an inserted message")
+        XCTAssertEqual(inbound?.thread?.id, originalThread?.id,
+                       "Message resolved via references should land on the same thread")
+
+        let threads = try context.fetch(FetchDescriptor<MailThread>())
+        XCTAssertEqual(threads.count, 1, "Should still be only one thread")
+
+        XCTAssertEqual(inbound?.thread?.matchSource, .header,
+                       "matchSource should be .header when resolved via references chain")
+    }
+
+    // MARK: - Test 12: mergeThreads deletes duplicate MailMessage rows from persistent store
+
+    func test_mergeThreads_actuallyDeletesDuplicateMessageRows() throws {
+        let context = try makeContext()
+        let store = MailThreadStore(context: context)
+
+        let sharedMsgID = "<shared-dup@example.com>"
+
+        // Create thread A with the shared message
+        let msgA = store.recordOutbound(
+            messageID: sharedMsgID,
+            repoOwner: "owner", repoName: "repo", issueNumber: 1,
+            from: "a@example.com", fromName: nil,
+            to: ["b@example.com"], cc: [],
+            subject: "Shared",
+            bodyPlain: "A", bodyHTML: nil,
+            date: Date(timeIntervalSinceNow: -300),
+            replyHeaders: nil
+        )
+        let keepThread = msgA.thread!
+
+        // Manually create a second thread with the SAME messageID to simulate a merge scenario
+        let dropThread = MailThread(
+            messageIDRoot: "<drop-root-dup@example.com>",
+            subject: "Drop Thread Dup"
+        )
+        context.insert(dropThread)
+
+        let duplicateMsg = MailMessage(
+            messageID: sharedMsgID,
+            subject: "Shared",
+            directionRaw: "outbound"
+        )
+        duplicateMsg.thread = dropThread
+        context.insert(duplicateMsg)
+        try context.save()
+
+        // Sanity check: 2 MailMessage rows exist before merge
+        let before = try context.fetch(FetchDescriptor<MailMessage>())
+        XCTAssertEqual(before.count, 2, "Should have 2 rows before merge")
+
+        store.mergeThreads(into: keepThread, drop: dropThread)
+
+        // After merge, only 1 MailMessage row should remain in the persistent store
+        let after = try context.fetch(FetchDescriptor<MailMessage>())
+        XCTAssertEqual(after.count, 1, "Duplicate MailMessage row should be deleted from store")
+        XCTAssertEqual(keepThread.messages.count, 1, "Keep thread should hold exactly 1 message")
+    }
+
+    // MARK: - Test 13: deleting a MailThread cascades to MailMessage and MailAttachment rows
+
+    func test_threadDelete_cascadesToMessages() throws {
+        let context = try makeContext()
+        let store = MailThreadStore(context: context)
+
+        // Insert a thread with a message that has one attachment
+        let attachmentMeta = [
+            ParsedAttachmentMeta(partID: "2.1", filename: "file.txt", mimeType: "text/plain", sizeBytes: 512)
+        ]
+        let msg = store.recordInbound(message: makeParsed(
+            messageID: "<cascade-test@example.com>",
+            attachments: attachmentMeta
+        ))
+        XCTAssertNotNil(msg)
+
+        let thread = msg!.thread!
+
+        // Verify baseline counts
+        let msgsBefore = try context.fetch(FetchDescriptor<MailMessage>())
+        XCTAssertEqual(msgsBefore.count, 1)
+        let attachBefore = try context.fetch(FetchDescriptor<MailAttachment>())
+        XCTAssertEqual(attachBefore.count, 1)
+
+        // Delete the thread and save
+        context.delete(thread)
+        try context.save()
+
+        // MailMessage rows should be gone (cascade from MailThread → MailMessage)
+        let msgsAfter = try context.fetch(FetchDescriptor<MailMessage>())
+        XCTAssertEqual(msgsAfter.count, 0, "MailMessage rows should be cascade-deleted with the thread")
+
+        // MailAttachment rows should be gone (cascade from MailMessage → MailAttachment)
+        let attachAfter = try context.fetch(FetchDescriptor<MailAttachment>())
+        XCTAssertEqual(attachAfter.count, 0, "MailAttachment rows should be cascade-deleted with the message")
+    }
 }
