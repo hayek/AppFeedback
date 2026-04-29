@@ -28,8 +28,8 @@ struct AppFeedbackApp: App {
     init() {
         let isTesting = ProcessInfo.processInfo.environment["XCTestConfigurationFilePath"] != nil
         do {
-            let cloudSchema = Schema([Repo.self, SeenIssue.self, HiddenApp.self, MailAccount.self])
-            let localSchema = Schema([CachedIssue.self])
+            let cloudSchema = Schema([Repo.self, SeenIssue.self, HiddenApp.self, MailAccount.self, MailThread.self, MailMessage.self, MailAttachment.self])
+            let localSchema = Schema([CachedIssue.self, MailAttachmentLocal.self, MailAccountLocalState.self])
             let cloudConfig: ModelConfiguration = isTesting
                 ? ModelConfiguration("cloud", schema: cloudSchema, isStoredInMemoryOnly: true)
                 : ModelConfiguration(
@@ -41,7 +41,9 @@ struct AppFeedbackApp: App {
                 ? ModelConfiguration("local", schema: localSchema, isStoredInMemoryOnly: true)
                 : ModelConfiguration("local", schema: localSchema, cloudKitDatabase: .none)
             container = try ModelContainer(
-                for: Repo.self, SeenIssue.self, HiddenApp.self, MailAccount.self, CachedIssue.self,
+                for: Repo.self, SeenIssue.self, HiddenApp.self, MailAccount.self,
+                    MailThread.self, MailMessage.self, MailAttachment.self,
+                    CachedIssue.self, MailAttachmentLocal.self, MailAccountLocalState.self,
                 configurations: cloudConfig, localConfig
             )
         } catch {
