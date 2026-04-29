@@ -11,7 +11,7 @@ struct IssueListView: View {
     @Bindable var summaryVM: UnreadSummaryViewModel
     let summaryCollapseKey: String
 
-    #if os(macOS)
+    #if canImport(SwiftMail)
     @State private var composing: ComposeContext?
     #endif
 
@@ -140,7 +140,7 @@ struct IssueListView: View {
                     }
                 }
             }
-            #if os(macOS)
+            #if canImport(SwiftMail)
             .sheet(item: $composing) { ctx in
                 ComposeMailView(
                     recipient: ctx.recipient,
@@ -169,7 +169,6 @@ struct IssueListView: View {
 
     @ViewBuilder
     private func issueCard(for issue: FeedbackIssue) -> some View {
-        #if os(macOS)
         IssueCardView(
             issue: issue,
             appColor: appColor(for: issue.appName ?? ""),
@@ -195,45 +194,19 @@ struct IssueListView: View {
             onToggleIssueType: { type in
                 viewModel.filters.issueType.toggleMembership(type)
             },
-            onTapEmail: { email in
-                composing = ComposeContext(recipient: email, issue: issue)
-            },
+            onTapEmail: tapEmailHandler(for: issue),
             intelligenceAvailable: viewModel.intelligenceProvider?.availability.isReady ?? false,
             targetLanguageCode: targetLanguageCode,
             isTranslating: viewModel.isTranslating(issue),
             isHighlighted: viewModel.highlightedIssueNumber == issue.number
         )
+    }
+
+    private func tapEmailHandler(for issue: FeedbackIssue) -> ((String) -> Void)? {
+        #if canImport(SwiftMail)
+        return { email in composing = ComposeContext(recipient: email, issue: issue) }
         #else
-        IssueCardView(
-            issue: issue,
-            appColor: appColor(for: issue.appName ?? ""),
-            isUnread: viewModel.isUnread(issue),
-            onInteract: { viewModel.markSeen(issue) },
-            activeApp: viewModel.appFilter,
-            activeAppVersion: viewModel.filters.appVersion,
-            activeDevice: viewModel.filters.device,
-            activeOSVersion: viewModel.filters.osVersion,
-            onToggleApp: { value in
-                viewModel.appFilter.toggleMembership(value)
-            },
-            onToggleAppVersion: { value in
-                viewModel.filters.appVersion.toggleMembership(value)
-            },
-            onToggleDevice: { value in
-                viewModel.filters.device.toggleMembership(value)
-            },
-            onToggleOSVersion: { value in
-                viewModel.filters.osVersion.toggleMembership(value)
-            },
-            activeIssueType: viewModel.filters.issueType,
-            onToggleIssueType: { type in
-                viewModel.filters.issueType.toggleMembership(type)
-            },
-            intelligenceAvailable: viewModel.intelligenceProvider?.availability.isReady ?? false,
-            targetLanguageCode: targetLanguageCode,
-            isTranslating: viewModel.isTranslating(issue),
-            isHighlighted: viewModel.highlightedIssueNumber == issue.number
-        )
+        return nil
         #endif
     }
 
@@ -255,7 +228,7 @@ struct IssueListView: View {
     }
 }
 
-#if os(macOS)
+#if canImport(SwiftMail)
 struct ComposeContext: Identifiable {
     let id = UUID()
     let recipient: String
