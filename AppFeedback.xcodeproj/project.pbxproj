@@ -64,6 +64,7 @@
 		38EC294B4EE9CC45E2839A1D /* RepoConfig.swift in Sources */ = {isa = PBXBuildFile; fileRef = CB4F1AB8C4EA41A8708C1EA3 /* RepoConfig.swift */; };
 		3900CA9F3989EDABB59EA5DA /* AttachmentChipView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 669E2CE11444570770CF1ACC /* AttachmentChipView.swift */; };
 		3912E8FE388B025E32A21DC0 /* AttachmentDownloader.swift in Sources */ = {isa = PBXBuildFile; fileRef = E669A5A9DB267448EDE24CA7 /* AttachmentDownloader.swift */; };
+		731B9BE084D6016B9BD400E7 /* IMAPClientProvider.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1E0D6CE3354F27A72156CA6F /* IMAPClientProvider.swift */; };
 		391FB12149E53F097791666F /* SettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 68B931F0D2D397FA605DCCBA /* SettingsView.swift */; };
 		3A97DFF7570825CC39DACE81 /* IntelligenceAvailability.swift in Sources */ = {isa = PBXBuildFile; fileRef = FE75574D86561E85E76AF1C8 /* IntelligenceAvailability.swift */; };
 		3BB949447321B00D7FBFE2A2 /* MailThreadStoreTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1D93EA05B7A45FF6DD6E3E19 /* MailThreadStoreTests.swift */; };
@@ -119,6 +120,7 @@
 		71368B398604FB8ADBA5A14A /* AppFeedbackApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = ADB9724B7CB5D9FF9058FEE4 /* AppFeedbackApp.swift */; };
 		71E67446718F7936816084F5 /* iOSBackgroundRefreshDriver.swift in Sources */ = {isa = PBXBuildFile; fileRef = 07F4F74C21ED56A576353D2B /* iOSBackgroundRefreshDriver.swift */; };
 		72BAF747427FA6651F1E79C8 /* AttachmentDownloader.swift in Sources */ = {isa = PBXBuildFile; fileRef = E669A5A9DB267448EDE24CA7 /* AttachmentDownloader.swift */; };
+		4D23F78C5B8BFE9A9DBD9C9D /* IMAPClientProvider.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1E0D6CE3354F27A72156CA6F /* IMAPClientProvider.swift */; };
 		7350D336542599B742BF0C96 /* AttachmentChipView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 669E2CE11444570770CF1ACC /* AttachmentChipView.swift */; };
 		73F620747190D52589CD56C2 /* IssueBodyParserTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1E82DAEA39278D09C6F83D6A /* IssueBodyParserTests.swift */; };
 		743E23C9879F1535ED3CEA9A /* MailSubjectTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = B01371BB929AA76F679A4403 /* MailSubjectTests.swift */; };
@@ -406,6 +408,7 @@
 		DF888428018779D447A80538 /* DeviceNameTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DeviceNameTests.swift; sourceTree = "<group>"; };
 		E03BB1B8AFFBECF24C7950C8 /* IssueLoader.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = IssueLoader.swift; sourceTree = "<group>"; };
 		E669A5A9DB267448EDE24CA7 /* AttachmentDownloader.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AttachmentDownloader.swift; sourceTree = "<group>"; };
+		1E0D6CE3354F27A72156CA6F /* IMAPClientProvider.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = IMAPClientProvider.swift; sourceTree = "<group>"; };
 		E7E1CD7C8E8BF3B31A2C6E80 /* NotificationSettings.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NotificationSettings.swift; sourceTree = "<group>"; };
 		EBC84D73F559C8192BD55BC8 /* MailAccountLocalState.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MailAccountLocalState.swift; sourceTree = "<group>"; };
 		EC52FD3E27B1F223D322FA99 /* ActivityLogTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ActivityLogTests.swift; sourceTree = "<group>"; };
@@ -445,6 +448,7 @@
 			isa = PBXGroup;
 			children = (
 				E669A5A9DB267448EDE24CA7 /* AttachmentDownloader.swift */,
+				1E0D6CE3354F27A72156CA6F /* IMAPClientProvider.swift */,
 				DF03F4C9EF76A6EBE12A4809 /* AttachmentFolder.swift */,
 				A1F35CF9445124909B460DEC /* HTMLSanitizer.swift */,
 				71D72E157165F067B976C6B0 /* IMAPClient.swift */,
@@ -873,6 +877,7 @@
 				4630F99F04FA2ACAC0C122FF /* AppRowView.swift in Sources */,
 				3900CA9F3989EDABB59EA5DA /* AttachmentChipView.swift in Sources */,
 				72BAF747427FA6651F1E79C8 /* AttachmentDownloader.swift in Sources */,
+				4D23F78C5B8BFE9A9DBD9C9D /* IMAPClientProvider.swift in Sources */,
 				FE1D6FDE9C801DEF496C5F64 /* AttachmentFolder.swift in Sources */,
 				1A4519EDB28C074C99F76742 /* CachedIssue.swift in Sources */,
 				302B3F175D4ECEA78AD65FBE /* CloudSyncStatus.swift in Sources */,
@@ -1013,6 +1018,7 @@
 				C8B0A33BDD691C4C94FF30E2 /* AppRowView.swift in Sources */,
 				7350D336542599B742BF0C96 /* AttachmentChipView.swift in Sources */,
 				3912E8FE388B025E32A21DC0 /* AttachmentDownloader.swift in Sources */,
+				731B9BE084D6016B9BD400E7 /* IMAPClientProvider.swift in Sources */,
 				6E98FA8BDA2A1FCEADD219F7 /* AttachmentFolder.swift in Sources */,
 				C40C31553933350C02218269 /* CachedIssue.swift in Sources */,
 				F4A10388C761178F5BBDD845 /* CloudSyncStatus.swift in Sources */,

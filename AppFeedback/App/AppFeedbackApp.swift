@@ -20,10 +20,8 @@ struct AppFeedbackApp: App {
     @State private var notificationSettings: NotificationSettings
     @State private var notificationService: NotificationService
     @State private var notificationRouter: NotificationRouter
-    @State private var downloaderHolder: AttachmentDownloaderHolder = AttachmentDownloaderHolder(nil)
-    #if os(macOS)
-    @State private var coordinatorHolder: MailSyncCoordinatorHolder = MailSyncCoordinatorHolder(nil)
-    #endif
+    @State private var downloaderHolder: AttachmentDownloaderHolder
+    @State private var coordinatorHolder: MailSyncCoordinatorHolder
     #if os(iOS)
     @State private var iosRefreshDriver: iOSBackgroundRefreshDriver
     #elseif os(macOS)
@@ -102,6 +100,33 @@ struct AppFeedbackApp: App {
         _notificationService = State(initialValue: service)
 
         let activityLogValue = _activityLog.wrappedValue
+
+        #if canImport(SwiftMail)
+        let imapProvider = IMAPClientProvider(accountStore: mailAccountStoreLocal)
+        let localStateStore = MailAccountLocalStateStore(context: ModelContext(container))
+        let coordinator = MailSyncCoordinator(
+            client: imapProvider,
+            threadStore: threadStoreLocal,
+            accountStore: mailAccountStoreLocal,
+            localState: localStateStore,
+            activityLog: activityLogValue,
+            knownIssueTitlesProvider: {
+                // TODO: wire repo issue cache when RepoStore exposes it cleanly.
+                // RepoStore only holds RepoConfig (owner/repo pairs), not CachedIssue records.
+                // A future pass can inject a ModelContext here and fetch CachedIssue rows directly.
+                return []
+            }
+        )
+        _coordinatorHolder = State(initialValue: MailSyncCoordinatorHolder(coordinator))
+
+        let attachmentLocalStore = MailAttachmentLocalStore(context: ModelContext(container))
+        let downloader = AttachmentDownloader(client: imapProvider, localStore: attachmentLocalStore)
+        _downloaderHolder = State(initialValue: AttachmentDownloaderHolder(downloader))
+        #else
+        _coordinatorHolder = State(initialValue: MailSyncCoordinatorHolder(nil))
+        _downloaderHolder = State(initialValue: AttachmentDownloaderHolder(nil))
+        #endif
+
         #if os(iOS)
         let driver = iOSBackgroundRefreshDriver(
             store: _store.wrappedValue,
@@ -138,11 +163,14 @@ struct AppFeedbackApp: App {
                 .environment(notificationSettings)
                 .environment(notificationRouter)
                 .environment(downloaderHolder)
-                #if os(macOS)
                 .environment(coordinatorHolder)
-                #endif
                 .environment(\.notificationService, notificationService)
                 .task { await notificationService.requestAuthorizationIfNeeded() }
+                .onAppear {
+                    #if canImport(SwiftMail)
+                    Task { await coordinatorHolder.coordinator?.start() }
+                    #endif
+                }
                 .onChange(of: notificationSettings.isEnabled) { _, isOn in
                     #if os(macOS)
                     if isOn { macRefreshDriver.startIfEnabled() } else { macRefreshDriver.stop() }
@@ -152,7 +180,20 @@ struct AppFeedbackApp: App {
                 }
                 #if os(iOS)
                 .onChange(of: scenePhase) { _, phase in
+                    #if canImport(SwiftMail)
+                    if phase == .active {
+                        Task { await coordinatorHolder.coordinator?.pollNow() }
+                    }
+                    #endif
                     if phase == .background { iosRefreshDriver.scheduleNextRefresh() }
+                }
+                #elseif os(macOS)
+                .onChange(of: scenePhase) { _, phase in
+                    #if canImport(SwiftMail)
+                    if phase == .active {
+                        Task { await coordinatorHolder.coordinator?.pollNow() }
+                    }
+                    #endif
                 }
                 #endif
         }
