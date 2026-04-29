@@ -1,5 +1,10 @@
 import Foundation
 
+private let replyPrefixRegex: NSRegularExpression = {
+    // Pattern is a compile-time literal; force-try is correct.
+    try! NSRegularExpression(pattern: #"^\s*(?:Re|Fwd|Fw)\s*:\s*"#, options: .caseInsensitive)
+}()
+
 enum ThreadMatcher {
 
     struct Candidate: Equatable, Sendable {
@@ -41,7 +46,7 @@ enum ThreadMatcher {
         }
 
         // 3. Subject fallback
-        let strippedMessageSubject = stripReplyPrefixes(message.subject)
+        let strippedMessageSubject = stripReplyPrefixes(message.subject).lowercased()
 
         // Build the message's address set (case-insensitive)
         let messageAddresses = Set(
@@ -55,7 +60,7 @@ enum ThreadMatcher {
         var bestDate: Date? = nil
 
         for (i, candidate) in existing.enumerated() {
-            guard stripReplyPrefixes(candidate.subject).lowercased() == strippedMessageSubject.lowercased() else {
+            guard stripReplyPrefixes(candidate.subject).lowercased() == strippedMessageSubject else {
                 continue
             }
             let candidateAddresses = Set(candidate.participants.map { $0.lowercased() })
@@ -85,6 +90,9 @@ enum ThreadMatcher {
         // Minimum title length to avoid spurious matches (e.g. a single digit "1" matching everything)
         let minimumTitleLength = 4
 
+        // On multi-match we pick the highest issue number as a proxy for "most recent issue",
+        // per the plan's heuristic. Holds when titles come from a single repo's GitHub feed.
+
         var bestMatch: (owner: String, repo: String, number: Int)? = nil
         var bestNumber = Int.min
 
@@ -109,24 +117,12 @@ enum ThreadMatcher {
     ///   "Re: Re: Fwd: foo" → "foo"
     ///   "Re:Fwd:bar"       → "bar"
     internal static func stripReplyPrefixes(_ subject: String) -> String {
-        // Matches optional whitespace, one of the known prefixes, optional whitespace
-        // Anchored at the start of the remaining string; applied repeatedly until no more match.
-        let prefixPattern = #"^\s*(?:Re|Fwd|Fw)\s*:\s*"#
-        guard let regex = try? NSRegularExpression(pattern: prefixPattern, options: .caseInsensitive) else {
-            return subject
-        }
-
         var result = subject
         while true {
             let range = NSRange(result.startIndex..., in: result)
-            let match = regex.firstMatch(in: result, options: [], range: range)
-            guard let m = match else { break }
-            // Remove the matched prefix
-            if let swiftRange = Range(m.range, in: result) {
-                result = String(result[swiftRange.upperBound...])
-            } else {
-                break
-            }
+            guard let m = replyPrefixRegex.firstMatch(in: result, options: [], range: range),
+                  let swiftRange = Range(m.range, in: result) else { break }
+            result = String(result[swiftRange.upperBound...])
         }
         return result
     }
