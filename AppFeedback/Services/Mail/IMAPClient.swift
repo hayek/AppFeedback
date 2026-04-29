@@ -245,10 +245,11 @@ actor IMAPClient: IMAPClientProtocol {
         // I10: If there's no plain-text body but HTML is available, generate a plain-text fallback
         // by stripping HTML tags. This ensures bodyPlain is never empty for HTML-only messages.
         if bodyPlain.isEmpty, let html = rawHTML {
+            let reOpts: String.CompareOptions = [.regularExpression, .caseInsensitive]
             bodyPlain = html
-                .replacingOccurrences(of: "<style[^>]*>[\\s\\S]*?</style>", with: " ", options: .regularExpression)
-                .replacingOccurrences(of: "<script[^>]*>[\\s\\S]*?</script>", with: " ", options: .regularExpression)
-                .replacingOccurrences(of: "<[^>]+>", with: " ", options: .regularExpression)
+                .replacingOccurrences(of: "<style[^>]*>[\\s\\S]*?</style>", with: " ", options: reOpts)
+                .replacingOccurrences(of: "<script[^>]*>[\\s\\S]*?</script>", with: " ", options: reOpts)
+                .replacingOccurrences(of: "<[^>]+>", with: " ", options: reOpts)
                 .replacingOccurrences(of: "&nbsp;", with: " ")
                 .replacingOccurrences(of: "&amp;", with: "&")
                 .replacingOccurrences(of: "&lt;", with: "<")
