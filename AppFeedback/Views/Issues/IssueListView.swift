@@ -84,7 +84,7 @@ struct IssueListView: View {
         if visible.isEmpty {
             VStack(spacing: 0) {
                 if showsFilterBar {
-                    FilterBarView(viewModel: viewModel)
+                    FilterBarView(viewModel: viewModel, accent: filterAccent)
                         .padding(.horizontal, 20)
                         .padding(.top, 16)
                 }
@@ -97,7 +97,7 @@ struct IssueListView: View {
                 ScrollView {
                     LazyVStack(spacing: 12) {
                         if showsFilterBar {
-                            FilterBarView(viewModel: viewModel)
+                            FilterBarView(viewModel: viewModel, accent: filterAccent)
                         }
 
                         UnreadSummaryView(
@@ -150,6 +150,13 @@ struct IssueListView: View {
             }
             #endif
         }
+    }
+
+    private var filterAccent: Color {
+        if !viewModel.allowsAppFilter, let onlyApp = viewModel.appFilter.first {
+            return appColor(for: onlyApp)
+        }
+        return .accentColor
     }
 
     private func appColor(for appName: String) -> Color {

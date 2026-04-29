@@ -2,6 +2,7 @@ import SwiftUI
 
 struct FilterBarView: View {
     @Bindable var viewModel: IssueListViewModel
+    var accent: Color = .accentColor
 
     var body: some View {
         ScrollView(.horizontal, showsIndicators: false) {
@@ -10,7 +11,8 @@ struct FilterBarView: View {
                     FilterChip(
                         label: "App",
                         values: viewModel.uniqueAppNames,
-                        selection: $viewModel.appFilter
+                        selection: $viewModel.appFilter,
+                        accent: accent
                     )
                 }
                 IssueTypeFilterChip(
@@ -18,24 +20,28 @@ struct FilterBarView: View {
                     selection: Binding(
                         get: { viewModel.filters.issueType },
                         set: { viewModel.filters.issueType = $0 }
-                    )
+                    ),
+                    accent: accent
                 )
                 FilterChip(
                     label: "Version",
                     values: viewModel.uniqueValues(for: \.appVersion),
-                    selection: binding(for: \.appVersion)
+                    selection: binding(for: \.appVersion),
+                    accent: accent
                 )
                 FilterChip(
                     label: "Device",
                     values: viewModel.uniqueValues(for: \.device),
                     selection: binding(for: \.device),
-                    display: DeviceName.friendly
+                    display: DeviceName.friendly,
+                    accent: accent
                 )
                 FilterChip(
                     label: "OS",
                     values: viewModel.uniqueValues(for: \.osVersion),
                     selection: binding(for: \.osVersion),
-                    display: OSVersionFormat.display
+                    display: OSVersionFormat.display,
+                    accent: accent
                 )
 
                 if hasAnyActiveFilter {
@@ -86,10 +92,11 @@ private struct FilterChip: View {
     let values: [String]
     @Binding var selection: Set<String>
     var display: ((String) -> String)? = nil
+    var accent: Color = .accentColor
 
     var body: some View {
         if !values.isEmpty {
-            FilterChipContainer(isActive: !selection.isEmpty) {
+            FilterChipContainer(isActive: !selection.isEmpty, accent: accent) {
                 Menu {
                     if !selection.isEmpty {
                         Button("Clear \(label)") { selection = [] }
@@ -119,7 +126,7 @@ private struct FilterChip: View {
                 .fixedSize()
 
                 ForEach(Array(selection).sorted(), id: \.self) { value in
-                    SubPill(text: display?(value) ?? value) {
+                    SubPill(text: display?(value) ?? value, accent: accent) {
                         selection.remove(value)
                     }
                 }
@@ -133,10 +140,11 @@ private struct FilterChip: View {
 private struct IssueTypeFilterChip: View {
     let types: [IssueType]
     @Binding var selection: Set<IssueType>
+    var accent: Color = .accentColor
 
     var body: some View {
         if !types.isEmpty {
-            FilterChipContainer(isActive: !selection.isEmpty) {
+            FilterChipContainer(isActive: !selection.isEmpty, accent: accent) {
                 Menu {
                     if !selection.isEmpty {
                         Button("Clear Type") { selection = [] }
@@ -164,7 +172,7 @@ private struct IssueTypeFilterChip: View {
                 .fixedSize()
 
                 ForEach(Array(selection).sorted(by: { $0.displayName < $1.displayName }), id: \.self) { type in
-                    SubPill(text: type.displayName, leadingSymbol: type.systemImage) {
+                    SubPill(text: type.displayName, leadingSymbol: type.systemImage, accent: accent) {
                         selection.remove(type)
                     }
                 }
@@ -178,6 +186,7 @@ private struct IssueTypeFilterChip: View {
 /// Outer rounded capsule that contains the title segment + sub-pills as one unit.
 private struct FilterChipContainer<Content: View>: View {
     let isActive: Bool
+    var accent: Color = .accentColor
     @ViewBuilder var content: Content
 
     var body: some View {
@@ -187,12 +196,12 @@ private struct FilterChipContainer<Content: View>: View {
         .padding(.horizontal, 4)
         .padding(.vertical, 3)
         .background(
-            isActive ? Color.accentColor.opacity(0.08) : Color.secondary.opacity(0.06),
+            isActive ? accent.opacity(0.08) : Color.secondary.opacity(0.06),
             in: Capsule()
         )
         .overlay(
             Capsule().stroke(
-                isActive ? Color.accentColor.opacity(0.28) : Color.secondary.opacity(0.18),
+                isActive ? accent.opacity(0.28) : Color.secondary.opacity(0.18),
                 lineWidth: 1
             )
         )
@@ -232,6 +241,7 @@ private struct FilterTitleSegment: View {
 private struct SubPill: View {
     let text: String
     var leadingSymbol: String? = nil
+    var accent: Color = .accentColor
     let onRemove: () -> Void
 
     var body: some View {
@@ -246,13 +256,13 @@ private struct SubPill: View {
                     .lineLimit(1)
                 Image(systemName: "xmark")
                     .font(.system(size: 7, weight: .bold))
-                    .foregroundStyle(Color.accentColor.opacity(0.7))
+                    .foregroundStyle(accent.opacity(0.7))
             }
-            .foregroundStyle(Color.accentColor)
+            .foregroundStyle(accent)
             .padding(.leading, 7)
             .padding(.trailing, 5)
             .padding(.vertical, 3)
-            .background(Color.accentColor.opacity(0.18), in: Capsule())
+            .background(accent.opacity(0.18), in: Capsule())
         }
         .buttonStyle(.plain)
         .help("Remove \(text)")
