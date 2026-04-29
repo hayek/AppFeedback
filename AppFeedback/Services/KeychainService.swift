@@ -100,4 +100,50 @@ enum KeychainService {
         ]
         SecItemDelete(query as CFDictionary)
     }
+
+    private static let imapAccount = "imap.password"
+
+    @discardableResult
+    static func saveIMAPPassword(_ password: String) async -> Bool {
+        let data = Data(password.utf8)
+        let query: [String: Any] = [
+            kSecClass as String:              kSecClassGenericPassword,
+            kSecAttrService as String:        service,
+            kSecAttrAccount as String:        imapAccount,
+            kSecAttrSynchronizable as String: kCFBooleanTrue!,
+        ]
+        let attributes: [String: Any] = [kSecValueData as String: data]
+        let status = SecItemUpdate(query as CFDictionary, attributes as CFDictionary)
+        if status == errSecItemNotFound {
+            var newItem = query
+            newItem[kSecValueData as String] = data
+            return SecItemAdd(newItem as CFDictionary, nil) == errSecSuccess
+        }
+        return status == errSecSuccess
+    }
+
+    static func loadIMAPPassword() async -> String? {
+        let query: [String: Any] = [
+            kSecClass as String:              kSecClassGenericPassword,
+            kSecAttrService as String:        service,
+            kSecAttrAccount as String:        imapAccount,
+            kSecAttrSynchronizable as String: kCFBooleanTrue!,
+            kSecReturnData as String:         true,
+            kSecMatchLimit as String:         kSecMatchLimitOne,
+        ]
+        var result: AnyObject?
+        guard SecItemCopyMatching(query as CFDictionary, &result) == errSecSuccess,
+              let data = result as? Data else { return nil }
+        return String(data: data, encoding: .utf8)
+    }
+
+    static func deleteIMAPPassword() async {
+        let query: [String: Any] = [
+            kSecClass as String:              kSecClassGenericPassword,
+            kSecAttrService as String:        service,
+            kSecAttrAccount as String:        imapAccount,
+            kSecAttrSynchronizable as String: kCFBooleanTrue!,
+        ]
+        SecItemDelete(query as CFDictionary)
+    }
 }
