@@ -23,6 +23,7 @@ struct IssueCardView: View {
 
     @State private var showOriginal: Bool = false
     @State private var highlightActive: Bool = false
+    @State private var didCopy: Bool = false
 
     private var translationVisible: Bool { issue.hasTranslation && !showOriginal }
 
@@ -39,6 +40,39 @@ struct IssueCardView: View {
 
     private var formattedDate: String {
         issue.createdAt.formatted(date: .abbreviated, time: .omitted)
+    }
+
+    private var copyText: String {
+        var lines: [String] = []
+        lines.append(issue.displayedTitle(translated: translationVisible))
+        let body = issue.displayedBody(translated: translationVisible)
+        if !body.isEmpty {
+            lines.append("")
+            lines.append(body)
+        }
+        var badges: [String] = []
+        if let typed = issue.labels.issueType {
+            badges.append(typed.type.displayName)
+        }
+        for label in issue.labels.withoutTypeAndUserSubmitted {
+            badges.append(label.name)
+        }
+        if let app = issue.appName { badges.append(app) }
+        if let version = issue.appVersion { badges.append("v\(version)") }
+        if let device = issue.device { badges.append("device: \(DeviceName.friendly(device))") }
+        if let os = issue.osVersion { badges.append("os: \(OSVersionFormat.display(os))") }
+        if let email = issue.email { badges.append("✉ \(email)") }
+        if !badges.isEmpty {
+            lines.append("")
+            lines.append(badges.joined(separator: " • "))
+        }
+        return lines.joined(separator: "\n")
+    }
+
+    private func copyToClipboard() {
+        let pasteboard = NSPasteboard.general
+        pasteboard.clearContents()
+        pasteboard.setString(copyText, forType: .string)
     }
 
     var body: some View {
@@ -83,6 +117,23 @@ struct IssueCardView: View {
                             }
                             Text("#\(issue.number)")
                                 .font(.system(size: 11, weight: .medium))
+                            Button {
+                                onInteract?()
+                                copyToClipboard()
+                                didCopy = true
+                                Task {
+                                    try? await Task.sleep(for: .seconds(1.5))
+                                    didCopy = false
+                                }
+                            } label: {
+                                Image(systemName: didCopy ? "checkmark" : "doc.on.doc")
+                                    .font(.system(size: 10, weight: .medium))
+                                    .foregroundStyle(didCopy ? AnyShapeStyle(Color.green) : AnyShapeStyle(HierarchicalShapeStyle.tertiary))
+                                    .contentTransition(.symbolEffect(.replace))
+                            }
+                            .buttonStyle(.plain)
+                            .help("Copy issue")
+                            .accessibilityLabel(didCopy ? "Copied" : "Copy issue")
                         }
                         .foregroundStyle(.tertiary)
                     }
