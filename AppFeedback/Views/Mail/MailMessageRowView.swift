@@ -3,6 +3,9 @@ import SwiftUI
 struct MailMessageRowView: View {
     let message: MailMessage
 
+    @Environment(MailAccountStore.self) private var accountStore
+    @Environment(AttachmentDownloaderHolder.self) private var downloaderHolder: AttachmentDownloaderHolder?
+
     @State private var isExpanded: Bool = false
 
     var body: some View {
@@ -62,15 +65,15 @@ struct MailMessageRowView: View {
     }
 
     private var attachmentsRow: some View {
-        // Full AttachmentChipView (interactive download) lands in Task 9.
-        // For Task 6 this is a read-only placeholder chip.
         HStack(spacing: 6) {
             ForEach(message.attachments) { attachment in
-                Label(attachment.filename, systemImage: "paperclip")
-                    .padding(.horizontal, 8).padding(.vertical, 4)
-                    .background(Color.gray.opacity(0.15))
-                    .clipShape(Capsule())
-                    .font(.caption)
+                AttachmentChipView(
+                    attachment: attachment,
+                    uid: UInt32(max(0, message.uid)),
+                    folder: message.folder,
+                    downloader: downloaderHolder?.downloader,
+                    account: accountStore.account
+                )
             }
         }
     }

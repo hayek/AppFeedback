@@ -20,6 +20,7 @@ struct AppFeedbackApp: App {
     @State private var notificationSettings: NotificationSettings
     @State private var notificationService: NotificationService
     @State private var notificationRouter: NotificationRouter
+    @State private var downloaderHolder: AttachmentDownloaderHolder = AttachmentDownloaderHolder(nil)
     #if os(iOS)
     @State private var iosRefreshDriver: iOSBackgroundRefreshDriver
     #elseif os(macOS)
@@ -133,6 +134,7 @@ struct AppFeedbackApp: App {
                 .environment(intelligenceService)
                 .environment(notificationSettings)
                 .environment(notificationRouter)
+                .environment(downloaderHolder)
                 .environment(\.notificationService, notificationService)
                 .task { await notificationService.requestAuthorizationIfNeeded() }
                 .onChange(of: notificationSettings.isEnabled) { _, isOn in
@@ -172,6 +174,7 @@ struct AppFeedbackApp: App {
                 .environment(intelligenceService)
                 .environment(notificationSettings)
                 .environment(notificationRouter)
+                .environment(downloaderHolder)
                 .environment(\.notificationService, notificationService)
         }
         .windowResizability(.contentMinSize)

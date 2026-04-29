@@ -16,6 +16,10 @@ final class MailMessage {
     var bodyPlain: String = ""
     var bodyHTML: String? = nil
     var directionRaw: String = "outbound"
+    /// IMAP UID of the message. 0 for outbound messages (not fetched via IMAP).
+    var uid: Int = 0
+    /// IMAP folder name (e.g. "INBOX"). Empty for outbound messages.
+    var folder: String = ""
     var thread: MailThread? = nil
     @Relationship(deleteRule: .cascade, inverse: \MailAttachment.message)
     var attachments: [MailAttachment] = []
@@ -48,6 +52,8 @@ final class MailMessage {
         bodyPlain: String = "",
         bodyHTML: String? = nil,
         directionRaw: String = "outbound",
+        uid: Int = 0,
+        folder: String = "",
         thread: MailThread? = nil,
         attachments: [MailAttachment] = []
     ) {
@@ -64,6 +70,8 @@ final class MailMessage {
         self.bodyPlain = bodyPlain
         self.bodyHTML = bodyHTML
         self.directionRaw = directionRaw
+        self.uid = uid
+        self.folder = folder
         self.thread = thread
         self.attachments = attachments
     }

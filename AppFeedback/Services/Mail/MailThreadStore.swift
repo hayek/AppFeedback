@@ -167,6 +167,8 @@ final class MailThreadStore {
             bodyPlain: message.bodyPlain,
             bodyHTML: message.bodyHTML,
             directionRaw: MailMessage.Direction.inbound.rawValue,
+            uid: Int(message.uid),
+            folder: message.folder,
             thread: thread
         )
         context.insert(msg)
