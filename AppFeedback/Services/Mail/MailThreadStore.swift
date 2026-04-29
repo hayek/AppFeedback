@@ -137,17 +137,16 @@ final class MailThreadStore {
                     }
                     let result = ThreadMatcher.attach(message: message, existing: candidates)
                     switch result {
-                    case .header(let i):
-                        let matched = recentThreads[i]
-                        matched.matchSource = .header
-                        headerResolution = .existingHeader(matched)
-                        return matched
                     case .subject(let i):
                         let matched = recentThreads[i]
                         matched.matchSource = .subjectFallback
                         headerResolution = .existingHeader(matched)
                         return matched
-                    case .newThread:
+                    case .header, .newThread:
+                        // .header here would mean ThreadMatcher found a header match against
+                        // candidates' messageIDRoot — but our prior resolveThread already covered
+                        // direct header lookup against every stored MailMessage.messageID.
+                        // Treat both as no-match and fall through to creating an orphan thread.
                         break
                     }
                 }

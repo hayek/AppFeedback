@@ -162,6 +162,8 @@ actor IMAPClient: IMAPClientProtocol {
         do {
             try await server.connect()
             try await server.login(username: username, password: password)
+        } catch is CancellationError {
+            throw IMAPClientError.cancelled
         } catch {
             let desc = String(describing: error)
             let lower = desc.lowercased()
@@ -244,6 +246,8 @@ actor IMAPClient: IMAPClientProtocol {
         // by stripping HTML tags. This ensures bodyPlain is never empty for HTML-only messages.
         if bodyPlain.isEmpty, let html = rawHTML {
             bodyPlain = html
+                .replacingOccurrences(of: "<style[^>]*>[\\s\\S]*?</style>", with: " ", options: .regularExpression)
+                .replacingOccurrences(of: "<script[^>]*>[\\s\\S]*?</script>", with: " ", options: .regularExpression)
                 .replacingOccurrences(of: "<[^>]+>", with: " ", options: .regularExpression)
                 .replacingOccurrences(of: "&nbsp;", with: " ")
                 .replacingOccurrences(of: "&amp;", with: "&")
