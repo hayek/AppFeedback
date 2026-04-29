@@ -10,6 +10,7 @@ struct AppFeedbackApp: App {
     @State private var syncStatus: CloudSyncStatus
     @State private var activityLog: ActivityLog
     @State private var mailAccountStore: MailAccountStore
+    @State private var threadStore: MailThreadStore
     @State private var settingsNavigation = SettingsNavigation()
     @State private var seenStore: SeenIssueStore
     @State private var hiddenAppStore: HiddenAppStore
@@ -64,6 +65,8 @@ struct AppFeedbackApp: App {
             MailAccountMigration.runIfNeeded(store: mailAccountStoreLocal)
         }
         _mailAccountStore = State(initialValue: mailAccountStoreLocal)
+        let threadStoreLocal = MailThreadStore(context: ModelContext(container))
+        _threadStore = State(initialValue: threadStoreLocal)
         _seenStore = State(initialValue: SeenIssueStore(context: cloudContext))
         _hiddenAppStore = State(initialValue: hiddenAppStoreLocal)
         _store = State(initialValue: RepoStore(context: ModelContext(container), hiddenAppStore: hiddenAppStoreLocal))
@@ -124,6 +127,7 @@ struct AppFeedbackApp: App {
                 .environment(syncStatus)
                 .environment(activityLog)
                 .environment(mailAccountStore)
+                .environment(threadStore)
                 .environment(settingsNavigation)
                 .environment(intelligenceSettings)
                 .environment(intelligenceService)
@@ -162,6 +166,7 @@ struct AppFeedbackApp: App {
                 .environment(syncStatus)
                 .environment(activityLog)
                 .environment(mailAccountStore)
+                .environment(threadStore)
                 .environment(settingsNavigation)
                 .environment(intelligenceSettings)
                 .environment(intelligenceService)

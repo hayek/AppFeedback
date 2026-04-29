@@ -171,6 +171,8 @@ struct IssueListView: View {
     private func issueCard(for issue: FeedbackIssue) -> some View {
         IssueCardView(
             issue: issue,
+            repoOwner: repoOwner,
+            repoName: repoName,
             appColor: appColor(for: issue.appName ?? ""),
             isUnread: viewModel.isUnread(issue),
             onInteract: { viewModel.markSeen(issue) },

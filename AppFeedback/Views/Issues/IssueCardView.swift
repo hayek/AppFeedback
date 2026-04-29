@@ -7,6 +7,8 @@ import UIKit
 
 struct IssueCardView: View {
     let issue: FeedbackIssue
+    let repoOwner: String
+    let repoName: String
     let appColor: Color
     var isUnread: Bool = false
     var onInteract: (() -> Void)? = nil
@@ -25,6 +27,8 @@ struct IssueCardView: View {
     var targetLanguageCode: String = "en"
     var isTranslating: Bool = false
     var isHighlighted: Bool = false
+
+    @Environment(MailThreadStore.self) private var threadStore: MailThreadStore?
 
     @State private var showOriginal: Bool = false
     @State private var highlightActive: Bool = false
@@ -238,6 +242,18 @@ struct IssueCardView: View {
                     )
                 )
                 .padding(.horizontal, -12)
+
+                if let store = threadStore {
+                    let threads = store.threads(forIssue: (repoOwner, repoName, issue.number))
+                    if !threads.isEmpty {
+                        Divider()
+                        ForEach(threads) { thread in
+                            MailThreadView(thread: thread, repoOwner: repoOwner, repoName: repoName)
+                                .padding(.horizontal, 12)
+                                .padding(.vertical, 8)
+                        }
+                    }
+                }
             }
             .padding(.horizontal, 16)
             .padding(.vertical, 14)
