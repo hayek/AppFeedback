@@ -33,24 +33,11 @@ import SwiftMail
 //     // Section("1.2") wraps a dot-separated part number string
 //
 // (6) UIDValidity — Mailbox.Selection.uidValidity is UIDValidity (value: UInt32). Fully exposed.
-
-// MARK: - Protocol
-
-/// Protocol so Task 5's MailSyncCoordinator can swap in a mock.
-protocol IMAPClientProtocol: Sendable {
-    /// Returns messages from INBOX whose UID is strictly greater than `sinceUID`.
-    /// Pass 0 to fetch everything.
-    func listInbox(sinceUID: UInt32) async throws -> [ParsedInboundMessage]
-
-    /// Returns messages from the Sent folder with an internal date on or after `sinceDate`.
-    func listSent(sinceDate: Date) async throws -> [ParsedInboundMessage]
-
-    /// Lazily fetches raw bytes for a single attachment part.
-    func fetchAttachmentBytes(uid: UInt32, folder: String, partID: String) async throws -> Data
-
-    /// Opens, authenticates, and immediately disconnects — useful for the "Test Connection" button.
-    func testConnection() async throws
-}
+//
+// (7) Structure-only fetch (no bytes downloaded)
+//     let parts: [MessagePart] = try await server.fetchStructure(UID(uid))
+//     // Returns [MessagePart] with data == nil.  Used in listInbox/listSent to avoid
+//     // pulling attachment bytes eagerly.  Text/HTML parts are fetched individually.
 
 // MARK: - Actor
 
@@ -75,26 +62,30 @@ actor IMAPClient: IMAPClientProtocol {
         try await connectAndLogin(server)
         defer { Task { try? await server.disconnect() } }
 
-        let selection = try await server.selectMailbox("INBOX")
+        let selection = try await mapped { try await server.selectMailbox("INBOX") }
         let folder = "INBOX"
         let uidValidity = selection.uidValidity.value
 
-        let infos: [MessageInfo]
-        if sinceUID == 0 {
-            // Fetch all: use a broad sequence range
-            infos = try await server.fetchMessageInfos(sequenceRange: SequenceNumber(1)...SequenceNumber.latest)
-        } else {
-            // UID strictly greater than sinceUID
-            let fromUID = UID(sinceUID + 1)
-            infos = try await server.fetchMessageInfos(uidRange: fromUID...UID.latest)
+        // Always use UID-based fetching: UIDs are stable across sessions whereas
+        // sequence numbers are session-relative and must not be stored or compared.
+        let infos: [MessageInfo] = try await mapped {
+            if sinceUID == 0 {
+                // "All messages" — UID 1 through the highest assigned UID.
+                return try await server.fetchMessageInfos(uidRange: UID(1)...UID.latest)
+            } else {
+                // Strict UID > sinceUID
+                let fromUID = UID(sinceUID + 1)
+                return try await server.fetchMessageInfos(uidRange: fromUID...UID.latest)
+            }
         }
 
         var results: [ParsedInboundMessage] = []
         for info in infos {
             do {
-                let msg = try await server.fetchMessage(from: info)
-                let parsed = Self.parse(message: msg, info: info, folder: folder, uidValidity: uidValidity)
+                let parsed = try await fetchAndParse(server: server, info: info, folder: folder, uidValidity: uidValidity)
                 results.append(parsed)
+            } catch is CancellationError {
+                throw IMAPClientError.cancelled
             } catch {
                 print("[IMAPClient] Skipping message uid=\(info.uid?.value ?? 0): \(error)")
             }
@@ -108,30 +99,33 @@ actor IMAPClient: IMAPClientProtocol {
         defer { Task { try? await server.disconnect() } }
 
         // Discover the sent folder via SwiftMail's special-use + name fallback logic
-        let mailboxes = try await server.listMailboxes()
+        let mailboxes = try await mapped { try await server.listMailboxes() }
         guard let sentMailbox = mailboxes.sent else {
             throw IMAPClientError.malformed(detail: "No Sent folder found on server")
         }
         let folder = sentMailbox.name
 
-        let selection = try await server.selectMailbox(folder)
+        let selection = try await mapped { try await server.selectMailbox(folder) }
         let uidValidity = selection.uidValidity.value
 
         // IMAP SINCE is date-granular; we use sentSince (Date: header) as a best-effort filter.
-        let matchingUIDs: MessageIdentifierSet<UID> = try await server.search(
-            criteria: [.sentSince(sinceDate)]
-        )
+        let matchingUIDs: MessageIdentifierSet<UID> = try await mapped {
+            try await server.search(criteria: [.sentSince(sinceDate)])
+        }
 
         if matchingUIDs.isEmpty { return [] }
 
-        let infos: [MessageInfo] = try await server.fetchMessageInfosBulk(using: matchingUIDs)
+        let infos: [MessageInfo] = try await mapped {
+            try await server.fetchMessageInfosBulk(using: matchingUIDs)
+        }
 
         var results: [ParsedInboundMessage] = []
         for info in infos {
             do {
-                let msg = try await server.fetchMessage(from: info)
-                let parsed = Self.parse(message: msg, info: info, folder: folder, uidValidity: uidValidity)
+                let parsed = try await fetchAndParse(server: server, info: info, folder: folder, uidValidity: uidValidity)
                 results.append(parsed)
+            } catch is CancellationError {
+                throw IMAPClientError.cancelled
             } catch {
                 print("[IMAPClient] Skipping sent message uid=\(info.uid?.value ?? 0): \(error)")
             }
@@ -144,11 +138,10 @@ actor IMAPClient: IMAPClientProtocol {
         try await connectAndLogin(server)
         defer { Task { try? await server.disconnect() } }
 
-        _ = try await server.selectMailbox(folder)
+        try await mapped { _ = try await server.selectMailbox(folder) }
 
         let section = Section(partID)
-        let data = try await server.fetchPart(section: section, of: UID(uid))
-        return data
+        return try await mapped { try await server.fetchPart(section: section, of: UID(uid)) }
     }
 
     func testConnection() async throws {
@@ -159,6 +152,12 @@ actor IMAPClient: IMAPClientProtocol {
 
     // MARK: - Private helpers
 
+    /// Connects and authenticates.  Auth errors are mapped to `IMAPClientError.authFailed`;
+    /// all other failures map to `IMAPClientError.transport`.
+    ///
+    /// The heuristic here (string-matching on "auth"/"login") is intentionally simple.
+    /// Once SwiftMail exposes typed auth-error cases this should switch to matching on
+    /// those concrete types instead of inspecting the error description.
     private func connectAndLogin(_ server: IMAPServer) async throws {
         do {
             try await server.connect()
@@ -172,16 +171,108 @@ actor IMAPClient: IMAPClientProtocol {
         }
     }
 
+    /// Maps any non-`IMAPClientError`, non-`CancellationError` thrown by `work` into
+    /// `IMAPClientError.transport`.  Already-mapped `IMAPClientError` values pass through
+    /// unchanged; `CancellationError` becomes `IMAPClientError.cancelled`.
+    private func mapped<T>(_ work: () async throws -> T) async throws -> T {
+        do {
+            return try await work()
+        } catch let e as IMAPClientError {
+            throw e
+        } catch is CancellationError {
+            throw IMAPClientError.cancelled
+        } catch {
+            throw IMAPClientError.transport(underlying: String(describing: error))
+        }
+    }
+
+    /// Fetches message structure (metadata only, no attachment bytes) then pulls only
+    /// the text/plain and text/html parts individually.
+    ///
+    /// Important-1 choice: **option (b)** — use `fetchStructure` for the list paths.
+    /// SwiftMail exposes `fetchStructure(_ identifier:) -> [MessagePart]` which returns
+    /// the full BODYSTRUCTURE with `data == nil` (no bytes are downloaded).  Text/HTML
+    /// body parts are then fetched individually via `fetchPart(section:of:)`.  Attachment
+    /// parts contribute only metadata (`partID`, `filename`, `mimeType`, `sizeBytes` from
+    /// the `octets` field on the BODYSTRUCTURE leaf) — their bytes are never pulled here.
+    /// Bytes are only downloaded lazily through `fetchAttachmentBytes(uid:folder:partID:)`.
+    private func fetchAndParse(
+        server: IMAPServer,
+        info: MessageInfo,
+        folder: String,
+        uidValidity: UInt32
+    ) async throws -> ParsedInboundMessage {
+        guard let uid = info.uid else {
+            // Fallback: no UID available; this message cannot be addressed stably.
+            throw IMAPClientError.malformed(detail: "MessageInfo has no UID")
+        }
+
+        // 1. Fetch structure only (zero bytes downloaded for attachments).
+        let structure = try await server.fetchStructure(uid)
+
+        // 2. Collect text/plain and text/html body parts (typically <10 KB each).
+        let bodyParts = structure.filter { part in
+            let ct = part.contentType.lowercased()
+            let disp = part.disposition?.lowercased()
+            return (ct.hasPrefix("text/plain") || ct.hasPrefix("text/html"))
+                && disp != "attachment"
+        }
+
+        // 3. Fetch bytes for body parts only.
+        var populatedBodyParts: [MessagePart] = []
+        for var part in bodyParts {
+            part.data = try? await server.fetchPart(section: part.section, of: uid)
+            populatedBodyParts.append(part)
+        }
+
+        // 4. Derive body strings from the populated parts.
+        let plainPart = populatedBodyParts.first { $0.contentType.lowercased().hasPrefix("text/plain") }
+        let htmlPart  = populatedBodyParts.first { $0.contentType.lowercased().hasPrefix("text/html") }
+        let bodyPlain = plainPart?.textContent ?? ""
+        let rawHTML   = htmlPart?.textContent
+        let bodyHTML  = rawHTML.map { HTMLSanitizer.sanitize($0) }
+
+        // 5. Build attachment metadata from the structure (no bytes).
+        let attachments: [ParsedAttachmentMeta] = structure.compactMap { part -> ParsedAttachmentMeta? in
+            let ct = part.contentType.lowercased()
+            let disp = part.disposition?.lowercased()
+            let hasFilename = !(part.filename?.isEmpty ?? true)
+            let isExplicitAttachment = disp == "attachment"
+            let hasFileNotInline = hasFilename && disp != "inline"
+            let isCalendar = ct.hasPrefix("text/calendar")
+            guard isExplicitAttachment || hasFileNotInline || isCalendar else { return nil }
+            return ParsedAttachmentMeta(
+                partID: part.section.description,
+                filename: part.suggestedFilename,
+                mimeType: String(part.contentType.split(separator: ";").first ?? "application/octet-stream"),
+                // data is nil here (structure-only); sizeBytes will be 0 until we add
+                // BODYSTRUCTURE octet-count exposure in SwiftMail.
+                sizeBytes: part.data?.count ?? 0
+            )
+        }
+
+        return Self.parse(
+            info: info,
+            folder: folder,
+            uidValidity: uidValidity,
+            bodyPlain: bodyPlain,
+            bodyHTML: bodyHTML,
+            attachments: attachments
+        )
+    }
+
     // MARK: - Static parsing helper
     //
     // Kept `static` so that it CAN be called with synthetic SwiftMail values in future unit tests
     // without needing a live actor / live network connection.
 
     static func parse(
-        message: Message,
         info: MessageInfo,
         folder: String,
-        uidValidity: UInt32
+        uidValidity: UInt32,
+        bodyPlain: String,
+        bodyHTML: String?,
+        attachments: [ParsedAttachmentMeta]
     ) -> ParsedInboundMessage {
         let uid = info.uid?.value ?? 0
 
@@ -198,19 +289,6 @@ actor IMAPClient: IMAPClientProtocol {
 
         let date = info.date ?? info.internalDate ?? Date()
 
-        // Sanitise HTML before returning — callers must not have to remember this.
-        let rawHTML = message.htmlBody
-        let bodyHTML = rawHTML.map { HTMLSanitizer.sanitize($0) }
-
-        let attachments: [ParsedAttachmentMeta] = message.attachments.map { part in
-            ParsedAttachmentMeta(
-                partID: part.section.description,
-                filename: part.suggestedFilename,
-                mimeType: String(part.contentType.split(separator: ";").first ?? "application/octet-stream"),
-                sizeBytes: part.data?.count ?? 0
-            )
-        }
-
         return ParsedInboundMessage(
             uid: uid,
             folder: folder,
@@ -219,12 +297,14 @@ actor IMAPClient: IMAPClientProtocol {
             inReplyTo: inReplyTo,
             references: references,
             fromAddress: info.from ?? "",
+            // SwiftMail's MessageInfo.from is a pre-formatted address string; it does not
+            // parse display names separately from the addr-spec.  fromName is always nil here.
             fromName: nil,
             toAddresses: info.to,
             ccAddresses: info.cc,
             date: date,
             subject: info.subject ?? "(no subject)",
-            bodyPlain: message.textBody ?? "",
+            bodyPlain: bodyPlain,
             bodyHTML: bodyHTML,
             attachments: attachments
         )

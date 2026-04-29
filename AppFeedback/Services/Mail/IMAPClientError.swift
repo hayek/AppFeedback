@@ -1,7 +1,7 @@
 import Foundation
 
 enum IMAPClientError: Error, Equatable {
-    /// The IMAP session is not connected.
+    /// Reserved for future use — e.g. a persistent-connection path that detects a dropped session.
     case notConnected
 
     /// Authentication was rejected by the server.
@@ -10,7 +10,8 @@ enum IMAPClientError: Error, Equatable {
     /// A message or server response could not be decoded.
     case malformed(detail: String)
 
-    /// A stored credential could not be retrieved.
+    /// Reserved for future use — Task 5's MailSyncCoordinator can map a Keychain miss into this
+    /// case so all credential-related failures surface with a consistent error type at the boundary.
     case passwordUnavailable
 
     /// The operation was cancelled by the caller.
