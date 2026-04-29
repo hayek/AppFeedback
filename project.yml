@@ -27,7 +27,6 @@ targets:
     dependencies:
       - package: SwiftMail
         product: SwiftMail
-        platforms: [macOS]
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: com.amirhayek.AppFeedback

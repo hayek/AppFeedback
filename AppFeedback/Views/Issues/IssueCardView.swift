@@ -1,4 +1,9 @@
 import SwiftUI
+#if os(macOS)
+import AppKit
+#else
+import UIKit
+#endif
 
 struct IssueCardView: View {
     let issue: FeedbackIssue
@@ -70,9 +75,13 @@ struct IssueCardView: View {
     }
 
     private func copyToClipboard() {
+        #if os(macOS)
         let pasteboard = NSPasteboard.general
         pasteboard.clearContents()
         pasteboard.setString(copyText, forType: .string)
+        #else
+        UIPasteboard.general.string = copyText
+        #endif
     }
 
     var body: some View {
