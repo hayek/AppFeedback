@@ -1,11 +1,20 @@
 import SwiftUI
 
+struct ReplyTarget: Identifiable {
+    let id = UUID()
+    let recipient: String
+    let subject: String
+    let headers: MailMessageHeaders
+}
+
 struct MailThreadView: View {
     let thread: MailThread
+    let issue: FeedbackIssue
     let repoOwner: String
     let repoName: String
 
     @State private var isExpanded: Bool = false
+    @State private var replyTarget: ReplyTarget? = nil
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
@@ -21,6 +30,19 @@ struct MailThreadView: View {
         }
         .background(Color.gray.opacity(0.05))
         .cornerRadius(6)
+        .sheet(item: $replyTarget) { target in
+            #if canImport(SwiftMail)
+            ComposeMailView(
+                recipient: target.recipient,
+                issue: issue,
+                repoOwner: repoOwner,
+                repoName: repoName,
+                inReplyTo: target.headers
+            )
+            #else
+            Text("ComposeMailView is unavailable on this build.")
+            #endif
+        }
     }
 
     private var sortedMessages: [MailMessage] {
@@ -50,11 +72,20 @@ struct MailThreadView: View {
 
     private var replyButton: some View {
         Button("Reply") {
-            // Wired in Task 8.
+            guard let last = sortedMessages.last else { return }
+            let headers = MailMessageHeaders(
+                messageID: last.messageID,
+                inReplyTo: last.inReplyTo,
+                references: last.referencesAsArray
+            )
+            replyTarget = ReplyTarget(
+                recipient: last.fromAddress,
+                subject: MailSubject.replyPrefixed(last.subject),
+                headers: headers
+            )
         }
         .buttonStyle(.bordered)
         .padding(8)
-        .disabled(true)  // Placeholder until Task 8.
     }
 }
 

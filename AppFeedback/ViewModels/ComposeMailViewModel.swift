@@ -39,6 +39,9 @@ final class ComposeMailViewModel {
         self.activityLog = activityLog
         self.inReplyTo = inReplyTo
         self.passwordLoader = passwordLoader
+        if inReplyTo != nil {
+            self.subject = MailSubject.replyPrefixed(issue.title)
+        }
     }
 
     var canSend: Bool {

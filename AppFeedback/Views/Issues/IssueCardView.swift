@@ -248,7 +248,7 @@ struct IssueCardView: View {
                     if !threads.isEmpty {
                         Divider()
                         ForEach(threads) { thread in
-                            MailThreadView(thread: thread, repoOwner: repoOwner, repoName: repoName)
+                            MailThreadView(thread: thread, issue: issue, repoOwner: repoOwner, repoName: repoName)
                                 .padding(.horizontal, 12)
                                 .padding(.vertical, 8)
                         }
