@@ -1,4 +1,5 @@
 import XCTest
+import SwiftData
 @testable import AppFeedback
 
 #if canImport(SwiftMail)
@@ -20,14 +21,20 @@ final class ComposeMailViewModelTests: XCTestCase {
         func snapshot() -> [(SwiftMail.Email, SMTPCredentials, String)] { sent }
     }
 
-    private func makeSettings() -> MailSettings {
-        let s = MailSettings(defaults: UserDefaults(suiteName: "vm-\(UUID().uuidString)")!)
-        s.credentials = SMTPCredentials(
-            preset: .gmail, host: "smtp.gmail.com", port: 587,
-            username: "alice@gmail.com", senderName: "Alice"
-        )
-        s.template = .empty
-        return s
+    private func makeStore(configured: Bool = true) throws -> MailAccountStore {
+        let config = ModelConfiguration(isStoredInMemoryOnly: true)
+        let container = try ModelContainer(for: MailAccount.self, configurations: config)
+        let store = MailAccountStore(context: ModelContext(container))
+        if configured {
+            store.upsert { acc in
+                acc.presetRaw = SMTPCredentials.Preset.gmail.rawValue
+                acc.smtpHost = "smtp.gmail.com"
+                acc.smtpPort = 587
+                acc.smtpUsername = "alice@gmail.com"
+                acc.senderName = "Alice"
+            }
+        }
+        return store
     }
 
     private func makeIssue() -> FeedbackIssue {
@@ -46,7 +53,7 @@ final class ComposeMailViewModelTests: XCTestCase {
             recipient: "bob@example.com",
             issue: makeIssue(),
             repoOwner: "o", repoName: "r",
-            settings: makeSettings(),
+            store: try makeStore(),
             sender: sender,
             activityLog: log,
             passwordLoader: { "test-secret" }
@@ -61,6 +68,7 @@ final class ComposeMailViewModelTests: XCTestCase {
         XCTAssertEqual(sent[0].0.recipients.first?.address, "bob@example.com")
         XCTAssertEqual(sent[0].0.subject, "Hello")
         XCTAssertEqual(sent[0].2, "test-secret")
+        XCTAssertNotNil(sent[0].0.messageID, "outbound mail must have a stamped Message-ID")
         XCTAssertEqual(log.entries.first?.status, .success)
     }
 
@@ -73,7 +81,7 @@ final class ComposeMailViewModelTests: XCTestCase {
             recipient: "bob@example.com",
             issue: makeIssue(),
             repoOwner: "o", repoName: "r",
-            settings: makeSettings(),
+            store: try makeStore(),
             sender: sender,
             activityLog: log,
             passwordLoader: { "test-secret" }
@@ -90,12 +98,11 @@ final class ComposeMailViewModelTests: XCTestCase {
     func test_send_withoutCredentials_doesNothing() async throws {
         let sender = FakeSender()
         let log = ActivityLog(persistenceURL: nil)
-        let settings = MailSettings(defaults: UserDefaults(suiteName: "no-creds-\(UUID().uuidString)")!)
         let vm = ComposeMailViewModel(
             recipient: "bob@example.com",
             issue: makeIssue(),
             repoOwner: "o", repoName: "r",
-            settings: settings,
+            store: try makeStore(configured: false),
             sender: sender,
             activityLog: log,
             passwordLoader: { "test-secret" }
@@ -117,7 +124,7 @@ final class ComposeMailViewModelTests: XCTestCase {
             recipient: "bob@example.com",
             issue: makeIssue(),
             repoOwner: "o", repoName: "r",
-            settings: makeSettings(),
+            store: try makeStore(),
             sender: sender,
             activityLog: log,
             passwordLoader: { nil }
@@ -131,6 +138,35 @@ final class ComposeMailViewModelTests: XCTestCase {
         XCTAssertTrue(sent.isEmpty)
         XCTAssertEqual(log.entries.first?.status, .failure)
         XCTAssertEqual(log.entries.first?.detail, "No SMTP password configured.")
+    }
+
+    func test_send_withInReplyTo_writesReplyHeaders() async throws {
+        let sender = FakeSender()
+        let log = ActivityLog(persistenceURL: nil)
+        let parent = MailMessageHeaders(
+            messageID: "<parent@x>",
+            inReplyTo: nil,
+            references: ["<root@x>"]
+        )
+        let vm = ComposeMailViewModel(
+            recipient: "bob@example.com",
+            issue: makeIssue(),
+            repoOwner: "o", repoName: "r",
+            store: try makeStore(),
+            sender: sender,
+            activityLog: log,
+            inReplyTo: parent,
+            passwordLoader: { "pw" }
+        )
+        vm.subject = "Re: Crash"
+        vm.body = NSAttributedString(string: "ack")
+
+        await vm.send()
+
+        let sent = await sender.snapshot()
+        XCTAssertEqual(sent.count, 1)
+        XCTAssertEqual(sent[0].0.additionalHeaders?["In-Reply-To"], "<parent@x>")
+        XCTAssertEqual(sent[0].0.additionalHeaders?["References"], "<root@x> <parent@x>")
     }
 }
 #endif

@@ -9,7 +9,7 @@ struct AppFeedbackApp: App {
     @State private var store: RepoStore
     @State private var syncStatus: CloudSyncStatus
     @State private var activityLog: ActivityLog
-    @State private var mailSettings = MailSettings()
+    @State private var mailAccountStore: MailAccountStore
     @State private var settingsNavigation = SettingsNavigation()
     @State private var seenStore: SeenIssueStore
     @State private var hiddenAppStore: HiddenAppStore
@@ -50,6 +50,11 @@ struct AppFeedbackApp: App {
         }
         let cloudContext = ModelContext(container)
         let hiddenAppStoreLocal = HiddenAppStore(context: cloudContext)
+        let mailAccountStoreLocal = MailAccountStore(context: ModelContext(container))
+        if !isTesting {
+            MailAccountMigration.runIfNeeded(store: mailAccountStoreLocal)
+        }
+        _mailAccountStore = State(initialValue: mailAccountStoreLocal)
         _seenStore = State(initialValue: SeenIssueStore(context: cloudContext))
         _hiddenAppStore = State(initialValue: hiddenAppStoreLocal)
         _store = State(initialValue: RepoStore(context: ModelContext(container), hiddenAppStore: hiddenAppStoreLocal))
@@ -109,7 +114,7 @@ struct AppFeedbackApp: App {
             RootView(store: store, seenStore: seenStore, cacheContext: cacheContext)
                 .environment(syncStatus)
                 .environment(activityLog)
-                .environment(mailSettings)
+                .environment(mailAccountStore)
                 .environment(settingsNavigation)
                 .environment(intelligenceSettings)
                 .environment(intelligenceService)
@@ -147,7 +152,7 @@ struct AppFeedbackApp: App {
             SettingsView(store: store)
                 .environment(syncStatus)
                 .environment(activityLog)
-                .environment(mailSettings)
+                .environment(mailAccountStore)
                 .environment(settingsNavigation)
                 .environment(intelligenceSettings)
                 .environment(intelligenceService)

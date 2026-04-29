@@ -1,5 +1,4 @@
 import Foundation
-import Observation
 #if os(macOS)
 import AppKit
 #endif
@@ -86,53 +85,5 @@ enum MailTemplatePlainText {
             .replacingOccurrences(of: ">", with: "&gt;")
         let withBreaks = escaped.replacingOccurrences(of: "\n", with: "<br>")
         return "<p>\(withBreaks)</p>"
-    }
-}
-
-/// Persists SMTP credential metadata + email header/footer template.
-/// Passwords are stored exclusively in Keychain — never in UserDefaults.
-@MainActor
-@Observable
-final class MailSettings {
-    var credentials: SMTPCredentials? {
-        didSet { persistCredentials() }
-    }
-    var template: MailTemplate {
-        didSet { persistTemplate() }
-    }
-
-    private let defaults: UserDefaults
-    private static let credentialsKey = "mail.credentials"
-    private static let templateKey = "mail.template"
-
-    init(defaults: UserDefaults = .standard) {
-        self.defaults = defaults
-        if let data = defaults.data(forKey: Self.credentialsKey),
-           let decoded = try? JSONDecoder().decode(SMTPCredentials.self, from: data) {
-            self.credentials = decoded
-        } else {
-            self.credentials = nil
-        }
-        if let data = defaults.data(forKey: Self.templateKey),
-           let decoded = try? JSONDecoder().decode(MailTemplate.self, from: data) {
-            self.template = decoded
-        } else {
-            self.template = .empty
-        }
-    }
-
-    private func persistCredentials() {
-        if let credentials,
-           let data = try? JSONEncoder().encode(credentials) {
-            defaults.set(data, forKey: Self.credentialsKey)
-        } else {
-            defaults.removeObject(forKey: Self.credentialsKey)
-        }
-    }
-
-    private func persistTemplate() {
-        if let data = try? JSONEncoder().encode(template) {
-            defaults.set(data, forKey: Self.templateKey)
-        }
     }
 }

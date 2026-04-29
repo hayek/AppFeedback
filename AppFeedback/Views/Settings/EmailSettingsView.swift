@@ -3,7 +3,7 @@ import SwiftUI
 import AppKit
 
 struct EmailSettingsView: View {
-    @Environment(MailSettings.self) private var settings
+    @Environment(MailAccountStore.self) private var store
     @Environment(ActivityLog.self) private var activityLog
 
     @State private var preset: SMTPCredentials.Preset = .gmail
@@ -12,6 +12,11 @@ struct EmailSettingsView: View {
     @State private var username: String = ""
     @State private var password: String = ""
     @State private var senderName: String = ""
+
+    @State private var imapHost: String = ""
+    @State private var imapPort: String = "993"
+    @State private var imapUsername: String = ""
+    @State private var imapPassword: String = ""
 
     @State private var saveStatus: String?
     @State private var copiedToken: String?
@@ -58,6 +63,18 @@ struct EmailSettingsView: View {
                 TextField("Sender display name", text: $senderName)
             }
 
+            Section("Receiving (IMAP)") {
+                TextField("IMAP host", text: $imapHost)
+                    .disabled(preset != .custom)
+                TextField("IMAP port", text: $imapPort)
+                    .disabled(preset != .custom)
+                TextField("IMAP username", text: $imapUsername)
+                SecureField("IMAP password", text: $imapPassword)
+                Text("Used when receiving replies (Plan B). Defaults to the SMTP username; override only if your IMAP login differs.")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+
             Section("Header") {
                 TextEditor(text: $headerText)
                     .font(.body)
@@ -98,29 +115,42 @@ struct EmailSettingsView: View {
         .onChange(of: senderName) { _, _ in scheduleSave() }
         .onChange(of: headerText) { _, _ in scheduleSave() }
         .onChange(of: footerText) { _, _ in scheduleSave() }
+        .onChange(of: imapHost) { _, _ in scheduleSave() }
+        .onChange(of: imapPort) { _, _ in scheduleSave() }
+        .onChange(of: imapUsername) { _, _ in scheduleSave() }
+        .onChange(of: imapPassword) { _, _ in scheduleSave() }
     }
 
     private func applyPresetDefaults(_ p: SMTPCredentials.Preset) {
         let d = SMTPCredentials.defaults(for: p)
         host = d.host
         port = String(d.port)
+        let imap = MailAccountMigration.imapDefaults(for: p)
+        imapHost = imap.host
+        imapPort = String(imap.port)
     }
 
     private func loadFromSettings() async {
-        if let creds = settings.credentials {
-            preset = creds.preset
-            host = creds.host
-            port = String(creds.port)
-            username = creds.username
-            senderName = creds.senderName
+        if let acc = store.account, !acc.smtpUsername.isEmpty {
+            preset = acc.preset
+            host = acc.smtpHost
+            port = String(acc.smtpPort)
+            username = acc.smtpUsername
+            senderName = acc.senderName
+            imapHost = acc.imapHost
+            imapPort = String(acc.imapPort)
+            imapUsername = acc.imapUsername
         } else {
             applyPresetDefaults(preset)
         }
         if let pw = await KeychainService.loadSMTPPassword() {
             password = pw
         }
-        headerText = MailTemplatePlainText.from(html: settings.template.headerHTML)
-        footerText = MailTemplatePlainText.from(html: settings.template.footerHTML)
+        if let pw = await KeychainService.loadIMAPPassword() {
+            imapPassword = pw
+        }
+        headerText = MailTemplatePlainText.from(html: store.account?.templateHeaderHTML ?? "")
+        footerText = MailTemplatePlainText.from(html: store.account?.templateFooterHTML ?? "")
         didLoad = true
     }
 
@@ -138,17 +168,23 @@ struct EmailSettingsView: View {
     private func save() async {
         let headerHTML = MailTemplatePlainText.toHTML(headerText)
         let footerHTML = MailTemplatePlainText.toHTML(footerText)
-        settings.template = MailTemplate(headerHTML: headerHTML, footerHTML: footerHTML)
-        let creds = SMTPCredentials(
-            preset: preset,
-            host: host,
-            port: Int(port) ?? 587,
-            username: username,
-            senderName: senderName
-        )
-        settings.credentials = creds
-        let ok = await KeychainService.saveSMTPPassword(password)
-        saveStatus = ok ? "Saved" : "Saved settings, but Keychain failed"
+        store.upsert { acc in
+            acc.presetRaw = preset.rawValue
+            acc.smtpHost = host
+            acc.smtpPort = Int(port) ?? 587
+            acc.smtpUsername = username
+            acc.senderName = senderName
+            acc.imapHost = imapHost
+            acc.imapPort = Int(imapPort) ?? 993
+            acc.imapUsername = imapUsername.isEmpty ? username : imapUsername
+            acc.templateHeaderHTML = headerHTML
+            acc.templateFooterHTML = footerHTML
+        }
+        let smtpOk = await KeychainService.saveSMTPPassword(password)
+        let imapOk = imapPassword.isEmpty
+            ? true
+            : await KeychainService.saveIMAPPassword(imapPassword)
+        saveStatus = (smtpOk && imapOk) ? "Saved" : "Saved settings, but Keychain failed"
     }
 
     // MARK: - Placeholders hint
@@ -260,7 +296,7 @@ struct EmailSettingsView: View {
     private func showPreview() {
         #if canImport(SwiftMail)
         let composer = MailComposer()
-        let creds = settings.credentials ?? SMTPCredentials.defaults(for: .gmail)
+        let creds = currentCredentialsFromForm()
         let context = PlaceholderContext(
             sender: creds,
             recipient: "preview@example.com",
@@ -283,6 +319,16 @@ struct EmailSettingsView: View {
             NSWorkspace.shared.open(url)
         }
         #endif
+    }
+
+    private func currentCredentialsFromForm() -> SMTPCredentials {
+        SMTPCredentials(
+            preset: preset,
+            host: host,
+            port: Int(port) ?? 587,
+            username: username,
+            senderName: senderName
+        )
     }
 
     private func writePreviewHTML(_ html: String) -> URL? {

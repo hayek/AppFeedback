@@ -1,14 +1,17 @@
-#if os(macOS) && canImport(SwiftMail)
+#if canImport(SwiftMail)
 import SwiftUI
+#if os(macOS)
 import AppKit
+#endif
 
 struct ComposeMailView: View {
     let recipient: String
     let issue: FeedbackIssue
     let repoOwner: String
     let repoName: String
+    var inReplyTo: MailMessageHeaders? = nil
 
-    @Environment(MailSettings.self) private var settings
+    @Environment(MailAccountStore.self) private var store
     @Environment(ActivityLog.self) private var activityLog
     @Environment(SettingsNavigation.self) private var settingsNavigation
     @Environment(\.dismiss) private var dismiss
@@ -25,7 +28,9 @@ struct ComposeMailView: View {
                 ProgressView().task { setupViewModel() }
             }
         }
+        #if os(macOS)
         .frame(minWidth: 540, minHeight: 460)
+        #endif
     }
 
     @ViewBuilder
@@ -33,7 +38,7 @@ struct ComposeMailView: View {
         VStack(alignment: .leading, spacing: 0) {
             titleBar
             Divider()
-            if settings.credentials == nil {
+            if !hasCredentials {
                 missingCredentialsBanner
             }
             ScrollView {
@@ -57,17 +62,31 @@ struct ComposeMailView: View {
             footerButtons(vm: vm)
         }
         .onAppear { refreshPreviews(vm: vm) }
-        .onChange(of: settings.template) { _, _ in refreshPreviews(vm: vm) }
+        .onChange(of: store.account?.templateHeaderHTML) { _, _ in refreshPreviews(vm: vm) }
+        .onChange(of: store.account?.templateFooterHTML) { _, _ in refreshPreviews(vm: vm) }
+    }
+
+    private var hasCredentials: Bool {
+        guard let acc = store.account else { return false }
+        return !acc.smtpUsername.isEmpty
+    }
+
+    private var currentTemplate: MailTemplate {
+        MailTemplate(
+            headerHTML: store.account?.templateHeaderHTML ?? "",
+            footerHTML: store.account?.templateFooterHTML ?? ""
+        )
     }
 
     private func refreshPreviews(vm: ComposeMailViewModel) {
         let context = vm.placeholderContext()
         let composer = MailComposer()
+        let template = currentTemplate
         headerPreview = MailTemplatePlainText
-            .from(html: composer.applyPlaceholders(settings.template.headerHTML, context: context))
+            .from(html: composer.applyPlaceholders(template.headerHTML, context: context))
             .trimmingCharacters(in: .whitespacesAndNewlines)
         footerPreview = MailTemplatePlainText
-            .from(html: composer.applyPlaceholders(settings.template.footerHTML, context: context))
+            .from(html: composer.applyPlaceholders(template.footerHTML, context: context))
             .trimmingCharacters(in: .whitespacesAndNewlines)
     }
 
@@ -89,6 +108,7 @@ struct ComposeMailView: View {
                 }
             }
             .frame(maxWidth: .infinity, alignment: .leading)
+            #if os(macOS)
             SettingsLink {
                 Label("Edit", systemImage: "pencil")
                     .labelStyle(.titleAndIcon)
@@ -97,6 +117,7 @@ struct ComposeMailView: View {
                 settingsNavigation.selectedTab = .email
             })
             .controlSize(.small)
+            #endif
         }
         .font(.caption)
         .padding(.horizontal, 12).padding(.vertical, 8)
@@ -126,9 +147,11 @@ struct ComposeMailView: View {
             Image(systemName: "envelope.badge")
             Text("Configure email in Settings → Email to send from this app.")
             Spacer()
+            #if os(macOS)
             SettingsLink {
                 Text("Open Settings…")
             }
+            #endif
         }
         .padding(8)
         .background(Color.yellow.opacity(0.18))
@@ -163,7 +186,9 @@ struct ComposeMailView: View {
                 Task { await vm.send() }
                 dismiss()
             }
+            #if os(macOS)
             .keyboardShortcut(.return, modifiers: .command)
+            #endif
             .disabled(!vm.canSend)
         }
         .padding(12)
@@ -182,9 +207,10 @@ struct ComposeMailView: View {
             issue: issue,
             repoOwner: repoOwner,
             repoName: repoName,
-            settings: settings,
+            store: store,
             sender: MailSender(),
-            activityLog: activityLog
+            activityLog: activityLog,
+            inReplyTo: inReplyTo
         )
     }
 }

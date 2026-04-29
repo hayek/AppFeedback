@@ -13,8 +13,9 @@ final class ComposeMailViewModel {
     let issue: FeedbackIssue
     let repoOwner: String
     let repoName: String
+    let inReplyTo: MailMessageHeaders?
 
-    private let settings: MailSettings
+    private let store: MailAccountStore
     private let sender: any MailSending
     private let activityLog: ActivityLog
     private let passwordLoader: @Sendable () async -> String?
@@ -24,28 +25,36 @@ final class ComposeMailViewModel {
          issue: FeedbackIssue,
          repoOwner: String,
          repoName: String,
-         settings: MailSettings,
+         store: MailAccountStore,
          sender: any MailSending,
          activityLog: ActivityLog,
+         inReplyTo: MailMessageHeaders? = nil,
          passwordLoader: @Sendable @escaping () async -> String? = { await KeychainService.loadSMTPPassword() }) {
         self.recipient = recipient
         self.issue = issue
         self.repoOwner = repoOwner
         self.repoName = repoName
-        self.settings = settings
+        self.store = store
         self.sender = sender
         self.activityLog = activityLog
+        self.inReplyTo = inReplyTo
         self.passwordLoader = passwordLoader
     }
 
     var canSend: Bool {
-        settings.credentials != nil
+        currentCredentials() != nil
             && !subject.trimmingCharacters(in: .whitespaces).isEmpty
             && body.length > 0
     }
 
+    var template: MailTemplate {
+        guard let acc = store.account else { return .empty }
+        return MailTemplate(headerHTML: acc.templateHeaderHTML,
+                            footerHTML: acc.templateFooterHTML)
+    }
+
     func placeholderContext(date: Date = Date()) -> PlaceholderContext {
-        let creds = settings.credentials ?? SMTPCredentials.defaults(for: .gmail)
+        let creds = currentCredentials() ?? SMTPCredentials.defaults(for: .gmail)
         let issueURL = URL(string: "https://github.com/\(repoOwner)/\(repoName)/issues/\(issue.number)")
         return PlaceholderContext(
             sender: creds,
@@ -57,8 +66,19 @@ final class ComposeMailViewModel {
         )
     }
 
+    private func currentCredentials() -> SMTPCredentials? {
+        guard let acc = store.account, !acc.smtpUsername.isEmpty else { return nil }
+        return SMTPCredentials(
+            preset: acc.preset,
+            host: acc.smtpHost,
+            port: acc.smtpPort,
+            username: acc.smtpUsername,
+            senderName: acc.senderName
+        )
+    }
+
     func send() async {
-        guard let credentials = settings.credentials else { return }
+        guard let credentials = currentCredentials() else { return }
 
         guard let password = await passwordLoader(), !password.isEmpty else {
             let id = activityLog.start(kind: .sendEmail, title: "to \(recipient)")
@@ -68,9 +88,18 @@ final class ComposeMailViewModel {
 
         let id = activityLog.start(kind: .sendEmail, title: "to \(recipient)")
 
+        let messageID = MessageIDGenerator.generate()
+        let replyHeaders = ReplyHeaderBuilder.build(parent: inReplyTo, newMessageID: messageID)
+
         let context = placeholderContext()
         let draft = DraftMessage(recipient: recipient, subject: subject, body: body)
-        let email = composer.compose(draft: draft, context: context, template: settings.template)
+        let email = composer.compose(
+            draft: draft,
+            context: context,
+            template: template,
+            messageID: messageID,
+            replyHeaders: replyHeaders
+        )
 
         do {
             try await sender.send(email, using: credentials, password: password)
