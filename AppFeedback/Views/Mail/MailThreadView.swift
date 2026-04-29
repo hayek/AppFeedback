@@ -13,7 +13,7 @@ struct MailThreadView: View {
     let repoOwner: String
     let repoName: String
 
-    @State private var isExpanded: Bool = false
+    @State private var isExpanded: Bool = true
     @State private var replyTarget: ReplyTarget? = nil
 
     var body: some View {
@@ -28,8 +28,6 @@ struct MailThreadView: View {
                 replyButton
             }
         }
-        .background(Color.gray.opacity(0.05))
-        .cornerRadius(6)
         .sheet(item: $replyTarget) { target in
             #if canImport(SwiftMail)
             ComposeMailView(
@@ -59,13 +57,15 @@ struct MailThreadView: View {
 
     private var header: some View {
         Button(action: { withAnimation { isExpanded.toggle() } }) {
-            HStack {
+            HStack(spacing: 6) {
                 Image(systemName: isExpanded ? "chevron.down" : "chevron.right")
                     .foregroundStyle(.secondary)
-                Text(headerLine).font(.subheadline).foregroundStyle(.primary)
+                Text(headerLine)
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
                 Spacer()
             }
-            .padding(.horizontal, 10).padding(.vertical, 8)
+            .padding(.vertical, 4)
             .contentShape(Rectangle())
         }
         .buttonStyle(.plain)

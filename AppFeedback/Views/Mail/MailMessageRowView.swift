@@ -22,7 +22,7 @@ struct MailMessageRowView: View {
                 preview
             }
         }
-        .padding(.horizontal, 10).padding(.vertical, 6)
+        .padding(.vertical, 6)
         .contentShape(Rectangle())
         .onTapGesture {
             withAnimation { isExpanded.toggle() }
@@ -30,13 +30,21 @@ struct MailMessageRowView: View {
     }
 
     private var header: some View {
-        HStack {
-            Text(message.fromName ?? message.fromAddress)
-                .font(.subheadline.weight(.semibold))
-            Spacer()
-            Text(message.date, style: .date)
-                .font(.caption)
-                .foregroundStyle(.secondary)
+        VStack(alignment: .leading, spacing: 2) {
+            if !message.subject.isEmpty {
+                Text(message.subject)
+                    .font(.subheadline.weight(.semibold))
+                    .lineLimit(2)
+            }
+            HStack {
+                Text(message.fromName ?? message.fromAddress)
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                Spacer()
+                Text(message.date, style: .date)
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
         }
     }
 
