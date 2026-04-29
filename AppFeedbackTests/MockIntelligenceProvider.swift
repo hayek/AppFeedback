@@ -16,11 +16,13 @@ final class MockIntelligenceProvider: IntelligenceProvider, @unchecked Sendable 
     private(set) var translateCalls: [(text: String, from: String?, to: String)] = []
 
     func summarize(issues: [FeedbackIssue], targetLanguage: String) async throws -> IssueSummaryDTO {
-        summarizeCalls.append((issues, targetLanguage))
+        // Serialize call-recording through MainActor so concurrent invocations
+        // (e.g. parallel `async let` from IssueListViewModel.translate) don't race on Array.append.
+        await MainActor.run { self.summarizeCalls.append((issues, targetLanguage)) }
         return try await summarizeHandler(issues, targetLanguage)
     }
     func translate(text: String, from sourceCode: String?, to targetCode: String) async throws -> String {
-        translateCalls.append((text, sourceCode, targetCode))
+        await MainActor.run { self.translateCalls.append((text, sourceCode, targetCode)) }
         return try await translateHandler(text, sourceCode, targetCode)
     }
 }
