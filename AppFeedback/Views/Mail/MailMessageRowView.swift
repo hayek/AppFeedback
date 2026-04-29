@@ -1,0 +1,77 @@
+import SwiftUI
+
+struct MailMessageRowView: View {
+    let message: MailMessage
+
+    @State private var isExpanded: Bool = false
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 4) {
+            header
+            if isExpanded {
+                bodyView
+                if !message.attachments.isEmpty {
+                    attachmentsRow
+                }
+            } else {
+                preview
+            }
+        }
+        .padding(.horizontal, 10).padding(.vertical, 6)
+        .contentShape(Rectangle())
+        .onTapGesture {
+            withAnimation { isExpanded.toggle() }
+        }
+    }
+
+    private var header: some View {
+        HStack {
+            Text(message.fromName ?? message.fromAddress)
+                .font(.subheadline.weight(.semibold))
+            Spacer()
+            Text(message.date, style: .date)
+                .font(.caption)
+                .foregroundStyle(.secondary)
+        }
+    }
+
+    @ViewBuilder
+    private var preview: some View {
+        let trimmed = message.bodyPlain
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+            .prefix(120)
+        Text(trimmed)
+            .font(.caption)
+            .foregroundStyle(.secondary)
+            .lineLimit(2)
+        if !message.attachments.isEmpty {
+            Label(
+                "\(message.attachments.count) attachment\(message.attachments.count == 1 ? "" : "s")",
+                systemImage: "paperclip"
+            )
+            .font(.caption2)
+            .foregroundStyle(.secondary)
+        }
+    }
+
+    @ViewBuilder
+    private var bodyView: some View {
+        // HTML rendering via WKWebView (iOS) / WebView (macOS) is deferred to a future task.
+        // For v1 we always render bodyPlain as the source of truth.
+        Text(message.bodyPlain).font(.body)
+    }
+
+    private var attachmentsRow: some View {
+        // Full AttachmentChipView (interactive download) lands in Task 9.
+        // For Task 6 this is a read-only placeholder chip.
+        HStack(spacing: 6) {
+            ForEach(message.attachments) { attachment in
+                Label(attachment.filename, systemImage: "paperclip")
+                    .padding(.horizontal, 8).padding(.vertical, 4)
+                    .background(Color.gray.opacity(0.15))
+                    .clipShape(Capsule())
+                    .font(.caption)
+            }
+        }
+    }
+}
