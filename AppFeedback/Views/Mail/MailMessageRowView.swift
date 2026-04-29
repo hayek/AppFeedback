@@ -37,7 +37,7 @@ struct MailMessageRowView: View {
                     .lineLimit(2)
             }
             HStack {
-                Text(message.fromName ?? message.fromAddress)
+                Text("From: \(message.fromName ?? message.fromAddress)")
                     .font(.caption)
                     .foregroundStyle(.secondary)
                 Spacer()
