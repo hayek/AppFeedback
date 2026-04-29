@@ -191,11 +191,11 @@ actor MailSyncCoordinator {
                         ls.inboxLastUID = maxUID
                     }
                     ls.lastSuccessfulPollAt = now
-                    ls.consecutiveFailures = 0
+                    if ls.consecutiveFailures != 0 { ls.consecutiveFailures = 0 }
                 }
             }
 
-            status = .idle
+            if self.status != .idle { self.status = .idle }
             await MainActor.run {
                 self.activityLog.finish(logID, status: .success, detail: "\(messages.count) message(s)")
             }
@@ -228,7 +228,7 @@ actor MailSyncCoordinator {
 
     /// Performs the one-time backfill of the Sent folder.
     private func runBackfill(accountID: UUID) async {
-        // I7: Cap backfill attempts to avoid endless retries on persistent failures.
+        // Cap backfill attempts to avoid endless retries on persistent failures.
         let maxBackfillFailures = 3
         let currentFailureCount = await MainActor.run {
             self.localState.state?.backfillFailureCount ?? 0
@@ -249,13 +249,16 @@ actor MailSyncCoordinator {
 
             await MainActor.run {
                 var orphanCount = 0
+                // TODO: batch save during backfill — recordOutbound currently saves after each
+                // message. Backfill is one-shot so the perf hit is bounded, but a batch-mode
+                // parameter to recordOutbound could eliminate N-1 redundant saves here.
                 for msg in sentMessages {
                     let match = ThreadMatcher.matchToIssue(
                         threadSubject: msg.subject,
                         knownIssueTitles: knownTitles
                     )
 
-                    // I11: Skip orphan messages during backfill (no issue match) to avoid
+                    // Skip orphan messages during backfill (no issue match) to avoid
                     // polluting the store with threads invisible to the UI.
                     guard let match else {
                         orphanCount += 1
@@ -284,7 +287,7 @@ actor MailSyncCoordinator {
                     acc.backfillCompleted = true
                 }
                 self.localState.update { ls in
-                    ls.backfillFailureCount = 0
+                    if ls.backfillFailureCount != 0 { ls.backfillFailureCount = 0 }
                 }
                 let detail = orphanCount > 0
                     ? "\(sentMessages.count) sent message(s) backfilled; skipped \(orphanCount) orphan thread(s)"
@@ -295,23 +298,22 @@ actor MailSyncCoordinator {
         } catch {
             let errorMessage = error.localizedDescription
             await MainActor.run {
-                // I7: Increment failure count; after max failures, flip backfillCompleted
+                // Increment failure count; after max failures, flip backfillCompleted
                 // so the polling loop stops retrying indefinitely.
                 let newCount = (self.localState.state?.backfillFailureCount ?? 0) + 1
-                self.localState.update { ls in
-                    ls.backfillFailureCount = newCount
-                }
-                if newCount >= maxBackfillFailures {
-                    self.accountStore.upsert { acc in
-                        acc.backfillCompleted = true
-                    }
+                self.localState.update { ls in ls.backfillFailureCount = newCount }
+
+                let hitCap = newCount >= maxBackfillFailures
+                if hitCap {
+                    // Cap reached — mark backfill done so we don't retry forever.
+                    self.accountStore.upsert { acc in acc.backfillCompleted = true }
                     self.activityLog.finish(
                         backfillLogID,
                         status: .failure,
                         detail: "Backfill skipped after repeated failures: \(errorMessage)"
                     )
                 } else {
-                    // Leave backfillCompleted false — next poll will retry.
+                    // Below cap — leave backfillCompleted false so next poll will retry.
                     self.activityLog.finish(backfillLogID, status: .failure, detail: errorMessage)
                 }
             }

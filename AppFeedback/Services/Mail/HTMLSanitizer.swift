@@ -84,6 +84,23 @@ enum HTMLSanitizer {
         return nil
     }
 
+    // MARK: - Plain-text extraction
+
+    /// Strips all HTML tags and decodes common entities, returning a plain-text representation.
+    /// Used when a message has no plain-text body part and when composing the text/plain MIME part.
+    static func plainText(from html: String) -> String {
+        let reOpts: String.CompareOptions = [.regularExpression, .caseInsensitive]
+        return html
+            .replacingOccurrences(of: "<style[^>]*>[\\s\\S]*?</style>", with: " ", options: reOpts)
+            .replacingOccurrences(of: "<script[^>]*>[\\s\\S]*?</script>", with: " ", options: reOpts)
+            .replacingOccurrences(of: "<[^>]+>", with: " ", options: reOpts)
+            .replacingOccurrences(of: "&nbsp;", with: " ")
+            .replacingOccurrences(of: "&amp;", with: "&")
+            .replacingOccurrences(of: "&lt;", with: "<")
+            .replacingOccurrences(of: "&gt;", with: ">")
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+    }
+
     private static func filterAttributes(tag: String, attrs: String) -> String {
         let allowed = allowedAttributesByTag[tag] ?? []
         var i = attrs.startIndex

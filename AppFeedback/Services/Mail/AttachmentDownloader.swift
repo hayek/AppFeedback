@@ -130,7 +130,7 @@ actor AttachmentDownloader {
         let stem = base.deletingPathExtension().lastPathComponent
         var n = 1
         while true {
-            // M8: Avoid trailing dot when there is no extension.
+            // Avoid trailing dot when there is no extension.
             let candidate: URL
             if ext.isEmpty {
                 candidate = dir.appendingPathComponent("\(stem) (\(n))")

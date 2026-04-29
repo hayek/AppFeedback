@@ -252,7 +252,7 @@ struct IOSEmailSettingsView: View {
             : await KeychainService.saveIMAPPassword(imapPassword)
         saveStatus = (smtpOk && imapOk) ? "Saved" : "Saved settings, but Keychain failed"
 
-        // I6: Restart the sync coordinator so credential changes (including password fixes after
+        // Restart the sync coordinator so credential changes (including password fixes after
         // an authFailed lock) take effect immediately without requiring an app restart.
         Task { await coordinatorHolder?.coordinator?.start() }
     }

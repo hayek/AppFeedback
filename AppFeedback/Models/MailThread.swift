@@ -11,7 +11,7 @@ final class MailThread {
     var issueRepoOwner: String = ""
     var issueRepoName: String = ""
     var issueNumber: Int = 0           // 0 = unlinked
-    var matchSourceRaw: String = "direct"
+    var matchSourceRaw: String = MatchSource.direct.rawValue
     @Relationship(deleteRule: .cascade, inverse: \MailMessage.thread)
     var messages: [MailMessage] = []
 
@@ -32,7 +32,7 @@ final class MailThread {
         issueRepoOwner: String = "",
         issueRepoName: String = "",
         issueNumber: Int = 0,
-        matchSourceRaw: String = "direct",
+        matchSourceRaw: String = MatchSource.direct.rawValue,
         messages: [MailMessage] = []
     ) {
         self.id = id

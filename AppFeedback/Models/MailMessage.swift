@@ -15,7 +15,7 @@ final class MailMessage {
     var subject: String = ""
     var bodyPlain: String = ""
     var bodyHTML: String? = nil
-    var directionRaw: String = "outbound"
+    var directionRaw: String = Direction.outbound.rawValue
     /// IMAP UID of the message. 0 for outbound messages (not fetched via IMAP).
     var uid: Int = 0
     /// IMAP folder name (e.g. "INBOX"). Empty for outbound messages.
@@ -51,7 +51,7 @@ final class MailMessage {
         subject: String = "",
         bodyPlain: String = "",
         bodyHTML: String? = nil,
-        directionRaw: String = "outbound",
+        directionRaw: String = Direction.outbound.rawValue,
         uid: Int = 0,
         folder: String = "",
         thread: MailThread? = nil,

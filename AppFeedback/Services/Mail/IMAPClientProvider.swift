@@ -11,26 +11,27 @@ actor IMAPClientProvider: IMAPClientProtocol {
     }
 
     func listInbox(sinceUID: UInt32) async throws -> [ParsedInboundMessage] {
-        let client = try await currentClient()
+        let client = try await makeClient()
         return try await client.listInbox(sinceUID: sinceUID)
     }
 
     func listSent(sinceDate: Date) async throws -> [ParsedInboundMessage] {
-        let client = try await currentClient()
+        let client = try await makeClient()
         return try await client.listSent(sinceDate: sinceDate)
     }
 
     func fetchAttachmentBytes(uid: UInt32, folder: String, partID: String) async throws -> Data {
-        let client = try await currentClient()
+        let client = try await makeClient()
         return try await client.fetchAttachmentBytes(uid: uid, folder: folder, partID: partID)
     }
 
     func testConnection() async throws {
-        let client = try await currentClient()
+        let client = try await makeClient()
         try await client.testConnection()
     }
 
-    private func currentClient() async throws -> IMAPClient {
+    /// Builds a fresh IMAPClient each call, reading credentials from the account store and Keychain.
+    private func makeClient() async throws -> IMAPClient {
         let snap: (host: String, port: Int, username: String)? = await MainActor.run {
             guard let acc = accountStore.account, !acc.imapHost.isEmpty else { return nil }
             return (acc.imapHost, acc.imapPort, acc.imapUsername)

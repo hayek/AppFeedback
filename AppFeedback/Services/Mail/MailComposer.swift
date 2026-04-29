@@ -133,13 +133,7 @@ struct MailComposer {
     }
 
     private func plainText(from html: String) -> String {
-        var s = html
-        s = s.replacingOccurrences(of: "<[^>]+>", with: "", options: .regularExpression)
-        s = s.replacingOccurrences(of: "&nbsp;", with: " ")
-        s = s.replacingOccurrences(of: "&amp;",  with: "&")
-        s = s.replacingOccurrences(of: "&lt;",   with: "<")
-        s = s.replacingOccurrences(of: "&gt;",   with: ">")
-        return s.trimmingCharacters(in: .whitespacesAndNewlines)
+        HTMLSanitizer.plainText(from: html)
     }
 }
 #endif

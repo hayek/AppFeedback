@@ -7,8 +7,30 @@ import Observation
 final class MailThreadStore {
     private let context: ModelContext
 
+    /// Increments after every successful write. SwiftUI observers use this to re-fetch.
+    private(set) var version: Int = 0
+
     init(context: ModelContext) {
         self.context = context
+    }
+
+    // MARK: - Per-poll candidate cache
+
+    /// Cached result of `recentThreadsForFallback` so multiple `recordInbound` calls within
+    /// a single poll cycle each re-use the same snapshot rather than issuing N fetches.
+    private var cachedCandidates: [MailThread]? = nil
+    private var candidatesCachedAt: Date = .distantPast
+    private let candidateCacheTTL: TimeInterval = 1.0
+
+    private func recentThreadCandidatesCached(limit: Int) -> [MailThread] {
+        let now = Date()
+        if let cached = cachedCandidates, now.timeIntervalSince(candidatesCachedAt) < candidateCacheTTL {
+            return cached
+        }
+        let fresh = recentThreadsForFallback(limit: limit)
+        cachedCandidates = fresh
+        candidatesCachedAt = now
+        return fresh
     }
 
     // MARK: - Resolution enum
@@ -97,6 +119,7 @@ final class MailThreadStore {
 
         do {
             try context.save()
+            version += 1
         } catch {
             assertionFailure("MailThreadStore save failed: \(error)")
         }
@@ -120,13 +143,10 @@ final class MailThreadStore {
             fallback: {
                 // Header-based lookup found nothing — attempt subject fallback using ThreadMatcher.
                 // Only try fallback when the message looks like a reply (Re:/Fwd: prefix).
-                let looksLikeReply = message.subject.range(
-                    of: #"^\s*(?:Re|Fwd|Fw)\s*:"#,
-                    options: [.regularExpression, .caseInsensitive]
-                ) != nil
+                let looksLikeReply = ThreadMatcher.stripReplyPrefixes(message.subject) != message.subject
 
                 if looksLikeReply {
-                    let recentThreads = self.recentThreadsForFallback(limit: 200)
+                    let recentThreads = self.recentThreadCandidatesCached(limit: 200)
                     let candidates: [ThreadMatcher.Candidate] = recentThreads.map { thread in
                         ThreadMatcher.Candidate(
                             messageID: thread.messageIDRoot,
@@ -224,6 +244,7 @@ final class MailThreadStore {
 
         do {
             try context.save()
+            version += 1
         } catch {
             assertionFailure("MailThreadStore save failed: \(error)")
         }
@@ -279,10 +300,13 @@ final class MailThreadStore {
             return .existingHeader(parentThread)
         }
 
-        // 2. Walk references chain — one predicated fetch per reference ID, early-return on first hit
-        //    Pick the thread of the newest matching message across all references.
+        // 2. Walk references chain — one bulk fetch for all reference IDs, then pick
+        //    the thread of the newest matching message.
         if !references.isEmpty {
-            let candidates = references.compactMap { findMessage(byMessageID: $0) }
+            let descriptor = FetchDescriptor<MailMessage>(
+                predicate: #Predicate { references.contains($0.messageID) }
+            )
+            let candidates = (try? context.fetch(descriptor)) ?? []
             if let newest = candidates.max(by: { $0.date < $1.date }),
                let thread = newest.thread {
                 return .existingReferences(thread)

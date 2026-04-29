@@ -94,8 +94,12 @@ struct MailThreadView: View {
     }
 }
 
+private let relativeDateFormatter: RelativeDateTimeFormatter = {
+    let f = RelativeDateTimeFormatter()
+    f.unitsStyle = .short
+    return f
+}()
+
 private func relativeAgo(from date: Date) -> String {
-    let formatter = RelativeDateTimeFormatter()
-    formatter.unitsStyle = .short
-    return formatter.localizedString(for: date, relativeTo: Date())
+    relativeDateFormatter.localizedString(for: date, relativeTo: Date())
 }

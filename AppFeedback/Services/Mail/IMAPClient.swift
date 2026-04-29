@@ -39,6 +39,8 @@ import SwiftMail
 //     // Returns [MessagePart] with data == nil.  Used in listInbox/listSent to avoid
 //     // pulling attachment bytes eagerly.  Text/HTML parts are fetched individually.
 
+private let imapInboxName = "INBOX"
+
 // MARK: - Actor
 
 actor IMAPClient: IMAPClientProtocol {
@@ -62,8 +64,8 @@ actor IMAPClient: IMAPClientProtocol {
         try await connectAndLogin(server)
         defer { Task.detached { try? await server.disconnect() } }
 
-        let selection = try await mapped { try await server.selectMailbox("INBOX") }
-        let folder = "INBOX"
+        let selection = try await mapped { try await server.selectMailbox(imapInboxName) }
+        let folder = imapInboxName
         let uidValidity = selection.uidValidity.value
 
         // Always use UID-based fetching: UIDs are stable across sessions whereas
@@ -242,19 +244,10 @@ actor IMAPClient: IMAPClientProtocol {
         let rawHTML   = htmlPart?.textContent
         let bodyHTML  = rawHTML.map { HTMLSanitizer.sanitize($0) }
 
-        // I10: If there's no plain-text body but HTML is available, generate a plain-text fallback
+        // If there's no plain-text body but HTML is available, generate a plain-text fallback
         // by stripping HTML tags. This ensures bodyPlain is never empty for HTML-only messages.
         if bodyPlain.isEmpty, let html = rawHTML {
-            let reOpts: String.CompareOptions = [.regularExpression, .caseInsensitive]
-            bodyPlain = html
-                .replacingOccurrences(of: "<style[^>]*>[\\s\\S]*?</style>", with: " ", options: reOpts)
-                .replacingOccurrences(of: "<script[^>]*>[\\s\\S]*?</script>", with: " ", options: reOpts)
-                .replacingOccurrences(of: "<[^>]+>", with: " ", options: reOpts)
-                .replacingOccurrences(of: "&nbsp;", with: " ")
-                .replacingOccurrences(of: "&amp;", with: "&")
-                .replacingOccurrences(of: "&lt;", with: "<")
-                .replacingOccurrences(of: "&gt;", with: ">")
-                .trimmingCharacters(in: .whitespacesAndNewlines)
+            bodyPlain = HTMLSanitizer.plainText(from: html)
         }
 
         // 5. Build attachment metadata from the structure (no bytes).

@@ -33,6 +33,7 @@ struct IssueCardView: View {
     @State private var showOriginal: Bool = false
     @State private var highlightActive: Bool = false
     @State private var didCopy: Bool = false
+    @State private var threads: [MailThread] = []
 
     private var translationVisible: Bool { issue.hasTranslation && !showOriginal }
 
@@ -243,15 +244,12 @@ struct IssueCardView: View {
                 )
                 .padding(.horizontal, -12)
 
-                if let store = threadStore {
-                    let threads = store.threads(forIssue: (repoOwner, repoName, issue.number))
-                    if !threads.isEmpty {
-                        Divider()
-                        ForEach(threads) { thread in
-                            MailThreadView(thread: thread, issue: issue, repoOwner: repoOwner, repoName: repoName)
-                                .padding(.horizontal, 12)
-                                .padding(.vertical, 8)
-                        }
+                if !threads.isEmpty {
+                    Divider()
+                    ForEach(threads) { thread in
+                        MailThreadView(thread: thread, issue: issue, repoOwner: repoOwner, repoName: repoName)
+                            .padding(.horizontal, 12)
+                            .padding(.vertical, 8)
                     }
                 }
             }
@@ -267,6 +265,8 @@ struct IssueCardView: View {
         .clipShape(RoundedRectangle(cornerRadius: 10))
         .shadow(color: .black.opacity(0.06), radius: 3, y: 1)
         .contentShape(Rectangle())
+        .onAppear { refreshThreads() }
+        .onChange(of: threadStore?.version) { _, _ in refreshThreads() }
         .onTapGesture { onInteract?() }
         .onChange(of: isHighlighted) { _, newValue in
             if newValue {
@@ -277,6 +277,10 @@ struct IssueCardView: View {
                 }
             }
         }
+    }
+
+    private func refreshThreads() {
+        threads = threadStore?.threads(forIssue: (repoOwner, repoName, issue.number)) ?? []
     }
 
     @ViewBuilder
