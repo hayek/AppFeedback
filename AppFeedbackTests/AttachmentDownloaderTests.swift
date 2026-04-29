@@ -8,7 +8,7 @@ final class MockIMAPClientForDownload: IMAPClientProtocol, @unchecked Sendable {
     var bytesToReturn: Data = Data([1, 2, 3, 4])
     var fetchCallCount = 0
 
-    func listInbox(sinceUID: UInt32) async throws -> [ParsedInboundMessage] { [] }
+    func listInbox(sinceUID: UInt32, fromAddresses: [String]) async throws -> [ParsedInboundMessage] { [] }
     func listSent(sinceDate: Date) async throws -> [ParsedInboundMessage] { [] }
     func fetchAttachmentBytes(uid: UInt32, folder: String, partID: String) async throws -> Data {
         fetchCallCount += 1

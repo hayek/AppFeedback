@@ -10,7 +10,7 @@ final class MockIMAPClient: IMAPClientProtocol, @unchecked Sendable {
     var inboxCallCount = 0
     var sentCallCount = 0
 
-    func listInbox(sinceUID: UInt32) async throws -> [ParsedInboundMessage] {
+    func listInbox(sinceUID: UInt32, fromAddresses: [String]) async throws -> [ParsedInboundMessage] {
         inboxCallCount += 1
         guard !inboxResponses.isEmpty else { return [] }
         let result = inboxResponses.removeFirst()
@@ -327,7 +327,7 @@ actor SlowMockIMAPClient: IMAPClientProtocol {
         gate = nil
     }
 
-    func listInbox(sinceUID: UInt32) async throws -> [ParsedInboundMessage] {
+    func listInbox(sinceUID: UInt32, fromAddresses: [String]) async throws -> [ParsedInboundMessage] {
         inboxCallCount += 1
         entered?.resume()
         entered = nil

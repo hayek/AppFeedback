@@ -24,7 +24,16 @@ final class MailAccountStore {
             target = new
         }
         mutate(target)
-        try? context.save()
+        // Skip the save (and the CloudKit round-trip) when nothing actually changed —
+        // settings views debounce-save on every keystroke, even when the user types and
+        // immediately backspaces. SwiftData's own dirty tracking handles the diff.
+        if context.hasChanges {
+            do {
+                try context.save()
+            } catch {
+                assertionFailure("MailAccountStore save failed: \(error)")
+            }
+        }
         account = target
     }
 

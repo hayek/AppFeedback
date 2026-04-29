@@ -44,6 +44,8 @@ private let imapInboxName = "INBOX"
 // MARK: - Actor
 
 actor IMAPClient: IMAPClientProtocol {
+    /// Hard ceiling on Sent-folder messages processed in one backfill pass.
+    private static let sentBackfillUIDLimit = 200
 
     private let host: String
     private let port: Int
@@ -59,7 +61,10 @@ actor IMAPClient: IMAPClientProtocol {
 
     // MARK: - IMAPClientProtocol
 
-    func listInbox(sinceUID: UInt32) async throws -> [ParsedInboundMessage] {
+    func listInbox(sinceUID: UInt32, fromAddresses: [String]) async throws -> [ParsedInboundMessage] {
+        // No recipients yet → no replies to look for. Skip the IMAP round-trip entirely.
+        if fromAddresses.isEmpty { return [] }
+
         let server = IMAPServer(host: host, port: port)
         try await connectAndLogin(server)
         defer { Task.detached { try? await server.disconnect() } }
@@ -68,17 +73,34 @@ actor IMAPClient: IMAPClientProtocol {
         let folder = imapInboxName
         let uidValidity = selection.uidValidity.value
 
-        // Always use UID-based fetching: UIDs are stable across sessions whereas
-        // sequence numbers are session-relative and must not be stored or compared.
+        // Server-side filter: replies come from people we wrote to. Gmail indexes FROM
+        // efficiently. Run one SEARCH per recipient and union locally — chained ORs and
+        // non-ASCII quoted strings both produce `BAD Could not parse command` on Gmail,
+        // so we avoid both: bare ASCII addr@domain, one SEARCH per recipient.
+        let cleanedAddresses = Array(Set(fromAddresses.compactMap(MailAddress.bare)))
+        if cleanedAddresses.isEmpty { return [] }
         let infos: [MessageInfo] = try await mapped {
-            if sinceUID == 0 {
-                // "All messages" — UID 1 through the highest assigned UID.
-                return try await server.fetchMessageInfos(uidRange: UID(1)...UID.latest)
-            } else {
-                // Strict UID > sinceUID
-                let fromUID = UID(sinceUID + 1)
-                return try await server.fetchMessageInfos(uidRange: fromUID...UID.latest)
+            // SwiftMail serializes commands per IMAPServer connection, so issuing the
+            // SEARCHes in parallel from a task group still walks the wire one-at-a-time
+            // — but it overlaps SwiftMail's per-command processing with the next
+            // network round-trip and removes the await-chain stalls between them.
+            let unionUIDs: Set<UInt32> = try await withThrowingTaskGroup(
+                of: [UInt32].self,
+                returning: Set<UInt32>.self
+            ) { group in
+                for addr in cleanedAddresses {
+                    group.addTask {
+                        let hits: MessageIdentifierSet<UID> = try await server.search(criteria: [.from(addr)])
+                        return hits.toArray().map(\.value)
+                    }
+                }
+                var union: Set<UInt32> = []
+                for try await batch in group { union.formUnion(batch) }
+                return union
             }
+            let unseen = unionUIDs.filter { $0 > sinceUID }
+            if unseen.isEmpty { return [] }
+            return try await server.fetchMessageInfosBulk(using: MessageIdentifierSet(unseen.map { UID($0) }))
         }
 
         var results: [ParsedInboundMessage] = []
@@ -117,22 +139,28 @@ actor IMAPClient: IMAPClientProtocol {
 
         if matchingUIDs.isEmpty { return [] }
 
+        // Cap to the most recent UIDs. Without this, a busy account's Sent folder can
+        // produce hundreds of structure-fetch round-trips that overrun command timeouts.
+        let cappedUIDs = matchingUIDs.toArray().sorted(by: { $0.value > $1.value }).prefix(Self.sentBackfillUIDLimit)
+        let cappedSet = MessageIdentifierSet<UID>(Array(cappedUIDs))
+
         let infos: [MessageInfo] = try await mapped {
-            try await server.fetchMessageInfosBulk(using: matchingUIDs)
+            try await server.fetchMessageInfosBulk(using: cappedSet)
         }
 
-        var results: [ParsedInboundMessage] = []
-        for info in infos {
-            do {
-                let parsed = try await fetchAndParse(server: server, info: info, folder: folder, uidValidity: uidValidity)
-                results.append(parsed)
-            } catch is CancellationError {
-                throw IMAPClientError.cancelled
-            } catch {
-                print("[IMAPClient] Skipping sent message uid=\(info.uid?.value ?? 0): \(error)")
-            }
+        // Backfill only needs Message-Id, subject, recipients, and date — all already in
+        // MessageInfo. Skipping per-message body/structure fetches (the slow part) means
+        // backfill finishes with a single bulk call instead of N+1 round-trips.
+        return infos.map { info in
+            Self.parse(
+                info: info,
+                folder: folder,
+                uidValidity: uidValidity,
+                bodyPlain: "",
+                bodyHTML: nil,
+                attachments: []
+            )
         }
-        return results
     }
 
     func fetchAttachmentBytes(uid: UInt32, folder: String, partID: String) async throws -> Data {
@@ -169,19 +197,31 @@ actor IMAPClient: IMAPClientProtocol {
         } catch {
             let desc = String(describing: error)
             let lower = desc.lowercased()
-            // Exclude transient transport phrases so we don't misclassify network blips as auth errors.
-            let looksTransient = lower.contains("timed out") || lower.contains("timeout")
-                || lower.contains("connection") || lower.contains("reset") || lower.contains("refused")
-            let looksAuth = lower.contains("authentication failed") || lower.contains("auth failed")
-                || lower.contains("login failed") || lower.contains("invalid credentials")
-                || lower.contains("bad credentials")
+            let looksTransient = Self.transientPhrases.contains { lower.contains($0) }
+            let looksAuth = Self.authFailurePhrases.contains { lower.contains($0) }
             if looksAuth && !looksTransient {
                 throw IMAPClientError.authFailed
             }
-            // Fall through: classified as .transport (catches network-level errors)
             throw IMAPClientError.transport(underlying: desc)
         }
     }
+
+    /// Phrases that indicate a network-level failure rather than rejected credentials.
+    /// Excluded so a momentary disconnect mid-LOGIN isn't misreported as `.authFailed`.
+    private static let transientPhrases: [String] = [
+        "timed out", "timeout", "connection", "reset", "refused"
+    ]
+
+    /// Substrings (lowercased) that map an underlying server-error description to
+    /// `IMAPClientError.authFailed`. Until SwiftMail exposes typed auth-error cases this
+    /// is best-effort; covers Gmail, iCloud, Outlook, Yahoo and the Dovecot defaults.
+    private static let authFailurePhrases: [String] = [
+        "authentication failed", "authenticationfailed", "auth failed",
+        "login failed", "invalid credentials", "bad credentials",
+        "application-specific password", "web login required",
+        "username and password not accepted",
+        "empty username", "empty password"
+    ]
 
     /// Maps any non-`IMAPClientError`, non-`CancellationError` thrown by `work` into
     /// `IMAPClientError.transport`.  Already-mapped `IMAPClientError` values pass through

@@ -230,7 +230,7 @@ final class MailThreadStoreTests: XCTestCase {
             replyHeaders: nil
         )
 
-        let result = store.threads(forIssue: (owner: "org", repo: "repo", number: 10))
+        let result = store.threads(forIssue: (owner: "org", repo: "repo", number: 10, title: ""))
         XCTAssertEqual(result.count, 2, "Should return exactly 2 threads for issue #10")
 
         // Sorted descending by lastMessageAt — thread with 'now' comes first

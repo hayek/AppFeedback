@@ -20,6 +20,14 @@ struct SMTPCredentials: Codable, Equatable, Sendable {
             case .custom:  return "Custom SMTP"
             }
         }
+
+        /// Strip whitespace from app passwords. Gmail/iCloud display 16-char app passwords as
+        /// four space-separated groups; users routinely paste them with spaces, which the IMAP
+        /// LOGIN command then rejects as invalid credentials. Plain SMTP/IMAP passwords cannot
+        /// legitimately contain whitespace, so this is safe across providers.
+        func sanitize(password: String) -> String {
+            password.filter { !$0.isWhitespace && !$0.isNewline }
+        }
     }
 
     var preset: Preset

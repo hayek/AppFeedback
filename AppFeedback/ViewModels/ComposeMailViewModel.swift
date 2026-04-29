@@ -95,7 +95,11 @@ final class ComposeMailViewModel {
 
         let id = activityLog.start(kind: .sendEmail, title: "to \(recipient)")
 
-        let messageID = MessageIDGenerator.generate()
+        let messageID = MessageIDGenerator.generate(
+            repoOwner: repoOwner,
+            repoName: repoName,
+            issueNumber: issue.number
+        )
         let replyHeaders = ReplyHeaderBuilder.build(parent: inReplyTo, newMessageID: messageID)
 
         let context = placeholderContext()

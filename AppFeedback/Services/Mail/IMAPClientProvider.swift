@@ -10,9 +10,9 @@ actor IMAPClientProvider: IMAPClientProtocol {
         self.accountStore = accountStore
     }
 
-    func listInbox(sinceUID: UInt32) async throws -> [ParsedInboundMessage] {
+    func listInbox(sinceUID: UInt32, fromAddresses: [String]) async throws -> [ParsedInboundMessage] {
         let client = try await makeClient()
-        return try await client.listInbox(sinceUID: sinceUID)
+        return try await client.listInbox(sinceUID: sinceUID, fromAddresses: fromAddresses)
     }
 
     func listSent(sinceDate: Date) async throws -> [ParsedInboundMessage] {
@@ -33,10 +33,12 @@ actor IMAPClientProvider: IMAPClientProtocol {
     /// Builds a fresh IMAPClient each call, reading credentials from the account store and Keychain.
     private func makeClient() async throws -> IMAPClient {
         let snap: (host: String, port: Int, username: String)? = await MainActor.run {
-            guard let acc = accountStore.account, !acc.imapHost.isEmpty else { return nil }
+            guard let acc = accountStore.account,
+                  !acc.imapHost.isEmpty,
+                  !acc.imapUsername.isEmpty else { return nil }
             return (acc.imapHost, acc.imapPort, acc.imapUsername)
         }
-        guard let snap else { throw IMAPClientError.notConnected }
+        guard let snap else { throw IMAPClientError.passwordUnavailable }
         let password = await KeychainService.loadIMAPPassword() ?? ""
         if password.isEmpty { throw IMAPClientError.passwordUnavailable }
         return IMAPClient(host: snap.host, port: snap.port, username: snap.username, password: password)

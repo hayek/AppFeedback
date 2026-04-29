@@ -1,11 +1,14 @@
 #if os(iOS)
 import SwiftUI
+import UIKit
 import UniformTypeIdentifiers
 
 struct IOSEmailSettingsView: View {
     @Environment(MailAccountStore.self) private var store
     @Environment(ActivityLog.self) private var activityLog
     @Environment(MailSyncCoordinatorHolder.self) private var coordinatorHolder: MailSyncCoordinatorHolder?
+    @Environment(MailThreadStore.self) private var threadStore
+    @Environment(MailAccountLocalStateStore.self) private var localStateStore
 
     // SMTP form fields
     @State private var preset: SMTPCredentials.Preset = .gmail
@@ -37,6 +40,9 @@ struct IOSEmailSettingsView: View {
     @State private var testStatus: String?
     @State private var didLoad = false
     @State private var saveTask: Task<Void, Never>?
+    @State private var showAdvanced: Bool = false
+    @State private var separateIMAPCreds: Bool = false
+    @State private var showResetConfirm: Bool = false
 
     var body: some View {
         Form {
@@ -52,43 +58,54 @@ struct IOSEmailSettingsView: View {
                 }
             }
 
-            Section("Sending (SMTP)") {
-                TextField("Host", text: $host)
-                    .disabled(preset != .custom)
-                    .autocorrectionDisabled()
-                    .textInputAutocapitalization(.never)
-                TextField("Port", text: $port)
-                    .disabled(preset != .custom)
-                    .keyboardType(.numberPad)
-                TextField("Username / from address", text: $username)
+            Section("Account") {
+                TextField("Email address", text: $username)
                     .autocorrectionDisabled()
                     .textInputAutocapitalization(.never)
                     .keyboardType(.emailAddress)
-                SecureField("App password", text: $password)
-                TextField("Sender display name", text: $senderName)
+                HStack {
+                    SecureField("Password", text: $password)
+                    pasteButton { password = preset.sanitize(password: $0) }
+                }
                 if preset == .gmail {
                     Text("Gmail requires a 16-character app password (not your account password). 2-Step Verification must be on.")
                         .font(.caption)
                         .foregroundStyle(.secondary)
                 }
+                TextField("Sender display name", text: $senderName)
             }
 
-            Section("Receiving (IMAP)") {
-                TextField("IMAP host", text: $imapHost)
-                    .disabled(preset != .custom)
-                    .autocorrectionDisabled()
-                    .textInputAutocapitalization(.never)
-                TextField("IMAP port", text: $imapPort)
-                    .disabled(preset != .custom)
-                    .keyboardType(.numberPad)
-                TextField("IMAP username", text: $imapUsername)
-                    .autocorrectionDisabled()
-                    .textInputAutocapitalization(.never)
-                    .keyboardType(.emailAddress)
-                SecureField("IMAP password", text: $imapPassword)
-                Text("Used when receiving replies. Defaults to the SMTP username.")
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
+            Section {
+                DisclosureGroup("Advanced", isExpanded: $showAdvanced) {
+                    Text("Hosts and ports come from the provider preset. Override only if your provider needs custom values or your IMAP login differs from your SMTP login.")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                    TextField("SMTP host", text: $host)
+                        .disabled(preset != .custom)
+                        .autocorrectionDisabled()
+                        .textInputAutocapitalization(.never)
+                    TextField("SMTP port", text: $port)
+                        .disabled(preset != .custom)
+                        .keyboardType(.numberPad)
+                    TextField("IMAP host", text: $imapHost)
+                        .disabled(preset != .custom)
+                        .autocorrectionDisabled()
+                        .textInputAutocapitalization(.never)
+                    TextField("IMAP port", text: $imapPort)
+                        .disabled(preset != .custom)
+                        .keyboardType(.numberPad)
+                    Toggle("Use a different IMAP login", isOn: $separateIMAPCreds)
+                    if separateIMAPCreds {
+                        TextField("IMAP username", text: $imapUsername)
+                            .autocorrectionDisabled()
+                            .textInputAutocapitalization(.never)
+                            .keyboardType(.emailAddress)
+                        HStack {
+                            SecureField("IMAP password", text: $imapPassword)
+                            pasteButton { imapPassword = preset.sanitize(password: $0) }
+                        }
+                    }
+                }
             }
 
             Section("Polling") {
@@ -130,15 +147,14 @@ struct IOSEmailSettingsView: View {
 
             Section("Tools") {
                 #if canImport(SwiftMail)
-                Button("Test SMTP connection") { testSMTPConnection() }
+                Button("Test connection") { testSMTPConnection() }
                     .disabled(host.isEmpty || username.isEmpty || password.isEmpty)
-                Button("Test IMAP connection") { testIMAPConnection() }
-                    .disabled(imapHost.isEmpty || imapUsername.isEmpty || imapPassword.isEmpty)
                 #endif
                 Button("Refresh now") {
                     Task { await coordinatorHolder?.coordinator?.pollNow() }
                 }
                 .disabled(coordinatorHolder?.coordinator == nil)
+                Button("Reset…", role: .destructive) { showResetConfirm = true }
                 if let testStatus {
                     Text(testStatus)
                         .foregroundStyle(.secondary)
@@ -157,12 +173,18 @@ struct IOSEmailSettingsView: View {
         .onChange(of: host) { _, _ in scheduleSave() }
         .onChange(of: port) { _, _ in scheduleSave() }
         .onChange(of: username) { _, _ in scheduleSave() }
-        .onChange(of: password) { _, _ in scheduleSave() }
+        .onChange(of: password) { _, new in
+            let cleaned = preset.sanitize(password: new)
+            if cleaned != new { password = cleaned } else { scheduleSave() }
+        }
         .onChange(of: senderName) { _, _ in scheduleSave() }
         .onChange(of: imapHost) { _, _ in scheduleSave() }
         .onChange(of: imapPort) { _, _ in scheduleSave() }
         .onChange(of: imapUsername) { _, _ in scheduleSave() }
-        .onChange(of: imapPassword) { _, _ in scheduleSave() }
+        .onChange(of: imapPassword) { _, new in
+            let cleaned = preset.sanitize(password: new)
+            if cleaned != new { imapPassword = cleaned } else { scheduleSave() }
+        }
         .onChange(of: headerText) { _, _ in scheduleSave() }
         .onChange(of: footerText) { _, _ in scheduleSave() }
         .fileImporter(
@@ -172,6 +194,22 @@ struct IOSEmailSettingsView: View {
         ) { result in
             handleFolderSelection(result)
         }
+        .alert("Reset email settings?", isPresented: $showResetConfirm) {
+            Button("Cancel", role: .cancel) { }
+            Button("Reset", role: .destructive) { Task { await resetAll() } }
+        } message: {
+            Text("This clears your email account, passwords, header, and footer from this device and iCloud Keychain.")
+        }
+    }
+
+    @ViewBuilder
+    private func pasteButton(assign: @escaping (String) -> Void) -> some View {
+        Button {
+            if let s = UIPasteboard.general.string { assign(s) }
+        } label: {
+            Image(systemName: "doc.on.clipboard")
+        }
+        .buttonStyle(.borderless)
     }
 
     // MARK: - Preset defaults
@@ -188,6 +226,7 @@ struct IOSEmailSettingsView: View {
     // MARK: - Load
 
     private func loadFromSettings() async {
+        store.reload()
         if let acc = store.account, !acc.smtpUsername.isEmpty {
             preset = acc.preset
             host = acc.smtpHost
@@ -197,6 +236,8 @@ struct IOSEmailSettingsView: View {
             imapHost = acc.imapHost
             imapPort = String(acc.imapPort)
             imapUsername = acc.imapUsername
+            separateIMAPCreds = !acc.imapUsername.isEmpty && acc.imapUsername != acc.smtpUsername
+            if separateIMAPCreds { showAdvanced = true }
             pollingEnabled = acc.pollingEnabled
             pollIntervalMinutes = max(1, min(60, acc.pollIntervalSeconds / 60))
             attachmentFolderBookmarkData = acc.attachmentFolderBookmark
@@ -208,6 +249,13 @@ struct IOSEmailSettingsView: View {
         }
         if let pw = await KeychainService.loadIMAPPassword() {
             imapPassword = pw
+        }
+        // Heal stale IMAP keychain when the user hasn't opted into separate creds:
+        // an old setup may have left the IMAP slot empty or out-of-sync with SMTP, and
+        // since save() only runs on field changes, nothing else would fix it.
+        if !separateIMAPCreds, !password.isEmpty, imapPassword != password {
+            _ = await KeychainService.saveIMAPPassword(password)
+            imapPassword = password
         }
         headerText = MailTemplatePlainText.from(html: store.account?.templateHeaderHTML ?? "")
         footerText = MailTemplatePlainText.from(html: store.account?.templateFooterHTML ?? "")
@@ -231,6 +279,8 @@ struct IOSEmailSettingsView: View {
     private func save() async {
         let headerHTML = MailTemplatePlainText.toHTML(headerText)
         let footerHTML = MailTemplatePlainText.toHTML(footerText)
+        let effectiveIMAPUsername = separateIMAPCreds && !imapUsername.isEmpty ? imapUsername : username
+        let effectiveIMAPPassword = separateIMAPCreds && !imapPassword.isEmpty ? imapPassword : password
         store.upsert { acc in
             acc.presetRaw = preset.rawValue
             acc.smtpHost = host
@@ -239,7 +289,7 @@ struct IOSEmailSettingsView: View {
             acc.senderName = senderName
             acc.imapHost = imapHost
             acc.imapPort = Int(imapPort) ?? 993
-            acc.imapUsername = imapUsername.isEmpty ? username : imapUsername
+            acc.imapUsername = effectiveIMAPUsername
             acc.templateHeaderHTML = headerHTML
             acc.templateFooterHTML = footerHTML
             acc.pollingEnabled = pollingEnabled
@@ -247,14 +297,10 @@ struct IOSEmailSettingsView: View {
             acc.attachmentFolderBookmark = attachmentFolderBookmarkData
         }
         let smtpOk = await KeychainService.saveSMTPPassword(password)
-        let imapOk = imapPassword.isEmpty
-            ? true
-            : await KeychainService.saveIMAPPassword(imapPassword)
+        let imapOk = await KeychainService.saveIMAPPassword(effectiveIMAPPassword)
         saveStatus = (smtpOk && imapOk) ? "Saved" : "Saved settings, but Keychain failed"
-
-        // Restart the sync coordinator so credential changes (including password fixes after
-        // an authFailed lock) take effect immediately without requiring an app restart.
-        Task { await coordinatorHolder?.coordinator?.start() }
+        // Don't restart the coordinator on every keystroke — partial credentials would
+        // trigger backfill failures. The next regular poll or Refresh picks up the change.
     }
 
     // MARK: - Test SMTP
@@ -285,30 +331,39 @@ struct IOSEmailSettingsView: View {
         }
     }
 
-    // MARK: - Test IMAP
+    // MARK: - Reset
 
-    private func testIMAPConnection() {
-        let id = activityLog.start(kind: .testConnection, title: "\(imapHost):\(imapPort) (IMAP)")
-        Task {
-            #if canImport(SwiftMail)
-            let client = IMAPClient(
-                host: imapHost,
-                port: Int(imapPort) ?? 993,
-                username: imapUsername.isEmpty ? username : imapUsername,
-                password: imapPassword
-            )
-            do {
-                try await client.testConnection()
-                activityLog.finish(id, status: .success, detail: "IMAP login OK")
-                testStatus = "IMAP connection OK"
-            } catch {
-                activityLog.finish(id, status: .failure, detail: error.localizedDescription)
-                testStatus = "IMAP failed: \(error.localizedDescription)"
-            }
-            #else
-            activityLog.finish(id, status: .failure, detail: "SwiftMail not available")
-            #endif
-        }
+    @MainActor
+    private func resetAll() async {
+        // Suppress the onChange-triggered scheduleSave race: clearing the form below would
+        // otherwise debounce-save a fresh empty MailAccount + empty Keychain entries right
+        // back into existence.
+        didLoad = false
+        saveTask?.cancel()
+        await coordinatorHolder?.coordinator?.stop()
+        threadStore.deleteAll()
+        localStateStore.deleteAll()
+        store.deleteAccount()
+        await KeychainService.deleteSMTPPassword()
+        await KeychainService.deleteIMAPPassword()
+        preset = .gmail
+        applyPresetDefaults(.gmail)
+        username = ""
+        password = ""
+        senderName = ""
+        imapUsername = ""
+        imapPassword = ""
+        separateIMAPCreds = false
+        showAdvanced = false
+        headerText = ""
+        footerText = ""
+        pollingEnabled = true
+        pollIntervalMinutes = 5
+        attachmentFolderBookmarkData = nil
+        attachmentFolderDisplayPath = "Default (Documents/Attachments)"
+        testStatus = nil
+        saveStatus = "Settings cleared"
+        didLoad = true
     }
 
     // MARK: - Folder picker

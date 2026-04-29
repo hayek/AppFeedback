@@ -36,6 +36,14 @@ final class MailAccountLocalStateStore {
         return new
     }
 
+    /// Wipes all rows and clears in-memory state. Used by Settings → Reset.
+    func deleteAll() {
+        let rows = (try? context.fetch(FetchDescriptor<MailAccountLocalState>())) ?? []
+        for r in rows { context.delete(r) }
+        try? context.save()
+        state = nil
+    }
+
     /// Mutates the current state (if any) and saves.
     func update(_ mutate: (MailAccountLocalState) -> Void) {
         guard let s = state else { return }

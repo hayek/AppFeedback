@@ -4,11 +4,25 @@ struct MailMessageRowView: View {
     let message: MailMessage
 
     @Environment(MailAccountStore.self) private var accountStore
+    @Environment(MailThreadStore.self) private var threadStore: MailThreadStore?
     @Environment(AttachmentDownloaderHolder.self) private var downloaderHolder: AttachmentDownloaderHolder?
 
-    @State private var isExpanded: Bool = false
+    private var isUnread: Bool { threadStore?.isUnread(message) ?? false }
+
+    @State private var showFull: Bool = false
+
+    private var stripped: HTMLSanitizer.StrippedBody {
+        HTMLSanitizer.stripQuotedReply(message.bodyPlain)
+    }
 
     private var attachments: [MailAttachment] { message.attachments ?? [] }
+
+    private var unreadDot: some View {
+        Circle()
+            .fill(Color.accentColor)
+            .frame(width: 8, height: 8)
+            .accessibilityLabel("New message")
+    }
 
     private var senderLine: String {
         if let name = message.fromName, !name.isEmpty {
@@ -20,65 +34,53 @@ struct MailMessageRowView: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 4) {
             header
-            if isExpanded {
-                bodyView
-                if !attachments.isEmpty {
-                    attachmentsRow
-                }
-            } else {
-                preview
+            bodyView
+            if !attachments.isEmpty {
+                attachmentsRow
             }
         }
         .padding(.vertical, 6)
         .contentShape(Rectangle())
         .onTapGesture {
-            withAnimation { isExpanded.toggle() }
+            if isUnread { threadStore?.markSeen(message.messageID) }
         }
     }
 
     private var header: some View {
         VStack(alignment: .leading, spacing: 2) {
             if !message.subject.isEmpty {
-                Text(message.subject)
-                    .font(.subheadline.weight(.semibold))
-                    .lineLimit(2)
+                HStack(alignment: .firstTextBaseline, spacing: 6) {
+                    if isUnread { unreadDot }
+                    Text(message.subject)
+                        .font(.subheadline.weight(.semibold))
+                }
             }
             HStack {
+                if isUnread && message.subject.isEmpty { unreadDot }
                 Text("From: \(senderLine)")
                     .font(.caption)
                     .foregroundStyle(.secondary)
                 Spacer()
-                Text(message.date, style: .date)
+                Text(message.date.formatted(date: .abbreviated, time: .shortened))
                     .font(.caption)
                     .foregroundStyle(.secondary)
             }
-        }
-    }
-
-    @ViewBuilder
-    private var preview: some View {
-        let trimmed = message.bodyPlain
-            .trimmingCharacters(in: .whitespacesAndNewlines)
-            .prefix(120)
-        Text(trimmed)
-            .font(.caption)
-            .foregroundStyle(.secondary)
-            .lineLimit(2)
-        if !attachments.isEmpty {
-            Label(
-                "\(attachments.count) attachment\(attachments.count == 1 ? "" : "s")",
-                systemImage: "paperclip"
-            )
-            .font(.caption2)
-            .foregroundStyle(.secondary)
         }
     }
 
     @ViewBuilder
     private var bodyView: some View {
-        // HTML rendering via WKWebView (iOS) / WebView (macOS) is deferred to a future task.
-        // For v1 we always render bodyPlain as the source of truth.
-        Text(message.bodyPlain).font(.body)
+        Text(showFull ? stripped.full : stripped.cleaned)
+            .font(.body)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .textSelection(.enabled)
+        if stripped.hasQuoted {
+            Button(showFull ? "Show cleaned text" : "Show full text") {
+                showFull.toggle()
+            }
+            .buttonStyle(.borderless)
+            .font(.caption)
+        }
     }
 
     private var attachmentsRow: some View {

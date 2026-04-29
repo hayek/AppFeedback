@@ -45,7 +45,16 @@ struct MailThreadView: View {
     }
 
     private var sortedMessages: [MailMessage] {
-        (thread.messages ?? []).sorted { $0.date < $1.date }
+        // CloudKit can produce duplicate MailMessage rows when the same incoming message
+        // is fetched independently on multiple devices — both inserts sync, both survive.
+        // Dedupe by messageID at render time, keeping the earliest copy by date so the
+        // chronological ordering of the thread stays stable.
+        let byDate = (thread.messages ?? []).sorted { $0.date < $1.date }
+        var seen: Set<String> = []
+        return byDate.filter { msg in
+            guard !msg.messageID.isEmpty else { return true }
+            return seen.insert(msg.messageID).inserted
+        }
     }
 
     private var headerLine: String {
@@ -80,9 +89,11 @@ struct MailThreadView: View {
                 references: last.referencesAsArray
             )
             // When the last message is outbound, reply to the first recipient (not our own from address).
-            let replyRecipient = last.direction == .outbound
+            let rawRecipient = last.direction == .outbound
                 ? (last.toAddresses.first ?? last.fromAddress)
                 : last.fromAddress
+            // SwiftMail's SMTP layer rejects `Display Name <addr>` form, so strip to bare addr.
+            let replyRecipient = MailAddress.bare(from: rawRecipient) ?? rawRecipient
             replyTarget = ReplyTarget(
                 recipient: replyRecipient,
                 subject: MailSubject.replyPrefixed(last.subject),
@@ -90,7 +101,8 @@ struct MailThreadView: View {
             )
         }
         .buttonStyle(.bordered)
-        .padding(8)
+        .padding(.top, 8)
+        .frame(maxWidth: .infinity, alignment: .trailing)
     }
 }
 

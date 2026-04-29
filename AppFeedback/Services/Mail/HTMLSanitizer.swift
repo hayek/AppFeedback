@@ -84,6 +84,66 @@ enum HTMLSanitizer {
         return nil
     }
 
+    struct StrippedBody {
+        let cleaned: String
+        let full: String
+        var hasQuoted: Bool { cleaned != full }
+    }
+
+    /// Drop the quoted-reply tail from a plain-text body. Returns the trimmed body and
+    /// the original side-by-side so the UI can offer a "Show full text" toggle.
+    /// Recognises the common conventions across major clients:
+    ///   - RFC 3676 `>`-prefixed lines (Gmail, Apple Mail, iCloud, Outlook web,
+    ///     Thunderbird, Fastmail, K-9, ProtonMail).
+    ///   - Localised "On <date>, <name> wrote:" attribution (en/de/fr/es/pl).
+    ///   - Outlook's classic `-----Original Message-----` separator.
+    ///   - Outlook's header block (`From: …` followed by `Sent:`/`Date:`/`To:`).
+    ///   - Long underscore separator that some clients emit before the quoted block.
+    private static let introRegex = try! NSRegularExpression(
+        pattern: #"^On\b.+\b(wrote|schrieb|écrit|escribió|napisał)\b.*:$"#,
+        options: [.caseInsensitive]
+    )
+    private static let originalSeparatorRegex = try! NSRegularExpression(
+        pattern: #"^-{2,}\s*Original Message\s*-{2,}$"#,
+        options: [.caseInsensitive]
+    )
+    private static let underscoreSeparatorRegex = try! NSRegularExpression(
+        pattern: #"^_{5,}$"#
+    )
+
+    private static func quoteCutoffMatches(_ s: String) -> Bool {
+        let range = NSRange(s.startIndex..., in: s)
+        return introRegex.firstMatch(in: s, range: range) != nil
+            || originalSeparatorRegex.firstMatch(in: s, range: range) != nil
+            || underscoreSeparatorRegex.firstMatch(in: s, range: range) != nil
+    }
+
+    static func stripQuotedReply(_ body: String) -> StrippedBody {
+        let lines = body.components(separatedBy: .newlines)
+        var cutoff = lines.count
+        for (i, line) in lines.enumerated() {
+            let trimmed = line.trimmingCharacters(in: .whitespaces)
+
+            if trimmed.hasPrefix(">") { cutoff = i; break }
+
+            if quoteCutoffMatches(trimmed) { cutoff = i; break }
+
+            // Outlook reply block: a `From:` line followed within a few lines by Sent/Date/To.
+            if trimmed.lowercased().hasPrefix("from:") {
+                let lookahead = lines.dropFirst(i + 1).prefix(5)
+                let nextHasOutlookHeader = lookahead.contains { l in
+                    let lt = l.trimmingCharacters(in: .whitespaces).lowercased()
+                    return lt.hasPrefix("sent:") || lt.hasPrefix("date:") || lt.hasPrefix("to:")
+                }
+                if nextHasOutlookHeader { cutoff = i; break }
+            }
+        }
+        let trimmedFull = body.trimmingCharacters(in: .whitespacesAndNewlines)
+        let cleaned = lines.prefix(cutoff).joined(separator: "\n")
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+        return StrippedBody(cleaned: cleaned, full: trimmedFull)
+    }
+
     // MARK: - Plain-text extraction
 
     /// Strips all HTML tags and decodes common entities, returning a plain-text representation.

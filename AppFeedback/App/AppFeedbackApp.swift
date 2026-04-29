@@ -22,6 +22,7 @@ struct AppFeedbackApp: App {
     @State private var notificationRouter: NotificationRouter
     @State private var downloaderHolder: AttachmentDownloaderHolder
     @State private var coordinatorHolder: MailSyncCoordinatorHolder
+    @State private var mailLocalStateStore: MailAccountLocalStateStore
     #if os(iOS)
     @State private var iosRefreshDriver: iOSBackgroundRefreshDriver
     #elseif os(macOS)
@@ -69,6 +70,8 @@ struct AppFeedbackApp: App {
         _mailAccountStore = State(initialValue: mailAccountStoreLocal)
         let threadStoreLocal = MailThreadStore(context: ModelContext(container))
         _threadStore = State(initialValue: threadStoreLocal)
+        let localStateStoreLocal = MailAccountLocalStateStore(context: ModelContext(container))
+        _mailLocalStateStore = State(initialValue: localStateStoreLocal)
         _seenStore = State(initialValue: SeenIssueStore(context: cloudContext))
         _hiddenAppStore = State(initialValue: hiddenAppStoreLocal)
         _store = State(initialValue: RepoStore(context: ModelContext(container), hiddenAppStore: hiddenAppStoreLocal))
@@ -103,7 +106,7 @@ struct AppFeedbackApp: App {
 
         #if canImport(SwiftMail)
         let imapProvider = IMAPClientProvider(accountStore: mailAccountStoreLocal)
-        let localStateStore = MailAccountLocalStateStore(context: ModelContext(container))
+        let localStateStore = localStateStoreLocal
         // Provide real CachedIssue titles to ThreadMatcher for backfill subject matching.
         // Capture `container` as a local constant so the @Sendable closure doesn't capture `self`.
         // The provider returns titles from ALL repos; ThreadMatcher.matchToIssue does not yet
@@ -170,6 +173,7 @@ struct AppFeedbackApp: App {
                 .environment(notificationRouter)
                 .environment(downloaderHolder)
                 .environment(coordinatorHolder)
+                .environment(mailLocalStateStore)
                 .environment(\.notificationService, notificationService)
                 .task { await notificationService.requestAuthorizationIfNeeded() }
                 .onAppear {
@@ -229,6 +233,7 @@ struct AppFeedbackApp: App {
                 .environment(notificationRouter)
                 .environment(downloaderHolder)
                 .environment(coordinatorHolder)
+                .environment(mailLocalStateStore)
                 .environment(\.notificationService, notificationService)
         }
         .windowResizability(.contentMinSize)

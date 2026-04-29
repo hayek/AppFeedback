@@ -245,11 +245,9 @@ struct IssueCardView: View {
                 .padding(.horizontal, -12)
 
                 if !threads.isEmpty {
-                    Divider()
                     ForEach(threads) { thread in
                         MailThreadView(thread: thread, issue: issue, repoOwner: repoOwner, repoName: repoName)
-                            .padding(.horizontal, 12)
-                            .padding(.vertical, 8)
+                            .padding(.top, 8)
                     }
                 }
             }
@@ -280,7 +278,7 @@ struct IssueCardView: View {
     }
 
     private func refreshThreads() {
-        threads = threadStore?.threads(forIssue: (repoOwner, repoName, issue.number)) ?? []
+        threads = threadStore?.threads(forIssue: (repoOwner, repoName, issue.number, issue.title)) ?? []
     }
 
     @ViewBuilder

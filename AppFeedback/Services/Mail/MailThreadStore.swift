@@ -10,8 +10,57 @@ final class MailThreadStore {
     /// Increments after every successful write. SwiftUI observers use this to re-fetch.
     private(set) var version: Int = 0
 
+    /// Inbound messageIDs that arrived during this app session and the user hasn't acknowledged yet.
+    /// Mirrors `IssueListViewModel.sessionUnread` — populated when `recordInbound` inserts a new
+    /// message, drained when the row is tapped. In-memory only; resets on app launch so an existing
+    /// inbox isn't flagged as new on first display.
+    private(set) var sessionUnreadMessageIDs: Set<String> = []
+
     init(context: ModelContext) {
         self.context = context
+    }
+
+    func isUnread(_ message: MailMessage) -> Bool {
+        message.direction == .inbound && sessionUnreadMessageIDs.contains(message.messageID)
+    }
+
+    func markSeen(_ messageID: String) {
+        guard sessionUnreadMessageIDs.remove(messageID) != nil else { return }
+        version &+= 1
+    }
+
+    /// Unique recipient addresses across all outbound messages. The mail sync uses these as
+    /// the FROM filter when polling the inbox — replies come from people we've written to.
+    func outboundRecipients() -> [String] {
+        let outboundRaw = MailMessage.Direction.outbound.rawValue
+        let descriptor = FetchDescriptor<MailMessage>(
+            predicate: #Predicate { $0.directionRaw == outboundRaw }
+        )
+        let messages = (try? context.fetch(descriptor)) ?? []
+        var seen = Set<String>()
+        var result: [String] = []
+        for m in messages {
+            for addr in m.toAddresses where !addr.isEmpty && seen.insert(addr).inserted {
+                result.append(addr)
+            }
+        }
+        return result
+    }
+
+    /// Cascade-deletes every thread (which removes its messages and attachments) and
+    /// bumps `version` so SwiftUI observers re-fetch.
+    func deleteAll() {
+        let descriptor = FetchDescriptor<MailThread>()
+        let threads = (try? context.fetch(descriptor)) ?? []
+        for t in threads { context.delete(t) }
+        do {
+            try context.save()
+        } catch {
+            assertionFailure("MailThreadStore deleteAll save failed: \(error)")
+        }
+        cachedCandidates = nil
+        invalidateOrphanCache()
+        version &+= 1
     }
 
     // MARK: - Per-poll candidate cache
@@ -49,6 +98,45 @@ final class MailThreadStore {
     }
 
     // MARK: - recordOutbound
+
+    /// True while a `withBatch { ... }` is in progress. Suppresses per-call save/version-bump
+    /// so callers can record many messages at once without thrashing CloudKit or SwiftUI.
+    private var batchInProgress: Bool = false
+
+    /// Runs `body` with `recordOutbound`/`recordInbound` writes coalesced into a single
+    /// save+version-bump at the end. Used by backfill to avoid hundreds of round-trips.
+    func withBatch(_ body: () -> Void) {
+        batchInProgress = true
+        defer { batchInProgress = false }
+        body()
+        do {
+            try context.save()
+            version += 1
+            cachedCandidates = nil
+            invalidateOrphanCache()
+        } catch {
+            assertionFailure("MailThreadStore batch save failed: \(error)")
+        }
+    }
+
+    /// Save + version bump + cache invalidation for a single-message write. No-op while a
+    /// `withBatch { ... }` is active — the batch flushes everything at the end.
+    private func commitChange(createdNewThread: Bool) {
+        if batchInProgress {
+            if createdNewThread { cachedCandidates = nil; invalidateOrphanCache() }
+            return
+        }
+        do {
+            try context.save()
+            version += 1
+            if createdNewThread {
+                cachedCandidates = nil
+                invalidateOrphanCache()
+            }
+        } catch {
+            assertionFailure("MailThreadStore save failed: \(error)")
+        }
+    }
 
     @discardableResult
     func recordOutbound(
@@ -128,15 +216,7 @@ final class MailThreadStore {
         )
         context.insert(msg)
 
-        do {
-            try context.save()
-            version += 1
-            // Only invalidate the candidate cache when a new thread was added — appending
-            // a message to an existing thread doesn't change the candidate set materially.
-            if createdNewThread { cachedCandidates = nil }
-        } catch {
-            assertionFailure("MailThreadStore save failed: \(error)")
-        }
+        commitChange(createdNewThread: createdNewThread)
         return msg
     }
 
@@ -260,25 +340,18 @@ final class MailThreadStore {
             context.insert(attachment)
         }
 
-        do {
-            try context.save()
-            version += 1
-            // Only invalidate the candidate cache when a new thread was added — appending
-            // a message to an existing thread doesn't change the candidate set materially.
-            if createdNewThread { cachedCandidates = nil }
-        } catch {
-            assertionFailure("MailThreadStore save failed: \(error)")
-        }
+        sessionUnreadMessageIDs.insert(message.messageID)
+        commitChange(createdNewThread: createdNewThread)
         return msg
     }
 
     // MARK: - threads(forIssue:)
 
-    func threads(forIssue issue: (owner: String, repo: String, number: Int)) -> [MailThread] {
+    func threads(forIssue issue: (owner: String, repo: String, number: Int, title: String)) -> [MailThread] {
         let owner = issue.owner
         let repo = issue.repo
         let number = issue.number
-        let descriptor = FetchDescriptor<MailThread>(
+        let attached = FetchDescriptor<MailThread>(
             predicate: #Predicate {
                 $0.issueRepoOwner == owner &&
                 $0.issueRepoName == repo &&
@@ -286,8 +359,33 @@ final class MailThreadStore {
             },
             sortBy: [SortDescriptor(\.lastMessageAt, order: .reverse)]
         )
-        return (try? context.fetch(descriptor)) ?? []
+        var results = (try? context.fetch(attached)) ?? []
+
+        // Backfill couldn't always tie a Sent message to a GitHub issue (CachedIssue may
+        // have been empty at the time, or the issue list was stale). Surface orphan threads
+        // whose subject substring-matches this issue's title so replies don't get stranded.
+        for orphan in cachedOrphans()
+            where ThreadMatcher.subjectMatchesIssueTitle(subject: orphan.subject, issueTitle: issue.title) {
+            results.append(orphan)
+        }
+        results.sort { $0.lastMessageAt > $1.lastMessageAt }
+        return results
     }
+
+    /// Orphan threads (`issueNumber == 0`) cached and invalidated only when the orphan set
+    /// could have changed (new thread inserted, deleteAll). `threads(forIssue:)` is hit on
+    /// every IssueCardView render, so without this cache each card fetches every orphan
+    /// from SwiftData and re-runs subject normalization. Decoupled from `version` so
+    /// unread-state mutations (markSeen) don't force a re-fetch.
+    private var cachedOrphansList: [MailThread]?
+    private func cachedOrphans() -> [MailThread] {
+        if let cached = cachedOrphansList { return cached }
+        let descriptor = FetchDescriptor<MailThread>(predicate: #Predicate { $0.issueNumber == 0 })
+        let fresh = (try? context.fetch(descriptor)) ?? []
+        cachedOrphansList = fresh
+        return fresh
+    }
+    private func invalidateOrphanCache() { cachedOrphansList = nil }
 
     // MARK: - Private helpers
 

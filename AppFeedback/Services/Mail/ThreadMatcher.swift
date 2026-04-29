@@ -81,31 +81,32 @@ enum ThreadMatcher {
         return .newThread
     }
 
+    /// Minimum title length when matching by subject substring. Below this, short titles
+    /// like `"bug"` or `"1"` collide with too many unrelated subjects.
+    static let minimumTitleLength = 4
+
+    /// True when `subject` (after stripping any `Re:`/`Fwd:` chain) contains `issueTitle`
+    /// as a case-insensitive substring and the title clears `minimumTitleLength`.
+    static func subjectMatchesIssueTitle(subject: String, issueTitle: String) -> Bool {
+        guard issueTitle.count >= minimumTitleLength else { return false }
+        return stripReplyPrefixes(subject).range(of: issueTitle, options: .caseInsensitive) != nil
+    }
+
     static func matchToIssue(
         threadSubject: String,
         knownIssueTitles: [(owner: String, repo: String, number: Int, title: String)]
     ) -> (owner: String, repo: String, number: Int)? {
-        let stripped = stripReplyPrefixes(threadSubject)
-
-        // Minimum title length to avoid spurious matches (e.g. a single digit "1" matching everything)
-        let minimumTitleLength = 4
-
         // On multi-match we pick the highest issue number as a proxy for "most recent issue",
         // per the plan's heuristic. Holds when titles come from a single repo's GitHub feed.
-
         var bestMatch: (owner: String, repo: String, number: Int)? = nil
         var bestNumber = Int.min
-
         for issue in knownIssueTitles {
-            guard issue.title.count >= minimumTitleLength else { continue }
-            if stripped.range(of: issue.title, options: [.caseInsensitive]) != nil {
-                if issue.number > bestNumber {
-                    bestNumber = issue.number
-                    bestMatch = (owner: issue.owner, repo: issue.repo, number: issue.number)
-                }
+            guard subjectMatchesIssueTitle(subject: threadSubject, issueTitle: issue.title) else { continue }
+            if issue.number > bestNumber {
+                bestNumber = issue.number
+                bestMatch = (owner: issue.owner, repo: issue.repo, number: issue.number)
             }
         }
-
         return bestMatch
     }
 

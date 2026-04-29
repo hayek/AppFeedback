@@ -169,9 +169,20 @@ actor MailSyncCoordinator {
             self.activityLog.start(kind: .fetchMail, title: "Fetch mail")
         }
 
-        // 4. Fetch inbox
+        // 4. Backfill first if needed — listInbox depends on outbound recipients, which
+        //    backfill populates from the Sent folder. Running inbox before backfill on a
+        //    fresh install would short-circuit (empty fromAddresses) and miss every reply.
+        if !accountSnapshot.backfillCompleted {
+            await runBackfill(accountID: accountSnapshot.id)
+        }
+
+        // 5. Fetch inbox
+        let fromAddresses = await MainActor.run { self.threadStore.outboundRecipients() }
         do {
-            let messages = try await client.listInbox(sinceUID: localSnapshot.inboxLastUID)
+            let messages = try await client.listInbox(
+                sinceUID: localSnapshot.inboxLastUID,
+                fromAddresses: fromAddresses
+            )
 
             // Hand each message to the thread store on MainActor
             await MainActor.run {
@@ -198,11 +209,6 @@ actor MailSyncCoordinator {
             if self.status != .idle { self.status = .idle }
             await MainActor.run {
                 self.activityLog.finish(logID, status: .success, detail: "\(messages.count) message(s)")
-            }
-
-            // 5. Backfill (only if not yet completed and inbox fetch succeeded)
-            if !accountSnapshot.backfillCompleted {
-                await runBackfill(accountID: accountSnapshot.id)
             }
 
         } catch IMAPClientError.authFailed {
@@ -238,48 +244,53 @@ actor MailSyncCoordinator {
             return
         }
 
-        let oneYearAgo = clock().addingTimeInterval(-365 * 24 * 3600)
+        // Backfill exists to seed outbound recipients (so the inbox poll's FROM filter
+        // knows who to look for) and to thread historical Sent messages. A 365-day window
+        // routinely overruns SwiftMail's per-command timeout on real Gmail accounts —
+        // structure fetches are sequential and a year of Sent is hundreds-to-thousands of
+        // messages. 14 days is enough to capture recent feedback exchanges; older replies
+        // surface naturally as the user resumes activity.
+        let cutoff = clock().addingTimeInterval(-14 * 24 * 3600)
         let backfillLogID = await MainActor.run {
             self.activityLog.start(kind: .fetchMail, title: "Backfill sent folder")
         }
 
         do {
-            let sentMessages = try await client.listSent(sinceDate: oneYearAgo)
+            let sentMessages = try await client.listSent(sinceDate: cutoff)
             let knownTitles = await knownIssueTitlesProvider()
 
             await MainActor.run {
-                var orphanCount = 0
-                // TODO: batch save during backfill — recordOutbound currently saves after each
-                // message. Backfill is one-shot so the perf hit is bounded, but a batch-mode
-                // parameter to recordOutbound could eliminate N-1 redundant saves here.
-                for msg in sentMessages {
-                    let match = ThreadMatcher.matchToIssue(
-                        threadSubject: msg.subject,
-                        knownIssueTitles: knownTitles
-                    )
-
-                    // Skip orphan messages during backfill (no issue match) to avoid
-                    // polluting the store with threads invisible to the UI.
-                    guard let match else {
-                        orphanCount += 1
-                        continue
+                self.threadStore.withBatch {
+                    for msg in sentMessages {
+                        // Prefer the issue identity encoded in the Message-Id we generated at
+                        // send time — survives custom subjects, repo renames, and stale issue
+                        // title caches. Fall back to subject substring matching for messages
+                        // sent before this scheme existed (or via clients other than this app).
+                        let idMatch = MessageIDGenerator.parseIssueContext(from: msg.messageID)
+                        let subjectMatch = idMatch == nil
+                            ? ThreadMatcher.matchToIssue(threadSubject: msg.subject, knownIssueTitles: knownTitles)
+                            : nil
+                        let match = idMatch ?? subjectMatch
+                        // Record every outbound, including orphans. Even if a message can't be
+                        // tied to a GitHub issue, we still want its recipient address in the
+                        // store so the next inbox poll's `FROM` filter knows to look for replies.
+                        // Orphans use issueNumber=0; recordOutbound creates an unattached thread.
+                        self.threadStore.recordOutbound(
+                            messageID: msg.messageID,
+                            repoOwner: match?.owner ?? "",
+                            repoName: match?.repo ?? "",
+                            issueNumber: match?.number ?? 0,
+                            from: msg.fromAddress,
+                            fromName: msg.fromName,
+                            to: msg.toAddresses,
+                            cc: msg.ccAddresses,
+                            subject: msg.subject,
+                            bodyPlain: msg.bodyPlain,
+                            bodyHTML: msg.bodyHTML,
+                            date: msg.date,
+                            replyHeaders: nil
+                        )
                     }
-
-                    self.threadStore.recordOutbound(
-                        messageID: msg.messageID,
-                        repoOwner: match.owner,
-                        repoName: match.repo,
-                        issueNumber: match.number,
-                        from: msg.fromAddress,
-                        fromName: msg.fromName,
-                        to: msg.toAddresses,
-                        cc: msg.ccAddresses,
-                        subject: msg.subject,
-                        bodyPlain: msg.bodyPlain,
-                        bodyHTML: msg.bodyHTML,
-                        date: msg.date,
-                        replyHeaders: nil
-                    )
                 }
 
                 // Flip backfillCompleted and reset failure counter on success.
@@ -289,10 +300,11 @@ actor MailSyncCoordinator {
                 self.localState.update { ls in
                     if ls.backfillFailureCount != 0 { ls.backfillFailureCount = 0 }
                 }
-                let detail = orphanCount > 0
-                    ? "\(sentMessages.count) sent message(s) backfilled; skipped \(orphanCount) orphan thread(s)"
-                    : "\(sentMessages.count) sent message(s) backfilled"
-                self.activityLog.finish(backfillLogID, status: .success, detail: detail)
+                self.activityLog.finish(
+                    backfillLogID,
+                    status: .success,
+                    detail: "\(sentMessages.count) sent message(s) backfilled"
+                )
             }
 
         } catch {
