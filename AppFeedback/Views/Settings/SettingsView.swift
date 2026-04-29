@@ -134,6 +134,18 @@ struct SettingsView: View {
                     }
                 }
 
+                #if canImport(SwiftMail)
+                Section {
+                    NavigationLink {
+                        IOSEmailSettingsView()
+                            .navigationTitle("Email")
+                            .navigationBarTitleDisplayMode(.large)
+                    } label: {
+                        Label("Email", systemImage: "envelope")
+                    }
+                }
+                #endif
+
                 if let notificationService {
                     Section {
                         NavigationLink {
