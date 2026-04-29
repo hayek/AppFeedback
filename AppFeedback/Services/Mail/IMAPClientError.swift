@@ -10,8 +10,7 @@ enum IMAPClientError: Error, Equatable {
     /// A message or server response could not be decoded.
     case malformed(detail: String)
 
-    /// Reserved for future use — Task 5's MailSyncCoordinator can map a Keychain miss into this
-    /// case so all credential-related failures surface with a consistent error type at the boundary.
+    /// Thrown by IMAPClientProvider when MailAccount has IMAP host configured but Keychain has no password.
     case passwordUnavailable
 
     /// The operation was cancelled by the caller.

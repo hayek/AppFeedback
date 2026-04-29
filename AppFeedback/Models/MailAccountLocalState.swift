@@ -10,6 +10,8 @@ final class MailAccountLocalState {
     var sentUIDValidity: UInt32 = 0
     var lastSuccessfulPollAt: Date? = nil
     var consecutiveFailures: Int = 0
+    /// Tracks consecutive backfill failures so the coordinator can cap retries (see I7).
+    var backfillFailureCount: Int = 0
 
     init(
         accountID: UUID = UUID(),
@@ -18,7 +20,8 @@ final class MailAccountLocalState {
         sentLastUID: UInt32 = 0,
         sentUIDValidity: UInt32 = 0,
         lastSuccessfulPollAt: Date? = nil,
-        consecutiveFailures: Int = 0
+        consecutiveFailures: Int = 0,
+        backfillFailureCount: Int = 0
     ) {
         self.accountID = accountID
         self.inboxLastUID = inboxLastUID
@@ -27,5 +30,6 @@ final class MailAccountLocalState {
         self.sentUIDValidity = sentUIDValidity
         self.lastSuccessfulPollAt = lastSuccessfulPollAt
         self.consecutiveFailures = consecutiveFailures
+        self.backfillFailureCount = backfillFailureCount
     }
 }

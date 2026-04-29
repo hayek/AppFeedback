@@ -10,8 +10,10 @@ struct ComposeMailView: View {
     let repoOwner: String
     let repoName: String
     var inReplyTo: MailMessageHeaders? = nil
+    var subjectOverride: String? = nil
 
     @Environment(MailAccountStore.self) private var store
+    @Environment(MailThreadStore.self) private var threadStore
     @Environment(ActivityLog.self) private var activityLog
     @Environment(SettingsNavigation.self) private var settingsNavigation
     @Environment(\.dismiss) private var dismiss
@@ -208,9 +210,11 @@ struct ComposeMailView: View {
             repoOwner: repoOwner,
             repoName: repoName,
             store: store,
+            threadStore: threadStore,
             sender: MailSender(),
             activityLog: activityLog,
-            inReplyTo: inReplyTo
+            inReplyTo: inReplyTo,
+            initialSubject: subjectOverride
         )
     }
 }

@@ -34,7 +34,7 @@ struct AttachmentChipView: View {
             .clipShape(Capsule())
         }
         .buttonStyle(.plain)
-        .disabled(downloader == nil)
+        .disabled(downloader == nil || uid == 0)
     }
 
     @ViewBuilder

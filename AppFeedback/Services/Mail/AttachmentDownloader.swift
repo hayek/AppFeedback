@@ -130,9 +130,13 @@ actor AttachmentDownloader {
         let stem = base.deletingPathExtension().lastPathComponent
         var n = 1
         while true {
-            let candidate = dir
-                .appendingPathComponent("\(stem) (\(n))")
-                .appendingPathExtension(ext)
+            // M8: Avoid trailing dot when there is no extension.
+            let candidate: URL
+            if ext.isEmpty {
+                candidate = dir.appendingPathComponent("\(stem) (\(n))")
+            } else {
+                candidate = dir.appendingPathComponent("\(stem) (\(n))").appendingPathExtension(ext)
+            }
             if !FileManager.default.fileExists(atPath: candidate.path) { return candidate }
             n += 1
         }

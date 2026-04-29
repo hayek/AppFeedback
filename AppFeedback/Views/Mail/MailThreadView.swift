@@ -37,7 +37,8 @@ struct MailThreadView: View {
                 issue: issue,
                 repoOwner: repoOwner,
                 repoName: repoName,
-                inReplyTo: target.headers
+                inReplyTo: target.headers,
+                subjectOverride: target.subject
             )
             #else
             Text("ComposeMailView is unavailable on this build.")
@@ -78,8 +79,12 @@ struct MailThreadView: View {
                 inReplyTo: last.inReplyTo,
                 references: last.referencesAsArray
             )
+            // M5: When the last message is outbound, reply to the first recipient (not our own from address).
+            let replyRecipient = last.direction == .outbound
+                ? (last.toAddresses.first ?? last.fromAddress)
+                : last.fromAddress
             replyTarget = ReplyTarget(
-                recipient: last.fromAddress,
+                recipient: replyRecipient,
                 subject: MailSubject.replyPrefixed(last.subject),
                 headers: headers
             )

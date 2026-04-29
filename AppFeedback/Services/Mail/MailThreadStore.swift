@@ -112,11 +112,46 @@ final class MailThreadStore {
             return nil
         }
 
-        // Determine thread via direct header lookup only (no ThreadMatcher)
+        // Determine thread via direct header lookup first, then subject fallback via ThreadMatcher.
+        var headerResolution: Resolution? = nil
         let resolution = resolveThread(
             inReplyTo: message.inReplyTo,
             references: message.references,
             fallback: {
+                // Header-based lookup found nothing — attempt subject fallback using ThreadMatcher.
+                // Only try fallback when the message looks like a reply (Re:/Fwd: prefix).
+                let looksLikeReply = message.subject.range(
+                    of: #"^\s*(?:Re|Fwd|Fw)\s*:"#,
+                    options: [.regularExpression, .caseInsensitive]
+                ) != nil
+
+                if looksLikeReply {
+                    let recentThreads = self.recentThreadsForFallback(limit: 200)
+                    let candidates: [ThreadMatcher.Candidate] = recentThreads.map { thread in
+                        ThreadMatcher.Candidate(
+                            messageID: thread.messageIDRoot,
+                            subject: thread.subject,
+                            participants: thread.participants,
+                            lastMessageAt: thread.lastMessageAt
+                        )
+                    }
+                    let result = ThreadMatcher.attach(message: message, existing: candidates)
+                    switch result {
+                    case .header(let i):
+                        let matched = recentThreads[i]
+                        matched.matchSource = .header
+                        headerResolution = .existingHeader(matched)
+                        return matched
+                    case .subject(let i):
+                        let matched = recentThreads[i]
+                        matched.matchSource = .subjectFallback
+                        headerResolution = .existingHeader(matched)
+                        return matched
+                    case .newThread:
+                        break
+                    }
+                }
+
                 // Create orphan thread — issueNumber = 0, matchSource = .direct (placeholder)
                 let newThread = MailThread(
                     messageIDRoot: message.messageID,
@@ -132,11 +167,13 @@ final class MailThreadStore {
             }
         )
 
+        // If ThreadMatcher already set the resolution inside the fallback, use it directly.
+        let finalResolution = headerResolution ?? resolution
+
         let thread: MailThread
-        switch resolution {
+        switch finalResolution {
         case .existingHeader(let t):
-            // Matched via inReplyTo — set matchSource to .header
-            t.matchSource = .header
+            // Matched via inReplyTo or subject fallback — matchSource already set above.
             thread = t
         case .existingReferences(let t):
             // Matched via references chain — set matchSource to .header
@@ -194,19 +231,6 @@ final class MailThreadStore {
         return msg
     }
 
-    // MARK: - attachToIssue
-
-    func attachToIssue(thread: MailThread, owner: String, repo: String, number: Int) {
-        thread.issueRepoOwner = owner
-        thread.issueRepoName = repo
-        thread.issueNumber = number
-        do {
-            try context.save()
-        } catch {
-            assertionFailure("MailThreadStore save failed: \(error)")
-        }
-    }
-
     // MARK: - threads(forIssue:)
 
     func threads(forIssue issue: (owner: String, repo: String, number: Int)) -> [MailThread] {
@@ -224,42 +248,16 @@ final class MailThreadStore {
         return (try? context.fetch(descriptor)) ?? []
     }
 
-    // MARK: - mergeThreads
-
-    func mergeThreads(into keep: MailThread, drop: MailThread) {
-        // Collect messageIDs already in keep for dedupe
-        let keepMessageIDs = Set(keep.messages.map(\.messageID))
-
-        // Capture drop's max date BEFORE reparenting (drop.messages will change after reparent)
-        let dropMaxDate = drop.messages.map(\.date).max()
-
-        // Reparent messages from drop to keep (skip duplicates)
-        for msg in drop.messages {
-            if keepMessageIDs.contains(msg.messageID) {
-                // Duplicate — delete the copy on drop
-                context.delete(msg)
-            } else {
-                msg.thread = keep
-            }
-        }
-
-        // Update keep's lastMessageAt to the max across all reparented messages
-        keep.lastMessageAt = max(keep.lastMessageAt, dropMaxDate ?? .distantPast)
-
-        // Union participants
-        keep.participants = unionPreservingOrder(keep.participants, drop.participants)
-
-        // Delete the dropped thread
-        context.delete(drop)
-
-        do {
-            try context.save()
-        } catch {
-            assertionFailure("MailThreadStore save failed: \(error)")
-        }
-    }
-
     // MARK: - Private helpers
+
+    /// Returns up to `limit` threads sorted by lastMessageAt descending, used for subject fallback.
+    private func recentThreadsForFallback(limit: Int) -> [MailThread] {
+        var descriptor = FetchDescriptor<MailThread>(
+            sortBy: [SortDescriptor(\.lastMessageAt, order: .reverse)]
+        )
+        descriptor.fetchLimit = limit
+        return (try? context.fetch(descriptor)) ?? []
+    }
 
     private func findMessage(byMessageID messageID: String) -> MailMessage? {
         var descriptor = FetchDescriptor<MailMessage>(

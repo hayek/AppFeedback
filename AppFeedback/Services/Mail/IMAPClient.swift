@@ -60,7 +60,7 @@ actor IMAPClient: IMAPClientProtocol {
     func listInbox(sinceUID: UInt32) async throws -> [ParsedInboundMessage] {
         let server = IMAPServer(host: host, port: port)
         try await connectAndLogin(server)
-        defer { Task { try? await server.disconnect() } }
+        defer { Task.detached { try? await server.disconnect() } }
 
         let selection = try await mapped { try await server.selectMailbox("INBOX") }
         let folder = "INBOX"
@@ -96,7 +96,7 @@ actor IMAPClient: IMAPClientProtocol {
     func listSent(sinceDate: Date) async throws -> [ParsedInboundMessage] {
         let server = IMAPServer(host: host, port: port)
         try await connectAndLogin(server)
-        defer { Task { try? await server.disconnect() } }
+        defer { Task.detached { try? await server.disconnect() } }
 
         // Discover the sent folder via SwiftMail's special-use + name fallback logic
         let mailboxes = try await mapped { try await server.listMailboxes() }
@@ -136,7 +136,7 @@ actor IMAPClient: IMAPClientProtocol {
     func fetchAttachmentBytes(uid: UInt32, folder: String, partID: String) async throws -> Data {
         let server = IMAPServer(host: host, port: port)
         try await connectAndLogin(server)
-        defer { Task { try? await server.disconnect() } }
+        defer { Task.detached { try? await server.disconnect() } }
 
         try await mapped { _ = try await server.selectMailbox(folder) }
 
@@ -155,18 +155,26 @@ actor IMAPClient: IMAPClientProtocol {
     /// Connects and authenticates.  Auth errors are mapped to `IMAPClientError.authFailed`;
     /// all other failures map to `IMAPClientError.transport`.
     ///
-    /// The heuristic here (string-matching on "auth"/"login") is intentionally simple.
-    /// Once SwiftMail exposes typed auth-error cases this should switch to matching on
-    /// those concrete types instead of inspecting the error description.
+    /// The heuristic below (string-matching on known auth-failure phrases) is a placeholder
+    /// until SwiftMail exposes typed auth-error cases.  When that API ships, switch to
+    /// matching on those concrete types instead of inspecting the error description.
     private func connectAndLogin(_ server: IMAPServer) async throws {
         do {
             try await server.connect()
             try await server.login(username: username, password: password)
         } catch {
             let desc = String(describing: error)
-            if desc.lowercased().contains("auth") || desc.lowercased().contains("login") {
+            let lower = desc.lowercased()
+            // Exclude transient transport phrases so we don't misclassify network blips as auth errors.
+            let looksTransient = lower.contains("timed out") || lower.contains("timeout")
+                || lower.contains("connection") || lower.contains("reset") || lower.contains("refused")
+            let looksAuth = lower.contains("authentication failed") || lower.contains("auth failed")
+                || lower.contains("login failed") || lower.contains("invalid credentials")
+                || lower.contains("bad credentials")
+            if looksAuth && !looksTransient {
                 throw IMAPClientError.authFailed
             }
+            // Fall through: classified as .transport (catches network-level errors)
             throw IMAPClientError.transport(underlying: desc)
         }
     }
@@ -228,9 +236,21 @@ actor IMAPClient: IMAPClientProtocol {
         // 4. Derive body strings from the populated parts.
         let plainPart = populatedBodyParts.first { $0.contentType.lowercased().hasPrefix("text/plain") }
         let htmlPart  = populatedBodyParts.first { $0.contentType.lowercased().hasPrefix("text/html") }
-        let bodyPlain = plainPart?.textContent ?? ""
+        var bodyPlain = plainPart?.textContent ?? ""
         let rawHTML   = htmlPart?.textContent
         let bodyHTML  = rawHTML.map { HTMLSanitizer.sanitize($0) }
+
+        // I10: If there's no plain-text body but HTML is available, generate a plain-text fallback
+        // by stripping HTML tags. This ensures bodyPlain is never empty for HTML-only messages.
+        if bodyPlain.isEmpty, let html = rawHTML {
+            bodyPlain = html
+                .replacingOccurrences(of: "<[^>]+>", with: " ", options: .regularExpression)
+                .replacingOccurrences(of: "&nbsp;", with: " ")
+                .replacingOccurrences(of: "&amp;", with: "&")
+                .replacingOccurrences(of: "&lt;", with: "<")
+                .replacingOccurrences(of: "&gt;", with: ">")
+                .trimmingCharacters(in: .whitespacesAndNewlines)
+        }
 
         // 5. Build attachment metadata from the structure (no bytes).
         let attachments: [ParsedAttachmentMeta] = structure.compactMap { part -> ParsedAttachmentMeta? in
@@ -303,7 +323,7 @@ actor IMAPClient: IMAPClientProtocol {
             toAddresses: info.to,
             ccAddresses: info.cc,
             date: date,
-            subject: info.subject ?? "(no subject)",
+            subject: info.subject ?? "",
             bodyPlain: bodyPlain,
             bodyHTML: bodyHTML,
             attachments: attachments

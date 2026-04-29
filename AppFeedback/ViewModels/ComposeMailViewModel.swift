@@ -16,6 +16,7 @@ final class ComposeMailViewModel {
     let inReplyTo: MailMessageHeaders?
 
     private let store: MailAccountStore
+    private let threadStore: MailThreadStore?
     private let sender: any MailSending
     private let activityLog: ActivityLog
     private let passwordLoader: @Sendable () async -> String?
@@ -26,21 +27,24 @@ final class ComposeMailViewModel {
          repoOwner: String,
          repoName: String,
          store: MailAccountStore,
+         threadStore: MailThreadStore? = nil,
          sender: any MailSending,
          activityLog: ActivityLog,
          inReplyTo: MailMessageHeaders? = nil,
+         initialSubject: String? = nil,
          passwordLoader: @Sendable @escaping () async -> String? = { await KeychainService.loadSMTPPassword() }) {
         self.recipient = recipient
         self.issue = issue
         self.repoOwner = repoOwner
         self.repoName = repoName
         self.store = store
+        self.threadStore = threadStore
         self.sender = sender
         self.activityLog = activityLog
         self.inReplyTo = inReplyTo
         self.passwordLoader = passwordLoader
         if inReplyTo != nil {
-            self.subject = MailSubject.replyPrefixed(issue.title)
+            self.subject = initialSubject ?? MailSubject.replyPrefixed(issue.title)
         }
     }
 
@@ -106,6 +110,24 @@ final class ComposeMailViewModel {
 
         do {
             try await sender.send(email, using: credentials, password: password)
+
+            // Persist the outbound message to the thread store so it appears inline in the thread.
+            threadStore?.recordOutbound(
+                messageID: messageID,
+                repoOwner: repoOwner,
+                repoName: repoName,
+                issueNumber: issue.number,
+                from: credentials.username,
+                fromName: credentials.senderName.isEmpty ? nil : credentials.senderName,
+                to: [recipient],
+                cc: [],
+                subject: subject,
+                bodyPlain: body.string,
+                bodyHTML: nil,
+                date: Date(),
+                replyHeaders: replyHeaders
+            )
+
             activityLog.finish(id, status: .success, detail: nil)
         } catch {
             activityLog.finish(id, status: .failure, detail: error.localizedDescription)
