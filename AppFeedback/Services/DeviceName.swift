@@ -1,401 +1,117 @@
 import Foundation
 
+/// Maps Apple model identifiers (e.g. `Mac17,5`) to marketing names.
+///
+/// Lookup order:
+/// 1. Latest catalog fetched from AppleDB and cached on disk (refreshed weekly).
+/// 2. Catalog bundled at build time by `Scripts/fetch-appledb.sh` (always present).
+/// 3. The raw identifier itself, when nothing matches.
 enum DeviceName {
-    /// Maps Apple model identifiers to a long-form human name (chip + year).
-    /// Falls back to the raw identifier when unknown.
+    @MainActor
     static func friendly(_ raw: String) -> String {
         let key = raw.trimmingCharacters(in: .whitespaces)
         guard !key.isEmpty else { return raw }
-        return map[key] ?? raw
+        return DeviceCatalog.shared.name(for: key) ?? raw
+    }
+}
+
+@MainActor
+final class DeviceCatalog {
+    static let shared = DeviceCatalog()
+
+    private static let remoteURL = URL(string: "https://api.appledb.dev/device/main.json")!
+    private static let cacheTTL: TimeInterval = 7 * 24 * 60 * 60
+    private static let keepTypes: Set<String> = [
+        "iPhone", "iPad", "iPad Air", "iPad Pro", "iPad mini", "iPod touch",
+        "MacBook", "MacBook Air", "MacBook Pro", "MacBook Neo",
+        "Mac mini", "Mac Pro", "Mac Studio", "iMac",
+        "Apple Watch", "Apple TV", "HomePod", "Headset",
+    ]
+
+    private var map: [String: String]
+    private var refreshing = false
+
+    init() {
+        self.map = Self.loadMap(from: Self.cacheURL)
+            ?? Self.loadMap(from: Bundle.main.url(forResource: "AppleDevices", withExtension: "json"))
+            ?? [:]
+        refreshIfStale()
     }
 
-    // swiftlint:disable:next large_tuple
-    private static let map: [String: String] = [
+    func name(for identifier: String) -> String? {
+        map[identifier]
+    }
 
-        // MARK: - MacBook (unibody consumer line)
-        "MacBook8,1":  "MacBook 12\" (Early 2015)",
-        "MacBook9,1":  "MacBook 12\" (Early 2016)",
-        "MacBook10,1": "MacBook 12\" (2017)",
+    func refreshIfStale() {
+        guard !refreshing, Self.cacheIsStale() else { return }
+        refreshing = true
+        Task.detached(priority: .utility) { [weak self] in
+            let fresh = await Self.fetchRemote()
+            await self?.applyRefresh(fresh)
+        }
+    }
 
-        // MARK: - MacBook Air
-        "MacBookAir3,1":  "MacBook Air 11\" (Late 2010)",
-        "MacBookAir3,2":  "MacBook Air 13\" (Late 2010)",
-        "MacBookAir4,1":  "MacBook Air 11\" (Mid 2011)",
-        "MacBookAir4,2":  "MacBook Air 13\" (Mid 2011)",
-        "MacBookAir5,1":  "MacBook Air 11\" (Mid 2012)",
-        "MacBookAir5,2":  "MacBook Air 13\" (Mid 2012)",
-        "MacBookAir6,1":  "MacBook Air 11\" (Mid 2013)",
-        "MacBookAir6,2":  "MacBook Air 13\" (Mid 2013)",
-        "MacBookAir7,1":  "MacBook Air 11\" (Early 2015)",
-        "MacBookAir7,2":  "MacBook Air 13\" (2015–2017)",
-        "MacBookAir8,1":  "MacBook Air 13\" (Late 2018)",
-        "MacBookAir8,2":  "MacBook Air 13\" (2019)",
-        "MacBookAir9,1":  "MacBook Air 13\" (2020)",
-        "MacBookAir10,1": "MacBook Air 13\" (M1, 2020)",
-        "Mac14,2":        "MacBook Air 13\" (M2, 2022)",
-        "Mac14,15":       "MacBook Air 15\" (M2, 2023)",
-        "Mac15,12":       "MacBook Air 13\" (M3, 2024)",
-        "Mac15,13":       "MacBook Air 15\" (M3, 2024)",
-        "Mac16,12":       "MacBook Air 13\" (M4, 2025)",
-        "Mac16,13":       "MacBook Air 15\" (M4, 2025)",
+    private func applyRefresh(_ fresh: [String: String]?) {
+        if let fresh {
+            Self.writeCache(fresh)
+            map = fresh
+        }
+        refreshing = false
+    }
 
-        // MARK: - MacBook Pro
-        "MacBookPro3,1":  "MacBook Pro 15\" (Mid 2007)",
-        "MacBookPro4,1":  "MacBook Pro 17\" (Early 2008)",
-        "MacBookPro5,1":  "MacBook Pro 15\" (Late 2008)",
-        "MacBookPro5,2":  "MacBook Pro 17\" (Early 2009)",
-        "MacBookPro5,3":  "MacBook Pro 15\" (Mid 2009)",
-        "MacBookPro5,4":  "MacBook Pro 15\" (Mid 2009)",
-        "MacBookPro5,5":  "MacBook Pro 13\" (Mid 2009)",
-        "MacBookPro6,1":  "MacBook Pro 17\" (Mid 2010)",
-        "MacBookPro6,2":  "MacBook Pro 15\" (Mid 2010)",
-        "MacBookPro7,1":  "MacBook Pro 13\" (Mid 2010)",
-        "MacBookPro8,1":  "MacBook Pro 13\" (Early 2011)",
-        "MacBookPro8,2":  "MacBook Pro 15\" (Early 2011)",
-        "MacBookPro8,3":  "MacBook Pro 17\" (Early 2011)",
-        "MacBookPro9,1":  "MacBook Pro 15\" (Mid 2012)",
-        "MacBookPro9,2":  "MacBook Pro 13\" (Mid 2012)",
-        "MacBookPro10,1": "MacBook Pro 15\" Retina (Late 2012)",
-        "MacBookPro10,2": "MacBook Pro 13\" Retina (Late 2012)",
-        "MacBookPro11,1": "MacBook Pro 13\" Retina (Late 2013)",
-        "MacBookPro11,2": "MacBook Pro 15\" Retina (Late 2013)",
-        "MacBookPro11,3": "MacBook Pro 15\" Retina (Late 2013)",
-        "MacBookPro11,4": "MacBook Pro 15\" Retina (Mid 2015)",
-        "MacBookPro11,5": "MacBook Pro 15\" Retina (Mid 2015)",
-        "MacBookPro12,1": "MacBook Pro 13\" (Early 2015)",
-        "MacBookPro13,1": "MacBook Pro 13\" (Late 2016)",
-        "MacBookPro13,2": "MacBook Pro 13\" Touch Bar (Late 2016)",
-        "MacBookPro13,3": "MacBook Pro 15\" Touch Bar (Late 2016)",
-        "MacBookPro14,1": "MacBook Pro 13\" (2017)",
-        "MacBookPro14,2": "MacBook Pro 13\" Touch Bar (2017)",
-        "MacBookPro14,3": "MacBook Pro 15\" Touch Bar (2017)",
-        "MacBookPro15,1": "MacBook Pro 15\" Touch Bar (2018)",
-        "MacBookPro15,2": "MacBook Pro 13\" Touch Bar (2018)",
-        "MacBookPro15,3": "MacBook Pro 15\" Touch Bar (2019)",
-        "MacBookPro15,4": "MacBook Pro 13\" Touch Bar (2019)",
-        "MacBookPro16,1": "MacBook Pro 16\" (2019)",
-        "MacBookPro16,2": "MacBook Pro 13\" Touch Bar (2020)",
-        "MacBookPro16,3": "MacBook Pro 13\" (2020)",
-        "MacBookPro16,4": "MacBook Pro 16\" (2019)",
-        "MacBookPro17,1": "MacBook Pro 13\" (M1, 2020)",
-        "MacBookPro18,1": "MacBook Pro 16\" (M1 Pro, 2021)",
-        "MacBookPro18,2": "MacBook Pro 16\" (M1 Max, 2021)",
-        "MacBookPro18,3": "MacBook Pro 14\" (M1 Pro, 2021)",
-        "MacBookPro18,4": "MacBook Pro 14\" (M1 Max, 2021)",
-        "Mac14,5":        "MacBook Pro 14\" (M2 Pro, 2023)",
-        "Mac14,6":        "MacBook Pro 16\" (M2 Pro, 2023)",
-        "Mac14,9":        "MacBook Pro 14\" (M2 Pro, 2023)",
-        "Mac14,10":       "MacBook Pro 16\" (M2 Max, 2023)",
-        "Mac15,3":        "MacBook Pro 14\" (M3, 2023)",
-        "Mac15,6":        "MacBook Pro 14\" (M3 Pro, 2023)",
-        "Mac15,7":        "MacBook Pro 16\" (M3 Pro, 2023)",
-        "Mac15,8":        "MacBook Pro 14\" (M3 Max, 2023)",
-        "Mac15,9":        "MacBook Pro 16\" (M3 Max, 2023)",
-        "Mac15,10":       "MacBook Pro 14\" (M3 Max, 2023)",
-        "Mac15,11":       "MacBook Pro 16\" (M3 Max, 2023)",
-        "Mac16,1":        "MacBook Pro 14\" (M4, 2024)",
-        "Mac16,6":        "MacBook Pro 14\" (M4 Pro, 2024)",
-        "Mac16,7":        "MacBook Pro 16\" (M4 Pro, 2024)",
-        "Mac16,8":        "MacBook Pro 14\" (M4 Max, 2024)",
-        "Mac16,15":       "MacBook Pro 16\" (M4 Max, 2024)",
+    // MARK: - Loading
 
-        // MARK: - Mac mini
-        "Macmini3,1":  "Mac mini (Early 2009)",
-        "Macmini4,1":  "Mac mini (Mid 2010)",
-        "Macmini5,1":  "Mac mini (Mid 2011)",
-        "Macmini5,2":  "Mac mini (Mid 2011)",
-        "Macmini5,3":  "Mac mini (Mid 2011)",
-        "Macmini6,1":  "Mac mini (Late 2012)",
-        "Macmini6,2":  "Mac mini (Late 2012)",
-        "Macmini7,1":  "Mac mini (Late 2014)",
-        "Macmini8,1":  "Mac mini (Late 2018)",
-        "Macmini9,1":  "Mac mini (M1, 2020)",
-        "Mac14,3":     "Mac mini (M2, 2023)",
-        "Mac14,12":    "Mac mini (M2 Pro, 2023)",
-        "Mac16,10":    "Mac mini (M4, 2024)",
-        "Mac16,11":    "Mac mini (M4 Pro, 2024)",
+    private static func loadMap(from url: URL?) -> [String: String]? {
+        guard let url, let data = try? Data(contentsOf: url) else { return nil }
+        return try? JSONDecoder().decode([String: String].self, from: data)
+    }
 
-        // MARK: - iMac
-        "iMac12,1":  "iMac 21.5\" (Mid 2011)",
-        "iMac12,2":  "iMac 27\" (Mid 2011)",
-        "iMac13,1":  "iMac 21.5\" (Late 2012)",
-        "iMac13,2":  "iMac 27\" (Late 2012)",
-        "iMac14,1":  "iMac 21.5\" (Late 2013)",
-        "iMac14,2":  "iMac 27\" (Late 2013)",
-        "iMac14,3":  "iMac 21.5\" (Late 2013)",
-        "iMac14,4":  "iMac 21.5\" (Mid 2014)",
-        "iMac15,1":  "iMac 27\" Retina 5K (Late 2014)",
-        "iMac16,1":  "iMac 21.5\" (Late 2015)",
-        "iMac16,2":  "iMac 21.5\" Retina 4K (Late 2015)",
-        "iMac17,1":  "iMac 27\" Retina 5K (Late 2015)",
-        "iMac18,1":  "iMac 21.5\" (2017)",
-        "iMac18,2":  "iMac 21.5\" Retina 4K (2017)",
-        "iMac18,3":  "iMac 27\" Retina 5K (2017)",
-        "iMac19,1":  "iMac 27\" Retina 5K (2019)",
-        "iMac19,2":  "iMac 21.5\" Retina 4K (2019)",
-        "iMac20,1":  "iMac 27\" Retina 5K (2020)",
-        "iMac20,2":  "iMac 27\" Retina 5K (2020)",
-        "iMac21,1":  "iMac 24\" (M1, 2021)",
-        "iMac21,2":  "iMac 24\" (M1, 2021)",
-        "Mac15,4":   "iMac 24\" (M3, 2023)",
-        "Mac15,5":   "iMac 24\" (M3, 2023)",
-        "Mac16,4":   "iMac 24\" (M4, 2024)",
-        "Mac16,5":   "iMac 24\" (M4, 2024)",
+    private static func cacheIsStale() -> Bool {
+        guard let url = cacheURL,
+              let attrs = try? FileManager.default.attributesOfItem(atPath: url.path),
+              let modified = attrs[.modificationDate] as? Date else { return true }
+        return Date().timeIntervalSince(modified) > cacheTTL
+    }
 
-        // MARK: - iMac Pro
-        "iMacPro1,1": "iMac Pro 27\" (2017)",
+    private static func writeCache(_ map: [String: String]) {
+        guard let url = cacheURL else { return }
+        try? FileManager.default.createDirectory(
+            at: url.deletingLastPathComponent(),
+            withIntermediateDirectories: true
+        )
+        let data = try? JSONEncoder().encode(map)
+        try? data?.write(to: url, options: .atomic)
+    }
 
-        // MARK: - Mac Pro
-        "MacPro3,1":  "Mac Pro (Early 2008)",
-        "MacPro4,1":  "Mac Pro (Early 2009)",
-        "MacPro5,1":  "Mac Pro (Mid 2010 / Mid 2012)",
-        "MacPro6,1":  "Mac Pro (Late 2013)",
-        "MacPro7,1":  "Mac Pro (2019)",
-        "Mac14,8":    "Mac Pro (M2 Ultra, 2023)",
+    private static var cacheURL: URL? {
+        let fm = FileManager.default
+        guard let base = try? fm.url(for: .cachesDirectory, in: .userDomainMask,
+                                     appropriateFor: nil, create: true) else { return nil }
+        return base.appendingPathComponent("AppleDevices.json")
+    }
 
-        // MARK: - Mac Studio
-        "Mac13,1":   "Mac Studio (M1 Max, 2022)",
-        "Mac13,2":   "Mac Studio (M1 Ultra, 2022)",
-        "Mac14,13":  "Mac Studio (M2 Max, 2023)",
-        "Mac14,14":  "Mac Studio (M2 Ultra, 2023)",
-        "Mac15,14":  "Mac Studio (M4 Max, 2024)",
-        "Mac16,2":   "Mac Studio (M4 Max, 2025)",
-        "Mac16,9":   "Mac Studio (M4 Ultra, 2025)",
+    // MARK: - Remote
 
-        // MARK: - iPhone
-        "iPhone1,1":  "iPhone (1st gen, 2007)",
-        "iPhone1,2":  "iPhone 3G (2008)",
-        "iPhone2,1":  "iPhone 3GS (2009)",
-        "iPhone3,1":  "iPhone 4 (2010)",
-        "iPhone3,2":  "iPhone 4 (2010)",
-        "iPhone3,3":  "iPhone 4 (CDMA, 2011)",
-        "iPhone4,1":  "iPhone 4S (2011)",
-        "iPhone5,1":  "iPhone 5 (2012)",
-        "iPhone5,2":  "iPhone 5 (2012)",
-        "iPhone5,3":  "iPhone 5c (2013)",
-        "iPhone5,4":  "iPhone 5c (2013)",
-        "iPhone6,1":  "iPhone 5s (2013)",
-        "iPhone6,2":  "iPhone 5s (2013)",
-        "iPhone7,1":  "iPhone 6 Plus (2014)",
-        "iPhone7,2":  "iPhone 6 (2014)",
-        "iPhone8,1":  "iPhone 6s (2015)",
-        "iPhone8,2":  "iPhone 6s Plus (2015)",
-        "iPhone8,4":  "iPhone SE (1st gen, 2016)",
-        "iPhone9,1":  "iPhone 7 (2016)",
-        "iPhone9,2":  "iPhone 7 Plus (2016)",
-        "iPhone9,3":  "iPhone 7 (2016)",
-        "iPhone9,4":  "iPhone 7 Plus (2016)",
-        "iPhone10,1": "iPhone 8 (2017)",
-        "iPhone10,2": "iPhone 8 Plus (2017)",
-        "iPhone10,3": "iPhone X (2017)",
-        "iPhone10,4": "iPhone 8 (2017)",
-        "iPhone10,5": "iPhone 8 Plus (2017)",
-        "iPhone10,6": "iPhone X (2017)",
-        "iPhone11,2": "iPhone XS (2018)",
-        "iPhone11,4": "iPhone XS Max (2018)",
-        "iPhone11,6": "iPhone XS Max (2018)",
-        "iPhone11,8": "iPhone XR (2018)",
-        "iPhone12,1": "iPhone 11 (2019)",
-        "iPhone12,3": "iPhone 11 Pro (2019)",
-        "iPhone12,5": "iPhone 11 Pro Max (2019)",
-        "iPhone12,8": "iPhone SE (2nd gen, 2020)",
-        "iPhone13,1": "iPhone 12 mini (2020)",
-        "iPhone13,2": "iPhone 12 (2020)",
-        "iPhone13,3": "iPhone 12 Pro (2020)",
-        "iPhone13,4": "iPhone 12 Pro Max (2020)",
-        "iPhone14,2": "iPhone 13 Pro (2021)",
-        "iPhone14,3": "iPhone 13 Pro Max (2021)",
-        "iPhone14,4": "iPhone 13 mini (2021)",
-        "iPhone14,5": "iPhone 13 (2021)",
-        "iPhone14,6": "iPhone SE (3rd gen, 2022)",
-        "iPhone14,7": "iPhone 14 (2022)",
-        "iPhone14,8": "iPhone 14 Plus (2022)",
-        "iPhone15,2": "iPhone 14 Pro (2022)",
-        "iPhone15,3": "iPhone 14 Pro Max (2022)",
-        "iPhone15,4": "iPhone 15 (2023)",
-        "iPhone15,5": "iPhone 15 Plus (2023)",
-        "iPhone16,1": "iPhone 15 Pro (2023)",
-        "iPhone16,2": "iPhone 15 Pro Max (2023)",
-        "iPhone17,1": "iPhone 16 Pro (2024)",
-        "iPhone17,2": "iPhone 16 Pro Max (2024)",
-        "iPhone17,3": "iPhone 16 (2024)",
-        "iPhone17,4": "iPhone 16 Plus (2024)",
-        "iPhone17,5": "iPhone 16e (2025)",
+    private struct RemoteDevice: Decodable {
+        let name: String?
+        let identifier: [String]?
+        let type: String?
+    }
 
-        // MARK: - iPad (regular)
-        "iPad1,1":  "iPad (1st gen, 2010)",
-        "iPad2,1":  "iPad 2 (2011)",
-        "iPad2,2":  "iPad 2 (2011)",
-        "iPad2,3":  "iPad 2 (2011)",
-        "iPad2,4":  "iPad 2 (2011)",
-        "iPad3,1":  "iPad (3rd gen, 2012)",
-        "iPad3,2":  "iPad (3rd gen, 2012)",
-        "iPad3,3":  "iPad (3rd gen, 2012)",
-        "iPad3,4":  "iPad (4th gen, 2012)",
-        "iPad3,5":  "iPad (4th gen, 2012)",
-        "iPad3,6":  "iPad (4th gen, 2012)",
-        "iPad6,11": "iPad (5th gen, 2017)",
-        "iPad6,12": "iPad (5th gen, 2017)",
-        "iPad7,5":  "iPad (6th gen, 2018)",
-        "iPad7,6":  "iPad (6th gen, 2018)",
-        "iPad7,11": "iPad (7th gen, 2019)",
-        "iPad7,12": "iPad (7th gen, 2019)",
-        "iPad11,6": "iPad (8th gen, 2020)",
-        "iPad11,7": "iPad (8th gen, 2020)",
-        "iPad12,1": "iPad (9th gen, 2021)",
-        "iPad12,2": "iPad (9th gen, 2021)",
-        "iPad13,18": "iPad (10th gen, 2022)",
-        "iPad13,19": "iPad (10th gen, 2022)",
+    private static func fetchRemote() async -> [String: String]? {
+        let request = URLRequest(url: remoteURL, timeoutInterval: 30)
+        guard let (data, response) = try? await URLSession.shared.data(for: request),
+              let http = response as? HTTPURLResponse, http.statusCode == 200,
+              let devices = try? JSONDecoder().decode([RemoteDevice].self, from: data)
+        else { return nil }
 
-        // MARK: - iPad mini
-        "iPad2,5":  "iPad mini (1st gen, 2012)",
-        "iPad2,6":  "iPad mini (1st gen, 2012)",
-        "iPad2,7":  "iPad mini (1st gen, 2012)",
-        "iPad4,4":  "iPad mini 2 (2013)",
-        "iPad4,5":  "iPad mini 2 (2013)",
-        "iPad4,6":  "iPad mini 2 (2013)",
-        "iPad4,7":  "iPad mini 3 (2014)",
-        "iPad4,8":  "iPad mini 3 (2014)",
-        "iPad4,9":  "iPad mini 3 (2014)",
-        "iPad5,1":  "iPad mini 4 (2015)",
-        "iPad5,2":  "iPad mini 4 (2015)",
-        "iPad11,1": "iPad mini (5th gen, 2019)",
-        "iPad11,2": "iPad mini (5th gen, 2019)",
-        "iPad14,1": "iPad mini (6th gen, 2021)",
-        "iPad14,2": "iPad mini (6th gen, 2021)",
-        "iPad16,1": "iPad mini (7th gen, A17 Pro, 2024)",
-        "iPad16,2": "iPad mini (7th gen, A17 Pro, 2024)",
-
-        // MARK: - iPad Air
-        "iPad4,1":  "iPad Air (1st gen, 2013)",
-        "iPad4,2":  "iPad Air (1st gen, 2013)",
-        "iPad4,3":  "iPad Air (1st gen, 2013)",
-        "iPad5,3":  "iPad Air 2 (2014)",
-        "iPad5,4":  "iPad Air 2 (2014)",
-        "iPad11,3": "iPad Air (3rd gen, 2019)",
-        "iPad11,4": "iPad Air (3rd gen, 2019)",
-        "iPad13,1": "iPad Air (4th gen, 2020)",
-        "iPad13,2": "iPad Air (4th gen, 2020)",
-        "iPad13,16": "iPad Air (5th gen, M1, 2022)",
-        "iPad13,17": "iPad Air (5th gen, M1, 2022)",
-        "iPad14,8":  "iPad Air 11\" (M2, 2024)",
-        "iPad14,9":  "iPad Air 13\" (M2, 2024)",
-        "iPad14,10": "iPad Air 11\" (M2, 2024)",
-        "iPad14,11": "iPad Air 13\" (M2, 2024)",
-
-        // MARK: - iPad Pro
-        "iPad6,3":  "iPad Pro 9.7\" (2016)",
-        "iPad6,4":  "iPad Pro 9.7\" (2016)",
-        "iPad6,7":  "iPad Pro 12.9\" (1st gen, 2015)",
-        "iPad6,8":  "iPad Pro 12.9\" (1st gen, 2015)",
-        "iPad7,1":  "iPad Pro 12.9\" (2nd gen, 2017)",
-        "iPad7,2":  "iPad Pro 12.9\" (2nd gen, 2017)",
-        "iPad7,3":  "iPad Pro 10.5\" (2017)",
-        "iPad7,4":  "iPad Pro 10.5\" (2017)",
-        "iPad8,1":  "iPad Pro 11\" (1st gen, 2018)",
-        "iPad8,2":  "iPad Pro 11\" (1st gen, 2018)",
-        "iPad8,3":  "iPad Pro 11\" (1st gen, 2018)",
-        "iPad8,4":  "iPad Pro 11\" (1st gen, 2018)",
-        "iPad8,5":  "iPad Pro 12.9\" (3rd gen, 2018)",
-        "iPad8,6":  "iPad Pro 12.9\" (3rd gen, 2018)",
-        "iPad8,7":  "iPad Pro 12.9\" (3rd gen, 2018)",
-        "iPad8,8":  "iPad Pro 12.9\" (3rd gen, 2018)",
-        "iPad8,9":  "iPad Pro 11\" (2nd gen, 2020)",
-        "iPad8,10": "iPad Pro 11\" (2nd gen, 2020)",
-        "iPad8,11": "iPad Pro 12.9\" (4th gen, 2020)",
-        "iPad8,12": "iPad Pro 12.9\" (4th gen, 2020)",
-        "iPad13,4": "iPad Pro 11\" (3rd gen, M1, 2021)",
-        "iPad13,5": "iPad Pro 11\" (3rd gen, M1, 2021)",
-        "iPad13,6": "iPad Pro 11\" (3rd gen, M1, 2021)",
-        "iPad13,7": "iPad Pro 11\" (3rd gen, M1, 2021)",
-        "iPad13,8": "iPad Pro 12.9\" (5th gen, M1, 2021)",
-        "iPad13,9": "iPad Pro 12.9\" (5th gen, M1, 2021)",
-        "iPad13,10": "iPad Pro 12.9\" (5th gen, M1, 2021)",
-        "iPad13,11": "iPad Pro 12.9\" (5th gen, M1, 2021)",
-        "iPad14,3": "iPad Pro 11\" (4th gen, M2, 2022)",
-        "iPad14,4": "iPad Pro 11\" (4th gen, M2, 2022)",
-        "iPad14,5": "iPad Pro 12.9\" (6th gen, M2, 2022)",
-        "iPad14,6": "iPad Pro 12.9\" (6th gen, M2, 2022)",
-        "iPad16,3": "iPad Pro 11\" (M4, 2024)",
-        "iPad16,4": "iPad Pro 11\" (M4, 2024)",
-        "iPad16,5": "iPad Pro 13\" (M4, 2024)",
-        "iPad16,6": "iPad Pro 13\" (M4, 2024)",
-
-        // MARK: - Apple Watch
-        "Watch1,1":  "Apple Watch (1st gen, 38mm, 2015)",
-        "Watch1,2":  "Apple Watch (1st gen, 42mm, 2015)",
-        "Watch2,3":  "Apple Watch Series 2 (38mm, 2016)",
-        "Watch2,4":  "Apple Watch Series 2 (42mm, 2016)",
-        "Watch2,6":  "Apple Watch Series 1 (38mm, 2016)",
-        "Watch2,7":  "Apple Watch Series 1 (42mm, 2016)",
-        "Watch3,1":  "Apple Watch Series 3 (38mm GPS+Cellular, 2017)",
-        "Watch3,2":  "Apple Watch Series 3 (42mm GPS+Cellular, 2017)",
-        "Watch3,3":  "Apple Watch Series 3 (38mm GPS, 2017)",
-        "Watch3,4":  "Apple Watch Series 3 (42mm GPS, 2017)",
-        "Watch4,1":  "Apple Watch Series 4 (40mm GPS, 2018)",
-        "Watch4,2":  "Apple Watch Series 4 (44mm GPS, 2018)",
-        "Watch4,3":  "Apple Watch Series 4 (40mm GPS+Cellular, 2018)",
-        "Watch4,4":  "Apple Watch Series 4 (44mm GPS+Cellular, 2018)",
-        "Watch5,1":  "Apple Watch Series 5 (40mm GPS, 2019)",
-        "Watch5,2":  "Apple Watch Series 5 (44mm GPS, 2019)",
-        "Watch5,3":  "Apple Watch Series 5 (40mm GPS+Cellular, 2019)",
-        "Watch5,4":  "Apple Watch Series 5 (44mm GPS+Cellular, 2019)",
-        "Watch5,9":  "Apple Watch SE (40mm GPS, 2020)",
-        "Watch5,10": "Apple Watch SE (44mm GPS, 2020)",
-        "Watch5,11": "Apple Watch SE (40mm GPS+Cellular, 2020)",
-        "Watch5,12": "Apple Watch SE (44mm GPS+Cellular, 2020)",
-        "Watch6,1":  "Apple Watch Series 6 (40mm GPS, 2020)",
-        "Watch6,2":  "Apple Watch Series 6 (44mm GPS, 2020)",
-        "Watch6,3":  "Apple Watch Series 6 (40mm GPS+Cellular, 2020)",
-        "Watch6,4":  "Apple Watch Series 6 (44mm GPS+Cellular, 2020)",
-        "Watch6,6":  "Apple Watch Series 7 (41mm GPS, 2021)",
-        "Watch6,7":  "Apple Watch Series 7 (45mm GPS, 2021)",
-        "Watch6,8":  "Apple Watch Series 7 (41mm GPS+Cellular, 2021)",
-        "Watch6,9":  "Apple Watch Series 7 (45mm GPS+Cellular, 2021)",
-        "Watch6,10": "Apple Watch SE (40mm GPS, 2nd gen, 2022)",
-        "Watch6,11": "Apple Watch SE (44mm GPS, 2nd gen, 2022)",
-        "Watch6,12": "Apple Watch SE (40mm GPS+Cellular, 2nd gen, 2022)",
-        "Watch6,13": "Apple Watch SE (44mm GPS+Cellular, 2nd gen, 2022)",
-        "Watch6,14": "Apple Watch Series 8 (41mm GPS, 2022)",
-        "Watch6,15": "Apple Watch Series 8 (45mm GPS, 2022)",
-        "Watch6,16": "Apple Watch Series 8 (41mm GPS+Cellular, 2022)",
-        "Watch6,17": "Apple Watch Series 8 (45mm GPS+Cellular, 2022)",
-        "Watch6,18": "Apple Watch Ultra (2022)",
-        "Watch7,1":  "Apple Watch Series 9 (41mm GPS, 2023)",
-        "Watch7,2":  "Apple Watch Series 9 (45mm GPS, 2023)",
-        "Watch7,3":  "Apple Watch Series 9 (41mm GPS+Cellular, 2023)",
-        "Watch7,4":  "Apple Watch Series 9 (45mm GPS+Cellular, 2023)",
-        "Watch7,5":  "Apple Watch Ultra 2 (2023)",
-        "Watch7,8":  "Apple Watch Series 10 (42mm GPS, 2024)",
-        "Watch7,9":  "Apple Watch Series 10 (46mm GPS, 2024)",
-        "Watch7,10": "Apple Watch Series 10 (42mm GPS+Cellular, 2024)",
-        "Watch7,11": "Apple Watch Series 10 (46mm GPS+Cellular, 2024)",
-
-        // MARK: - Apple TV
-        "AppleTV2,1":  "Apple TV (2nd gen, 2010)",
-        "AppleTV3,1":  "Apple TV (3rd gen, 2012)",
-        "AppleTV3,2":  "Apple TV (3rd gen rev A, 2013)",
-        "AppleTV5,3":  "Apple TV HD (2015)",
-        "AppleTV6,2":  "Apple TV 4K (1st gen, 2017)",
-        "AppleTV11,1": "Apple TV 4K (2nd gen, 2021)",
-        "AppleTV14,1": "Apple TV 4K (3rd gen, 2022)",
-
-        // MARK: - HomePod / AudioAccessory
-        "AudioAccessory1,1": "HomePod (1st gen, 2018)",
-        "AudioAccessory1,2": "HomePod (1st gen, 2018)",
-        "AudioAccessory5,1": "HomePod mini (2020)",
-        "AudioAccessory6,1": "HomePod (2nd gen, 2023)",
-
-        // MARK: - Apple Vision Pro
-        "RealityDevice14,1": "Apple Vision Pro (2024)",
-
-        // MARK: - iPod touch
-        "iPod1,1": "iPod touch (1st gen, 2007)",
-        "iPod2,1": "iPod touch (2nd gen, 2008)",
-        "iPod3,1": "iPod touch (3rd gen, 2009)",
-        "iPod4,1": "iPod touch (4th gen, 2010)",
-        "iPod5,1": "iPod touch (5th gen, 2012)",
-        "iPod7,1": "iPod touch (6th gen, 2015)",
-        "iPod9,1": "iPod touch (7th gen, 2019)",
-    ]
+        var out: [String: String] = [:]
+        out.reserveCapacity(devices.count)
+        for d in devices {
+            guard let type = d.type, keepTypes.contains(type),
+                  let name = d.name, let ids = d.identifier else { continue }
+            for id in ids where !id.isEmpty { out[id] = name }
+        }
+        return out.isEmpty ? nil : out
+    }
 }

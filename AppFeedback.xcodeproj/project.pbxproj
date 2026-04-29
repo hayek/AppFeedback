@@ -150,6 +150,8 @@
 		C471A8F27F52397728A3BD9B /* HTMLSanitizer.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1F35CF9445124909B460DEC /* HTMLSanitizer.swift */; };
 		C5009ACD2FA0E44F00612541 /* AppIcon.icon in Resources */ = {isa = PBXBuildFile; fileRef = C5009ACB2FA0E44300612541 /* AppIcon.icon */; };
 		C5009ACF2FA0E45B00612541 /* AppIcon.icon in Resources */ = {isa = PBXBuildFile; fileRef = C5009ACB2FA0E44300612541 /* AppIcon.icon */; };
+		C500A01F2FA20ED500612541 /* AppleDevices.json in Resources */ = {isa = PBXBuildFile; fileRef = C500A01E2FA20ED500612541 /* AppleDevices.json */; };
+		C500A0202FA20ED500612541 /* AppleDevices.json in Resources */ = {isa = PBXBuildFile; fileRef = C500A01E2FA20ED500612541 /* AppleDevices.json */; };
 		C56D8EA8057DECBBE89E57B6 /* SummaryPromptBuilderTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 62DC52276485A5BFAF893961 /* SummaryPromptBuilderTests.swift */; };
 		C5F9AD045CE8F894837E968F /* SidebarView.swift in Sources */ = {isa = PBXBuildFile; fileRef = BB29F50E5FCD4805C5960079 /* SidebarView.swift */; };
 		C630FC9D5EC159FD8D9C100C /* RootView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 93179C8985C6D0A9B67E82F8 /* RootView.swift */; };
@@ -291,6 +293,7 @@
 		C08DA18B97C3208E26F81439 /* LanguageDetector.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LanguageDetector.swift; sourceTree = "<group>"; };
 		C4E685E33A4C31C05457EAC3 /* RepoStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RepoStore.swift; sourceTree = "<group>"; };
 		C5009ACB2FA0E44300612541 /* AppIcon.icon */ = {isa = PBXFileReference; lastKnownFileType = folder.iconcomposer.icon; path = AppIcon.icon; sourceTree = "<group>"; };
+		C500A01E2FA20ED500612541 /* AppleDevices.json */ = {isa = PBXFileReference; lastKnownFileType = text.json; path = AppleDevices.json; sourceTree = "<group>"; };
 		C820036DA685AB28006B7941 /* LanguageDetectorTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LanguageDetectorTests.swift; sourceTree = "<group>"; };
 		C897756C0C9A16325888F788 /* HiddenAppStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HiddenAppStore.swift; sourceTree = "<group>"; };
 		CB4F1AB8C4EA41A8708C1EA3 /* RepoConfig.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RepoConfig.swift; sourceTree = "<group>"; };
@@ -358,6 +361,7 @@
 			isa = PBXGroup;
 			children = (
 				C5009ACB2FA0E44300612541 /* AppIcon.icon */,
+				C500A01E2FA20ED500612541 /* AppleDevices.json */,
 				BCF69ED394B26CCA8C1563FA /* AppFeedback.entitlements */,
 				B49C106EF363AA5CED311E65 /* Info.plist */,
 				1C0514C3BDE047C16447B825 /* App */,
@@ -565,6 +569,7 @@
 			buildPhases = (
 				4CFB28CA28AF90A575B6EA97 /* Sources */,
 				FC2D3271F35D1471178721AF /* Frameworks */,
+				C500A0222FA20F3700612541 /* ShellScript */,
 				C5009ACE2FA0E45600612541 /* Resources */,
 			);
 			buildRules = (
@@ -602,6 +607,7 @@
 			buildConfigurationList = 19AF0B312B2E0704A89DEBA1 /* Build configuration list for PBXNativeTarget "AppFeedback_iOS" */;
 			buildPhases = (
 				BB957D77255FA8F5A30CF2EA /* Sources */,
+				C500A0212FA20EFB00612541 /* ShellScript */,
 				C5009ACC2FA0E44B00612541 /* Resources */,
 			);
 			buildRules = (
@@ -682,6 +688,7 @@
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				C500A01F2FA20ED500612541 /* AppleDevices.json in Resources */,
 				C5009ACD2FA0E44F00612541 /* AppIcon.icon in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
@@ -690,11 +697,51 @@
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				C500A0202FA20ED500612541 /* AppleDevices.json in Resources */,
 				C5009ACF2FA0E45B00612541 /* AppIcon.icon in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
 /* End PBXResourcesBuildPhase section */
+
+/* Begin PBXShellScriptBuildPhase section */
+		C500A0212FA20EFB00612541 /* ShellScript */ = {
+			isa = PBXShellScriptBuildPhase;
+			alwaysOutOfDate = 1;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			inputFileListPaths = (
+			);
+			inputPaths = (
+			);
+			outputFileListPaths = (
+			);
+			outputPaths = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "\"${SRCROOT}/Scripts/fetch-appledb.sh\" \"${SRCROOT}/AppFeedback/AppleDevices.json\" || true\n";
+		};
+		C500A0222FA20F3700612541 /* ShellScript */ = {
+			isa = PBXShellScriptBuildPhase;
+			alwaysOutOfDate = 1;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			inputFileListPaths = (
+			);
+			inputPaths = (
+			);
+			outputFileListPaths = (
+			);
+			outputPaths = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "\"${SRCROOT}/Scripts/fetch-appledb.sh\" \"${SRCROOT}/AppFeedback/AppleDevices.json\" || true\n";
+		};
+/* End PBXShellScriptBuildPhase section */
 
 /* Begin PBXSourcesBuildPhase section */
 		4CFB28CA28AF90A575B6EA97 /* Sources */ = {
