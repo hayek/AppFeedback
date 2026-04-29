@@ -118,6 +118,48 @@ final class MailComposerTests: XCTestCase {
         XCTAssertEqual(email.sender.name, "Alice Example")
     }
 
+    func test_compose_stampsMessageIDWhenProvided() {
+        let composer = MailComposer()
+        let email = composer.compose(
+            draft: makeDraft(text: "body"),
+            context: makeContext(),
+            template: .empty,
+            messageID: "<abc-123@app-feedback.local>",
+            replyHeaders: nil
+        )
+        XCTAssertEqual(email.messageID?.description, "<abc-123@app-feedback.local>")
+        XCTAssertNil(email.additionalHeaders?["In-Reply-To"])
+        XCTAssertNil(email.additionalHeaders?["References"])
+    }
+
+    func test_compose_writesReplyHeadersWhenProvided() {
+        let composer = MailComposer()
+        let reply = ReplyHeaderBuilder.Output(
+            inReplyTo: "<p@x>",
+            references: ["<root@x>", "<p@x>"]
+        )
+        let email = composer.compose(
+            draft: makeDraft(text: "ok", subject: "Re: Hello"),
+            context: makeContext(),
+            template: .empty,
+            messageID: "<n@app-feedback.local>",
+            replyHeaders: reply
+        )
+        XCTAssertEqual(email.additionalHeaders?["In-Reply-To"], "<p@x>")
+        XCTAssertEqual(email.additionalHeaders?["References"], "<root@x> <p@x>")
+        XCTAssertEqual(email.messageID?.description, "<n@app-feedback.local>")
+    }
+
+    func test_compose_omitsMessageIDWhenNil() {
+        let composer = MailComposer()
+        let email = composer.compose(
+            draft: makeDraft(text: "x"),
+            context: makeContext(),
+            template: .empty
+        )
+        XCTAssertNil(email.messageID)
+    }
+
     func test_composer_sanitizesHeaderHTML() {
         let template = MailTemplate(
             headerHTML: "<p>OK</p><script>alert(1)</script>",

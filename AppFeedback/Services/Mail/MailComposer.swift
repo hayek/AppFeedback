@@ -24,7 +24,13 @@ struct PlaceholderContext: Sendable {
 #if canImport(SwiftMail)
 struct MailComposer {
 
-    func compose(draft: DraftMessage, context: PlaceholderContext, template: MailTemplate) -> SwiftMail.Email {
+    func compose(
+        draft: DraftMessage,
+        context: PlaceholderContext,
+        template: MailTemplate,
+        messageID: String? = nil,
+        replyHeaders: ReplyHeaderBuilder.Output? = nil
+    ) -> SwiftMail.Email {
         let bodyHTML = htmlForBody(draft.body)
         let bodyText = draft.body.string
 
@@ -49,7 +55,7 @@ struct MailComposer {
             plainText(from: cleanedFooter)
         ].filter { !$0.isEmpty }.joined(separator: "\n\n")
 
-        return SwiftMail.Email(
+        var email = SwiftMail.Email(
             sender: EmailAddress(name: context.sender.senderName,
                                  address: context.sender.username),
             recipients: [EmailAddress(name: nil, address: draft.recipient)],
@@ -57,6 +63,20 @@ struct MailComposer {
             textBody: combinedText,
             htmlBody: combinedHTML
         )
+        if let messageID, let parsed = SwiftMail.MessageID(messageID) {
+            email.messageID = parsed
+        }
+        if let reply = replyHeaders {
+            var headers = email.additionalHeaders ?? [:]
+            if let inReplyTo = reply.inReplyTo {
+                headers["In-Reply-To"] = inReplyTo
+            }
+            if !reply.references.isEmpty {
+                headers["References"] = reply.references.joined(separator: " ")
+            }
+            email.additionalHeaders = headers
+        }
+        return email
     }
 
     // MARK: - Placeholders

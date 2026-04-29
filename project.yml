@@ -58,6 +58,8 @@ targets:
         PRODUCT_BUNDLE_IDENTIFIER: com.amirhayek.AppFeedbackTests
         SWIFT_VERSION: "5.9"
         GENERATE_INFOPLIST_FILE: YES
+        CODE_SIGN_STYLE: Automatic
+        DEVELOPMENT_TEAM: Q7U5734Q3T
 
 schemes:
   AppFeedback_iOS:
