@@ -1,5 +1,8 @@
 import Foundation
 import Observation
+#if os(macOS)
+import AppKit
+#endif
 
 struct SMTPCredentials: Codable, Equatable, Sendable {
     enum Preset: String, Codable, CaseIterable, Identifiable, Sendable {
@@ -53,6 +56,37 @@ struct MailTemplate: Codable, Equatable, Sendable {
     var footerHTML: String
 
     static let empty = MailTemplate(headerHTML: "", footerHTML: "")
+}
+
+enum MailTemplatePlainText {
+    static func from(html: String) -> String {
+        guard !html.isEmpty else { return "" }
+        #if os(macOS)
+        if let data = html.data(using: .utf8),
+           let attr = try? NSAttributedString(
+               data: data,
+               options: [
+                   .documentType: NSAttributedString.DocumentType.html,
+                   .characterEncoding: String.Encoding.utf8.rawValue
+               ],
+               documentAttributes: nil) {
+            return attr.string
+                .replacingOccurrences(of: "\u{2028}", with: "\n")
+                .replacingOccurrences(of: "\u{2029}", with: "\n")
+        }
+        #endif
+        return html
+    }
+
+    static func toHTML(_ text: String) -> String {
+        guard !text.isEmpty else { return "" }
+        let escaped = text
+            .replacingOccurrences(of: "&", with: "&amp;")
+            .replacingOccurrences(of: "<", with: "&lt;")
+            .replacingOccurrences(of: ">", with: "&gt;")
+        let withBreaks = escaped.replacingOccurrences(of: "\n", with: "<br>")
+        return "<p>\(withBreaks)</p>"
+    }
 }
 
 /// Persists SMTP credential metadata + email header/footer template.

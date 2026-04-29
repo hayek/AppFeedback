@@ -44,6 +44,19 @@ final class ComposeMailViewModel {
             && body.length > 0
     }
 
+    func placeholderContext(date: Date = Date()) -> PlaceholderContext {
+        let creds = settings.credentials ?? SMTPCredentials.defaults(for: .gmail)
+        let issueURL = URL(string: "https://github.com/\(repoOwner)/\(repoName)/issues/\(issue.number)")
+        return PlaceholderContext(
+            sender: creds,
+            recipient: recipient,
+            appName: issue.appName ?? repoName,
+            issueTitle: issue.title,
+            issueURL: issueURL,
+            date: date
+        )
+    }
+
     func send() async {
         guard let credentials = settings.credentials else { return }
 
@@ -55,15 +68,7 @@ final class ComposeMailViewModel {
 
         let id = activityLog.start(kind: .sendEmail, title: "to \(recipient)")
 
-        let issueURL = URL(string: "https://github.com/\(repoOwner)/\(repoName)/issues/\(issue.number)")
-        let context = PlaceholderContext(
-            sender: credentials,
-            recipient: recipient,
-            appName: issue.appName ?? repoName,
-            issueTitle: issue.title,
-            issueURL: issueURL,
-            date: Date()
-        )
+        let context = placeholderContext()
         let draft = DraftMessage(recipient: recipient, subject: subject, body: body)
         let email = composer.compose(draft: draft, context: context, template: settings.template)
 

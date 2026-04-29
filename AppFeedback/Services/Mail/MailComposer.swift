@@ -61,7 +61,7 @@ struct MailComposer {
 
     // MARK: - Placeholders
 
-    private func applyPlaceholders(_ template: String, context: PlaceholderContext) -> String {
+    func applyPlaceholders(_ template: String, context: PlaceholderContext) -> String {
         let dateString = context.date.formatted(
             .dateTime.day().month(.wide).year().hour().minute()
         )

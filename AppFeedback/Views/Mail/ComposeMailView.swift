@@ -10,9 +10,12 @@ struct ComposeMailView: View {
 
     @Environment(MailSettings.self) private var settings
     @Environment(ActivityLog.self) private var activityLog
+    @Environment(SettingsNavigation.self) private var settingsNavigation
     @Environment(\.dismiss) private var dismiss
 
     @State private var viewModel: ComposeMailViewModel?
+    @State private var headerPreview: String = ""
+    @State private var footerPreview: String = ""
 
     var body: some View {
         Group {
@@ -28,19 +31,94 @@ struct ComposeMailView: View {
     @ViewBuilder
     private func composeForm(vm: ComposeMailViewModel) -> some View {
         VStack(alignment: .leading, spacing: 0) {
+            titleBar
+            Divider()
             if settings.credentials == nil {
                 missingCredentialsBanner
             }
-            recipientRow
-            Divider()
-            subjectRow(vm: vm)
-            Divider()
-            RichTextToolbar()
-            RichTextEditor(attributedText: bindingFor(vm), minHeight: 240)
-                .frame(minHeight: 240)
+            ScrollView {
+                VStack(alignment: .leading, spacing: 0) {
+                    recipientRow
+                    Divider()
+                    subjectRow(vm: vm)
+                    Divider()
+                    templateRow(label: "Header", text: headerPreview)
+                    Divider()
+                    TextEditor(text: plainBindingFor(vm))
+                        .font(.body)
+                        .scrollDisabled(true)
+                        .frame(minHeight: 200)
+                        .padding(.horizontal, 8).padding(.vertical, 4)
+                    Divider()
+                    templateRow(label: "Footer", text: footerPreview)
+                }
+            }
             Divider()
             footerButtons(vm: vm)
         }
+        .onAppear { refreshPreviews(vm: vm) }
+        .onChange(of: settings.template) { _, _ in refreshPreviews(vm: vm) }
+    }
+
+    private func refreshPreviews(vm: ComposeMailViewModel) {
+        let context = vm.placeholderContext()
+        let composer = MailComposer()
+        headerPreview = MailTemplatePlainText
+            .from(html: composer.applyPlaceholders(settings.template.headerHTML, context: context))
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+        footerPreview = MailTemplatePlainText
+            .from(html: composer.applyPlaceholders(settings.template.footerHTML, context: context))
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+    }
+
+    private func templateRow(label: String, text: String) -> some View {
+        HStack(alignment: .top, spacing: 8) {
+            Text("\(label):")
+                .foregroundStyle(.secondary)
+                .frame(width: 60, alignment: .leading)
+            Group {
+                if text.isEmpty {
+                    Text("Not set")
+                        .foregroundStyle(.tertiary)
+                        .italic()
+                } else {
+                    Text(text)
+                        .foregroundStyle(.secondary)
+                        .fixedSize(horizontal: false, vertical: true)
+                        .textSelection(.enabled)
+                }
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+            SettingsLink {
+                Label("Edit", systemImage: "pencil")
+                    .labelStyle(.titleAndIcon)
+            }
+            .simultaneousGesture(TapGesture().onEnded {
+                settingsNavigation.selectedTab = .email
+            })
+            .controlSize(.small)
+        }
+        .font(.caption)
+        .padding(.horizontal, 12).padding(.vertical, 8)
+    }
+
+    private var titleBar: some View {
+        HStack(spacing: 8) {
+            Image(systemName: "envelope")
+                .foregroundStyle(.secondary)
+            VStack(alignment: .leading, spacing: 1) {
+                Text("New Email")
+                    .font(.headline)
+                Text("Re: \(issue.title)")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                    .lineLimit(1)
+                    .truncationMode(.tail)
+            }
+            Spacer()
+        }
+        .padding(.horizontal, 12)
+        .padding(.vertical, 10)
     }
 
     private var missingCredentialsBanner: some View {
@@ -85,14 +163,17 @@ struct ComposeMailView: View {
                 Task { await vm.send() }
                 dismiss()
             }
-            .keyboardShortcut(.defaultAction)
+            .keyboardShortcut(.return, modifiers: .command)
             .disabled(!vm.canSend)
         }
         .padding(12)
     }
 
-    private func bindingFor(_ vm: ComposeMailViewModel) -> Binding<NSAttributedString> {
-        Binding(get: { vm.body }, set: { vm.body = $0 })
+    private func plainBindingFor(_ vm: ComposeMailViewModel) -> Binding<String> {
+        Binding(
+            get: { vm.body.string },
+            set: { vm.body = NSAttributedString(string: $0) }
+        )
     }
 
     private func setupViewModel() {

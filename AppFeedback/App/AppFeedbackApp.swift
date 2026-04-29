@@ -10,6 +10,7 @@ struct AppFeedbackApp: App {
     @State private var syncStatus: CloudSyncStatus
     @State private var activityLog: ActivityLog
     @State private var mailSettings = MailSettings()
+    @State private var settingsNavigation = SettingsNavigation()
     @State private var seenStore: SeenIssueStore
     @State private var hiddenAppStore: HiddenAppStore
     @State private var cacheContext: ModelContext
@@ -109,6 +110,7 @@ struct AppFeedbackApp: App {
                 .environment(syncStatus)
                 .environment(activityLog)
                 .environment(mailSettings)
+                .environment(settingsNavigation)
                 .environment(intelligenceSettings)
                 .environment(intelligenceService)
                 .environment(notificationSettings)
@@ -146,6 +148,7 @@ struct AppFeedbackApp: App {
                 .environment(syncStatus)
                 .environment(activityLog)
                 .environment(mailSettings)
+                .environment(settingsNavigation)
                 .environment(intelligenceSettings)
                 .environment(intelligenceService)
                 .environment(notificationSettings)

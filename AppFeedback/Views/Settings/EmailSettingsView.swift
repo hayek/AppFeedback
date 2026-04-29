@@ -14,10 +14,14 @@ struct EmailSettingsView: View {
     @State private var senderName: String = ""
 
     @State private var saveStatus: String?
+    @State private var copiedToken: String?
 
-    @State private var headerAttributed = NSAttributedString(string: "")
-    @State private var footerAttributed = NSAttributedString(string: "")
+    @State private var headerText: String = ""
+    @State private var footerText: String = ""
     @State private var testStatus: String?
+
+    @State private var didLoad = false
+    @State private var saveTask: Task<Void, Never>?
 
     var body: some View {
         Form {
@@ -27,7 +31,10 @@ struct EmailSettingsView: View {
                         Text(p.displayName).tag(p)
                     }
                 }
-                .onChange(of: preset) { _, new in applyPresetDefaults(new) }
+                .onChange(of: preset) { _, new in
+                    applyPresetDefaults(new)
+                    scheduleSave()
+                }
             }
 
             Section("Credentials") {
@@ -52,14 +59,14 @@ struct EmailSettingsView: View {
             }
 
             Section("Header") {
-                RichTextToolbar()
-                RichTextEditor(attributedText: $headerAttributed, minHeight: 120)
+                TextEditor(text: $headerText)
+                    .font(.body)
                     .frame(minHeight: 120)
             }
 
             Section("Footer") {
-                RichTextToolbar()
-                RichTextEditor(attributedText: $footerAttributed, minHeight: 120)
+                TextEditor(text: $footerText)
+                    .font(.body)
                     .frame(minHeight: 120)
             }
 
@@ -74,19 +81,23 @@ struct EmailSettingsView: View {
                     Button("Preview") { showPreview() }
                     Spacer()
                     if let testStatus { Text(testStatus).foregroundStyle(.secondary) }
-                }
-            }
-
-            Section {
-                HStack {
-                    Button("Save") { save() }
-                    Spacer()
-                    if let saveStatus { Text(saveStatus).foregroundStyle(.secondary) }
+                    if let saveStatus {
+                        Text(saveStatus)
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    }
                 }
             }
         }
         .formStyle(.grouped)
         .task { await loadFromSettings() }
+        .onChange(of: host) { _, _ in scheduleSave() }
+        .onChange(of: port) { _, _ in scheduleSave() }
+        .onChange(of: username) { _, _ in scheduleSave() }
+        .onChange(of: password) { _, _ in scheduleSave() }
+        .onChange(of: senderName) { _, _ in scheduleSave() }
+        .onChange(of: headerText) { _, _ in scheduleSave() }
+        .onChange(of: footerText) { _, _ in scheduleSave() }
     }
 
     private func applyPresetDefaults(_ p: SMTPCredentials.Preset) {
@@ -108,27 +119,25 @@ struct EmailSettingsView: View {
         if let pw = await KeychainService.loadSMTPPassword() {
             password = pw
         }
-        let headerHTML = settings.template.headerHTML
-        let footerHTML = settings.template.footerHTML
-        if let data = headerHTML.data(using: .utf8),
-           let attr = try? NSAttributedString(
-               data: data,
-               options: [.documentType: NSAttributedString.DocumentType.html],
-               documentAttributes: nil) {
-            headerAttributed = attr
-        }
-        if let data = footerHTML.data(using: .utf8),
-           let attr = try? NSAttributedString(
-               data: data,
-               options: [.documentType: NSAttributedString.DocumentType.html],
-               documentAttributes: nil) {
-            footerAttributed = attr
+        headerText = MailTemplatePlainText.from(html: settings.template.headerHTML)
+        footerText = MailTemplatePlainText.from(html: settings.template.footerHTML)
+        didLoad = true
+    }
+
+    private func scheduleSave() {
+        guard didLoad else { return }
+        saveTask?.cancel()
+        saveTask = Task {
+            try? await Task.sleep(nanoseconds: 500_000_000)
+            if Task.isCancelled { return }
+            await save()
         }
     }
 
-    private func save() {
-        let headerHTML = htmlString(from: headerAttributed)
-        let footerHTML = htmlString(from: footerAttributed)
+    @MainActor
+    private func save() async {
+        let headerHTML = MailTemplatePlainText.toHTML(headerText)
+        let footerHTML = MailTemplatePlainText.toHTML(footerText)
         settings.template = MailTemplate(headerHTML: headerHTML, footerHTML: footerHTML)
         let creds = SMTPCredentials(
             preset: preset,
@@ -138,26 +147,37 @@ struct EmailSettingsView: View {
             senderName: senderName
         )
         settings.credentials = creds
-        Task {
-            let ok = await KeychainService.saveSMTPPassword(password)
-            saveStatus = ok ? "Saved" : "Saved settings, but Keychain failed"
-        }
+        let ok = await KeychainService.saveSMTPPassword(password)
+        saveStatus = ok ? "Saved" : "Saved settings, but Keychain failed"
     }
 
     // MARK: - Placeholders hint
 
     private var placeholdersHint: some View {
         VStack(alignment: .leading, spacing: 6) {
-            Text("Drop these tokens into the header or footer — they'll be replaced when the email is sent.")
+            Text("Drop these tokens into the header or footer — they'll be replaced when the email is sent. Click a token to copy it.")
                 .font(.caption)
                 .foregroundStyle(.secondary)
             Grid(alignment: .leadingFirstTextBaseline,
                  horizontalSpacing: 10, verticalSpacing: 2) {
                 ForEach(Self.placeholderHints, id: \.token) { hint in
                     GridRow {
-                        Text(hint.token)
-                            .font(.system(.caption, design: .monospaced))
-                            .foregroundStyle(.primary)
+                        Button {
+                            copyToken(hint.token)
+                        } label: {
+                            HStack(spacing: 4) {
+                                Text(hint.token)
+                                    .font(.system(.caption, design: .monospaced))
+                                Image(systemName: copiedToken == hint.token
+                                      ? "checkmark"
+                                      : "doc.on.doc")
+                                    .font(.caption2)
+                                    .foregroundStyle(.secondary)
+                            }
+                            .contentShape(Rectangle())
+                        }
+                        .buttonStyle(.plain)
+                        .help("Copy \(hint.token)")
                         Text(hint.descriptionText)
                             .font(.caption)
                             .foregroundStyle(.secondary)
@@ -166,6 +186,17 @@ struct EmailSettingsView: View {
             }
         }
         .padding(.top, 4)
+    }
+
+    private func copyToken(_ token: String) {
+        let pb = NSPasteboard.general
+        pb.clearContents()
+        pb.setString(token, forType: .string)
+        copiedToken = token
+        Task { @MainActor in
+            try? await Task.sleep(nanoseconds: 1_200_000_000)
+            if copiedToken == token { copiedToken = nil }
+        }
     }
 
     private struct PlaceholderHint {
@@ -182,20 +213,6 @@ struct EmailSettingsView: View {
         .init(token: "{{issue_url}}",       descriptionText: "Link to the issue"),
         .init(token: "{{date}}",            descriptionText: "Current date and time")
     ]
-
-    // MARK: - Helpers
-
-    private func htmlString(from attr: NSAttributedString) -> String {
-        let opts: [NSAttributedString.DocumentAttributeKey: Any] = [
-            .documentType: NSAttributedString.DocumentType.html,
-            .characterEncoding: String.Encoding.utf8.rawValue
-        ]
-        guard let data = try? attr.data(
-                from: NSRange(location: 0, length: attr.length),
-                documentAttributes: opts),
-              let s = String(data: data, encoding: .utf8) else { return "" }
-        return s
-    }
 
     // MARK: - Gmail helper
 
@@ -253,8 +270,8 @@ struct EmailSettingsView: View {
             date: Date()
         )
         let template = MailTemplate(
-            headerHTML: htmlString(from: headerAttributed),
-            footerHTML: htmlString(from: footerAttributed)
+            headerHTML: MailTemplatePlainText.toHTML(headerText),
+            footerHTML: MailTemplatePlainText.toHTML(footerText)
         )
         let draft = DraftMessage(
             recipient: "preview@example.com",

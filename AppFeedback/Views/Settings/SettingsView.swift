@@ -3,6 +3,18 @@ import SwiftUI
 import AppKit
 #endif
 
+enum SettingsTab: Hashable {
+    case repos
+    case email
+    case intelligence
+    case notifications
+}
+
+@Observable
+final class SettingsNavigation {
+    var selectedTab: SettingsTab = .repos
+}
+
 #if os(macOS)
 private struct WindowResizableAccessor: NSViewRepresentable {
     func makeNSView(context: Context) -> NSView {
@@ -28,6 +40,7 @@ struct SettingsView: View {
     @Environment(IntelligenceService.self) private var intelligenceService
     @Environment(NotificationSettings.self) private var notificationSettings
     @Environment(\.notificationService) private var notificationService
+    @Environment(SettingsNavigation.self) private var navigation
     #if os(iOS)
     @Environment(\.dismiss) private var dismiss
     #endif
@@ -48,11 +61,14 @@ struct SettingsView: View {
 
     #if os(macOS)
     private var macBody: some View {
-        TabView {
+        @Bindable var nav = navigation
+        return TabView(selection: $nav.selectedTab) {
             reposTab
                 .tabItem { Label("Repos", systemImage: "folder") }
+                .tag(SettingsTab.repos)
             EmailSettingsView()
                 .tabItem { Label("Email", systemImage: "envelope") }
+                .tag(SettingsTab.email)
             IntelligenceSettingsSection(
                 settings: intelligenceSettings,
                 availability: intelligenceService.availability,
@@ -63,9 +79,11 @@ struct SettingsView: View {
                 }
             )
             .tabItem { Label("Intelligence", systemImage: "sparkles") }
+            .tag(SettingsTab.intelligence)
             if let notificationService {
                 NotificationsSettingsView(settings: notificationSettings, service: notificationService)
                     .tabItem { Label("Notifications", systemImage: "bell") }
+                    .tag(SettingsTab.notifications)
             }
         }
         .frame(
