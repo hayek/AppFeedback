@@ -86,19 +86,23 @@ final class MailThreadStore {
         )
 
         let thread: MailThread
+        let createdNewThread: Bool
         switch resolution {
         case .existingHeader(let t):
             // Matched via inReplyTo — leave matchSource as previously set
             thread = t
+            createdNewThread = false
         case .existingReferences(let t):
             // Matched via references chain — upgrade matchSource to .header if currently .direct
             if t.matchSource == .direct {
                 t.matchSource = .header
             }
             thread = t
+            createdNewThread = false
         case .new(let t):
             // New thread created in fallback — matchSource already set to .direct
             thread = t
+            createdNewThread = true
         }
 
         // Update thread metadata
@@ -127,7 +131,9 @@ final class MailThreadStore {
         do {
             try context.save()
             version += 1
-            cachedCandidates = nil
+            // Only invalidate the candidate cache when a new thread was added — appending
+            // a message to an existing thread doesn't change the candidate set materially.
+            if createdNewThread { cachedCandidates = nil }
         } catch {
             assertionFailure("MailThreadStore save failed: \(error)")
         }
@@ -198,17 +204,21 @@ final class MailThreadStore {
         let finalResolution = headerResolution ?? resolution
 
         let thread: MailThread
+        let createdNewThread: Bool
         switch finalResolution {
         case .existingHeader(let t):
             // Matched via inReplyTo or subject fallback — matchSource already set above.
             thread = t
+            createdNewThread = false
         case .existingReferences(let t):
             // Matched via references chain — set matchSource to .header
             t.matchSource = .header
             thread = t
+            createdNewThread = false
         case .new(let t):
             // New orphan thread — matchSource already .direct (placeholder)
             thread = t
+            createdNewThread = true
         }
 
         // Update thread metadata
@@ -253,7 +263,9 @@ final class MailThreadStore {
         do {
             try context.save()
             version += 1
-            cachedCandidates = nil
+            // Only invalidate the candidate cache when a new thread was added — appending
+            // a message to an existing thread doesn't change the candidate set materially.
+            if createdNewThread { cachedCandidates = nil }
         } catch {
             assertionFailure("MailThreadStore save failed: \(error)")
         }
