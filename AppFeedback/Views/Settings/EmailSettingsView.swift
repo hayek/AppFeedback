@@ -5,6 +5,7 @@ import AppKit
 struct EmailSettingsView: View {
     @Environment(MailAccountStore.self) private var store
     @Environment(ActivityLog.self) private var activityLog
+    @Environment(MailSyncCoordinatorHolder.self) private var coordinatorHolder: MailSyncCoordinatorHolder?
 
     @State private var preset: SMTPCredentials.Preset = .gmail
     @State private var host: String = ""
@@ -17,6 +18,11 @@ struct EmailSettingsView: View {
     @State private var imapPort: String = "993"
     @State private var imapUsername: String = ""
     @State private var imapPassword: String = ""
+
+    @State private var pollingEnabled: Bool = true
+    @State private var pollIntervalMinutes: Int = 5
+    @State private var attachmentFolderBookmarkData: Data? = nil
+    @State private var attachmentFolderDisplayPath: String = "Default (~/Downloads)"
 
     @State private var saveStatus: String?
     @State private var copiedToken: String?
@@ -73,6 +79,28 @@ struct EmailSettingsView: View {
                 Text("Used when receiving replies (Plan B). Defaults to the SMTP username; override only if your IMAP login differs.")
                     .font(.caption)
                     .foregroundStyle(.secondary)
+
+                Toggle("Auto-fetch replies", isOn: $pollingEnabled)
+                    .onChange(of: pollingEnabled) { _, _ in scheduleSave() }
+
+                Stepper(
+                    "Every \(pollIntervalMinutes) minute\(pollIntervalMinutes == 1 ? "" : "s")",
+                    value: $pollIntervalMinutes,
+                    in: 1...60
+                )
+                .onChange(of: pollIntervalMinutes) { _, _ in scheduleSave() }
+
+                HStack {
+                    Button("Attachments folder…") { pickAttachmentFolder() }
+                    Text(attachmentFolderDisplayPath)
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                        .lineLimit(1)
+                        .truncationMode(.middle)
+                }
+
+                Button("Test IMAP connection") { testIMAPConnection() }
+                    .disabled(imapHost.isEmpty || imapUsername.isEmpty || imapPassword.isEmpty)
             }
 
             Section("Header") {
@@ -96,6 +124,10 @@ struct EmailSettingsView: View {
                     Button("Test Connection") { testConnection() }
                         .disabled(username.isEmpty || host.isEmpty || password.isEmpty)
                     Button("Preview") { showPreview() }
+                    Button("Refresh now") {
+                        Task { await coordinatorHolder?.coordinator?.pollNow() }
+                    }
+                    .disabled(coordinatorHolder?.coordinator == nil)
                     Spacer()
                     if let testStatus { Text(testStatus).foregroundStyle(.secondary) }
                     if let saveStatus {
@@ -119,6 +151,7 @@ struct EmailSettingsView: View {
         .onChange(of: imapPort) { _, _ in scheduleSave() }
         .onChange(of: imapUsername) { _, _ in scheduleSave() }
         .onChange(of: imapPassword) { _, _ in scheduleSave() }
+        .onAppear { resolveDisplayPath() }
     }
 
     private func applyPresetDefaults(_ p: SMTPCredentials.Preset) {
@@ -140,6 +173,9 @@ struct EmailSettingsView: View {
             imapHost = acc.imapHost
             imapPort = String(acc.imapPort)
             imapUsername = acc.imapUsername
+            pollingEnabled = acc.pollingEnabled
+            pollIntervalMinutes = max(1, min(60, acc.pollIntervalSeconds / 60))
+            attachmentFolderBookmarkData = acc.attachmentFolderBookmark
         } else {
             applyPresetDefaults(preset)
         }
@@ -151,6 +187,7 @@ struct EmailSettingsView: View {
         }
         headerText = MailTemplatePlainText.from(html: store.account?.templateHeaderHTML ?? "")
         footerText = MailTemplatePlainText.from(html: store.account?.templateFooterHTML ?? "")
+        resolveDisplayPath()
         didLoad = true
     }
 
@@ -179,6 +216,9 @@ struct EmailSettingsView: View {
             acc.imapUsername = imapUsername.isEmpty ? username : imapUsername
             acc.templateHeaderHTML = headerHTML
             acc.templateFooterHTML = footerHTML
+            acc.pollingEnabled = pollingEnabled
+            acc.pollIntervalSeconds = pollIntervalMinutes * 60
+            acc.attachmentFolderBookmark = attachmentFolderBookmarkData
         }
         let smtpOk = await KeychainService.saveSMTPPassword(password)
         let imapOk = imapPassword.isEmpty
@@ -341,6 +381,77 @@ struct EmailSettingsView: View {
             return url
         } catch {
             return nil
+        }
+    }
+
+    // MARK: - Test IMAP Connection
+
+    private func testIMAPConnection() {
+        let id = activityLog.start(kind: .testConnection, title: "\(imapHost):\(imapPort) (IMAP)")
+        Task {
+            #if canImport(SwiftMail)
+            let client = IMAPClient(
+                host: imapHost,
+                port: Int(imapPort) ?? 993,
+                username: imapUsername.isEmpty ? username : imapUsername,
+                password: imapPassword
+            )
+            do {
+                try await client.testConnection()
+                activityLog.finish(id, status: .success, detail: "IMAP login OK")
+                testStatus = "IMAP connection OK"
+            } catch {
+                activityLog.finish(id, status: .failure, detail: error.localizedDescription)
+                testStatus = "IMAP failed: \(error.localizedDescription)"
+            }
+            #else
+            activityLog.finish(id, status: .failure, detail: "SwiftMail not available")
+            #endif
+        }
+    }
+
+    // MARK: - Attachment Folder Picker
+
+    private func pickAttachmentFolder() {
+        let panel = NSOpenPanel()
+        panel.canChooseDirectories = true
+        panel.canChooseFiles = false
+        panel.allowsMultipleSelection = false
+        panel.prompt = "Choose"
+        panel.message = "Pick a folder to save downloaded attachments"
+        if panel.runModal() == .OK, let url = panel.url {
+            do {
+                let bookmark = try url.bookmarkData(
+                    options: [.withSecurityScope],
+                    includingResourceValuesForKeys: nil,
+                    relativeTo: nil
+                )
+                attachmentFolderBookmarkData = bookmark
+                attachmentFolderDisplayPath = url.path
+                scheduleSave()
+            } catch {
+                // Leave previous bookmark unchanged on failure
+            }
+        }
+    }
+
+    // MARK: - Resolve bookmark display path
+
+    private func resolveDisplayPath() {
+        guard let data = attachmentFolderBookmarkData else {
+            attachmentFolderDisplayPath = "Default (~/Downloads)"
+            return
+        }
+        var stale = false
+        if let url = try? URL(
+            resolvingBookmarkData: data,
+            options: [.withSecurityScope],
+            relativeTo: nil,
+            bookmarkDataIsStale: &stale
+        ) {
+            attachmentFolderDisplayPath = url.path
+        } else {
+            attachmentFolderDisplayPath = "Default (~/Downloads)"
         }
     }
 }

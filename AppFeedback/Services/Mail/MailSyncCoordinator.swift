@@ -1,4 +1,16 @@
 import Foundation
+import Observation
+
+// MARK: - MailSyncCoordinatorHolder
+
+/// Observable wrapper so SwiftUI can inject MailSyncCoordinator via @Environment.
+/// Actors don't conform to Observable, so we wrap the reference here.
+/// Task 12 will replace the nil placeholder with a real coordinator once IMAPClient is wired.
+@Observable
+final class MailSyncCoordinatorHolder {
+    let coordinator: MailSyncCoordinator?
+    init(_ coordinator: MailSyncCoordinator?) { self.coordinator = coordinator }
+}
 
 /// Actor that schedules IMAP polls, drives one-time backfill, writes through `MailThreadStore`,
 /// and logs activity to `ActivityLog`.
