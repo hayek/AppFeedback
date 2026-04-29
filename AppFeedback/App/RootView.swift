@@ -19,6 +19,7 @@ struct RootView: View {
     @Environment(NotificationSettings.self) private var notificationSettings
     @Environment(NotificationRouter.self) private var notificationRouter
     @Environment(\.notificationService) private var notificationService
+    @Environment(MailSyncCoordinatorHolder.self) private var coordinatorHolder: MailSyncCoordinatorHolder?
     #if os(macOS)
     @Environment(\.openSettings) private var openSettings
     #endif
@@ -55,9 +56,11 @@ struct RootView: View {
                         loader: loaders[selection.repoId],
                         allApps: allApps(for: selection.repoId),
                         onRefresh: {
-                            guard let repo,
-                                  let token = await KeychainService.load(for: repo) else { return }
-                            await loaders[selection.repoId]?.load(token: token)
+                            async let mailPoll: Void = coordinatorHolder?.coordinator?.pollNow() ?? ()
+                            if let repo, let token = await KeychainService.load(for: repo) {
+                                await loaders[selection.repoId]?.load(token: token)
+                            }
+                            await mailPoll
                         },
                         repoOwner: owner,
                         repoName: name,
