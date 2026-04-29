@@ -60,32 +60,33 @@ struct IssueCardView: View {
                             .padding(.top, 6)
                             .accessibilityLabel("Unread")
                     }
-                    HStack(spacing: 4) {
-                        Text("#\(issue.number)")
-                            .font(.system(size: 11, weight: .medium))
-                        if let typed = issue.labels.issueType {
-                            IssueTypeIconButton(
-                                type: typed.type,
-                                isActive: activeIssueType.contains(typed.type),
-                                onTap: onToggleIssueType.map { handler in
-                                    { onInteract?(); handler(typed.type) }
-                                }
-                            )
-                        }
-                    }
-                    .foregroundStyle(.tertiary)
-                    .padding(.top, 2)
                     Text(issue.displayedTitle(translated: translationVisible))
                         .font(.system(size: 15, weight: .semibold))
                         .foregroundStyle(.primary)
-                        .lineLimit(2)
                         .textSelection(.enabled)
+                        .fixedSize(horizontal: false, vertical: true)
                     Spacer(minLength: 8)
-                    Text(formattedDate)
-                        .font(.system(size: 11))
+                    VStack(alignment: .trailing, spacing: 2) {
+                        Text(formattedDate)
+                            .font(.system(size: 11))
+                            .foregroundStyle(.tertiary)
+                            .fixedSize()
+                        HStack(spacing: 4) {
+                            if let typed = issue.labels.issueType {
+                                IssueTypeIconButton(
+                                    type: typed.type,
+                                    isActive: activeIssueType.contains(typed.type),
+                                    onTap: onToggleIssueType.map { handler in
+                                        { onInteract?(); handler(typed.type) }
+                                    }
+                                )
+                            }
+                            Text("#\(issue.number)")
+                                .font(.system(size: 11, weight: .medium))
+                        }
                         .foregroundStyle(.tertiary)
-                        .padding(.top, 2)
-                        .fixedSize()
+                    }
+                    .padding(.top, 2)
                 }
 
                 let bodyText = issue.displayedBody(translated: translationVisible)
