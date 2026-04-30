@@ -200,7 +200,8 @@ struct GitHubLoginView: View {
         let config = RepoConfig(
             displayName: trimName.isEmpty ? selected.name : trimName,
             owner: selected.owner.login,
-            repo: selected.name
+            repo: selected.name,
+            redactEmailAddresses: !selected.isPrivate
         )
         // Save token first so SettingsView's tokens dictionary doesn't briefly show "no token".
         await KeychainService.save(token: oauthToken, for: config)

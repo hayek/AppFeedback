@@ -16,6 +16,7 @@ struct ComposeMailView: View {
     @Environment(MailThreadStore.self) private var threadStore
     @Environment(ActivityLog.self) private var activityLog
     @Environment(SettingsNavigation.self) private var settingsNavigation
+    @Environment(MailToGitHubMirrorHolder.self) private var mirrorHolder: MailToGitHubMirrorHolder?
     @Environment(\.dismiss) private var dismiss
 
     @State private var viewModel: ComposeMailViewModel?
@@ -213,6 +214,7 @@ struct ComposeMailView: View {
             threadStore: threadStore,
             sender: MailSender(),
             activityLog: activityLog,
+            mirror: mirrorHolder?.mirror,
             inReplyTo: inReplyTo,
             initialSubject: subjectOverride
         )

@@ -46,6 +46,7 @@ actor MailSyncCoordinator {
     private let accountStore: MailAccountStore         // @MainActor
     private let localState: MailAccountLocalStateStore // @MainActor
     private let activityLog: ActivityLog               // @MainActor
+    private let mirror: MailToGitHubMirror?            // @MainActor
     private let knownIssueTitlesProvider: @Sendable () async -> [(owner: String, repo: String, number: Int, title: String)]
     private let clock: @Sendable () -> Date
 
@@ -63,6 +64,7 @@ actor MailSyncCoordinator {
         accountStore: MailAccountStore,
         localState: MailAccountLocalStateStore,
         activityLog: ActivityLog,
+        mirror: MailToGitHubMirror? = nil,
         knownIssueTitlesProvider: @Sendable @escaping () async -> [(owner: String, repo: String, number: Int, title: String)],
         clock: @Sendable @escaping () -> Date = { Date() }
     ) {
@@ -71,6 +73,7 @@ actor MailSyncCoordinator {
         self.accountStore = accountStore
         self.localState = localState
         self.activityLog = activityLog
+        self.mirror = mirror
         self.knownIssueTitlesProvider = knownIssueTitlesProvider
         self.clock = clock
     }
@@ -202,6 +205,13 @@ actor MailSyncCoordinator {
             if self.status != .idle { self.status = .idle }
             await MainActor.run {
                 self.activityLog.finish(logID, status: .success, detail: "\(messages.count) message(s)")
+            }
+
+            // Detached so a slow GitHub round-trip doesn't gate the next poll cycle. The
+            // mirror is idempotent (githubCommentID dedupes) so re-entering on the next
+            // poll before this one finishes is safe.
+            if let mirror {
+                Task.detached { await mirror.mirrorPendingInbound() }
             }
 
         } catch IMAPClientError.authFailed {

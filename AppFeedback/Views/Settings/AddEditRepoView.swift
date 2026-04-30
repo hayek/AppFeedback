@@ -11,6 +11,8 @@ struct AddEditRepoView: View {
     @State private var owner = ""
     @State private var repo = ""
     @State private var token = ""
+    @State private var mirrorEmailsToGitHub = true
+    @State private var redactEmailAddresses = true
     @State private var showGitHubLogin = false
     @State private var isSaving = false
 
@@ -121,6 +123,39 @@ struct AddEditRepoView: View {
                 }
 
                 fieldSection(
+                    label: "Mirror to GitHub",
+                    hint: "Posts every email reply as a comment on the issue"
+                ) {
+                    GroupBox {
+                        VStack(alignment: .leading, spacing: 8) {
+                            Toggle(isOn: $mirrorEmailsToGitHub) {
+                                Text("Cross-post emails to issue comments")
+                                    .font(.system(size: 12))
+                            }
+                            .toggleStyle(.switch)
+
+                            if mirrorEmailsToGitHub {
+                                Divider()
+                                Toggle(isOn: $redactEmailAddresses) {
+                                    VStack(alignment: .leading, spacing: 2) {
+                                        Text("Redact sender email addresses")
+                                            .font(.system(size: 12))
+                                        Text(redactEmailAddresses
+                                             ? "Shown as a***@example.com — recommended for public repos."
+                                             : "Full addresses will appear in comment bodies.")
+                                            .font(.system(size: 10))
+                                            .foregroundStyle(.secondary)
+                                    }
+                                }
+                                .toggleStyle(.switch)
+                            }
+                        }
+                        .padding(.horizontal, 4)
+                        .padding(.vertical, 4)
+                    }
+                }
+
+                fieldSection(
                     label: "GitHub Token",
                     hint: nil
                 ) {
@@ -222,6 +257,8 @@ struct AddEditRepoView: View {
         displayName = existing.displayName
         owner = existing.owner
         repo = existing.repo
+        mirrorEmailsToGitHub = existing.mirrorEmailsToGitHub
+        redactEmailAddresses = existing.redactEmailAddresses
         token = await KeychainService.load(for: existing) ?? ""
     }
 
@@ -243,10 +280,18 @@ struct AddEditRepoView: View {
             updated.displayName = trimName
             updated.owner = trimOwner
             updated.repo = trimRepo
+            updated.mirrorEmailsToGitHub = mirrorEmailsToGitHub
+            updated.redactEmailAddresses = redactEmailAddresses
             await KeychainService.save(token: trimToken, for: updated)
             store.update(updated)
         } else {
-            let newRepo = RepoConfig(displayName: trimName, owner: trimOwner, repo: trimRepo)
+            let newRepo = RepoConfig(
+                displayName: trimName,
+                owner: trimOwner,
+                repo: trimRepo,
+                mirrorEmailsToGitHub: mirrorEmailsToGitHub,
+                redactEmailAddresses: redactEmailAddresses
+            )
             await KeychainService.save(token: trimToken, for: newRepo)
             store.add(newRepo)
         }

@@ -8,6 +8,7 @@ struct ActivityLogEntry: Identifiable, Codable, Equatable, Sendable {
         case testConnection
         case fetchMail
         case downloadAttachment
+        case postComment
     }
 
     enum Status: String, Codable, Sendable {

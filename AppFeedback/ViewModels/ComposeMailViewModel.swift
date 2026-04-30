@@ -19,6 +19,7 @@ final class ComposeMailViewModel {
     private let threadStore: MailThreadStore?
     private let sender: any MailSending
     private let activityLog: ActivityLog
+    private let mirror: MailToGitHubMirror?
     private let passwordLoader: @Sendable () async -> String?
     private let composer = MailComposer()
 
@@ -30,6 +31,7 @@ final class ComposeMailViewModel {
          threadStore: MailThreadStore? = nil,
          sender: any MailSending,
          activityLog: ActivityLog,
+         mirror: MailToGitHubMirror? = nil,
          inReplyTo: MailMessageHeaders? = nil,
          initialSubject: String? = nil,
          passwordLoader: @Sendable @escaping () async -> String? = { await KeychainService.loadSMTPPassword() }) {
@@ -41,6 +43,7 @@ final class ComposeMailViewModel {
         self.threadStore = threadStore
         self.sender = sender
         self.activityLog = activityLog
+        self.mirror = mirror
         self.inReplyTo = inReplyTo
         self.passwordLoader = passwordLoader
         if inReplyTo != nil {
@@ -133,6 +136,10 @@ final class ComposeMailViewModel {
             )
 
             activityLog.finish(id, status: .success, detail: nil)
+
+            if let mirror {
+                Task { await mirror.mirrorOutbound(messageID: messageID) }
+            }
         } catch {
             activityLog.finish(id, status: .failure, detail: error.localizedDescription)
         }

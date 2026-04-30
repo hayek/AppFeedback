@@ -20,6 +20,10 @@ final class MailMessage {
     var uid: Int = 0
     /// IMAP folder name (e.g. "INBOX"). Empty for outbound messages.
     var folder: String = ""
+    /// Numeric ID of the GitHub issue comment that mirrors this email, if any. Set after
+    /// `MailToGitHubMirror` posts the comment; nil means "not mirrored yet" (or feature off
+    /// for the repo). Used as the dedupe key so each poll cycle doesn't re-post inbound replies.
+    var githubCommentID: Int? = nil
     var thread: MailThread? = nil
     // CloudKit requires to-many relationships to be optional.
     @Relationship(deleteRule: .cascade, inverse: \MailAttachment.message)

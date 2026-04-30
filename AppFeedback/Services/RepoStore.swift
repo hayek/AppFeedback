@@ -53,7 +53,9 @@ final class RepoStore {
             id: repo.id,
             displayName: repo.displayName,
             owner: repo.owner,
-            repo: repo.repo
+            repo: repo.repo,
+            mirrorEmailsToGitHub: repo.mirrorEmailsToGitHub,
+            redactEmailAddresses: repo.redactEmailAddresses
         )
         context.insert(model)
         save()
@@ -65,13 +67,22 @@ final class RepoStore {
         model.displayName = repo.displayName
         model.owner = repo.owner
         model.repo = repo.repo
+        model.mirrorEmailsToGitHub = repo.mirrorEmailsToGitHub
+        model.redactEmailAddresses = repo.redactEmailAddresses
         save()
         reload()
     }
 
     func remove(id: UUID) async {
         guard let model = fetchModel(id: id) else { return }
-        let config = RepoConfig(id: model.id, displayName: model.displayName, owner: model.owner, repo: model.repo)
+        let config = RepoConfig(
+            id: model.id,
+            displayName: model.displayName,
+            owner: model.owner,
+            repo: model.repo,
+            mirrorEmailsToGitHub: model.mirrorEmailsToGitHub,
+            redactEmailAddresses: model.redactEmailAddresses
+        )
         await KeychainService.delete(for: config)
         context.delete(model)
         save()
@@ -126,7 +137,14 @@ final class RepoStore {
             sortBy: [SortDescriptor(\.createdAt)]
         ))) ?? []
         let newRepos = models.map {
-            RepoConfig(id: $0.id, displayName: $0.displayName, owner: $0.owner, repo: $0.repo)
+            RepoConfig(
+                id: $0.id,
+                displayName: $0.displayName,
+                owner: $0.owner,
+                repo: $0.repo,
+                mirrorEmailsToGitHub: $0.mirrorEmailsToGitHub,
+                redactEmailAddresses: $0.redactEmailAddresses
+            )
         }
         // Build hidden-app map from HiddenAppStore (CloudKit-synced) with one-time
         // best-effort migration from legacy Repo.hiddenAppNames into HiddenApp rows.

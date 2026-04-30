@@ -22,6 +22,7 @@ struct AppFeedbackApp: App {
     @State private var notificationRouter: NotificationRouter
     @State private var downloaderHolder: AttachmentDownloaderHolder
     @State private var coordinatorHolder: MailSyncCoordinatorHolder
+    @State private var mirrorHolder: MailToGitHubMirrorHolder
     @State private var mailLocalStateStore: MailAccountLocalStateStore
     #if os(iOS)
     @State private var iosRefreshDriver: iOSBackgroundRefreshDriver
@@ -104,6 +105,14 @@ struct AppFeedbackApp: App {
 
         let activityLogValue = _activityLog.wrappedValue
 
+        let mirrorLocal = MailToGitHubMirror(
+            context: ModelContext(container),
+            repoStore: _store.wrappedValue,
+            activityLog: activityLogValue,
+            poster: GitHubCommentPoster()
+        )
+        _mirrorHolder = State(initialValue: MailToGitHubMirrorHolder(mirrorLocal))
+
         #if canImport(SwiftMail)
         let imapProvider = IMAPClientProvider(accountStore: mailAccountStoreLocal)
         let localStateStore = localStateStoreLocal
@@ -118,6 +127,7 @@ struct AppFeedbackApp: App {
             accountStore: mailAccountStoreLocal,
             localState: localStateStore,
             activityLog: activityLogValue,
+            mirror: mirrorLocal,
             knownIssueTitlesProvider: { @Sendable in
                 await MainActor.run {
                     let ctx = ModelContext(titlesContainer)
@@ -173,6 +183,7 @@ struct AppFeedbackApp: App {
                 .environment(notificationRouter)
                 .environment(downloaderHolder)
                 .environment(coordinatorHolder)
+                .environment(mirrorHolder)
                 .environment(mailLocalStateStore)
                 .environment(\.notificationService, notificationService)
                 .task { await notificationService.requestAuthorizationIfNeeded() }
@@ -233,6 +244,7 @@ struct AppFeedbackApp: App {
                 .environment(notificationRouter)
                 .environment(downloaderHolder)
                 .environment(coordinatorHolder)
+                .environment(mirrorHolder)
                 .environment(mailLocalStateStore)
                 .environment(\.notificationService, notificationService)
         }

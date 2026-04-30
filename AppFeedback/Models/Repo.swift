@@ -10,6 +10,13 @@ final class Repo {
     var hiddenAppNames: [String] = []
     var appColors: [String: String] = [:]
     var createdAt: Date = Date()
+    /// When true, every email this app sends or receives for an issue in this repo is
+    /// also posted as a comment on the GitHub issue.
+    var mirrorEmailsToGitHub: Bool = true
+    /// When true, sender addresses in mirrored comments are redacted to `a***@host.tld`.
+    /// Defaulted to `true` for public repos and `false` for private at the moment the
+    /// repo is added; user-editable thereafter.
+    var redactEmailAddresses: Bool = true
 
     init(
         id: UUID = UUID(),
@@ -18,7 +25,9 @@ final class Repo {
         repo: String,
         hiddenAppNames: [String] = [],
         appColors: [String: String] = [:],
-        createdAt: Date = Date()
+        createdAt: Date = Date(),
+        mirrorEmailsToGitHub: Bool = true,
+        redactEmailAddresses: Bool = true
     ) {
         self.id = id
         self.displayName = displayName
@@ -27,5 +36,7 @@ final class Repo {
         self.hiddenAppNames = hiddenAppNames
         self.appColors = appColors
         self.createdAt = createdAt
+        self.mirrorEmailsToGitHub = mirrorEmailsToGitHub
+        self.redactEmailAddresses = redactEmailAddresses
     }
 }

@@ -85,6 +85,7 @@ private struct ActivityRow: View {
         case .testConnection:     return "checkmark.shield"
         case .fetchMail:          return "envelope.badge"
         case .downloadAttachment: return "paperclip"
+        case .postComment:        return "bubble.left.and.text.bubble.right"
         }
     }
 
