@@ -34,7 +34,21 @@ struct IssueCardView: View {
     @State private var highlightActive: Bool = false
     @State private var didCopy: Bool = false
     @State private var threads: [MailThread] = []
-    @AppStorage("issueCard.showTime") private var showTime: Bool = false
+    @AppStorage("issueCard.dateStyle") private var dateStyleRaw: Int = 0
+
+    private enum DateDisplayStyle: Int, CaseIterable {
+        case relative = 0
+        case date = 1
+        case dateTime = 2
+
+        var next: DateDisplayStyle {
+            DateDisplayStyle(rawValue: (rawValue + 1) % DateDisplayStyle.allCases.count) ?? .date
+        }
+    }
+
+    private var dateStyle: DateDisplayStyle {
+        DateDisplayStyle(rawValue: dateStyleRaw) ?? .date
+    }
 
     private var translationVisible: Bool { issue.hasTranslation && !showOriginal }
 
@@ -50,10 +64,16 @@ struct IssueCardView: View {
     }
 
     private var formattedDate: String {
-        let date = issue.createdAt.formatted(date: .abbreviated, time: .omitted)
-        guard showTime else { return date }
-        let time = issue.createdAt.formatted(date: .omitted, time: .shortened)
-        return "\(date), \(time)"
+        switch dateStyle {
+        case .date:
+            return issue.createdAt.formatted(date: .abbreviated, time: .omitted)
+        case .dateTime:
+            let date = issue.createdAt.formatted(date: .abbreviated, time: .omitted)
+            let time = issue.createdAt.formatted(date: .omitted, time: .shortened)
+            return "\(date), \(time)"
+        case .relative:
+            return issue.createdAt.formatted(.relative(presentation: .named))
+        }
     }
 
     private var copyText: String {
@@ -148,10 +168,10 @@ struct IssueCardView: View {
                             .foregroundStyle(.tertiary)
                             .fixedSize()
                             .contentTransition(.numericText())
-                            .animation(.snappy(duration: 0.25), value: showTime)
+                            .animation(.snappy(duration: 0.25), value: dateStyleRaw)
                             .onTapGesture {
                                 onInteract?()
-                                showTime.toggle()
+                                dateStyleRaw = dateStyle.next.rawValue
                             }
                         HStack(spacing: 4) {
                             if let typed = issue.labels.issueType {
