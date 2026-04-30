@@ -71,7 +71,7 @@ private struct ActivityRow: View {
                 }
             }
             Spacer(minLength: 12)
-            Text(entry.timestamp.formatted(date: .omitted, time: .shortened))
+            ToggleableDateText(date: entry.timestamp)
                 .font(.system(size: 11))
                 .foregroundStyle(.secondary)
         }

@@ -5,6 +5,49 @@ import AppKit
 import UIKit
 #endif
 
+enum DateDisplayStyle: Int, CaseIterable {
+    case relative = 0
+    case date = 1
+    case dateTime = 2
+
+    var next: DateDisplayStyle {
+        DateDisplayStyle(rawValue: (rawValue + 1) % DateDisplayStyle.allCases.count) ?? .date
+    }
+
+    func format(_ date: Date) -> String {
+        switch self {
+        case .relative:
+            return date.formatted(.relative(presentation: .named))
+        case .date:
+            return date.formatted(date: .abbreviated, time: .omitted)
+        case .dateTime:
+            let d = date.formatted(date: .abbreviated, time: .omitted)
+            let t = date.formatted(date: .omitted, time: .shortened)
+            return "\(d), \(t)"
+        }
+    }
+}
+
+struct ToggleableDateText: View {
+    let date: Date
+    var onInteract: (() -> Void)? = nil
+    @AppStorage("app.dateDisplayStyle") private var rawStyle: Int = 0
+
+    private var style: DateDisplayStyle {
+        DateDisplayStyle(rawValue: rawStyle) ?? .date
+    }
+
+    var body: some View {
+        Text(style.format(date))
+            .contentTransition(.numericText())
+            .animation(.snappy(duration: 0.25), value: rawStyle)
+            .onTapGesture {
+                onInteract?()
+                rawStyle = style.next.rawValue
+            }
+    }
+}
+
 struct IssueCardView: View {
     let issue: FeedbackIssue
     let repoOwner: String
@@ -34,21 +77,6 @@ struct IssueCardView: View {
     @State private var highlightActive: Bool = false
     @State private var didCopy: Bool = false
     @State private var threads: [MailThread] = []
-    @AppStorage("issueCard.dateStyle") private var dateStyleRaw: Int = 0
-
-    private enum DateDisplayStyle: Int, CaseIterable {
-        case relative = 0
-        case date = 1
-        case dateTime = 2
-
-        var next: DateDisplayStyle {
-            DateDisplayStyle(rawValue: (rawValue + 1) % DateDisplayStyle.allCases.count) ?? .date
-        }
-    }
-
-    private var dateStyle: DateDisplayStyle {
-        DateDisplayStyle(rawValue: dateStyleRaw) ?? .date
-    }
 
     private var translationVisible: Bool { issue.hasTranslation && !showOriginal }
 
@@ -61,19 +89,6 @@ struct IssueCardView: View {
         guard !intelligenceAvailable else { return false }
         guard let detected = issue.detectedLanguageCode, !detected.isEmpty else { return false }
         return !detected.hasPrefix(targetLanguageCode)
-    }
-
-    private var formattedDate: String {
-        switch dateStyle {
-        case .date:
-            return issue.createdAt.formatted(date: .abbreviated, time: .omitted)
-        case .dateTime:
-            let date = issue.createdAt.formatted(date: .abbreviated, time: .omitted)
-            let time = issue.createdAt.formatted(date: .omitted, time: .shortened)
-            return "\(date), \(time)"
-        case .relative:
-            return issue.createdAt.formatted(.relative(presentation: .named))
-        }
     }
 
     private var copyText: String {
@@ -163,16 +178,10 @@ struct IssueCardView: View {
                         .fixedSize(horizontal: false, vertical: true)
                     Spacer(minLength: 8)
                     VStack(alignment: .trailing, spacing: 2) {
-                        Text(formattedDate)
+                        ToggleableDateText(date: issue.createdAt, onInteract: onInteract)
                             .font(.system(size: 11))
                             .foregroundStyle(.tertiary)
                             .fixedSize()
-                            .contentTransition(.numericText())
-                            .animation(.snappy(duration: 0.25), value: dateStyleRaw)
-                            .onTapGesture {
-                                onInteract?()
-                                dateStyleRaw = dateStyle.next.rawValue
-                            }
                         HStack(spacing: 4) {
                             if let typed = issue.labels.issueType {
                                 IssueTypeIconButton(
@@ -282,7 +291,7 @@ struct IssueCardView: View {
                     )
                     .padding(.leading, -12)
 
-                    if let email = issue.email {
+                    if let email = issue.email, threads.isEmpty {
                         ReplyBadgeButton(
                             email: email,
                             color: appColor,
@@ -300,7 +309,7 @@ struct IssueCardView: View {
 
                 if !threads.isEmpty {
                     ForEach(threads) { thread in
-                        MailThreadView(thread: thread, issue: issue, repoOwner: repoOwner, repoName: repoName)
+                        MailThreadView(thread: thread, issue: issue, repoOwner: repoOwner, repoName: repoName, appColor: appColor)
                             .padding(.top, 8)
                     }
                 }
@@ -596,7 +605,7 @@ private struct MetaTagView: View {
     }
 }
 
-private struct ReplyBadgeButton: View {
+struct ReplyBadgeButton: View {
     let email: String
     let color: Color
     let onReply: () -> Void

@@ -61,9 +61,9 @@ struct MailMessageRowView: View {
                     .font(.caption)
                     .foregroundStyle(.secondary)
                 Spacer()
-                Text(message.date.formatted(date: .abbreviated, time: .shortened))
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
+                ToggleableDateText(date: message.date)
+                    .font(.system(size: 11))
+                    .foregroundStyle(.tertiary)
             }
         }
     }
