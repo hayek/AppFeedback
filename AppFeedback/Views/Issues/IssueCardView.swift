@@ -34,6 +34,7 @@ struct IssueCardView: View {
     @State private var highlightActive: Bool = false
     @State private var didCopy: Bool = false
     @State private var threads: [MailThread] = []
+    @AppStorage("issueCard.showTime") private var showTime: Bool = false
 
     private var translationVisible: Bool { issue.hasTranslation && !showOriginal }
 
@@ -49,7 +50,10 @@ struct IssueCardView: View {
     }
 
     private var formattedDate: String {
-        issue.createdAt.formatted(date: .abbreviated, time: .omitted)
+        issue.createdAt.formatted(
+            date: .abbreviated,
+            time: showTime ? .shortened : .omitted
+        )
     }
 
     private var copyText: String {
@@ -119,6 +123,12 @@ struct IssueCardView: View {
                             .font(.system(size: 11))
                             .foregroundStyle(.tertiary)
                             .fixedSize()
+                            .contentTransition(.numericText())
+                            .animation(.snappy(duration: 0.25), value: showTime)
+                            .onTapGesture {
+                                onInteract?()
+                                showTime.toggle()
+                            }
                         HStack(spacing: 4) {
                             if let typed = issue.labels.issueType {
                                 IssueTypeIconButton(
