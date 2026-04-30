@@ -28,7 +28,7 @@ struct IssueCardView: View {
     var isTranslating: Bool = false
     var isHighlighted: Bool = false
 
-    @Environment(MailThreadStore.self) private var threadStore: MailThreadStore?
+    @Environment(MailThreadStore.self) private var threadStore
 
     @State private var showOriginal: Bool = false
     @State private var highlightActive: Bool = false
@@ -264,7 +264,7 @@ struct IssueCardView: View {
         .shadow(color: .black.opacity(0.06), radius: 3, y: 1)
         .contentShape(Rectangle())
         .onAppear { refreshThreads() }
-        .onChange(of: threadStore?.version) { _, _ in refreshThreads() }
+        .onChange(of: threadStore.version) { _, _ in refreshThreads() }
         .onTapGesture { onInteract?() }
         .onChange(of: isHighlighted) { _, newValue in
             if newValue {
@@ -278,7 +278,7 @@ struct IssueCardView: View {
     }
 
     private func refreshThreads() {
-        threads = threadStore?.threads(forIssue: (repoOwner, repoName, issue.number, issue.title)) ?? []
+        threads = threadStore.threads(forIssue: (repoOwner, repoName, issue.number, issue.title))
     }
 
     @ViewBuilder

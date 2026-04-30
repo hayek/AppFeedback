@@ -16,12 +16,14 @@ struct MailThreadView: View {
     @State private var isExpanded: Bool = true
     @State private var replyTarget: ReplyTarget? = nil
 
+    private var messages: [MailMessage] { thread.sortedDedupedMessages }
+
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
             header
             if isExpanded {
                 Divider()
-                ForEach(sortedMessages) { message in
+                ForEach(messages) { message in
                     MailMessageRowView(message: message)
                     Divider()
                 }
@@ -41,19 +43,6 @@ struct MailThreadView: View {
             #else
             Text("ComposeMailView is unavailable on this build.")
             #endif
-        }
-    }
-
-    private var sortedMessages: [MailMessage] {
-        // CloudKit can produce duplicate MailMessage rows when the same incoming message
-        // is fetched independently on multiple devices — both inserts sync, both survive.
-        // Dedupe by messageID at render time, keeping the earliest copy by date so the
-        // chronological ordering of the thread stays stable.
-        let byDate = (thread.messages ?? []).sorted { $0.date < $1.date }
-        var seen: Set<String> = []
-        return byDate.filter { msg in
-            guard !msg.messageID.isEmpty else { return true }
-            return seen.insert(msg.messageID).inserted
         }
     }
 
@@ -82,7 +71,7 @@ struct MailThreadView: View {
 
     private var replyButton: some View {
         Button("Reply") {
-            guard let last = sortedMessages.last else { return }
+            guard let last = messages.last else { return }
             let headers = MailMessageHeaders(
                 messageID: last.messageID,
                 inReplyTo: last.inReplyTo,

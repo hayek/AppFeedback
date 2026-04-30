@@ -4,16 +4,13 @@ struct MailMessageRowView: View {
     let message: MailMessage
 
     @Environment(MailAccountStore.self) private var accountStore
-    @Environment(MailThreadStore.self) private var threadStore: MailThreadStore?
+    @Environment(MailThreadStore.self) private var threadStore
     @Environment(AttachmentDownloaderHolder.self) private var downloaderHolder: AttachmentDownloaderHolder?
 
-    private var isUnread: Bool { threadStore?.isUnread(message) ?? false }
+    private var isUnread: Bool { threadStore.isUnread(message) }
 
     @State private var showFull: Bool = false
-
-    private var stripped: HTMLSanitizer.StrippedBody {
-        HTMLSanitizer.stripQuotedReply(message.bodyPlain)
-    }
+    @State private var stripped: HTMLSanitizer.StrippedBody = .init(cleaned: "", full: "")
 
     private var attachments: [MailAttachment] { message.attachments ?? [] }
 
@@ -42,7 +39,10 @@ struct MailMessageRowView: View {
         .padding(.vertical, 6)
         .contentShape(Rectangle())
         .onTapGesture {
-            if isUnread { threadStore?.markSeen(message.messageID) }
+            if isUnread { threadStore.markSeen(message.messageID) }
+        }
+        .task(id: message.messageID) {
+            stripped = HTMLSanitizer.stripQuotedReply(message.bodyPlain)
         }
     }
 

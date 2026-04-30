@@ -47,4 +47,16 @@ final class MailThread {
         self.matchSourceRaw = matchSourceRaw
         self.messages = messages
     }
+
+    /// Messages sorted by date with duplicate `messageID`s collapsed. CloudKit can produce
+    /// duplicate `MailMessage` rows when the same incoming message is fetched independently
+    /// on multiple devices — both inserts sync, both survive — so the UI dedupes at read time.
+    var sortedDedupedMessages: [MailMessage] {
+        let byDate = (messages ?? []).sorted { $0.date < $1.date }
+        var seen: Set<String> = []
+        return byDate.filter { msg in
+            guard !msg.messageID.isEmpty else { return true }
+            return seen.insert(msg.messageID).inserted
+        }
+    }
 }

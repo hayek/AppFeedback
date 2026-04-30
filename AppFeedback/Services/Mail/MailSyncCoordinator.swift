@@ -139,7 +139,6 @@ actor MailSyncCoordinator {
         inFlight = true
         defer { inFlight = false }
 
-        // 1. Read account and local state as value-type snapshots (single MainActor hop)
         let accountSnapshot = await MainActor.run { () -> AccountSnapshot? in
             guard let acc = self.accountStore.account else { return nil }
             return AccountSnapshot(
@@ -154,7 +153,6 @@ actor MailSyncCoordinator {
             return
         }
 
-        // 2. Read local state snapshot
         let localSnapshot = await MainActor.run { () -> LocalStateSnapshot in
             let ls = self.localState.ensure(accountID: accountSnapshot.id)
             return LocalStateSnapshot(
@@ -163,20 +161,18 @@ actor MailSyncCoordinator {
             )
         }
 
-        // 3. Set status to .polling and log start
         status = .polling
         let logID = await MainActor.run {
             self.activityLog.start(kind: .fetchMail, title: "Fetch mail")
         }
 
-        // 4. Backfill first if needed — listInbox depends on outbound recipients, which
-        //    backfill populates from the Sent folder. Running inbox before backfill on a
-        //    fresh install would short-circuit (empty fromAddresses) and miss every reply.
+        // Backfill must run before listInbox: the inbox poll's FROM filter depends on
+        // outbound recipients, and on a fresh install those only exist after backfill
+        // walks the Sent folder. Skip the inbox call entirely on the very first poll.
         if !accountSnapshot.backfillCompleted {
             await runBackfill(accountID: accountSnapshot.id)
         }
 
-        // 5. Fetch inbox
         let fromAddresses = await MainActor.run { self.threadStore.outboundRecipients() }
         do {
             let messages = try await client.listInbox(
@@ -184,18 +180,15 @@ actor MailSyncCoordinator {
                 fromAddresses: fromAddresses
             )
 
-            // Hand each message to the thread store on MainActor
             await MainActor.run {
                 for msg in messages {
                     self.threadStore.recordInbound(message: msg)
                 }
             }
 
-            // Compute highest UID
             let maxUID = messages.map(\.uid).max() ?? localSnapshot.inboxLastUID
             let now = clock()
 
-            // Persist new cursor and reset failure count (before setting status)
             await MainActor.run {
                 self.localState.update { ls in
                     if maxUID > ls.inboxLastUID {
