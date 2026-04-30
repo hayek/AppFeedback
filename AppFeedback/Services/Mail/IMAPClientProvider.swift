@@ -39,9 +39,31 @@ actor IMAPClientProvider: IMAPClientProtocol {
             return (acc.imapHost, acc.imapPort, acc.imapUsername)
         }
         guard let snap else { throw IMAPClientError.passwordUnavailable }
-        let password = await KeychainService.loadIMAPPassword() ?? ""
-        if password.isEmpty { throw IMAPClientError.passwordUnavailable }
+        let password = try await loadIMAPPasswordWithRetry()
         return IMAPClient(host: snap.host, port: snap.port, username: snap.username, password: password)
+    }
+
+    /// Reads the IMAP password from the Keychain, distinguishing a truly missing
+    /// item from transient failures (e.g. `errSecInteractionNotAllowed` shortly
+    /// after wake-from-sleep, or iCloud Keychain sync hiccups). Retries transient
+    /// failures once after a short delay so we don't surface a misleading
+    /// "no password stored" error for what is really a transient SecItem read.
+    private func loadIMAPPasswordWithRetry() async throws -> String {
+        for attempt in 0..<2 {
+            let (pw, status) = KeychainService.loadIMAPPasswordResult()
+            if status == errSecSuccess, let pw, !pw.isEmpty {
+                return pw
+            }
+            if status == errSecItemNotFound || (status == errSecSuccess && (pw ?? "").isEmpty) {
+                throw IMAPClientError.passwordUnavailable
+            }
+            if attempt == 0 {
+                try? await Task.sleep(nanoseconds: 250_000_000)
+                continue
+            }
+            throw IMAPClientError.transport(underlying: "Keychain read failed (OSStatus \(status))")
+        }
+        throw IMAPClientError.passwordUnavailable
     }
 }
 #endif

@@ -123,6 +123,13 @@ enum KeychainService {
     }
 
     static func loadIMAPPassword() async -> String? {
+        loadIMAPPasswordResult().password
+    }
+
+    /// Returns the password (if any) along with the raw OSStatus so callers can
+    /// distinguish `errSecItemNotFound` (truly missing) from transient failures
+    /// like `errSecInteractionNotAllowed` after wake-from-sleep.
+    static func loadIMAPPasswordResult() -> (password: String?, status: OSStatus) {
         let query: [String: Any] = [
             kSecClass as String:              kSecClassGenericPassword,
             kSecAttrService as String:        service,
@@ -132,9 +139,11 @@ enum KeychainService {
             kSecMatchLimit as String:         kSecMatchLimitOne,
         ]
         var result: AnyObject?
-        guard SecItemCopyMatching(query as CFDictionary, &result) == errSecSuccess,
-              let data = result as? Data else { return nil }
-        return String(data: data, encoding: .utf8)
+        let status = SecItemCopyMatching(query as CFDictionary, &result)
+        guard status == errSecSuccess, let data = result as? Data else {
+            return (nil, status)
+        }
+        return (String(data: data, encoding: .utf8), status)
     }
 
     static func deleteIMAPPassword() async {
