@@ -1,4 +1,9 @@
 import SwiftUI
+#if os(macOS)
+import AppKit
+#else
+import UIKit
+#endif
 
 struct MailMessageRowView: View {
     let message: MailMessage
@@ -57,9 +62,20 @@ struct MailMessageRowView: View {
             }
             HStack {
                 if isUnread && message.subject.isEmpty { unreadDot }
-                Text("From: \(senderLine)")
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
+                Menu {
+                    Button("Copy address") { copyFromAddress() }
+                } label: {
+                    Text("From: \(senderLine)")
+                        .font(.system(size: 11))
+                        .foregroundStyle(.tertiary)
+                }
+                .menuStyle(.button)
+                .buttonStyle(.plain)
+                .menuIndicator(.hidden)
+                .fixedSize()
+                .contextMenu {
+                    Button("Copy address") { copyFromAddress() }
+                }
                 Spacer()
                 ToggleableDateText(date: message.date)
                     .font(.system(size: 11))
@@ -81,6 +97,16 @@ struct MailMessageRowView: View {
             .buttonStyle(.borderless)
             .font(.caption)
         }
+    }
+
+    private func copyFromAddress() {
+        #if os(macOS)
+        let pasteboard = NSPasteboard.general
+        pasteboard.clearContents()
+        pasteboard.setString(message.fromAddress, forType: .string)
+        #else
+        UIPasteboard.general.string = message.fromAddress
+        #endif
     }
 
     private var attachmentsRow: some View {
