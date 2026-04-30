@@ -50,10 +50,10 @@ struct IssueCardView: View {
     }
 
     private var formattedDate: String {
-        issue.createdAt.formatted(
-            date: .abbreviated,
-            time: showTime ? .shortened : .omitted
-        )
+        let date = issue.createdAt.formatted(date: .abbreviated, time: .omitted)
+        guard showTime else { return date }
+        let time = issue.createdAt.formatted(date: .omitted, time: .shortened)
+        return "\(date), \(time)"
     }
 
     private var copyText: String {
@@ -90,6 +90,30 @@ struct IssueCardView: View {
         pasteboard.setString(copyText, forType: .string)
         #else
         UIPasteboard.general.string = copyText
+        #endif
+    }
+
+    private func copyEmailToClipboard(_ email: String) {
+        #if os(macOS)
+        let pasteboard = NSPasteboard.general
+        pasteboard.clearContents()
+        pasteboard.setString(email, forType: .string)
+        #else
+        UIPasteboard.general.string = email
+        #endif
+    }
+
+    private func replyToEmail(_ email: String) {
+        if let onTapEmail {
+            onTapEmail(email)
+            return
+        }
+        guard let encoded = email.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed),
+              let mailURL = URL(string: "mailto:\(encoded)") else { return }
+        #if os(macOS)
+        NSWorkspace.shared.open(mailURL)
+        #else
+        UIApplication.shared.open(mailURL)
         #endif
     }
 
@@ -195,64 +219,64 @@ struct IssueCardView: View {
                         .padding(.top, 4)
                 }
 
-                ScrollView(.horizontal, showsIndicators: false) {
-                    HStack(spacing: 6) {
-                        ForEach(issue.labels.withoutTypeAndUserSubmitted, id: \.name) { label in
-                            LabelChipView(label: label)
-                        }
-                        if let app = issue.appName, !activeApp.contains(app) {
-                            tappable(value: app, onTap: onToggleApp) {
-                                TagView(text: app, color: appColor, isActive: activeApp.contains(app))
+                HStack(spacing: 8) {
+                    ScrollView(.horizontal, showsIndicators: false) {
+                        HStack(spacing: 6) {
+                            ForEach(issue.labels.withoutTypeAndUserSubmitted, id: \.name) { label in
+                                LabelChipView(label: label)
                             }
-                        }
-                        if let version = issue.appVersion {
-                            tappable(value: version, onTap: onToggleAppVersion) {
-                                TagView(text: "v\(version)", color: appColor, isActive: activeAppVersion.contains(version))
-                            }
-                        }
-                        if let device = issue.device {
-                            tappable(value: device, onTap: onToggleDevice) {
-                                MetaTagView(key: "device", value: DeviceName.friendly(device), isActive: activeDevice.contains(device))
-                            }
-                        }
-                        if let os = issue.osVersion {
-                            tappable(value: os, onTap: onToggleOSVersion) {
-                                MetaTagView(key: "os", value: OSVersionFormat.display(os), isActive: activeOSVersion.contains(os))
-                            }
-                        }
-                        if let email = issue.email {
-                            if let onTapEmail {
-                                Button {
-                                    onInteract?()
-                                    onTapEmail(email)
-                                } label: {
-                                    MetaTagView(key: "✉", value: email, isActive: false)
+                            if let app = issue.appName, !activeApp.contains(app) {
+                                tappable(value: app, onTap: onToggleApp) {
+                                    TagView(text: app, color: appColor, isActive: activeApp.contains(app))
                                 }
-                                .buttonStyle(.plain)
-                            } else if let encoded = email.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed),
-                                      let mailURL = URL(string: "mailto:\(encoded)") {
-                                Link(destination: mailURL) {
-                                    MetaTagView(key: "✉", value: email, isActive: false)
+                            }
+                            if let version = issue.appVersion {
+                                tappable(value: version, onTap: onToggleAppVersion) {
+                                    TagView(text: "v\(version)", color: appColor, isActive: activeAppVersion.contains(version))
                                 }
-                                .simultaneousGesture(TapGesture().onEnded { onInteract?() })
+                            }
+                            if let device = issue.device {
+                                tappable(value: device, onTap: onToggleDevice) {
+                                    MetaTagView(key: "device", value: DeviceName.friendly(device), isActive: activeDevice.contains(device))
+                                }
+                            }
+                            if let os = issue.osVersion {
+                                tappable(value: os, onTap: onToggleOSVersion) {
+                                    MetaTagView(key: "os", value: OSVersionFormat.display(os), isActive: activeOSVersion.contains(os))
+                                }
                             }
                         }
+                        .padding(.horizontal, 12)
                     }
-                    .padding(.horizontal, 12)
-                }
-                .mask(
-                    LinearGradient(
-                        stops: [
-                            .init(color: .clear, location: 0.0),
-                            .init(color: .black, location: 0.04),
-                            .init(color: .black, location: 0.96),
-                            .init(color: .clear, location: 1.0)
-                        ],
-                        startPoint: .leading,
-                        endPoint: .trailing
+                    .mask(
+                        LinearGradient(
+                            stops: [
+                                .init(color: .clear, location: 0.0),
+                                .init(color: .black, location: 0.04),
+                                .init(color: .black, location: 0.96),
+                                .init(color: .clear, location: 1.0)
+                            ],
+                            startPoint: .leading,
+                            endPoint: .trailing
+                        )
                     )
-                )
-                .padding(.horizontal, -12)
+                    .padding(.leading, -12)
+
+                    if let email = issue.email {
+                        ReplyBadgeButton(
+                            email: email,
+                            color: appColor,
+                            onReply: {
+                                onInteract?()
+                                replyToEmail(email)
+                            },
+                            onCopy: {
+                                onInteract?()
+                                copyEmailToClipboard(email)
+                            }
+                        )
+                    }
+                }
 
                 if !threads.isEmpty {
                     ForEach(threads) { thread in
@@ -549,6 +573,35 @@ private struct MetaTagView: View {
             isActive ? Color.accentColor.opacity(0.4) : Color.secondary.opacity(0.15),
             lineWidth: 1
         ))
+    }
+}
+
+private struct ReplyBadgeButton: View {
+    let email: String
+    let color: Color
+    let onReply: () -> Void
+    let onCopy: () -> Void
+
+    var body: some View {
+        Button(action: onReply) {
+            HStack(spacing: 4) {
+                Image(systemName: "arrowshape.turn.up.left.fill")
+                    .font(.system(size: 9, weight: .semibold))
+                Text("Reply")
+                    .font(.system(size: 11, weight: .semibold))
+            }
+            .foregroundStyle(color)
+            .padding(.horizontal, 8)
+            .padding(.vertical, 3)
+            .background(color.opacity(0.12), in: RoundedRectangle(cornerRadius: 6))
+            .overlay(RoundedRectangle(cornerRadius: 6).stroke(color.opacity(0.4), lineWidth: 1))
+        }
+        .buttonStyle(.plain)
+        .help("Reply to \(email)")
+        .contextMenu {
+            Button("Reply to \(email)", action: onReply)
+            Button("Copy address", action: onCopy)
+        }
     }
 }
 
