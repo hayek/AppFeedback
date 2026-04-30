@@ -26,6 +26,8 @@ final class IssueLoader {
         return false
     }
 
+    var isInFlight: Bool { inFlight != nil }
+
     private let config: RepoConfig
     private let session: URLSession
     private let cacheContext: ModelContext?

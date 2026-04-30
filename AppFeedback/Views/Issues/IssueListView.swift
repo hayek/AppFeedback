@@ -17,19 +17,6 @@ struct IssueListView: View {
 
     var body: some View {
         VStack(spacing: 0) {
-            if loader?.isShowingCachedData == true {
-                HStack(spacing: 6) {
-                    Image(systemName: "clock.arrow.circlepath")
-                    Text("Showing cached data — refresh to update")
-                        .font(.caption)
-                }
-                .foregroundStyle(.secondary)
-                .frame(maxWidth: .infinity)
-                .padding(.horizontal, 20)
-                .padding(.vertical, 6)
-                .background(Color.secondary.opacity(0.08))
-            }
-
             Group {
                 switch loaderState {
                 case .idle, .loading where viewModel.allIssues.isEmpty:
@@ -69,8 +56,14 @@ struct IssueListView: View {
                     Button {
                         Task { await onRefresh() }
                     } label: {
-                        Image(systemName: "arrow.clockwise")
+                        if showsRefreshSpinner {
+                            ProgressView()
+                                .controlSize(.small)
+                        } else {
+                            Image(systemName: "arrow.clockwise")
+                        }
                     }
+                    .disabled(showsRefreshSpinner)
                 }
             }
         }
@@ -213,6 +206,10 @@ struct IssueListView: View {
     }
 
     private var loaderState: IssueLoader.State { loader?.state ?? .idle }
+
+    private var showsRefreshSpinner: Bool {
+        loader?.isInFlight == true
+    }
 
     private var targetLanguageCode: String {
         viewModel.intelligenceSettings?.targetLanguageCode ?? IntelligenceSettings.systemLanguageCode()
