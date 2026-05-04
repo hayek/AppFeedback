@@ -6,6 +6,16 @@ import FoundationModels
 #if canImport(FoundationModels)
 @available(macOS 26, iOS 26, *)
 @Generable
+struct TranslationResult: Equatable, Sendable {
+    @Guide(description: "True only when the translation field contains a real translation in the target language. False for unsupported, untranslatable, or already-in-target inputs.")
+    var didTranslate: Bool
+
+    @Guide(description: "The translated text only. No preamble, quotation marks, apologies, or explanations. Empty when didTranslate is false.")
+    var translation: String
+}
+
+@available(macOS 26, iOS 26, *)
+@Generable
 struct IssueSummary: Equatable, Sendable {
     @Guide(description: "A 1-sentence headline summarizing all of the new feedback overall")
     var headline: String

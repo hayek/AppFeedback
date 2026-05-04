@@ -20,7 +20,12 @@ final class IntelligenceService: IntelligenceProvider {
     private let translationInstructions = """
     You are a translator. Translate the user's text into the requested target language.
     Preserve meaning, tone, and any URLs, code identifiers, or @mentions verbatim.
-    Output only the translated text — no preamble, no quotation marks.
+
+    Return a structured result:
+      • didTranslate: true only when you produced a real translation in the target language. Set to false for anything else — including when the input is a single letter, a symbol, already in the target language, untranslatable, or you would otherwise need to apologize or explain.
+      • translation: the translated text only. No preamble, no quotation marks, no apologies, no explanations, no notes about the input. If didTranslate is false, leave translation empty.
+
+    Never explain why you could not translate. Either translate, or set didTranslate to false with an empty translation.
     """
 
     #if canImport(FoundationModels)
@@ -130,8 +135,13 @@ extension IntelligenceService {
         } else {
             prompt = "Translate this to \(targetName):\n\n\(trimmed)"
         }
-        let response = try await session.respond(to: prompt)
-        return response.content.trimmingCharacters(in: .whitespacesAndNewlines)
+        let response = try await session.respond(to: prompt, generating: TranslationResult.self)
+        let result = response.content
+        let translated = result.translation.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard result.didTranslate, !translated.isEmpty else {
+            throw IntelligenceError.empty
+        }
+        return translated
     }
 }
 #endif

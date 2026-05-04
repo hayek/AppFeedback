@@ -188,36 +188,48 @@ final class IssueListViewModel {
             translatingNumbers.remove(issue.number)
         }
         guard let provider = intelligenceProvider else { return }
-        do {
-            async let titleT = provider.translate(text: issue.title, from: detected, to: target)
-            async let bodyT = provider.translate(text: issue.description, from: detected, to: target)
-            let (newTitle, newBody) = try await (titleT, bodyT)
-            try Task.checkCancellation()
+        async let titleT = Self.attemptTranslate(provider: provider, text: issue.title, from: detected, to: target)
+        async let bodyT = Self.attemptTranslate(provider: provider, text: issue.description, from: detected, to: target)
+        let newTitle = await titleT
+        let newBody = await bodyT
+        guard !Task.isCancelled else { return }
 
-            if let idx = allIssues.firstIndex(where: { $0.number == issue.number }) {
-                allIssues[idx].detectedLanguageCode = detected
-                allIssues[idx].translatedTitle = newTitle
-                allIssues[idx].translatedBody = newBody
-                allIssues[idx].translationTargetLanguage = target
-            }
-            if let context = cacheContext {
-                persistTranslation(
-                    issueNumber: issue.number,
-                    detected: detected,
-                    title: newTitle,
-                    body: newBody,
-                    target: target,
-                    context: context
-                )
-            }
-        } catch {
-            if let idx = allIssues.firstIndex(where: { $0.number == issue.number }) {
-                allIssues[idx].translationTargetLanguage = target
-            }
+        let idx = allIssues.firstIndex(where: { $0.number == issue.number })
+
+        if newTitle == nil && newBody == nil {
+            if let idx { allIssues[idx].translationTargetLanguage = target }
             if let context = cacheContext {
                 markTranslationAttempt(issueNumber: issue.number, target: target, context: context)
             }
+            return
         }
+
+        if let idx {
+            allIssues[idx].detectedLanguageCode = detected
+            allIssues[idx].translatedTitle = newTitle
+            allIssues[idx].translatedBody = newBody
+            allIssues[idx].translationTargetLanguage = target
+        }
+        if let context = cacheContext {
+            persistTranslation(
+                issueNumber: issue.number,
+                detected: detected,
+                title: newTitle,
+                body: newBody,
+                target: target,
+                context: context
+            )
+        }
+    }
+
+    nonisolated private static func attemptTranslate(
+        provider: IntelligenceProvider,
+        text: String,
+        from: String,
+        to: String
+    ) async -> String? {
+        do { return try await provider.translate(text: text, from: from, to: to) }
+        catch { return nil }
     }
 
     private func markTranslationAttempt(
@@ -239,8 +251,8 @@ final class IssueListViewModel {
     private func persistTranslation(
         issueNumber: Int,
         detected: String,
-        title: String,
-        body: String,
+        title: String?,
+        body: String?,
         target: String,
         context: ModelContext
     ) {
