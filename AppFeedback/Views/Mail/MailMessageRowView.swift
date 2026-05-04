@@ -10,9 +10,20 @@ struct MailMessageRowView: View {
 
     @Environment(MailAccountStore.self) private var accountStore
     @Environment(MailThreadStore.self) private var threadStore
+    @Environment(OutboundSendTracker.self) private var outboundTracker
+    @Environment(OutboundFailureStore.self) private var outboundFailures
     @Environment(AttachmentDownloaderHolder.self) private var downloaderHolder: AttachmentDownloaderHolder?
 
     private var isUnread: Bool { threadStore.isUnread(message) }
+
+    private var sendState: MailSendState? {
+        guard message.direction == .outbound else { return nil }
+        // In-flight tracker wins so a retry's "sending…" overrides any stale persisted state.
+        if outboundTracker.isSending(message.messageID) { return .sending }
+        if let reason = outboundFailures.reason(for: message.messageID) { return .failed(reason) }
+        if message.sentAt != nil { return .sent }
+        return nil
+    }
 
     @State private var showFull: Bool = false
     @State private var stripped: HTMLSanitizer.StrippedBody = .init(cleaned: "", full: "")
@@ -77,9 +88,15 @@ struct MailMessageRowView: View {
                     Button("Copy address") { copyFromAddress() }
                 }
                 Spacer()
-                ToggleableDateText(date: message.date)
-                    .font(.system(size: 11))
-                    .foregroundStyle(.tertiary)
+                VStack(alignment: .trailing, spacing: 2) {
+                    ToggleableDateText(date: message.date)
+                        .font(.system(size: 11))
+                        .foregroundStyle(.tertiary)
+                    if let sendState = sendState {
+                        MailSendStatusBadge(state: sendState)
+                    }
+                }
+                .animation(.easeInOut(duration: 0.25), value: sendState)
             }
         }
     }

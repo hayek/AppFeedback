@@ -115,12 +115,15 @@ struct RootView: View {
                 settings: intelligenceSettings,
                 cacheContext: cacheContext
             )
+            // syncLoaders dispatches a load for each newly-added repo, so a separate
+            // loadAllRepos here would race the syncLoaders task and double-fetch. On first
+            // launch every repo is newly-added, so syncLoaders alone covers it. Re-fetching
+            // existing repos happens via pull-to-refresh, scenePhase, or background drivers.
             syncLoaders(repos: store.repos)
             autoSelectIfNeeded(repos: store.repos)
             Task.detached(priority: .utility) { @MainActor in
                 intelligenceService.recomputeAvailability()
             }
-            await loadAllRepos()
         }
         .onChange(of: intelligenceSettings.targetLanguageCode) { _, _ in
             viewModel.invalidateTranslations()

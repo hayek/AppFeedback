@@ -17,6 +17,8 @@ final class ComposeMailViewModel {
 
     private let store: MailAccountStore
     private let threadStore: MailThreadStore?
+    private let tracker: OutboundSendTracker?
+    private let failureStore: OutboundFailureStore?
     private let sender: any MailSending
     private let activityLog: ActivityLog
     private let mirror: MailToGitHubMirror?
@@ -29,6 +31,8 @@ final class ComposeMailViewModel {
          repoName: String,
          store: MailAccountStore,
          threadStore: MailThreadStore? = nil,
+         tracker: OutboundSendTracker? = nil,
+         failureStore: OutboundFailureStore? = nil,
          sender: any MailSending,
          activityLog: ActivityLog,
          mirror: MailToGitHubMirror? = nil,
@@ -41,6 +45,8 @@ final class ComposeMailViewModel {
         self.repoName = repoName
         self.store = store
         self.threadStore = threadStore
+        self.tracker = tracker
+        self.failureStore = failureStore
         self.sender = sender
         self.activityLog = activityLog
         self.mirror = mirror
@@ -90,20 +96,42 @@ final class ComposeMailViewModel {
     func send() async {
         guard let credentials = currentCredentials() else { return }
 
-        guard let password = await passwordLoader(), !password.isEmpty else {
-            let id = activityLog.start(kind: .sendEmail, title: "to \(recipient)")
-            activityLog.finish(id, status: .failure, detail: "No SMTP password configured.")
-            return
-        }
-
-        let id = activityLog.start(kind: .sendEmail, title: "to \(recipient)")
-
         let messageID = MessageIDGenerator.generate(
             repoOwner: repoOwner,
             repoName: repoName,
             issueNumber: issue.number
         )
         let replyHeaders = ReplyHeaderBuilder.build(parent: inReplyTo, newMessageID: messageID)
+
+        let recordedMessage = threadStore?.recordOutbound(
+            messageID: messageID,
+            repoOwner: repoOwner,
+            repoName: repoName,
+            issueNumber: issue.number,
+            from: credentials.username,
+            fromName: credentials.senderName.isEmpty ? nil : credentials.senderName,
+            to: [recipient],
+            cc: [],
+            subject: subject,
+            bodyPlain: body.string,
+            bodyHTML: nil,
+            date: Date(),
+            replyHeaders: replyHeaders
+        )
+        // Retry case: first attempt may have left a persisted failure; clear it so the
+        // shimmer is the only visible state during this send.
+        failureStore?.clear(messageID)
+        tracker?.markSending(messageID)
+
+        let id = activityLog.start(kind: .sendEmail, title: "to \(recipient)")
+
+        guard let password = await passwordLoader(), !password.isEmpty else {
+            let detail = "No SMTP password configured."
+            activityLog.finish(id, status: .failure, detail: detail)
+            failureStore?.record(messageID, reason: detail)
+            tracker?.clear(messageID)
+            return
+        }
 
         let context = placeholderContext()
         let draft = DraftMessage(recipient: recipient, subject: subject, body: body)
@@ -117,31 +145,17 @@ final class ComposeMailViewModel {
 
         do {
             try await sender.send(email, using: credentials, password: password)
-
-            // Persist the outbound message to the thread store so it appears inline in the thread.
-            threadStore?.recordOutbound(
-                messageID: messageID,
-                repoOwner: repoOwner,
-                repoName: repoName,
-                issueNumber: issue.number,
-                from: credentials.username,
-                fromName: credentials.senderName.isEmpty ? nil : credentials.senderName,
-                to: [recipient],
-                cc: [],
-                subject: subject,
-                bodyPlain: body.string,
-                bodyHTML: nil,
-                date: Date(),
-                replyHeaders: replyHeaders
-            )
-
             activityLog.finish(id, status: .success, detail: nil)
+            recordedMessage?.sentAt = Date()
+            tracker?.clear(messageID)
 
             if let mirror {
                 Task { await mirror.mirrorOutbound(messageID: messageID) }
             }
         } catch {
             activityLog.finish(id, status: .failure, detail: error.localizedDescription)
+            failureStore?.record(messageID, reason: error.localizedDescription)
+            tracker?.clear(messageID)
         }
     }
 }

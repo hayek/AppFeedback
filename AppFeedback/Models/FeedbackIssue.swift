@@ -5,6 +5,11 @@ struct IssueLabel: Codable, Sendable, Hashable {
     let colorHex: String
 }
 
+enum IssueState: String, Codable, Sendable {
+    case open
+    case closed
+}
+
 enum IssueType: String {
     case bug
     case featureRequest = "feature-request"
@@ -49,6 +54,8 @@ struct FeedbackIssue: Identifiable, Codable, Sendable {
     let email: String?
     let description: String
     let labels: [IssueLabel]
+    var updatedAt: Date?
+    var state: IssueState?
     var detectedLanguageCode: String?
     var translatedTitle: String?
     var translatedBody: String?

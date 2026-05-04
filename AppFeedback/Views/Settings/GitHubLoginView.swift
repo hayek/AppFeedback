@@ -46,7 +46,7 @@ struct GitHubLoginView: View {
             VStack(alignment: .leading, spacing: 2) {
                 Text("Sign in with GitHub")
                     .font(.system(size: 13, weight: .semibold))
-                Text("Authorize AppFeedback to access your repositories")
+                Text("Authorize Feedbeek to access your repositories")
                     .font(.system(size: 11))
                     .foregroundStyle(.secondary)
             }

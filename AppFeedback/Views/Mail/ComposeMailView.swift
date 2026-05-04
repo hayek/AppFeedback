@@ -14,6 +14,8 @@ struct ComposeMailView: View {
 
     @Environment(MailAccountStore.self) private var store
     @Environment(MailThreadStore.self) private var threadStore
+    @Environment(OutboundSendTracker.self) private var outboundTracker
+    @Environment(OutboundFailureStore.self) private var outboundFailures
     @Environment(ActivityLog.self) private var activityLog
     @Environment(SettingsNavigation.self) private var settingsNavigation
     @Environment(MailToGitHubMirrorHolder.self) private var mirrorHolder: MailToGitHubMirrorHolder?
@@ -189,9 +191,8 @@ struct ComposeMailView: View {
                 Task { await vm.send() }
                 dismiss()
             }
-            #if os(macOS)
-            .keyboardShortcut(.return, modifiers: .command)
-            #endif
+            .buttonStyle(.borderedProminent)
+            .keyboardShortcut(.defaultAction)
             .disabled(!vm.canSend)
         }
         .padding(12)
@@ -212,6 +213,8 @@ struct ComposeMailView: View {
             repoName: repoName,
             store: store,
             threadStore: threadStore,
+            tracker: outboundTracker,
+            failureStore: outboundFailures,
             sender: MailSender(),
             activityLog: activityLog,
             mirror: mirrorHolder?.mirror,
@@ -220,4 +223,5 @@ struct ComposeMailView: View {
         )
     }
 }
+
 #endif

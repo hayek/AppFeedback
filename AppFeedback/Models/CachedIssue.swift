@@ -8,6 +8,10 @@ final class CachedIssue {
     var number: Int = 0
     var title: String = ""
     var createdAt: Date = Date()
+    var updatedAt: Date = Date()
+    /// Raw `IssueState.rawValue`. SwiftData stores primitives, so the typed view goes through
+    /// `issueState`/`setIssueState`. Predicates compare against `IssueState.open.rawValue`.
+    var state: String = IssueState.open.rawValue
     var rawBody: String = ""
     var appName: String?
     var appVersion: String?
@@ -27,6 +31,8 @@ final class CachedIssue {
         number: Int,
         title: String,
         createdAt: Date,
+        updatedAt: Date? = nil,
+        state: IssueState = .open,
         rawBody: String,
         appName: String?,
         appVersion: String?,
@@ -41,6 +47,8 @@ final class CachedIssue {
         self.number = number
         self.title = title
         self.createdAt = createdAt
+        self.updatedAt = updatedAt ?? createdAt
+        self.state = state.rawValue
         self.rawBody = rawBody
         self.appName = appName
         self.appVersion = appVersion
@@ -48,7 +56,7 @@ final class CachedIssue {
         self.osVersion = osVersion
         self.email = email
         self.issueDescription = issueDescription
-        self.labelsJSON = Self.encode(labels)
+        self.labelsJSON = Self.encodeLabels(labels)
     }
 
     func toFeedbackIssue() -> FeedbackIssue {
@@ -63,7 +71,7 @@ final class CachedIssue {
             osVersion: osVersion,
             email: email,
             description: issueDescription,
-            labels: Self.decode(labelsJSON),
+            labels: Self.decodeLabels(labelsJSON),
             detectedLanguageCode: detectedLanguageCode,
             translatedTitle: translatedTitle,
             translatedBody: translatedBody,
@@ -78,6 +86,8 @@ final class CachedIssue {
             number: issue.number,
             title: issue.title,
             createdAt: issue.createdAt,
+            updatedAt: issue.updatedAt ?? issue.createdAt,
+            state: issue.state ?? .open,
             rawBody: issue.rawBody,
             appName: issue.appName,
             appVersion: issue.appVersion,
@@ -89,12 +99,29 @@ final class CachedIssue {
         )
     }
 
-    private static func encode(_ labels: [IssueLabel]) -> String? {
+    /// Updates GitHub-side fields in place. Translation fields are intentionally untouched
+    /// so on-device translations survive every refresh.
+    func updateFromRemote(_ issue: FeedbackIssue) {
+        self.title = issue.title
+        self.createdAt = issue.createdAt
+        self.updatedAt = issue.updatedAt ?? issue.createdAt
+        self.state = (issue.state ?? IssueState(rawValue: state) ?? .open).rawValue
+        self.rawBody = issue.rawBody
+        self.appName = issue.appName
+        self.appVersion = issue.appVersion
+        self.device = issue.device
+        self.osVersion = issue.osVersion
+        self.email = issue.email
+        self.issueDescription = issue.description
+        self.labelsJSON = Self.encodeLabels(issue.labels)
+    }
+
+    static func encodeLabels(_ labels: [IssueLabel]) -> String? {
         guard !labels.isEmpty, let data = try? JSONEncoder().encode(labels) else { return nil }
         return String(data: data, encoding: .utf8)
     }
 
-    private static func decode(_ json: String?) -> [IssueLabel] {
+    static func decodeLabels(_ json: String?) -> [IssueLabel] {
         guard let json, let data = json.data(using: .utf8) else { return [] }
         return (try? JSONDecoder().decode([IssueLabel].self, from: data)) ?? []
     }

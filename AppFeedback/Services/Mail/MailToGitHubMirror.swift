@@ -141,7 +141,7 @@ final class MailToGitHubMirror {
         \(quoted)
 
         ---
-        _Mirrored automatically by AppFeedback_
+        _Mirrored automatically by Feedbeek_
         """
     }
 

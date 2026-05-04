@@ -11,6 +11,8 @@ struct AppFeedbackApp: App {
     @State private var activityLog: ActivityLog
     @State private var mailAccountStore: MailAccountStore
     @State private var threadStore: MailThreadStore
+    @State private var outboundTracker: OutboundSendTracker = OutboundSendTracker()
+    @State private var outboundFailures: OutboundFailureStore
     @State private var settingsNavigation = SettingsNavigation()
     @State private var seenStore: SeenIssueStore
     @State private var hiddenAppStore: HiddenAppStore
@@ -40,11 +42,12 @@ struct AppFeedbackApp: App {
                     for: Repo.self, SeenIssue.self, HiddenApp.self, MailAccount.self,
                         MailThread.self, MailMessage.self, MailAttachment.self,
                         CachedIssue.self, MailAttachmentLocal.self, MailAccountLocalState.self,
+                        RepoFetchState.self,
                     configurations: testConfig
                 )
             } else {
                 let cloudSchema = Schema([Repo.self, SeenIssue.self, HiddenApp.self, MailAccount.self, MailThread.self, MailMessage.self, MailAttachment.self])
-                let localSchema = Schema([CachedIssue.self, MailAttachmentLocal.self, MailAccountLocalState.self])
+                let localSchema = Schema([CachedIssue.self, MailAttachmentLocal.self, MailAccountLocalState.self, RepoFetchState.self])
                 let cloudConfig = ModelConfiguration(
                     "cloud",
                     schema: cloudSchema,
@@ -55,6 +58,7 @@ struct AppFeedbackApp: App {
                     for: Repo.self, SeenIssue.self, HiddenApp.self, MailAccount.self,
                         MailThread.self, MailMessage.self, MailAttachment.self,
                         CachedIssue.self, MailAttachmentLocal.self, MailAccountLocalState.self,
+                        RepoFetchState.self,
                     configurations: cloudConfig, localConfig
                 )
             }
@@ -85,6 +89,13 @@ struct AppFeedbackApp: App {
             return supportDir.appendingPathComponent("activity.json")
         }()
         _activityLog = State(initialValue: ActivityLog(persistenceURL: activityLogURL))
+        let failureStoreURL: URL? = isTesting ? nil : {
+            let supportDir = FileManager.default
+                .urls(for: .applicationSupportDirectory, in: .userDomainMask).first!
+                .appendingPathComponent("AppFeedback", isDirectory: true)
+            return supportDir.appendingPathComponent("outbound-failures.json")
+        }()
+        _outboundFailures = State(initialValue: OutboundFailureStore(persistenceURL: failureStoreURL))
         _intelligenceSettings = State(initialValue: IntelligenceSettings())
         _intelligenceService = State(initialValue: IntelligenceService())
 
@@ -176,6 +187,8 @@ struct AppFeedbackApp: App {
                 .environment(activityLog)
                 .environment(mailAccountStore)
                 .environment(threadStore)
+                .environment(outboundTracker)
+                .environment(outboundFailures)
                 .environment(settingsNavigation)
                 .environment(intelligenceSettings)
                 .environment(intelligenceService)
@@ -237,6 +250,8 @@ struct AppFeedbackApp: App {
                 .environment(activityLog)
                 .environment(mailAccountStore)
                 .environment(threadStore)
+                .environment(outboundTracker)
+                .environment(outboundFailures)
                 .environment(settingsNavigation)
                 .environment(intelligenceSettings)
                 .environment(intelligenceService)

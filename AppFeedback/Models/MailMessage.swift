@@ -24,6 +24,11 @@ final class MailMessage {
     /// `MailToGitHubMirror` posts the comment; nil means "not mirrored yet" (or feature off
     /// for the repo). Used as the dedupe key so each poll cycle doesn't re-post inbound replies.
     var githubCommentID: Int? = nil
+    /// Timestamp of successful SMTP delivery for outbound messages we composed locally.
+    /// Nil for inbound, for legacy outbound rows backfilled from IMAP, and for outbound rows
+    /// that haven't sent successfully yet. Synced via CloudKit so the "Sent" state survives
+    /// relaunch and appears on the user's other devices.
+    var sentAt: Date? = nil
     var thread: MailThread? = nil
     // CloudKit requires to-many relationships to be optional.
     @Relationship(deleteRule: .cascade, inverse: \MailAttachment.message)
@@ -59,6 +64,7 @@ final class MailMessage {
         directionRaw: String = Direction.outbound.rawValue,
         uid: Int = 0,
         folder: String = "",
+        sentAt: Date? = nil,
         thread: MailThread? = nil,
         attachments: [MailAttachment]? = []
     ) {
@@ -77,6 +83,7 @@ final class MailMessage {
         self.directionRaw = directionRaw
         self.uid = uid
         self.folder = folder
+        self.sentAt = sentAt
         self.thread = thread
         self.attachments = attachments
     }

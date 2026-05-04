@@ -13,9 +13,12 @@ final class IssueLoader {
 
     enum LoadError: LocalizedError {
         case apiError(Int)
+        case graphQLError(String)
         var errorDescription: String? {
-            if case .apiError(let code) = self { return "GitHub API returned \(code)" }
-            return nil
+            switch self {
+            case .apiError(let code): return "GitHub API returned \(code)"
+            case .graphQLError(let msg): return "GitHub GraphQL: \(msg)"
+            }
         }
     }
 
@@ -51,8 +54,6 @@ final class IssueLoader {
         if let existing = inFlight, existing.token == token {
             task = existing.task
         } else {
-            // New token (or no in-flight): supersede any prior task. The orphaned task
-            // continues but its result is overwritten by ours when it lands.
             inFlight?.task.cancel()
             let newTask = Task { @MainActor [weak self] in
                 await self?.performLoad(token: token)
@@ -61,14 +62,12 @@ final class IssueLoader {
             inFlight = (token, newTask)
             task = newTask
         }
-        // Awaiters share the in-flight task; cancellation of one awaiter does not cancel
-        // the shared work — other awaiters still get the result.
         await task.value
     }
 
     private func performLoad(token: String) async {
         if case .idle = state { loadFromCache() }
-        let preLoadState = state   // snapshot before overwriting
+        let preLoadState = state
         // Keep showing cached data while fetching; only flip to .loading when we have
         // nothing to show. Otherwise SwiftUI Observation coalesces cache→loading writes
         // in the same tick and the cached state never renders.
@@ -76,34 +75,41 @@ final class IssueLoader {
 
         let entryID = activityLog?.start(kind: .fetchIssues, title: "\(config.owner)/\(config.repo)")
 
+        // Capture fetch start before issuing the request — we use this as the next `since`
+        // bound on success. Slight overlap on the next fetch is preferred over missing
+        // updates that land mid-request.
+        let fetchStartedAt = Date()
+        let prior = readFetchState()
+        let isIncremental = prior.lastFetchedAt != nil
+
         do {
-            let raw = try await fetchAllPages(token: token)
-            let issues = raw
-                .filter { $0.pullRequest == nil }
-                .map { gh -> FeedbackIssue in
-                    let parsed = IssueBodyParser.parse(gh.body ?? "")
-                    return FeedbackIssue(
-                        number:      gh.number,
-                        title:       gh.title,
-                        createdAt:   gh.createdAt,
-                        rawBody:     gh.body ?? "",
-                        appName:     parsed.app,
-                        appVersion:  parsed.appVersion,
-                        device:      parsed.device,
-                        osVersion:   parsed.osVersion,
-                        email:       parsed.email,
-                        description: parsed.description,
-                        labels:      gh.labels.map { IssueLabel(name: $0.name, colorHex: $0.color) }
-                    )
+            let outcome = try await fetchAllPages(
+                token: token,
+                since: prior.lastFetchedAt,
+                etag: prior.etag,
+                includeClosed: isIncremental
+            )
+            switch outcome {
+            case .notModified:
+                persistFetchState(lastFetchedAt: fetchStartedAt, etag: prior.etag)
+                let issues = loadOpenIssuesFromCache()
+                state = .loaded(issues, Date())
+                if let entryID {
+                    activityLog?.finish(entryID, status: .success, detail: "no changes")
                 }
-            saveToCache(issues)
-            state = .loaded(issues, Date())
-            if let entryID {
-                activityLog?.finish(entryID, status: .success, detail: "\(issues.count) issue\(issues.count == 1 ? "" : "s")")
+            case .updated(let fetched, let newEtag):
+                mergeToCache(fetched, isFullRefresh: !isIncremental)
+                persistFetchState(lastFetchedAt: fetchStartedAt, etag: newEtag)
+                let issues = loadOpenIssuesFromCache()
+                state = .loaded(issues, Date())
+                if let entryID {
+                    let n = fetched.count
+                    activityLog?.finish(entryID, status: .success, detail: "\(n) update\(n == 1 ? "" : "s")")
+                }
             }
         } catch {
             if case .loaded = preLoadState {
-                state = preLoadState   // restore cached data
+                state = preLoadState
                 if let entryID {
                     activityLog?.finish(entryID, status: .failure, detail: error.localizedDescription)
                 }
@@ -116,61 +122,307 @@ final class IssueLoader {
         }
     }
 
-    private func fetchAllPages(token: String) async throws -> [GitHubIssue] {
-        var page = 1
-        var collected: [GitHubIssue] = []
-        let decoder = JSONDecoder()
-        decoder.dateDecodingStrategy = .iso8601
+    // MARK: - GraphQL fetch
 
-        while true {
-            var comps = URLComponents(string: "https://api.github.com/repos/\(config.owner)/\(config.repo)/issues")!
-            comps.queryItems = [
-                URLQueryItem(name: "state",    value: "open"),
-                URLQueryItem(name: "per_page", value: "100"),
-                URLQueryItem(name: "page",     value: "\(page)"),
-            ]
-            var request = URLRequest(url: comps.url!)
-            request.setValue("Bearer \(token)",                 forHTTPHeaderField: "Authorization")
-            request.setValue("application/vnd.github.v3+json", forHTTPHeaderField: "Accept")
-
-            let (data, response) = try await session.data(for: request)
-            guard let http = response as? HTTPURLResponse, (200...299).contains(http.statusCode) else {
-                throw LoadError.apiError((response as? HTTPURLResponse)?.statusCode ?? 0)
-            }
-
-            let batch = try decoder.decode([GitHubIssue].self, from: data)
-            collected.append(contentsOf: batch)
-            if batch.count < 100 { break }
-            page += 1
-        }
-        return collected
+    private enum FetchOutcome {
+        case notModified
+        case updated(issues: [FeedbackIssue], etag: String?)
     }
 
-    private func loadFromCache() {
-        guard let context = cacheContext else { return }
-        let owner = config.owner
-        let name = config.repo
-        let predicate = #Predicate<CachedIssue> {
-            $0.repoOwner == owner && $0.repoName == name
+    private enum PageOutcome {
+        case notModified
+        case page(PageResult, etag: String?)
+    }
+
+    private func fetchAllPages(
+        token: String,
+        since: Date?,
+        etag: String?,
+        includeClosed: Bool
+    ) async throws -> FetchOutcome {
+        var collected: [FeedbackIssue] = []
+        var cursor: String? = nil
+        var firstPageEtag: String? = nil
+        var pageIndex = 0
+
+        // Only the first request carries the ETag — pagination beyond page 0 is reached
+        // via `after: cursor` and won't have a matching cached response anyway. The 304
+        // short-circuit therefore only fires on the initial request.
+        var hasMore = true
+        while hasMore {
+            let outcome = try await fetchPage(
+                token: token,
+                cursor: cursor,
+                since: since,
+                etag: pageIndex == 0 ? etag : nil,
+                includeClosed: includeClosed
+            )
+            switch outcome {
+            case .notModified:
+                return .notModified
+            case .page(let page, let responseEtag):
+                if pageIndex == 0 { firstPageEtag = responseEtag }
+                collected.append(contentsOf: page.nodes)
+                hasMore = page.hasNextPage
+                cursor = page.endCursor
+                pageIndex += 1
+            }
         }
-        let descriptor = FetchDescriptor<CachedIssue>(predicate: predicate)
-        guard let rows = try? context.fetch(descriptor), !rows.isEmpty else { return }
-        let issues = rows.map { $0.toFeedbackIssue() }
+
+        return .updated(issues: collected, etag: firstPageEtag)
+    }
+
+    private struct PageResult {
+        let nodes: [FeedbackIssue]
+        let hasNextPage: Bool
+        let endCursor: String?
+    }
+
+    private static let iso8601Formatter: ISO8601DateFormatter = {
+        let f = ISO8601DateFormatter()
+        f.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+        return f
+    }()
+
+    private static let issuesQuery = """
+    query($owner: String!, $name: String!, $first: Int!, $after: String, $states: [IssueState!]!, $since: DateTime) {
+      repository(owner: $owner, name: $name) {
+        issues(first: $first, after: $after, states: $states, orderBy: {field: UPDATED_AT, direction: DESC}, filterBy: {since: $since}) {
+          pageInfo { hasNextPage endCursor }
+          nodes {
+            number
+            title
+            body
+            createdAt
+            updatedAt
+            state
+            labels(first: 30) { nodes { name color } }
+          }
+        }
+      }
+    }
+    """
+
+    private func fetchPage(
+        token: String,
+        cursor: String?,
+        since: Date?,
+        etag: String?,
+        includeClosed: Bool
+    ) async throws -> PageOutcome {
+        var variables: [String: Any] = [
+            "owner": config.owner,
+            "name": config.repo,
+            "first": 100,
+            "states": includeClosed ? ["OPEN", "CLOSED"] : ["OPEN"],
+        ]
+        if let cursor { variables["after"] = cursor }
+        if let since {
+            variables["since"] = Self.iso8601Formatter.string(from: since)
+        }
+        let body: [String: Any] = [
+            "query": Self.issuesQuery,
+            "variables": variables,
+        ]
+
+        var request = URLRequest(url: URL(string: "https://api.github.com/graphql")!)
+        request.httpMethod = "POST"
+        request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+        request.setValue("application/json", forHTTPHeaderField: "Accept")
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        if let etag { request.setValue(etag, forHTTPHeaderField: "If-None-Match") }
+        request.httpBody = try JSONSerialization.data(withJSONObject: body)
+
+        let (data, response) = try await session.data(for: request)
+        guard let http = response as? HTTPURLResponse else {
+            throw LoadError.apiError(0)
+        }
+        if http.statusCode == 304 {
+            return .notModified
+        }
+        guard (200...299).contains(http.statusCode) else {
+            throw LoadError.apiError(http.statusCode)
+        }
+
+        let responseEtag = http.value(forHTTPHeaderField: "ETag")
+        let decoded = try Self.decodePage(data: data, owner: config.owner, repo: config.repo)
+        return .page(decoded, etag: responseEtag)
+    }
+
+    private static func decodePage(data: Data, owner: String, repo: String) throws -> PageResult {
+        let decoder = JSONDecoder()
+        decoder.dateDecodingStrategy = .iso8601
+        let envelope = try decoder.decode(GraphQLEnvelope.self, from: data)
+        if let errors = envelope.errors, !errors.isEmpty {
+            throw LoadError.graphQLError(errors.map(\.message).joined(separator: "; "))
+        }
+        guard let issues = envelope.data?.repository?.issues else {
+            throw LoadError.graphQLError("missing repository.issues")
+        }
+        let nodes = issues.nodes.map { node -> FeedbackIssue in
+            let parsed = IssueBodyParser.parse(node.body ?? "")
+            let labels = (node.labels?.nodes ?? []).map {
+                IssueLabel(name: $0.name, colorHex: $0.color)
+            }
+            return FeedbackIssue(
+                number: node.number,
+                title: node.title,
+                createdAt: node.createdAt,
+                rawBody: node.body ?? "",
+                appName: parsed.app,
+                appVersion: parsed.appVersion,
+                device: parsed.device,
+                osVersion: parsed.osVersion,
+                email: parsed.email,
+                description: parsed.description,
+                labels: labels,
+                updatedAt: node.updatedAt,
+                state: IssueState(rawValue: node.state.lowercased())
+            )
+        }
+        return PageResult(
+            nodes: nodes,
+            hasNextPage: issues.pageInfo.hasNextPage,
+            endCursor: issues.pageInfo.endCursor
+        )
+    }
+
+    // MARK: - GraphQL response shapes
+
+    private struct GraphQLEnvelope: Decodable {
+        let data: DataPayload?
+        let errors: [GraphQLError]?
+    }
+    private struct GraphQLError: Decodable {
+        let message: String
+    }
+    private struct DataPayload: Decodable {
+        let repository: Repository?
+    }
+    private struct Repository: Decodable {
+        let issues: Issues
+    }
+    private struct Issues: Decodable {
+        let pageInfo: PageInfo
+        let nodes: [Node]
+    }
+    private struct PageInfo: Decodable {
+        let hasNextPage: Bool
+        let endCursor: String?
+    }
+    private struct Node: Decodable {
+        let number: Int
+        let title: String
+        let body: String?
+        let createdAt: Date
+        let updatedAt: Date
+        let state: String
+        let labels: LabelConnection?
+    }
+    private struct LabelConnection: Decodable {
+        let nodes: [Label]
+    }
+    private struct Label: Decodable {
+        let name: String
+        let color: String
+    }
+
+    // MARK: - Cache
+
+    private func loadFromCache() {
+        let issues = loadOpenIssuesFromCache()
+        guard !issues.isEmpty else { return }
         state = .loaded(issues, Date(timeIntervalSince1970: 0))
     }
 
-    private func saveToCache(_ issues: [FeedbackIssue]) {
+    private func loadOpenIssuesFromCache() -> [FeedbackIssue] {
+        guard let context = cacheContext else { return [] }
+        let owner = config.owner
+        let name = config.repo
+        let openRaw = IssueState.open.rawValue
+        let descriptor = FetchDescriptor<CachedIssue>(predicate: #Predicate { cached in
+            cached.repoOwner == owner && cached.repoName == name && cached.state == openRaw
+        })
+        let rows = (try? context.fetch(descriptor)) ?? []
+        return rows.map { $0.toFeedbackIssue() }
+    }
+
+    /// Upserts fetched issues into the cache, preserving translation fields on existing rows.
+    /// On a full refresh (no `since`) we trust the response as the canonical OPEN snapshot
+    /// and prune stale OPEN rows that didn't appear. On incremental refresh we only mutate
+    /// rows that came back — anything not in the response is unchanged on GitHub.
+    private func mergeToCache(_ fetched: [FeedbackIssue], isFullRefresh: Bool) {
         guard let context = cacheContext else { return }
         let owner = config.owner
         let name = config.repo
-        let predicate = #Predicate<CachedIssue> {
-            $0.repoOwner == owner && $0.repoName == name
+        let openRaw = IssueState.open.rawValue
+        let fetchedNumbers = Set(fetched.map(\.number))
+
+        // Full refresh needs every cached row (so we can mark missing OPENs as closed).
+        // Incremental refresh only needs to upsert what came back, so narrow the fetch.
+        let descriptor: FetchDescriptor<CachedIssue> = isFullRefresh
+            ? FetchDescriptor(predicate: #Predicate { cached in
+                cached.repoOwner == owner && cached.repoName == name
+            })
+            : FetchDescriptor(predicate: #Predicate { cached in
+                cached.repoOwner == owner && cached.repoName == name
+                    && fetchedNumbers.contains(cached.number)
+            })
+        let existing = (try? context.fetch(descriptor)) ?? []
+        let byNumber = Dictionary(uniqueKeysWithValues: existing.map { ($0.number, $0) })
+
+        for issue in fetched {
+            if let row = byNumber[issue.number] {
+                row.updateFromRemote(issue)
+            } else if (issue.state ?? .open) == .open {
+                // Skip CLOSED issues we've never cached — not interesting to the app.
+                context.insert(CachedIssue.from(issue, repoOwner: owner, repoName: name))
+            }
         }
-        if let existing = try? context.fetch(FetchDescriptor<CachedIssue>(predicate: predicate)) {
-            for row in existing { context.delete(row) }
+
+        if isFullRefresh {
+            // Only OPEN states were requested; any cached OPEN row missing from the response
+            // was closed/deleted upstream. Mark them closed so translations aren't lost in case
+            // of reopen.
+            for row in existing where row.state == openRaw && !fetchedNumbers.contains(row.number) {
+                row.state = IssueState.closed.rawValue
+            }
         }
-        for issue in issues {
-            context.insert(CachedIssue.from(issue, repoOwner: owner, repoName: name))
+
+        try? context.save()
+    }
+
+    // MARK: - Fetch state persistence
+
+    private func fetchStateRow(in context: ModelContext) -> RepoFetchState? {
+        let owner = config.owner
+        let name = config.repo
+        var descriptor = FetchDescriptor<RepoFetchState>(predicate: #Predicate { state in
+            state.repoOwner == owner && state.repoName == name
+        })
+        descriptor.fetchLimit = 1
+        return (try? context.fetch(descriptor))?.first
+    }
+
+    private func readFetchState() -> (lastFetchedAt: Date?, etag: String?) {
+        guard let context = cacheContext, let row = fetchStateRow(in: context) else {
+            return (nil, nil)
+        }
+        return (row.lastFetchedAt, row.etag)
+    }
+
+    private func persistFetchState(lastFetchedAt: Date, etag: String?) {
+        guard let context = cacheContext else { return }
+        if let row = fetchStateRow(in: context) {
+            row.lastFetchedAt = lastFetchedAt
+            if let etag { row.etag = etag }
+        } else {
+            context.insert(RepoFetchState(
+                repoOwner: config.owner,
+                repoName: config.repo,
+                lastFetchedAt: lastFetchedAt,
+                etag: etag
+            ))
         }
         try? context.save()
     }
