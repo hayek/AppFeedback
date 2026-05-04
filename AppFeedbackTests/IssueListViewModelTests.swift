@@ -230,4 +230,52 @@ extension IssueListViewModelTests {
         XCTAssertEqual(vm.allIssues[0].translationTargetLanguage, "en")
         XCTAssertEqual(vm.allIssues[0].translatedTitle, "[t] La aplicación se cierra inesperadamente")
     }
+
+    func test_applyLoaded_hydratesTranslationsFromCloudStore() {
+        // Simulates the iOS-without-Apple-Intelligence case: another device computed
+        // the translation and persisted it to the cloud-synced IssueTranslation table.
+        // applyLoaded must surface that translation on this device.
+        let settings = IntelligenceSettings(defaults: UserDefaults(suiteName: UUID().uuidString)!)
+        settings.targetLanguageCode = "en"
+        settings.translationEnabled = true
+
+        let container = try! ModelContainer(
+            for: CachedIssue.self, IssueTranslation.self,
+            configurations: ModelConfiguration(isStoredInMemoryOnly: true)
+        )
+        let context = ModelContext(container)
+        // Translation produced by another device, arriving via CloudKit.
+        context.insert(IssueTranslation(
+            repoOwner: "org",
+            repoName: "repo",
+            number: 7,
+            targetLanguage: "en",
+            detectedLanguageCode: "es",
+            translatedTitle: "App crashes unexpectedly",
+            translatedBody: "App crashes when I open settings repeatedly."
+        ))
+        try? context.save()
+
+        let vm = IssueListViewModel()
+        let store = SeenIssueStore(context: context)
+        vm.attachSeenStore(store, owner: "org", repo: "repo")
+        vm.attachIntelligence(provider: MockIntelligenceProvider(), settings: settings, cacheContext: context)
+
+        let untranslated = FeedbackIssue(
+            number: 7,
+            title: "La aplicación se cierra inesperadamente",
+            createdAt: Date(),
+            rawBody: "",
+            appName: "App", appVersion: nil, device: nil, osVersion: nil, email: nil,
+            description: "La aplicación se cierra cuando abro la configuración.",
+            labels: []
+        )
+
+        vm.applyLoaded([untranslated])
+
+        XCTAssertEqual(vm.allIssues[0].translatedTitle, "App crashes unexpectedly")
+        XCTAssertEqual(vm.allIssues[0].translatedBody, "App crashes when I open settings repeatedly.")
+        XCTAssertEqual(vm.allIssues[0].translationTargetLanguage, "en")
+        XCTAssertEqual(vm.allIssues[0].detectedLanguageCode, "es")
+    }
 }

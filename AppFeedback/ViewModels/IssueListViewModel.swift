@@ -102,13 +102,28 @@ final class IssueListViewModel {
 
     func applyLoaded(_ issues: [FeedbackIssue]) {
         let priorByNumber = Dictionary(uniqueKeysWithValues: allIssues.map { ($0.number, $0) })
+        let cloudTranslations = fetchCloudTranslationsByNumber(for: issues.map(\.number))
         allIssues = issues.map { fresh in
-            guard let prior = priorByNumber[fresh.number] else { return fresh }
             var merged = fresh
-            merged.detectedLanguageCode = fresh.detectedLanguageCode ?? prior.detectedLanguageCode
-            merged.translatedTitle = fresh.translatedTitle ?? prior.translatedTitle
-            merged.translatedBody = fresh.translatedBody ?? prior.translatedBody
-            merged.translationTargetLanguage = fresh.translationTargetLanguage ?? prior.translationTargetLanguage
+            if let prior = priorByNumber[fresh.number] {
+                merged.detectedLanguageCode = fresh.detectedLanguageCode ?? prior.detectedLanguageCode
+                merged.translatedTitle = fresh.translatedTitle ?? prior.translatedTitle
+                merged.translatedBody = fresh.translatedBody ?? prior.translatedBody
+                merged.translationTargetLanguage = fresh.translationTargetLanguage ?? prior.translationTargetLanguage
+            }
+            // If the local cache lacks a translation for the current target but the
+            // cloud-synced IssueTranslation has one (e.g. computed by another device),
+            // hydrate from it so iOS can show what the Mac translated.
+            if let target = intelligenceSettings?.targetLanguageCode,
+               merged.translationTargetLanguage != target,
+               let row = cloudTranslations[fresh.number],
+               row.targetLanguage == target,
+               (row.translatedTitle != nil || row.translatedBody != nil) {
+                merged.detectedLanguageCode = merged.detectedLanguageCode ?? row.detectedLanguageCode
+                merged.translatedTitle = row.translatedTitle ?? merged.translatedTitle
+                merged.translatedBody = row.translatedBody ?? merged.translatedBody
+                merged.translationTargetLanguage = target
+            }
             return merged
         }
         let numbers = Set(issues.map(\.number))
@@ -268,6 +283,74 @@ final class IssueListViewModel {
             existing.translationTargetLanguage = target
             try? context.save()
         }
+        upsertCloudTranslation(
+            issueNumber: issueNumber,
+            detected: detected,
+            title: title,
+            body: body,
+            target: target,
+            context: context
+        )
+    }
+
+    /// Upserts the cloud-synced translation row for `(owner, repo, number, target)`.
+    /// CloudKit propagates this to other devices so a translation produced on one device
+    /// (e.g. Mac with Apple Intelligence) appears on devices that lack on-device models.
+    private func upsertCloudTranslation(
+        issueNumber: Int,
+        detected: String,
+        title: String?,
+        body: String?,
+        target: String,
+        context: ModelContext
+    ) {
+        let owner = seenOwner
+        let repo = seenRepo
+        let descriptor = FetchDescriptor<IssueTranslation>(predicate: #Predicate { row in
+            row.repoOwner == owner && row.repoName == repo && row.number == issueNumber
+                && row.targetLanguage == target
+        })
+        if let row = (try? context.fetch(descriptor))?.first {
+            row.detectedLanguageCode = detected
+            row.translatedTitle = title
+            row.translatedBody = body
+            row.updatedAt = Date()
+        } else {
+            context.insert(IssueTranslation(
+                repoOwner: owner,
+                repoName: repo,
+                number: issueNumber,
+                targetLanguage: target,
+                detectedLanguageCode: detected,
+                translatedTitle: title,
+                translatedBody: body
+            ))
+        }
+        try? context.save()
+    }
+
+    /// Bulk-fetches IssueTranslation rows for the current target language and the given
+    /// issue numbers, returning a number → row map. Returns empty when no context, no
+    /// settings, or translations are disabled. Used by `applyLoaded` to hydrate translations
+    /// that arrived via CloudKit without a local re-translation.
+    private func fetchCloudTranslationsByNumber(for numbers: [Int]) -> [Int: IssueTranslation] {
+        guard !numbers.isEmpty,
+              let context = cacheContext,
+              let settings = intelligenceSettings,
+              settings.translationEnabled else { return [:] }
+        let owner = seenOwner
+        let repo = seenRepo
+        let target = settings.targetLanguageCode
+        let numberSet = Set(numbers)
+        let descriptor = FetchDescriptor<IssueTranslation>(predicate: #Predicate { row in
+            row.repoOwner == owner && row.repoName == repo
+                && row.targetLanguage == target
+                && numberSet.contains(row.number)
+        })
+        let rows = (try? context.fetch(descriptor)) ?? []
+        return Dictionary(rows.map { ($0.number, $0) }, uniquingKeysWith: { older, newer in
+            newer.updatedAt > older.updatedAt ? newer : older
+        })
     }
 
     func invalidateTranslations() {

@@ -41,12 +41,13 @@ struct AppFeedbackApp: App {
                 container = try ModelContainer(
                     for: Repo.self, SeenIssue.self, HiddenApp.self, MailAccount.self,
                         MailThread.self, MailMessage.self, MailAttachment.self,
+                        IssueTranslation.self,
                         CachedIssue.self, MailAttachmentLocal.self, MailAccountLocalState.self,
                         RepoFetchState.self,
                     configurations: testConfig
                 )
             } else {
-                let cloudSchema = Schema([Repo.self, SeenIssue.self, HiddenApp.self, MailAccount.self, MailThread.self, MailMessage.self, MailAttachment.self])
+                let cloudSchema = Schema([Repo.self, SeenIssue.self, HiddenApp.self, MailAccount.self, MailThread.self, MailMessage.self, MailAttachment.self, IssueTranslation.self])
                 let localSchema = Schema([CachedIssue.self, MailAttachmentLocal.self, MailAccountLocalState.self, RepoFetchState.self])
                 let cloudConfig = ModelConfiguration(
                     "cloud",
@@ -57,6 +58,7 @@ struct AppFeedbackApp: App {
                 container = try ModelContainer(
                     for: Repo.self, SeenIssue.self, HiddenApp.self, MailAccount.self,
                         MailThread.self, MailMessage.self, MailAttachment.self,
+                        IssueTranslation.self,
                         CachedIssue.self, MailAttachmentLocal.self, MailAccountLocalState.self,
                         RepoFetchState.self,
                     configurations: cloudConfig, localConfig
