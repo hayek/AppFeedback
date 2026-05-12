@@ -137,7 +137,11 @@ struct AppFeedbackApp: App {
         _mirrorHolder = State(initialValue: MailToGitHubMirrorHolder(mirrorLocal))
 
         #if canImport(SwiftMail)
-        let imapProvider = IMAPClientProvider(accountStore: mailAccountStoreLocal)
+        // TEMPORARY: per-account spin-up arrives with MailSyncCoordinatorRegistry in Plan Task 11.
+        // Until then, route the single coordinator and downloader through the default sender's
+        // account (or a placeholder when no account exists yet — the coordinator no-ops in that case).
+        let provisionalAccountID = mailAccountStoreLocal.defaultSender?.id ?? UUID()
+        let imapProvider = IMAPClientProvider(accountStore: mailAccountStoreLocal, accountID: provisionalAccountID)
         let localStateStore = localStateStoreLocal
         // Provide real CachedIssue titles to ThreadMatcher for backfill subject matching.
         // Capture `container` as a local constant so the @Sendable closure doesn't capture `self`.

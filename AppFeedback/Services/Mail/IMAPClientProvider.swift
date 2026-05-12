@@ -5,9 +5,11 @@ import Foundation
 /// Allows MailSyncCoordinator to receive a live IMAPClientProtocol without holding stale credentials.
 actor IMAPClientProvider: IMAPClientProtocol {
     private let accountStore: MailAccountStore  // @MainActor
+    private let accountID: UUID
 
-    init(accountStore: MailAccountStore) {
+    init(accountStore: MailAccountStore, accountID: UUID) {
         self.accountStore = accountStore
+        self.accountID = accountID
     }
 
     func listInbox(sinceUID: UInt32, fromAddresses: [String]) async throws -> [ParsedInboundMessage] {
@@ -32,8 +34,9 @@ actor IMAPClientProvider: IMAPClientProtocol {
 
     /// Builds a fresh IMAPClient each call, reading credentials from the account store and Keychain.
     private func makeClient() async throws -> IMAPClient {
+        let accountID = self.accountID
         let snap: (host: String, port: Int, username: String)? = await MainActor.run {
-            guard let acc = accountStore.account,
+            guard let acc = accountStore.account(id: accountID),
                   !acc.imapHost.isEmpty,
                   !acc.imapUsername.isEmpty else { return nil }
             return (acc.imapHost, acc.imapPort, acc.imapUsername)
@@ -49,8 +52,9 @@ actor IMAPClientProvider: IMAPClientProtocol {
     /// failures once after a short delay so we don't surface a misleading
     /// "no password stored" error for what is really a transient SecItem read.
     private func loadIMAPPasswordWithRetry() async throws -> String {
+        let accountID = self.accountID
         for attempt in 0..<2 {
-            let (pw, status) = KeychainService.loadIMAPPasswordResult()
+            let (pw, status) = KeychainService.loadIMAPPasswordResult(for: accountID)
             if status == errSecSuccess, let pw, !pw.isEmpty {
                 return pw
             }
