@@ -219,7 +219,8 @@ struct ComposeMailView: View {
             activityLog: activityLog,
             mirror: mirrorHolder?.mirror,
             inReplyTo: inReplyTo,
-            initialSubject: subjectOverride
+            initialSubject: subjectOverride,
+            senderAccountID: store.defaultSender?.id ?? UUID()
         )
     }
 }

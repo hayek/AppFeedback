@@ -47,16 +47,20 @@ final class ComposeMailViewModelTests: XCTestCase {
     }
 
     func test_send_callsSenderAndLogsSuccess() async throws {
+        let store = try makeStore()
+        let acc = store.defaultSender
+        XCTAssertNotNil(acc)
         let sender = FakeSender()
         let log = ActivityLog(persistenceURL: nil)
         let vm = ComposeMailViewModel(
             recipient: "bob@example.com",
             issue: makeIssue(),
             repoOwner: "o", repoName: "r",
-            store: try makeStore(),
+            store: store,
             sender: sender,
             activityLog: log,
-            passwordLoader: { "test-secret" }
+            senderAccountID: acc!.id,
+            passwordLoader: { _ in "test-secret" }
         )
         vm.subject = "Hello"
         vm.body = NSAttributedString(string: "Hi Bob")
@@ -73,6 +77,9 @@ final class ComposeMailViewModelTests: XCTestCase {
     }
 
     func test_send_failureLogsFailureWithDetail() async throws {
+        let store = try makeStore()
+        let acc = store.defaultSender
+        XCTAssertNotNil(acc)
         let sender = FakeSender()
         await sender.setShouldThrow(NSError(domain: "Test", code: 1,
                                             userInfo: [NSLocalizedDescriptionKey: "boom"]))
@@ -81,10 +88,11 @@ final class ComposeMailViewModelTests: XCTestCase {
             recipient: "bob@example.com",
             issue: makeIssue(),
             repoOwner: "o", repoName: "r",
-            store: try makeStore(),
+            store: store,
             sender: sender,
             activityLog: log,
-            passwordLoader: { "test-secret" }
+            senderAccountID: acc!.id,
+            passwordLoader: { _ in "test-secret" }
         )
         vm.subject = "x"
         vm.body = NSAttributedString(string: "x")
@@ -105,7 +113,8 @@ final class ComposeMailViewModelTests: XCTestCase {
             store: try makeStore(configured: false),
             sender: sender,
             activityLog: log,
-            passwordLoader: { "test-secret" }
+            senderAccountID: UUID(),
+            passwordLoader: { _ in "test-secret" }
         )
         vm.subject = "x"
         vm.body = NSAttributedString(string: "x")
@@ -118,16 +127,20 @@ final class ComposeMailViewModelTests: XCTestCase {
     }
 
     func test_send_withoutKeychainPassword_logsFailure() async throws {
+        let store = try makeStore()
+        let acc = store.defaultSender
+        XCTAssertNotNil(acc)
         let sender = FakeSender()
         let log = ActivityLog(persistenceURL: nil)
         let vm = ComposeMailViewModel(
             recipient: "bob@example.com",
             issue: makeIssue(),
             repoOwner: "o", repoName: "r",
-            store: try makeStore(),
+            store: store,
             sender: sender,
             activityLog: log,
-            passwordLoader: { nil }
+            senderAccountID: acc!.id,
+            passwordLoader: { _ in nil }
         )
         vm.subject = "x"
         vm.body = NSAttributedString(string: "x")
@@ -141,6 +154,9 @@ final class ComposeMailViewModelTests: XCTestCase {
     }
 
     func test_send_withInReplyTo_writesReplyHeaders() async throws {
+        let store = try makeStore()
+        let acc = store.defaultSender
+        XCTAssertNotNil(acc)
         let sender = FakeSender()
         let log = ActivityLog(persistenceURL: nil)
         let parent = MailMessageHeaders(
@@ -152,11 +168,12 @@ final class ComposeMailViewModelTests: XCTestCase {
             recipient: "bob@example.com",
             issue: makeIssue(),
             repoOwner: "o", repoName: "r",
-            store: try makeStore(),
+            store: store,
             sender: sender,
             activityLog: log,
             inReplyTo: parent,
-            passwordLoader: { "pw" }
+            senderAccountID: acc!.id,
+            passwordLoader: { _ in "pw" }
         )
         vm.subject = "Re: Crash"
         vm.body = NSAttributedString(string: "ack")
@@ -167,6 +184,48 @@ final class ComposeMailViewModelTests: XCTestCase {
         XCTAssertEqual(sent.count, 1)
         XCTAssertEqual(sent[0].0.additionalHeaders?["In-Reply-To"], "<parent@x>")
         XCTAssertEqual(sent[0].0.additionalHeaders?["References"], "<root@x> <parent@x>")
+    }
+
+    func test_sendUsesCredentialsAndPasswordForRequestedAccount() async throws {
+        let store = try makeStore(configured: false)
+        let a = store.add { acc in
+            acc.smtpUsername = "alice@x"
+            acc.senderName = "Alice"
+            acc.smtpHost = "smtp.x"
+            acc.smtpPort = 587
+        }
+        let b = store.add { acc in
+            acc.smtpUsername = "bob@x"
+            acc.senderName = "Bob"
+            acc.smtpHost = "smtp.x"
+            acc.smtpPort = 587
+        }
+
+        let sender = FakeSender()
+        let log = ActivityLog(persistenceURL: nil)
+
+        let vm = ComposeMailViewModel(
+            recipient: "user@example.com",
+            issue: makeIssue(),
+            repoOwner: "o", repoName: "r",
+            store: store,
+            sender: sender,
+            activityLog: log,
+            senderAccountID: b.id,
+            passwordLoader: { @Sendable id in
+                XCTAssertEqual(id, b.id)
+                return "bob-password"
+            }
+        )
+        vm.subject = "Test"
+        vm.body = NSAttributedString(string: "hello")
+        await vm.send()
+
+        let sent = await sender.snapshot()
+        XCTAssertEqual(sent.count, 1)
+        XCTAssertEqual(sent[0].1.username, "bob@x")
+        XCTAssertEqual(sent[0].2, "bob-password")
+        _ = a
     }
 }
 #endif
