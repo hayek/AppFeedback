@@ -42,6 +42,7 @@ actor MailSyncCoordinator {
     // MARK: - Dependencies
 
     private let client: IMAPClientProtocol
+    private let accountID: UUID
     private let threadStore: MailThreadStore           // @MainActor
     private let accountStore: MailAccountStore         // @MainActor
     private let localState: MailAccountLocalStateStore // @MainActor
@@ -61,6 +62,7 @@ actor MailSyncCoordinator {
 
     init(
         client: IMAPClientProtocol,
+        accountID: UUID,
         threadStore: MailThreadStore,
         accountStore: MailAccountStore,
         localState: MailAccountLocalStateStore,
@@ -71,6 +73,7 @@ actor MailSyncCoordinator {
         clock: @Sendable @escaping () -> Date = { Date() }
     ) {
         self.client = client
+        self.accountID = accountID
         self.threadStore = threadStore
         self.accountStore = accountStore
         self.localState = localState
@@ -94,8 +97,9 @@ actor MailSyncCoordinator {
             // Interval loop
             while !Task.isCancelled {
                 // Read the current poll settings as a value snapshot
+                let accountID = self.accountID
                 let snapshot = await MainActor.run { () -> (intervalSeconds: Int, pollingEnabled: Bool, consecutiveFailures: Int) in
-                    let account = self.accountStore.account
+                    let account = self.accountStore.account(id: accountID)
                     let failures = self.localState.state?.consecutiveFailures ?? 0
                     return (
                         account?.pollIntervalSeconds ?? 300,
@@ -145,8 +149,9 @@ actor MailSyncCoordinator {
         inFlight = true
         defer { inFlight = false }
 
+        let accountID = self.accountID
         let accountSnapshot = await MainActor.run { () -> AccountSnapshot? in
-            guard let acc = self.accountStore.account else { return nil }
+            guard let acc = self.accountStore.account(id: accountID) else { return nil }
             return AccountSnapshot(
                 id: acc.id,
                 pollIntervalSeconds: acc.pollIntervalSeconds,
@@ -167,9 +172,10 @@ actor MailSyncCoordinator {
             )
         }
 
+        let accountLabel = await MainActor.run { accountStore.account(id: accountID)?.smtpUsername ?? "—" }
         status = .polling
         let logID = await MainActor.run {
-            self.activityLog.start(kind: .fetchMail, title: "Fetch mail")
+            self.activityLog.start(kind: .fetchMail, title: "Fetch mail (\(accountLabel))")
         }
 
         // Backfill must run before listInbox: the inbox poll's FROM filter depends on
@@ -275,8 +281,9 @@ actor MailSyncCoordinator {
         // messages. 14 days is enough to capture recent feedback exchanges; older replies
         // surface naturally as the user resumes activity.
         let cutoff = clock().addingTimeInterval(-14 * 24 * 3600)
+        let accountLabel = await MainActor.run { accountStore.account(id: accountID)?.smtpUsername ?? "—" }
         let backfillLogID = await MainActor.run {
-            self.activityLog.start(kind: .fetchMail, title: "Backfill sent folder")
+            self.activityLog.start(kind: .fetchMail, title: "Backfill sent folder (\(accountLabel))")
         }
 
         do {
@@ -318,7 +325,7 @@ actor MailSyncCoordinator {
                 }
 
                 // Flip backfillCompleted and reset failure counter on success.
-                self.accountStore.upsert { acc in
+                self.accountStore.update(id: accountID) { acc in
                     acc.backfillCompleted = true
                 }
                 self.localState.update { ls in
@@ -342,7 +349,7 @@ actor MailSyncCoordinator {
                 let hitCap = newCount >= maxBackfillFailures
                 if hitCap {
                     // Cap reached — mark backfill done so we don't retry forever.
-                    self.accountStore.upsert { acc in acc.backfillCompleted = true }
+                    self.accountStore.update(id: accountID) { acc in acc.backfillCompleted = true }
                     self.activityLog.finish(
                         backfillLogID,
                         status: .failure,

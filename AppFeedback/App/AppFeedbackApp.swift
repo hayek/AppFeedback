@@ -150,6 +150,7 @@ struct AppFeedbackApp: App {
         let titlesContainer = container
         let coordinator = MailSyncCoordinator(
             client: imapProvider,
+            accountID: provisionalAccountID,
             threadStore: threadStoreLocal,
             accountStore: mailAccountStoreLocal,
             localState: localStateStore,

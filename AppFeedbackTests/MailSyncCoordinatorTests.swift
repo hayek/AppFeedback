@@ -106,9 +106,11 @@ final class MailSyncCoordinatorTests: XCTestCase {
             acc.pollIntervalSeconds = 300
             acc.backfillCompleted = backfillCompleted
         }
+        let accountID = accountStore.accounts.first!.id
 
         let coordinator = MailSyncCoordinator(
             client: mock,
+            accountID: accountID,
             threadStore: threadStore,
             accountStore: accountStore,
             localState: localStateStore,
@@ -179,9 +181,11 @@ final class MailSyncCoordinatorTests: XCTestCase {
             acc.pollIntervalSeconds = 300
             acc.backfillCompleted = true
         }
+        let accountID = accountStore.accounts.first!.id
 
         let coordinator = MailSyncCoordinator(
             client: slowMock,
+            accountID: accountID,
             threadStore: threadStore,
             accountStore: accountStore,
             localState: localStateStore,
