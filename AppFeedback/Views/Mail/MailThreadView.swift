@@ -10,6 +10,7 @@ struct ReplyTarget: Identifiable {
     let recipient: String
     let subject: String
     let headers: MailMessageHeaders
+    let senderAccountID: UUID
 }
 
 struct MailThreadView: View {
@@ -19,10 +20,21 @@ struct MailThreadView: View {
     let repoName: String
     let appColor: Color
 
+    @Environment(MailAccountStore.self) private var accountStore
+
     @State private var isExpanded: Bool = true
     @State private var replyTarget: ReplyTarget? = nil
 
     private var messages: [MailMessage] { thread.sortedDedupedMessages }
+
+    private var resolvedSenderAccountID: UUID? {
+        if let last = messages.last,
+           let id = last.accountID,
+           accountStore.account(id: id) != nil {
+            return id
+        }
+        return accountStore.defaultSender?.id
+    }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
@@ -44,7 +56,8 @@ struct MailThreadView: View {
                 repoOwner: repoOwner,
                 repoName: repoName,
                 inReplyTo: target.headers,
-                subjectOverride: target.subject
+                subjectOverride: target.subject,
+                senderAccountID: target.senderAccountID
             )
             #else
             Text("ComposeMailView is unavailable on this build.")
@@ -90,8 +103,9 @@ struct MailThreadView: View {
         return MailAddress.bare(from: rawRecipient) ?? rawRecipient
     }
 
-    private func beginReply() {
+    private func beginReply(senderAccountID: UUID? = nil) {
         guard let last = messages.last, let recipient = replyRecipient else { return }
+        guard let chosen = senderAccountID ?? resolvedSenderAccountID else { return }
         let headers = MailMessageHeaders(
             messageID: last.messageID,
             inReplyTo: last.inReplyTo,
@@ -100,7 +114,8 @@ struct MailThreadView: View {
         replyTarget = ReplyTarget(
             recipient: recipient,
             subject: MailSubject.replyPrefixed(last.subject),
-            headers: headers
+            headers: headers,
+            senderAccountID: chosen
         )
     }
 
@@ -118,11 +133,16 @@ struct MailThreadView: View {
     @ViewBuilder
     private var replyButton: some View {
         if let recipient = replyRecipient {
+            let options = accountStore.accounts
+                .filter { !$0.smtpUsername.isEmpty }
+                .map { ReplyBadgeButton.ReplyFromOption(id: $0.id, address: $0.smtpUsername) }
             ReplyBadgeButton(
                 email: recipient,
                 color: appColor,
-                onReply: beginReply,
-                onCopy: copyRecipient
+                onReply: { beginReply() },
+                onCopy: copyRecipient,
+                replyFromOptions: options.count > 1 ? options : [],
+                onReplyFrom: { id in beginReply(senderAccountID: id) }
             )
             .padding(.top, 8)
             .frame(maxWidth: .infinity, alignment: .trailing)

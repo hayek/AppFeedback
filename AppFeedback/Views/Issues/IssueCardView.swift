@@ -613,10 +613,17 @@ private struct MetaTagView: View {
 }
 
 struct ReplyBadgeButton: View {
+    struct ReplyFromOption: Identifiable, Hashable {
+        let id: UUID
+        let address: String
+    }
+
     let email: String
     let color: Color
     let onReply: () -> Void
     let onCopy: () -> Void
+    var replyFromOptions: [ReplyFromOption] = []
+    var onReplyFrom: ((UUID) -> Void)? = nil
 
     var body: some View {
         Button(action: onReply) {
@@ -636,6 +643,13 @@ struct ReplyBadgeButton: View {
         .help("Reply to \(email)")
         .contextMenu {
             Button("Reply to \(email)", action: onReply)
+            if !replyFromOptions.isEmpty, let onReplyFrom {
+                Menu("Reply from") {
+                    ForEach(replyFromOptions) { opt in
+                        Button(opt.address) { onReplyFrom(opt.id) }
+                    }
+                }
+            }
             Button("Copy address", action: onCopy)
         }
     }
