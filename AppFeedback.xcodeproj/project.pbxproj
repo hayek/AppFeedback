@@ -42,6 +42,10 @@
 		AB12CD34EF5601234567FE22 /* IssueSummaryCache.swift in Sources */ = {isa = PBXBuildFile; fileRef = AB12CD34EF5601234567FE20 /* IssueSummaryCache.swift */; };
 		AB12CD34EF5601234567FE31 /* MailSettings.swift in Sources */ = {isa = PBXBuildFile; fileRef = AB12CD34EF5601234567FE30 /* MailSettings.swift */; };
 		AB12CD34EF5601234567FE32 /* MailSettings.swift in Sources */ = {isa = PBXBuildFile; fileRef = AB12CD34EF5601234567FE30 /* MailSettings.swift */; };
+		AB12CD34EF5601234567FE41 /* MailSettingsStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = AB12CD34EF5601234567FE40 /* MailSettingsStore.swift */; };
+		AB12CD34EF5601234567FE42 /* MailSettingsStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = AB12CD34EF5601234567FE40 /* MailSettingsStore.swift */; };
+		AB12CD34EF5601234567FE44 /* MailSettingsStoreTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = AB12CD34EF5601234567FE43 /* MailSettingsStoreTests.swift */; };
+		AB12CD34EF5601234567FE45 /* MailSettingsStoreTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = AB12CD34EF5601234567FE43 /* MailSettingsStoreTests.swift */; };
 		1A5087796E77E3A1B3254A6A /* AddEditRepoView.swift in Sources */ = {isa = PBXBuildFile; fileRef = DA2585A8442E3BBFF49D6958 /* AddEditRepoView.swift */; };
 		1CAF1910E24C4A56CF158ADB /* HiddenAppStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = C897756C0C9A16325888F788 /* HiddenAppStore.swift */; };
 		1CF1DBFBD18235D25DF8D101 /* IssueBodyParser.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2EA9ED253AAB1648CE69C3C8 /* IssueBodyParser.swift */; };
@@ -440,6 +444,8 @@
 		AB12CD34EF5601234567FE10 /* IssueTranslation.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = IssueTranslation.swift; sourceTree = "<group>"; };
 		AB12CD34EF5601234567FE20 /* IssueSummaryCache.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = IssueSummaryCache.swift; sourceTree = "<group>"; };
 		AB12CD34EF5601234567FE30 /* MailSettings.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MailSettings.swift; sourceTree = "<group>"; };
+		AB12CD34EF5601234567FE40 /* MailSettingsStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MailSettingsStore.swift; sourceTree = "<group>"; };
+		AB12CD34EF5601234567FE43 /* MailSettingsStoreTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MailSettingsStoreTests.swift; sourceTree = "<group>"; };
 		ED45644F876811CA79E17198 /* IMAPClientError.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = IMAPClientError.swift; sourceTree = "<group>"; };
 		F21997922568B439D705E5DA /* UnreadSummaryViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UnreadSummaryViewModel.swift; sourceTree = "<group>"; };
 		F3AC2A1A49FFA4A03F179B09 /* MessageIDGeneratorTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MessageIDGeneratorTests.swift; sourceTree = "<group>"; };
@@ -484,6 +490,7 @@
 				93B756CB500E6F04BB86F616 /* MailAccountLocalStateStore.swift */,
 				2A5E2F5FD335BF8BEDD0FC0A /* MailAccountMigration.swift */,
 				86D913610C499CDB7C15463E /* MailAccountStore.swift */,
+				AB12CD34EF5601234567FE40 /* MailSettingsStore.swift */,
 				0FC01BF334B5D65CF0147005 /* MailComposer.swift */,
 				14204B0FB15E1C987B6ADC0F /* MailSender.swift */,
 				B746144B4F5496E44825F77A /* MailSubject.swift */,
@@ -692,6 +699,7 @@
 				C820036DA685AB28006B7941 /* LanguageDetectorTests.swift */,
 				78B64902EBFA643CA5B6BB2B /* MailAccountMigrationTests.swift */,
 				D8AAA23A1C319EADB6C477E9 /* MailAccountStoreTests.swift */,
+				AB12CD34EF5601234567FE43 /* MailSettingsStoreTests.swift */,
 				23A9BA2E68773A9401ABCE89 /* MailComposerTests.swift */,
 				B01371BB929AA76F679A4403 /* MailSubjectTests.swift */,
 				1CFA70463075474DBA852686 /* MailSyncCoordinatorTests.swift */,
@@ -959,6 +967,7 @@
 				E906AAA5A7F1B49D767A3492 /* MailAccountLocalStateStore.swift in Sources */,
 				4E1981FC97C631FEA076F7D2 /* MailAccountMigration.swift in Sources */,
 				09C5FD3D7748A31244DA87B7 /* MailAccountStore.swift in Sources */,
+				AB12CD34EF5601234567FE41 /* MailSettingsStore.swift in Sources */,
 				63F02A0EA217240DEF51BB90 /* MailAttachment.swift in Sources */,
 				0AAF8CE759DC46B71DAAA626 /* MailAttachmentLocal.swift in Sources */,
 				F3AD0B937BC2C7295D0B4EFD /* MailComposer.swift in Sources */,
@@ -1028,6 +1037,7 @@
 				13FBCDDC9A5DD54B6DA3002B /* LanguageDetectorTests.swift in Sources */,
 				C1F0221E07C29AE50FB4D45F /* MailAccountMigrationTests.swift in Sources */,
 				8192DDA72C5F679CEE06DCE8 /* MailAccountStoreTests.swift in Sources */,
+				AB12CD34EF5601234567FE44 /* MailSettingsStoreTests.swift in Sources */,
 				DECF813444D0EBF84A396179 /* MailComposerTests.swift in Sources */,
 				C56CB37E84985ECEAA4F436C /* MailSubjectTests.swift in Sources */,
 				C68119198EEC100CD92FFBB4 /* MailSyncCoordinatorTests.swift in Sources */,
@@ -1109,6 +1119,7 @@
 				F3CE932101925DBF69422ACE /* MailAccountLocalStateStore.swift in Sources */,
 				F5F677A0EEC00AED2CD1B73B /* MailAccountMigration.swift in Sources */,
 				41B72E1D883407E28AC5E6CB /* MailAccountStore.swift in Sources */,
+				AB12CD34EF5601234567FE42 /* MailSettingsStore.swift in Sources */,
 				C7871668D49A7AB530DE6804 /* MailAttachment.swift in Sources */,
 				DB7C1DFACDD2D142932E319E /* MailAttachmentLocal.swift in Sources */,
 				E1E73AAC7E5ED58A44D5DB71 /* MailComposer.swift in Sources */,
@@ -1178,6 +1189,7 @@
 				DAE3BF47B7041F2C51C9D009 /* LanguageDetectorTests.swift in Sources */,
 				DC5344E897AE43C37E2DA4EB /* MailAccountMigrationTests.swift in Sources */,
 				CF3B46C5D3FAF8C7978DA90A /* MailAccountStoreTests.swift in Sources */,
+				AB12CD34EF5601234567FE45 /* MailSettingsStoreTests.swift in Sources */,
 				8252793B884DF31E2DEBA41E /* MailComposerTests.swift in Sources */,
 				743E23C9879F1535ED3CEA9A /* MailSubjectTests.swift in Sources */,
 				84DCF075572215359DFFB0D1 /* MailSyncCoordinatorTests.swift in Sources */,
