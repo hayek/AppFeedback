@@ -14,6 +14,7 @@ struct ComposeMailView: View {
     var senderAccountID: UUID? = nil
 
     @Environment(MailAccountStore.self) private var store
+    @Environment(MailSettingsStore.self) private var settingsStore
     @Environment(MailThreadStore.self) private var threadStore
     @Environment(OutboundSendTracker.self) private var outboundTracker
     @Environment(OutboundFailureStore.self) private var outboundFailures
@@ -70,8 +71,8 @@ struct ComposeMailView: View {
             footerButtons(vm: vm)
         }
         .onAppear { refreshPreviews(vm: vm) }
-        .onChange(of: store.account?.templateHeaderHTML) { _, _ in refreshPreviews(vm: vm) }
-        .onChange(of: store.account?.templateFooterHTML) { _, _ in refreshPreviews(vm: vm) }
+        .onChange(of: settingsStore.settings.templateHeaderHTML) { _, _ in refreshPreviews(vm: vm) }
+        .onChange(of: settingsStore.settings.templateFooterHTML) { _, _ in refreshPreviews(vm: vm) }
     }
 
     private var hasCredentials: Bool {
@@ -81,8 +82,8 @@ struct ComposeMailView: View {
 
     private var currentTemplate: MailTemplate {
         MailTemplate(
-            headerHTML: store.account?.templateHeaderHTML ?? "",
-            footerHTML: store.account?.templateFooterHTML ?? ""
+            headerHTML: settingsStore.settings.templateHeaderHTML,
+            footerHTML: settingsStore.settings.templateFooterHTML
         )
     }
 
@@ -228,6 +229,7 @@ struct ComposeMailView: View {
             repoOwner: repoOwner,
             repoName: repoName,
             store: store,
+            settingsStore: settingsStore,
             threadStore: threadStore,
             tracker: outboundTracker,
             failureStore: outboundFailures,

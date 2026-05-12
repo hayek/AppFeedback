@@ -10,8 +10,8 @@ enum AttachmentFolder {
     /// Falls back to `~/Downloads` (mac) / `Documents/Attachments` (iOS).
     /// Caller is responsible for `startAccessingSecurityScopedResource` / stopAccessing if true is returned.
     /// Returns: (url, didStartScopedAccess)
-    static func resolveDestination(account: MailAccount?) -> (url: URL, didStartScoped: Bool) {
-        if let bookmarkData = account?.attachmentFolderBookmark, !bookmarkData.isEmpty {
+    static func resolveDestination(bookmarkData: Data?) -> (url: URL, didStartScoped: Bool) {
+        if let bookmarkData, !bookmarkData.isEmpty {
             #if os(macOS)
             var stale = false
             if let url = try? URL(

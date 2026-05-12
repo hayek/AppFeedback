@@ -8,7 +8,7 @@ struct AttachmentChipView: View {
     let uid: UInt32
     let folder: String
     let downloader: AttachmentDownloader?
-    let account: MailAccount?
+    let folderBookmark: Data?
 
     @State private var state: ChipState = .idle
     @State private var resolvedURL: URL? = nil
@@ -70,7 +70,7 @@ struct AttachmentChipView: View {
                     folder: folder,
                     partID: attachment.partID,
                     filename: attachment.filename,
-                    account: account
+                    folderBookmark: folderBookmark
                 )
                 resolvedURL = url
                 state = .ready

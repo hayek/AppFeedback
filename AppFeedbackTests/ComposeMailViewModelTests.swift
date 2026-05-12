@@ -21,6 +21,12 @@ final class ComposeMailViewModelTests: XCTestCase {
         func snapshot() -> [(SwiftMail.Email, SMTPCredentials, String)] { sent }
     }
 
+    private func makeSettingsStore() throws -> MailSettingsStore {
+        let config = ModelConfiguration(isStoredInMemoryOnly: true)
+        let container = try ModelContainer(for: MailSettings.self, configurations: config)
+        return MailSettingsStore(context: ModelContext(container))
+    }
+
     private func makeStore(configured: Bool = true) throws -> MailAccountStore {
         let config = ModelConfiguration(isStoredInMemoryOnly: true)
         let container = try ModelContainer(for: MailAccount.self, configurations: config)
@@ -57,6 +63,7 @@ final class ComposeMailViewModelTests: XCTestCase {
             issue: makeIssue(),
             repoOwner: "o", repoName: "r",
             store: store,
+            settingsStore: try makeSettingsStore(),
             sender: sender,
             activityLog: log,
             senderAccountID: acc!.id,
@@ -89,6 +96,7 @@ final class ComposeMailViewModelTests: XCTestCase {
             issue: makeIssue(),
             repoOwner: "o", repoName: "r",
             store: store,
+            settingsStore: try makeSettingsStore(),
             sender: sender,
             activityLog: log,
             senderAccountID: acc!.id,
@@ -111,6 +119,7 @@ final class ComposeMailViewModelTests: XCTestCase {
             issue: makeIssue(),
             repoOwner: "o", repoName: "r",
             store: try makeStore(configured: false),
+            settingsStore: try makeSettingsStore(),
             sender: sender,
             activityLog: log,
             senderAccountID: UUID(),
@@ -137,6 +146,7 @@ final class ComposeMailViewModelTests: XCTestCase {
             issue: makeIssue(),
             repoOwner: "o", repoName: "r",
             store: store,
+            settingsStore: try makeSettingsStore(),
             sender: sender,
             activityLog: log,
             senderAccountID: acc!.id,
@@ -169,6 +179,7 @@ final class ComposeMailViewModelTests: XCTestCase {
             issue: makeIssue(),
             repoOwner: "o", repoName: "r",
             store: store,
+            settingsStore: try makeSettingsStore(),
             sender: sender,
             activityLog: log,
             inReplyTo: parent,
@@ -209,6 +220,7 @@ final class ComposeMailViewModelTests: XCTestCase {
             issue: makeIssue(),
             repoOwner: "o", repoName: "r",
             store: store,
+            settingsStore: try makeSettingsStore(),
             sender: sender,
             activityLog: log,
             senderAccountID: b.id,

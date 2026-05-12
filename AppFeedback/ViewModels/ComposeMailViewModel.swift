@@ -17,6 +17,7 @@ final class ComposeMailViewModel {
     let inReplyTo: MailMessageHeaders?
 
     private let store: MailAccountStore
+    private let settingsStore: MailSettingsStore
     private let threadStore: MailThreadStore?
     private let tracker: OutboundSendTracker?
     private let failureStore: OutboundFailureStore?
@@ -31,6 +32,7 @@ final class ComposeMailViewModel {
          repoOwner: String,
          repoName: String,
          store: MailAccountStore,
+         settingsStore: MailSettingsStore,
          threadStore: MailThreadStore? = nil,
          tracker: OutboundSendTracker? = nil,
          failureStore: OutboundFailureStore? = nil,
@@ -47,6 +49,7 @@ final class ComposeMailViewModel {
         self.repoName = repoName
         self.senderAccountID = senderAccountID
         self.store = store
+        self.settingsStore = settingsStore
         self.threadStore = threadStore
         self.tracker = tracker
         self.failureStore = failureStore
@@ -67,9 +70,10 @@ final class ComposeMailViewModel {
     }
 
     var template: MailTemplate {
-        guard let acc = store.account else { return .empty }
-        return MailTemplate(headerHTML: acc.templateHeaderHTML,
-                            footerHTML: acc.templateFooterHTML)
+        MailTemplate(
+            headerHTML: settingsStore.settings.templateHeaderHTML,
+            footerHTML: settingsStore.settings.templateFooterHTML
+        )
     }
 
     func placeholderContext(date: Date = Date()) -> PlaceholderContext {
