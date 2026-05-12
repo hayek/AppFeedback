@@ -87,7 +87,7 @@ final class AttachmentDownloaderTests: XCTestCase {
             folder: "INBOX",
             partID: "1.2",
             filename: "test.pdf",
-            account: nil
+            folderBookmark: nil
         )
         // File exists at the returned URL.
         XCTAssertTrue(FileManager.default.fileExists(atPath: url.path), "File should exist on disk")
@@ -105,7 +105,7 @@ final class AttachmentDownloaderTests: XCTestCase {
             folder: "INBOX",
             partID: "1.2",
             filename: "test.pdf",
-            account: nil
+            folderBookmark: nil
         )
         let url2 = try await downloader.download(
             messageID: "msg-1",
@@ -113,7 +113,7 @@ final class AttachmentDownloaderTests: XCTestCase {
             folder: "INBOX",
             partID: "1.2",
             filename: "test.pdf",
-            account: nil
+            folderBookmark: nil
         )
         XCTAssertEqual(url1, url2, "Second call should return the cached URL")
         XCTAssertEqual(mockClient.fetchCallCount, 1, "IMAP fetch should only happen once")
@@ -127,7 +127,7 @@ final class AttachmentDownloaderTests: XCTestCase {
             folder: "INBOX",
             partID: "2.1",
             filename: "photo.png",
-            account: nil
+            folderBookmark: nil
         )
         // Check SwiftData row exists.
         let path = localStore.fetchLocalPath(messageID: "msg-2", partID: "2.1")
@@ -144,7 +144,7 @@ final class AttachmentDownloaderTests: XCTestCase {
             folder: "INBOX",
             partID: "3.1",
             filename: "doc.docx",
-            account: nil
+            folderBookmark: nil
         )
         XCTAssertEqual(mockClient.fetchCallCount, 1)
 
@@ -159,7 +159,7 @@ final class AttachmentDownloaderTests: XCTestCase {
             folder: "INBOX",
             partID: "3.1",
             filename: "doc.docx",
-            account: nil
+            folderBookmark: nil
         )
         XCTAssertEqual(mockClient.fetchCallCount, 2, "Should re-fetch after local file was deleted")
         XCTAssertTrue(FileManager.default.fileExists(atPath: url2.path))

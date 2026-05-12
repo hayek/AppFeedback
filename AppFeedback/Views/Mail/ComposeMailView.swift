@@ -11,8 +11,10 @@ struct ComposeMailView: View {
     let repoName: String
     var inReplyTo: MailMessageHeaders? = nil
     var subjectOverride: String? = nil
+    var senderAccountID: UUID? = nil
 
     @Environment(MailAccountStore.self) private var store
+    @Environment(MailSettingsStore.self) private var settingsStore
     @Environment(MailThreadStore.self) private var threadStore
     @Environment(OutboundSendTracker.self) private var outboundTracker
     @Environment(OutboundFailureStore.self) private var outboundFailures
@@ -48,6 +50,8 @@ struct ComposeMailView: View {
             }
             ScrollView {
                 VStack(alignment: .leading, spacing: 0) {
+                    fromRow
+                    Divider()
                     recipientRow
                     Divider()
                     subjectRow(vm: vm)
@@ -67,19 +71,20 @@ struct ComposeMailView: View {
             footerButtons(vm: vm)
         }
         .onAppear { refreshPreviews(vm: vm) }
-        .onChange(of: store.account?.templateHeaderHTML) { _, _ in refreshPreviews(vm: vm) }
-        .onChange(of: store.account?.templateFooterHTML) { _, _ in refreshPreviews(vm: vm) }
+        .onChange(of: settingsStore.settings.templateHeaderHTML) { _, _ in refreshPreviews(vm: vm) }
+        .onChange(of: settingsStore.settings.templateFooterHTML) { _, _ in refreshPreviews(vm: vm) }
     }
 
     private var hasCredentials: Bool {
-        guard let acc = store.account else { return false }
+        guard let id = senderAccountID ?? store.defaultSender?.id,
+              let acc = store.account(id: id) else { return false }
         return !acc.smtpUsername.isEmpty
     }
 
     private var currentTemplate: MailTemplate {
         MailTemplate(
-            headerHTML: store.account?.templateHeaderHTML ?? "",
-            footerHTML: store.account?.templateFooterHTML ?? ""
+            headerHTML: settingsStore.settings.templateHeaderHTML,
+            footerHTML: settingsStore.settings.templateFooterHTML
         )
     }
 
@@ -162,6 +167,19 @@ struct ComposeMailView: View {
         .background(Color.yellow.opacity(0.18))
     }
 
+    private var fromRow: some View {
+        HStack {
+            Text("From:").foregroundStyle(.secondary).frame(width: 60, alignment: .leading)
+            if let id = senderAccountID ?? store.defaultSender?.id, let acc = store.account(id: id) {
+                Text(acc.smtpUsername).fontWeight(.medium)
+            } else {
+                Text("—").foregroundStyle(.tertiary)
+            }
+            Spacer()
+        }
+        .padding(.horizontal, 12).padding(.vertical, 8)
+    }
+
     private var recipientRow: some View {
         HStack {
             Text("To:").foregroundStyle(.secondary).frame(width: 60, alignment: .leading)
@@ -212,6 +230,7 @@ struct ComposeMailView: View {
             repoOwner: repoOwner,
             repoName: repoName,
             store: store,
+            settingsStore: settingsStore,
             threadStore: threadStore,
             tracker: outboundTracker,
             failureStore: outboundFailures,
@@ -219,7 +238,8 @@ struct ComposeMailView: View {
             activityLog: activityLog,
             mirror: mirrorHolder?.mirror,
             inReplyTo: inReplyTo,
-            initialSubject: subjectOverride
+            initialSubject: subjectOverride,
+            senderAccountID: senderAccountID ?? store.defaultSender?.id ?? UUID()
         )
     }
 }

@@ -10,6 +10,7 @@ struct AppFeedbackApp: App {
     @State private var syncStatus: CloudSyncStatus
     @State private var activityLog: ActivityLog
     @State private var mailAccountStore: MailAccountStore
+    @State private var mailSettingsStore: MailSettingsStore
     @State private var threadStore: MailThreadStore
     @State private var outboundTracker: OutboundSendTracker = OutboundSendTracker()
     @State private var outboundFailures: OutboundFailureStore
@@ -23,7 +24,7 @@ struct AppFeedbackApp: App {
     @State private var notificationService: NotificationService
     @State private var notificationRouter: NotificationRouter
     @State private var downloaderHolder: AttachmentDownloaderHolder
-    @State private var coordinatorHolder: MailSyncCoordinatorHolder
+    @State private var coordinatorRegistry: MailSyncCoordinatorRegistry?
     @State private var mirrorHolder: MailToGitHubMirrorHolder
     @State private var mailLocalStateStore: MailAccountLocalStateStore
     #if os(iOS)
@@ -40,6 +41,7 @@ struct AppFeedbackApp: App {
                 let testConfig = ModelConfiguration(isStoredInMemoryOnly: true, cloudKitDatabase: .none)
                 container = try ModelContainer(
                     for: Repo.self, SeenIssue.self, HiddenApp.self, MailAccount.self,
+                        MailSettings.self,
                         MailThread.self, MailMessage.self, MailAttachment.self,
                         IssueTranslation.self, IssueSummaryCache.self,
                         CachedIssue.self, MailAttachmentLocal.self, MailAccountLocalState.self,
@@ -47,7 +49,7 @@ struct AppFeedbackApp: App {
                     configurations: testConfig
                 )
             } else {
-                let cloudSchema = Schema([Repo.self, SeenIssue.self, HiddenApp.self, MailAccount.self, MailThread.self, MailMessage.self, MailAttachment.self, IssueTranslation.self, IssueSummaryCache.self])
+                let cloudSchema = Schema([Repo.self, SeenIssue.self, HiddenApp.self, MailAccount.self, MailSettings.self, MailThread.self, MailMessage.self, MailAttachment.self, IssueTranslation.self, IssueSummaryCache.self])
                 let localSchema = Schema([CachedIssue.self, MailAttachmentLocal.self, MailAccountLocalState.self, RepoFetchState.self])
                 let cloudConfig = ModelConfiguration(
                     "cloud",
@@ -57,6 +59,7 @@ struct AppFeedbackApp: App {
                 let localConfig = ModelConfiguration("local", schema: localSchema, cloudKitDatabase: .none)
                 container = try ModelContainer(
                     for: Repo.self, SeenIssue.self, HiddenApp.self, MailAccount.self,
+                        MailSettings.self,
                         MailThread.self, MailMessage.self, MailAttachment.self,
                         IssueTranslation.self, IssueSummaryCache.self,
                         CachedIssue.self, MailAttachmentLocal.self, MailAccountLocalState.self,
@@ -71,11 +74,18 @@ struct AppFeedbackApp: App {
         let cloudContext = ModelContext(container)
         let hiddenAppStoreLocal = HiddenAppStore(context: cloudContext)
         let mailAccountStoreLocal = MailAccountStore(context: ModelContext(container))
+        let mailSettingsStoreLocal = MailSettingsStore(context: ModelContext(container))
+        let threadStoreLocal = MailThreadStore(context: ModelContext(container))
         if !isTesting {
-            MailAccountMigration.runIfNeeded(store: mailAccountStoreLocal)
+            MailAccountMigration.runIfNeeded(store: mailAccountStoreLocal, settingsStore: mailSettingsStoreLocal)
+            MailAccountMigration.runV2IfNeeded(
+                accountStore: mailAccountStoreLocal,
+                settingsStore: mailSettingsStoreLocal,
+                threadStore: threadStoreLocal
+            )
         }
         _mailAccountStore = State(initialValue: mailAccountStoreLocal)
-        let threadStoreLocal = MailThreadStore(context: ModelContext(container))
+        _mailSettingsStore = State(initialValue: mailSettingsStoreLocal)
         _threadStore = State(initialValue: threadStoreLocal)
         let localStateStoreLocal = MailAccountLocalStateStore(context: ModelContext(container))
         _mailLocalStateStore = State(initialValue: localStateStoreLocal)
@@ -127,36 +137,46 @@ struct AppFeedbackApp: App {
         _mirrorHolder = State(initialValue: MailToGitHubMirrorHolder(mirrorLocal))
 
         #if canImport(SwiftMail)
-        let imapProvider = IMAPClientProvider(accountStore: mailAccountStoreLocal)
-        let localStateStore = localStateStoreLocal
-        // Provide real CachedIssue titles to ThreadMatcher for backfill subject matching.
-        // Capture `container` as a local constant so the @Sendable closure doesn't capture `self`.
-        // The provider returns titles from ALL repos; ThreadMatcher.matchToIssue does not yet
-        // disambiguate cross-repo title collisions — for v1, the highest-number heuristic is acceptable.
         let titlesContainer = container
-        let coordinator = MailSyncCoordinator(
-            client: imapProvider,
-            threadStore: threadStoreLocal,
-            accountStore: mailAccountStoreLocal,
-            localState: localStateStore,
-            activityLog: activityLogValue,
-            mirror: mirrorLocal,
-            notificationService: service,
-            knownIssueTitlesProvider: { @Sendable in
-                await MainActor.run {
-                    let ctx = ModelContext(titlesContainer)
-                    let cached = (try? ctx.fetch(FetchDescriptor<CachedIssue>())) ?? []
-                    return cached.map { (owner: $0.repoOwner, repo: $0.repoName, number: $0.number, title: $0.title) }
+        let mirrorRef = mirrorLocal
+        let serviceRef = service
+        let activityLogRef = activityLogValue
+        let registryFactory: (UUID) -> MailSyncCoordinator = { id in
+            let provider = IMAPClientProvider(accountStore: mailAccountStoreLocal, accountID: id)
+            return MailSyncCoordinator(
+                client: provider,
+                accountID: id,
+                threadStore: threadStoreLocal,
+                accountStore: mailAccountStoreLocal,
+                settingsStore: mailSettingsStoreLocal,
+                localState: localStateStoreLocal,
+                activityLog: activityLogRef,
+                mirror: mirrorRef,
+                notificationService: serviceRef,
+                knownIssueTitlesProvider: { @Sendable in
+                    await MainActor.run {
+                        let ctx = ModelContext(titlesContainer)
+                        let cached = (try? ctx.fetch(FetchDescriptor<CachedIssue>())) ?? []
+                        return cached.map { (owner: $0.repoOwner, repo: $0.repoName, number: $0.number, title: $0.title) }
+                    }
                 }
-            }
+            )
+        }
+        let registry = MailSyncCoordinatorRegistry(
+            accountStore: mailAccountStoreLocal,
+            factory: registryFactory
         )
-        _coordinatorHolder = State(initialValue: MailSyncCoordinatorHolder(coordinator))
+        registry.syncWithAccounts()
+        _coordinatorRegistry = State(initialValue: registry)
 
+        // The attachment downloader needs ONE IMAPClient; route through the default sender.
+        let defaultAccountID = mailAccountStoreLocal.defaultSender?.id ?? UUID()
+        let downloaderProvider = IMAPClientProvider(accountStore: mailAccountStoreLocal, accountID: defaultAccountID)
         let attachmentLocalStore = MailAttachmentLocalStore(context: ModelContext(container))
-        let downloader = AttachmentDownloader(client: imapProvider, localStore: attachmentLocalStore)
+        let downloader = AttachmentDownloader(client: downloaderProvider, localStore: attachmentLocalStore)
         _downloaderHolder = State(initialValue: AttachmentDownloaderHolder(downloader))
         #else
-        _coordinatorHolder = State(initialValue: MailSyncCoordinatorHolder(nil))
+        _coordinatorRegistry = State(initialValue: nil)
         _downloaderHolder = State(initialValue: AttachmentDownloaderHolder(nil))
         #endif
 
@@ -189,6 +209,7 @@ struct AppFeedbackApp: App {
                 .environment(syncStatus)
                 .environment(activityLog)
                 .environment(mailAccountStore)
+                .environment(mailSettingsStore)
                 .environment(threadStore)
                 .environment(outboundTracker)
                 .environment(outboundFailures)
@@ -198,14 +219,14 @@ struct AppFeedbackApp: App {
                 .environment(notificationSettings)
                 .environment(notificationRouter)
                 .environment(downloaderHolder)
-                .environment(coordinatorHolder)
+                .environment(\.mailSyncCoordinatorRegistry, coordinatorRegistry)
                 .environment(mirrorHolder)
                 .environment(mailLocalStateStore)
                 .environment(\.notificationService, notificationService)
                 .task { await notificationService.requestAuthorizationIfNeeded() }
                 .onAppear {
                     #if canImport(SwiftMail)
-                    Task { await coordinatorHolder.coordinator?.start() }
+                    coordinatorRegistry?.start()
                     #endif
                 }
                 .onChange(of: notificationSettings.isEnabled) { _, isOn in
@@ -219,7 +240,7 @@ struct AppFeedbackApp: App {
                 .onChange(of: scenePhase) { _, phase in
                     #if canImport(SwiftMail)
                     if phase == .active {
-                        Task { await coordinatorHolder.coordinator?.pollNow() }
+                        Task { await coordinatorRegistry?.pollNow() }
                     }
                     #endif
                     if phase == .background { iosRefreshDriver.scheduleNextRefresh() }
@@ -228,7 +249,7 @@ struct AppFeedbackApp: App {
                 .onChange(of: scenePhase) { _, phase in
                     #if canImport(SwiftMail)
                     if phase == .active {
-                        Task { await coordinatorHolder.coordinator?.pollNow() }
+                        Task { await coordinatorRegistry?.pollNow() }
                     }
                     #endif
                 }
@@ -252,6 +273,7 @@ struct AppFeedbackApp: App {
                 .environment(syncStatus)
                 .environment(activityLog)
                 .environment(mailAccountStore)
+                .environment(mailSettingsStore)
                 .environment(threadStore)
                 .environment(outboundTracker)
                 .environment(outboundFailures)
@@ -261,13 +283,26 @@ struct AppFeedbackApp: App {
                 .environment(notificationSettings)
                 .environment(notificationRouter)
                 .environment(downloaderHolder)
-                .environment(coordinatorHolder)
+                .environment(\.mailSyncCoordinatorRegistry, coordinatorRegistry)
                 .environment(mirrorHolder)
                 .environment(mailLocalStateStore)
                 .environment(\.notificationService, notificationService)
         }
         .windowResizability(.contentMinSize)
         #endif
+    }
+}
+
+// MARK: - EnvironmentKey for MailSyncCoordinatorRegistry
+
+private struct MailSyncCoordinatorRegistryKey: EnvironmentKey {
+    static let defaultValue: MailSyncCoordinatorRegistry? = nil
+}
+
+extension EnvironmentValues {
+    var mailSyncCoordinatorRegistry: MailSyncCoordinatorRegistry? {
+        get { self[MailSyncCoordinatorRegistryKey.self] }
+        set { self[MailSyncCoordinatorRegistryKey.self] = newValue }
     }
 }
 

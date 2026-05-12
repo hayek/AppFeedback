@@ -8,7 +8,7 @@ import UIKit
 struct MailMessageRowView: View {
     let message: MailMessage
 
-    @Environment(MailAccountStore.self) private var accountStore
+    @Environment(MailSettingsStore.self) private var settingsStore
     @Environment(MailThreadStore.self) private var threadStore
     @Environment(OutboundSendTracker.self) private var outboundTracker
     @Environment(OutboundFailureStore.self) private var outboundFailures
@@ -136,7 +136,7 @@ struct MailMessageRowView: View {
                     uid: UInt32(max(0, message.uid)),
                     folder: message.folder,
                     downloader: downloaderHolder?.downloader,
-                    account: accountStore.account
+                    folderBookmark: settingsStore.settings.attachmentFolderBookmark
                 )
             }
         }

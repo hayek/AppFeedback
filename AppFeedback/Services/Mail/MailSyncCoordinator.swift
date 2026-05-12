@@ -1,17 +1,6 @@
 import Foundation
 import Observation
 
-// MARK: - MailSyncCoordinatorHolder
-
-/// Observable wrapper so SwiftUI can inject MailSyncCoordinator via @Environment.
-/// Actors don't conform to Observable, so we wrap the reference here.
-/// Task 12 will replace the nil placeholder with a real coordinator once IMAPClient is wired.
-@Observable
-final class MailSyncCoordinatorHolder {
-    let coordinator: MailSyncCoordinator?
-    init(_ coordinator: MailSyncCoordinator?) { self.coordinator = coordinator }
-}
-
 /// Actor that schedules IMAP polls, drives one-time backfill, writes through `MailThreadStore`,
 /// and logs activity to `ActivityLog`.
 actor MailSyncCoordinator {
@@ -42,8 +31,10 @@ actor MailSyncCoordinator {
     // MARK: - Dependencies
 
     private let client: IMAPClientProtocol
+    private let accountID: UUID
     private let threadStore: MailThreadStore           // @MainActor
     private let accountStore: MailAccountStore         // @MainActor
+    private let settingsStore: MailSettingsStore       // @MainActor
     private let localState: MailAccountLocalStateStore // @MainActor
     private let activityLog: ActivityLog               // @MainActor
     private let mirror: MailToGitHubMirror?            // @MainActor
@@ -61,8 +52,10 @@ actor MailSyncCoordinator {
 
     init(
         client: IMAPClientProtocol,
+        accountID: UUID,
         threadStore: MailThreadStore,
         accountStore: MailAccountStore,
+        settingsStore: MailSettingsStore,
         localState: MailAccountLocalStateStore,
         activityLog: ActivityLog,
         mirror: MailToGitHubMirror? = nil,
@@ -71,8 +64,10 @@ actor MailSyncCoordinator {
         clock: @Sendable @escaping () -> Date = { Date() }
     ) {
         self.client = client
+        self.accountID = accountID
         self.threadStore = threadStore
         self.accountStore = accountStore
+        self.settingsStore = settingsStore
         self.localState = localState
         self.activityLog = activityLog
         self.mirror = mirror
@@ -94,11 +89,12 @@ actor MailSyncCoordinator {
             // Interval loop
             while !Task.isCancelled {
                 // Read the current poll settings as a value snapshot
+                let accountID = self.accountID
                 let snapshot = await MainActor.run { () -> (intervalSeconds: Int, pollingEnabled: Bool, consecutiveFailures: Int) in
-                    let account = self.accountStore.account
+                    let account = self.accountStore.account(id: accountID)
                     let failures = self.localState.state?.consecutiveFailures ?? 0
                     return (
-                        account?.pollIntervalSeconds ?? 300,
+                        self.settingsStore.settings.pollIntervalSeconds,
                         account?.pollingEnabled ?? true,
                         failures
                     )
@@ -145,11 +141,12 @@ actor MailSyncCoordinator {
         inFlight = true
         defer { inFlight = false }
 
+        let accountID = self.accountID
         let accountSnapshot = await MainActor.run { () -> AccountSnapshot? in
-            guard let acc = self.accountStore.account else { return nil }
+            guard let acc = self.accountStore.account(id: accountID) else { return nil }
             return AccountSnapshot(
                 id: acc.id,
-                pollIntervalSeconds: acc.pollIntervalSeconds,
+                pollIntervalSeconds: self.settingsStore.settings.pollIntervalSeconds,
                 pollingEnabled: acc.pollingEnabled,
                 backfillCompleted: acc.backfillCompleted
             )
@@ -167,9 +164,10 @@ actor MailSyncCoordinator {
             )
         }
 
+        let accountLabel = await MainActor.run { accountStore.account(id: accountID)?.smtpUsername ?? "—" }
         status = .polling
         let logID = await MainActor.run {
-            self.activityLog.start(kind: .fetchMail, title: "Fetch mail")
+            self.activityLog.start(kind: .fetchMail, title: "Fetch mail (\(accountLabel))")
         }
 
         // Backfill must run before listInbox: the inbox poll's FROM filter depends on
@@ -186,10 +184,11 @@ actor MailSyncCoordinator {
                 fromAddresses: fromAddresses
             )
 
+            let accountID = self.accountID
             let inserted: [NotificationService.InboundReply] = await MainActor.run {
                 var newOnes: [NotificationService.InboundReply] = []
                 for msg in messages {
-                    guard let stored = self.threadStore.recordInbound(message: msg) else { continue }
+                    guard let stored = self.threadStore.recordInbound(message: msg, accountID: accountID) else { continue }
                     let issue: NotificationService.InboundReply.IssueRef? = {
                         guard let t = stored.thread, t.issueNumber > 0,
                               !t.issueRepoOwner.isEmpty, !t.issueRepoName.isEmpty else { return nil }
@@ -275,8 +274,9 @@ actor MailSyncCoordinator {
         // messages. 14 days is enough to capture recent feedback exchanges; older replies
         // surface naturally as the user resumes activity.
         let cutoff = clock().addingTimeInterval(-14 * 24 * 3600)
+        let accountLabel = await MainActor.run { accountStore.account(id: accountID)?.smtpUsername ?? "—" }
         let backfillLogID = await MainActor.run {
-            self.activityLog.start(kind: .fetchMail, title: "Backfill sent folder")
+            self.activityLog.start(kind: .fetchMail, title: "Backfill sent folder (\(accountLabel))")
         }
 
         do {
@@ -312,13 +312,14 @@ actor MailSyncCoordinator {
                             bodyPlain: msg.bodyPlain,
                             bodyHTML: msg.bodyHTML,
                             date: msg.date,
+                            accountID: accountID,
                             replyHeaders: nil
                         )
                     }
                 }
 
                 // Flip backfillCompleted and reset failure counter on success.
-                self.accountStore.upsert { acc in
+                self.accountStore.update(id: accountID) { acc in
                     acc.backfillCompleted = true
                 }
                 self.localState.update { ls in
@@ -342,7 +343,7 @@ actor MailSyncCoordinator {
                 let hitCap = newCount >= maxBackfillFailures
                 if hitCap {
                     // Cap reached — mark backfill done so we don't retry forever.
-                    self.accountStore.upsert { acc in acc.backfillCompleted = true }
+                    self.accountStore.update(id: accountID) { acc in acc.backfillCompleted = true }
                     self.activityLog.finish(
                         backfillLogID,
                         status: .failure,

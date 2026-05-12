@@ -12,12 +12,11 @@ final class MailAccount {
     var imapHost: String = ""
     var imapPort: Int = 993
     var imapUsername: String = ""
-    var pollIntervalSeconds: Int = 300
     var pollingEnabled: Bool = true
-    var attachmentFolderBookmark: Data? = nil
-    var templateHeaderHTML: String = ""
-    var templateFooterHTML: String = ""
     var backfillCompleted: Bool = false
+    /// Exactly one configured account has this true at a time. Used as the default FROM for
+    /// new replies. `MailAccountStore` enforces the invariant.
+    var isDefaultSender: Bool = false
     var createdAt: Date = Date()
 
     init(
@@ -30,12 +29,9 @@ final class MailAccount {
         imapHost: String = "",
         imapPort: Int = 993,
         imapUsername: String = "",
-        pollIntervalSeconds: Int = 300,
         pollingEnabled: Bool = true,
-        attachmentFolderBookmark: Data? = nil,
-        templateHeaderHTML: String = "",
-        templateFooterHTML: String = "",
         backfillCompleted: Bool = false,
+        isDefaultSender: Bool = false,
         createdAt: Date = Date()
     ) {
         self.id = id
@@ -47,12 +43,9 @@ final class MailAccount {
         self.imapHost = imapHost
         self.imapPort = imapPort
         self.imapUsername = imapUsername
-        self.pollIntervalSeconds = pollIntervalSeconds
         self.pollingEnabled = pollingEnabled
-        self.attachmentFolderBookmark = attachmentFolderBookmark
-        self.templateHeaderHTML = templateHeaderHTML
-        self.templateFooterHTML = templateFooterHTML
         self.backfillCompleted = backfillCompleted
+        self.isDefaultSender = isDefaultSender
         self.createdAt = createdAt
     }
 

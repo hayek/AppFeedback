@@ -49,6 +49,7 @@ final class MailSyncCoordinatorTests: XCTestCase {
         let container = try ModelContainer(
             for: MailThread.self, MailMessage.self, MailAttachment.self,
                 MailAttachmentLocal.self, MailAccountLocalState.self, MailAccount.self,
+                MailSettings.self,
             configurations: config
         )
         return ModelContext(container)
@@ -97,20 +98,23 @@ final class MailSyncCoordinatorTests: XCTestCase {
     ) {
         let threadStore = MailThreadStore(context: context)
         let accountStore = MailAccountStore(context: context)
+        let settingsStore = MailSettingsStore(context: context)
         let localStateStore = MailAccountLocalStateStore(context: context)
         let activityLog = ActivityLog(persistenceURL: nil)
 
         // Insert a test account
-        accountStore.upsert { acc in
+        _ = accountStore.add { acc in
             acc.pollingEnabled = true
-            acc.pollIntervalSeconds = 300
             acc.backfillCompleted = backfillCompleted
         }
+        let accountID = accountStore.accounts.first!.id
 
         let coordinator = MailSyncCoordinator(
             client: mock,
+            accountID: accountID,
             threadStore: threadStore,
             accountStore: accountStore,
+            settingsStore: settingsStore,
             localState: localStateStore,
             activityLog: activityLog,
             knownIssueTitlesProvider: { [] },
@@ -171,19 +175,22 @@ final class MailSyncCoordinatorTests: XCTestCase {
 
         let threadStore = MailThreadStore(context: context)
         let accountStore = MailAccountStore(context: context)
+        let settingsStore = MailSettingsStore(context: context)
         let localStateStore = MailAccountLocalStateStore(context: context)
         let activityLog = ActivityLog(persistenceURL: nil)
 
-        accountStore.upsert { acc in
+        _ = accountStore.add { acc in
             acc.pollingEnabled = true
-            acc.pollIntervalSeconds = 300
             acc.backfillCompleted = true
         }
+        let accountID = accountStore.accounts.first!.id
 
         let coordinator = MailSyncCoordinator(
             client: slowMock,
+            accountID: accountID,
             threadStore: threadStore,
             accountStore: accountStore,
+            settingsStore: settingsStore,
             localState: localStateStore,
             activityLog: activityLog,
             knownIssueTitlesProvider: { [] }
@@ -215,11 +222,11 @@ final class MailSyncCoordinatorTests: XCTestCase {
             mock: mock, context: context, backfillCompleted: false
         )
 
-        XCTAssertEqual(accountStore.account?.backfillCompleted, false, "Precondition")
+        XCTAssertEqual(accountStore.accounts.first?.backfillCompleted, false, "Precondition")
 
         await coordinator.pollNow()
 
-        XCTAssertEqual(accountStore.account?.backfillCompleted, true, "backfillCompleted should flip to true")
+        XCTAssertEqual(accountStore.accounts.first?.backfillCompleted, true, "backfillCompleted should flip to true")
     }
 
     // MARK: - Test 5: backfillCompleted does not flip on sent error
@@ -234,11 +241,11 @@ final class MailSyncCoordinatorTests: XCTestCase {
             mock: mock, context: context, backfillCompleted: false
         )
 
-        XCTAssertEqual(accountStore.account?.backfillCompleted, false, "Precondition")
+        XCTAssertEqual(accountStore.accounts.first?.backfillCompleted, false, "Precondition")
 
         await coordinator.pollNow()
 
-        XCTAssertEqual(accountStore.account?.backfillCompleted, false, "backfillCompleted should stay false on sent error")
+        XCTAssertEqual(accountStore.accounts.first?.backfillCompleted, false, "backfillCompleted should stay false on sent error")
     }
 
     // MARK: - Test 6: inboxCursor advances to highest UID
@@ -257,7 +264,7 @@ final class MailSyncCoordinatorTests: XCTestCase {
 
         await coordinator.pollNow()
 
-        let accountID = accountStore.account!.id
+        let accountID = accountStore.accounts.first!.id
         let ls = localStateStore.ensure(accountID: accountID)
         XCTAssertEqual(ls.inboxLastUID, 12, "Cursor should advance to the highest UID (12)")
     }
@@ -272,7 +279,7 @@ final class MailSyncCoordinatorTests: XCTestCase {
         let (coordinator, _, accountStore, localStateStore, _) = makeCoordinator(mock: mock, context: context)
 
         // Seed localState
-        let accountID = accountStore.account!.id
+        let accountID = accountStore.accounts.first!.id
         _ = localStateStore.ensure(accountID: accountID)
 
         await coordinator.pollNow()

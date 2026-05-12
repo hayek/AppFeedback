@@ -13,16 +13,18 @@ final class ComposeMailViewModel {
     let issue: FeedbackIssue
     let repoOwner: String
     let repoName: String
+    let senderAccountID: UUID
     let inReplyTo: MailMessageHeaders?
 
     private let store: MailAccountStore
+    private let settingsStore: MailSettingsStore
     private let threadStore: MailThreadStore?
     private let tracker: OutboundSendTracker?
     private let failureStore: OutboundFailureStore?
     private let sender: any MailSending
     private let activityLog: ActivityLog
     private let mirror: MailToGitHubMirror?
-    private let passwordLoader: @Sendable () async -> String?
+    private let passwordLoader: @Sendable (UUID) async -> String?
     private let composer = MailComposer()
 
     init(recipient: String,
@@ -30,6 +32,7 @@ final class ComposeMailViewModel {
          repoOwner: String,
          repoName: String,
          store: MailAccountStore,
+         settingsStore: MailSettingsStore,
          threadStore: MailThreadStore? = nil,
          tracker: OutboundSendTracker? = nil,
          failureStore: OutboundFailureStore? = nil,
@@ -38,12 +41,15 @@ final class ComposeMailViewModel {
          mirror: MailToGitHubMirror? = nil,
          inReplyTo: MailMessageHeaders? = nil,
          initialSubject: String? = nil,
-         passwordLoader: @Sendable @escaping () async -> String? = { await KeychainService.loadSMTPPassword() }) {
+         senderAccountID: UUID,
+         passwordLoader: @Sendable @escaping (UUID) async -> String? = { @Sendable id in await KeychainService.loadSMTPPassword(for: id) }) {
         self.recipient = recipient
         self.issue = issue
         self.repoOwner = repoOwner
         self.repoName = repoName
+        self.senderAccountID = senderAccountID
         self.store = store
+        self.settingsStore = settingsStore
         self.threadStore = threadStore
         self.tracker = tracker
         self.failureStore = failureStore
@@ -64,9 +70,10 @@ final class ComposeMailViewModel {
     }
 
     var template: MailTemplate {
-        guard let acc = store.account else { return .empty }
-        return MailTemplate(headerHTML: acc.templateHeaderHTML,
-                            footerHTML: acc.templateFooterHTML)
+        MailTemplate(
+            headerHTML: settingsStore.settings.templateHeaderHTML,
+            footerHTML: settingsStore.settings.templateFooterHTML
+        )
     }
 
     func placeholderContext(date: Date = Date()) -> PlaceholderContext {
@@ -83,7 +90,7 @@ final class ComposeMailViewModel {
     }
 
     private func currentCredentials() -> SMTPCredentials? {
-        guard let acc = store.account, !acc.smtpUsername.isEmpty else { return nil }
+        guard let acc = store.account(id: senderAccountID), !acc.smtpUsername.isEmpty else { return nil }
         return SMTPCredentials(
             preset: acc.preset,
             host: acc.smtpHost,
@@ -116,6 +123,7 @@ final class ComposeMailViewModel {
             bodyPlain: body.string,
             bodyHTML: nil,
             date: Date(),
+            accountID: senderAccountID,
             replyHeaders: replyHeaders
         )
         // Retry case: first attempt may have left a persisted failure; clear it so the
@@ -125,7 +133,7 @@ final class ComposeMailViewModel {
 
         let id = activityLog.start(kind: .sendEmail, title: "to \(recipient)")
 
-        guard let password = await passwordLoader(), !password.isEmpty else {
+        guard let password = await passwordLoader(senderAccountID), !password.isEmpty else {
             let detail = "No SMTP password configured."
             activityLog.finish(id, status: .failure, detail: detail)
             failureStore?.record(messageID, reason: detail)

@@ -83,7 +83,7 @@ actor AttachmentDownloader {
         folder: String,
         partID: String,
         filename: String,
-        account: MailAccount?
+        folderBookmark: Data?
     ) async throws -> URL {
         // 1. Check for an existing local record.
         let existingPath = await MainActor.run { localStore.fetchLocalPath(messageID: messageID, partID: partID) }
@@ -96,9 +96,7 @@ actor AttachmentDownloader {
         }
 
         // 2. Resolve destination directory.
-        let (dir, scoped) = await MainActor.run {
-            AttachmentFolder.resolveDestination(account: account)
-        }
+        let (dir, scoped) = AttachmentFolder.resolveDestination(bookmarkData: folderBookmark)
         defer { if scoped { dir.stopAccessingSecurityScopedResource() } }
 
         guard AttachmentFolder.ensureExists(dir) else {

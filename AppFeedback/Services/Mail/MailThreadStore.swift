@@ -153,6 +153,7 @@ final class MailThreadStore {
         to: [String], cc: [String],
         subject: String, bodyPlain: String, bodyHTML: String?,
         date: Date,
+        accountID: UUID? = nil,
         replyHeaders: ReplyHeaderBuilder.Output?
     ) -> MailMessage {
         // Dedupe: return existing message if messageID already stored
@@ -176,6 +177,7 @@ final class MailThreadStore {
                     matchSourceRaw: MailThread.MatchSource.direct.rawValue
                 )
                 self.context.insert(newThread)
+                newThread.accountID = accountID
                 return newThread
             }
         )
@@ -200,6 +202,8 @@ final class MailThreadStore {
             createdNewThread = true
         }
 
+        if thread.accountID == nil { thread.accountID = accountID }
+
         // Update thread metadata
         thread.lastMessageAt = max(thread.lastMessageAt, date)
         let newParticipants = ([from] + to + cc).filter { !$0.isEmpty }
@@ -222,6 +226,7 @@ final class MailThreadStore {
             thread: thread
         )
         context.insert(msg)
+        msg.accountID = accountID
 
         commitChange(createdNewThread: createdNewThread)
         return msg
@@ -230,7 +235,7 @@ final class MailThreadStore {
     // MARK: - recordInbound
 
     @discardableResult
-    func recordInbound(message: ParsedInboundMessage) -> MailMessage? {
+    func recordInbound(message: ParsedInboundMessage, accountID: UUID? = nil) -> MailMessage? {
         // Dedupe: skip if messageID already exists
         if findMessage(byMessageID: message.messageID) != nil {
             return nil
@@ -261,6 +266,7 @@ final class MailThreadStore {
                     case .subject(let i):
                         let matched = recentThreads[i]
                         matched.matchSource = .subjectFallback
+                        matched.accountID = matched.accountID ?? accountID
                         headerResolution = .existingHeader(matched)
                         return matched
                     case .header, .newThread:
@@ -283,6 +289,7 @@ final class MailThreadStore {
                     matchSourceRaw: MailThread.MatchSource.direct.rawValue
                 )
                 self.context.insert(newThread)
+                newThread.accountID = accountID
                 return newThread
             }
         )
@@ -307,6 +314,8 @@ final class MailThreadStore {
             thread = t
             createdNewThread = true
         }
+
+        if thread.accountID == nil { thread.accountID = accountID }
 
         // Update thread metadata
         thread.lastMessageAt = max(thread.lastMessageAt, message.date)
@@ -333,6 +342,7 @@ final class MailThreadStore {
             thread: thread
         )
         context.insert(msg)
+        msg.accountID = accountID
 
         // Create MailAttachment rows for each parsed attachment
         for meta in message.attachments {
@@ -441,6 +451,28 @@ final class MailThreadStore {
 
         // 3. No match — invoke fallback to create a new thread
         return .new(fallback())
+    }
+
+    /// Stamps every existing thread and message with the given accountID **only when it is
+    /// currently nil**. Used by the v2 multi-account migration to retroactively associate
+    /// pre-migration rows with the user's sole account. Cheap on re-run: the predicate
+    /// short-circuits when nothing is nil.
+    func backfillAccountIDIfMissing(_ accountID: UUID) {
+        let threadDescriptor = FetchDescriptor<MailThread>(
+            predicate: #Predicate { $0.accountID == nil }
+        )
+        let threads = (try? context.fetch(threadDescriptor)) ?? []
+        for t in threads { t.accountID = accountID }
+
+        let messageDescriptor = FetchDescriptor<MailMessage>(
+            predicate: #Predicate { $0.accountID == nil }
+        )
+        let messages = (try? context.fetch(messageDescriptor)) ?? []
+        for m in messages { m.accountID = accountID }
+
+        if !threads.isEmpty || !messages.isEmpty {
+            try? context.save()
+        }
     }
 
     /// Merge `additions` into `base`, preserving insertion order and skipping duplicates.

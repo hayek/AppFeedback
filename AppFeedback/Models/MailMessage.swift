@@ -29,6 +29,10 @@ final class MailMessage {
     /// that haven't sent successfully yet. Synced via CloudKit so the "Sent" state survives
     /// relaunch and appears on the user's other devices.
     var sentAt: Date? = nil
+    /// UUID of the `MailAccount` that sent or fetched this message. `nil` on legacy rows
+    /// that pre-date the multi-account migration; the UI falls back to the global default
+    /// sender when resolving a reply-from account.
+    var accountID: UUID? = nil
     var thread: MailThread? = nil
     // CloudKit requires to-many relationships to be optional.
     @Relationship(deleteRule: .cascade, inverse: \MailAttachment.message)
@@ -65,6 +69,7 @@ final class MailMessage {
         uid: Int = 0,
         folder: String = "",
         sentAt: Date? = nil,
+        accountID: UUID? = nil,
         thread: MailThread? = nil,
         attachments: [MailAttachment]? = []
     ) {
@@ -84,6 +89,7 @@ final class MailMessage {
         self.uid = uid
         self.folder = folder
         self.sentAt = sentAt
+        self.accountID = accountID
         self.thread = thread
         self.attachments = attachments
     }

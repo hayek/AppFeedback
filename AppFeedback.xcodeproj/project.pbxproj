@@ -40,6 +40,34 @@
 		AB12CD34EF5601234567FE12 /* IssueTranslation.swift in Sources */ = {isa = PBXBuildFile; fileRef = AB12CD34EF5601234567FE10 /* IssueTranslation.swift */; };
 		AB12CD34EF5601234567FE21 /* IssueSummaryCache.swift in Sources */ = {isa = PBXBuildFile; fileRef = AB12CD34EF5601234567FE20 /* IssueSummaryCache.swift */; };
 		AB12CD34EF5601234567FE22 /* IssueSummaryCache.swift in Sources */ = {isa = PBXBuildFile; fileRef = AB12CD34EF5601234567FE20 /* IssueSummaryCache.swift */; };
+		AB12CD34EF5601234567FE31 /* MailSettings.swift in Sources */ = {isa = PBXBuildFile; fileRef = AB12CD34EF5601234567FE30 /* MailSettings.swift */; };
+		AB12CD34EF5601234567FE32 /* MailSettings.swift in Sources */ = {isa = PBXBuildFile; fileRef = AB12CD34EF5601234567FE30 /* MailSettings.swift */; };
+		AB12CD34EF5601234567FE41 /* MailSettingsStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = AB12CD34EF5601234567FE40 /* MailSettingsStore.swift */; };
+		AB12CD34EF5601234567FE42 /* MailSettingsStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = AB12CD34EF5601234567FE40 /* MailSettingsStore.swift */; };
+		AB12CD34EF5601234567FE44 /* MailSettingsStoreTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = AB12CD34EF5601234567FE43 /* MailSettingsStoreTests.swift */; };
+		AB12CD34EF5601234567FE45 /* MailSettingsStoreTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = AB12CD34EF5601234567FE43 /* MailSettingsStoreTests.swift */; };
+		AB12CD34EF5601234567FE50 /* KeychainServicePerAccountTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = AB12CD34EF5601234567FE4F /* KeychainServicePerAccountTests.swift */; };
+		AB12CD34EF5601234567FE51 /* KeychainServicePerAccountTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = AB12CD34EF5601234567FE4F /* KeychainServicePerAccountTests.swift */; };
+		AB12CD34EF5601234567FE61 /* MailSyncCoordinatorRegistry.swift in Sources */ = {isa = PBXBuildFile; fileRef = AB12CD34EF5601234567FE60 /* MailSyncCoordinatorRegistry.swift */; };
+		AB12CD34EF5601234567FE62 /* MailSyncCoordinatorRegistry.swift in Sources */ = {isa = PBXBuildFile; fileRef = AB12CD34EF5601234567FE60 /* MailSyncCoordinatorRegistry.swift */; };
+		AB12CD34EF5601234567FE64 /* MailSyncCoordinatorRegistryTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = AB12CD34EF5601234567FE63 /* MailSyncCoordinatorRegistryTests.swift */; };
+		AB12CD34EF5601234567FE65 /* MailSyncCoordinatorRegistryTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = AB12CD34EF5601234567FE63 /* MailSyncCoordinatorRegistryTests.swift */; };
+		AB14UI0001234567FE001001 /* EmailAccountList.swift in Sources */ = {isa = PBXBuildFile; fileRef = AB14UI0001234567FE001000 /* EmailAccountList.swift */; };
+		AB14UI0001234567FE001002 /* EmailAccountList.swift in Sources */ = {isa = PBXBuildFile; fileRef = AB14UI0001234567FE001000 /* EmailAccountList.swift */; };
+		AB14UI0001234567FE002001 /* EmailAccountEditor.swift in Sources */ = {isa = PBXBuildFile; fileRef = AB14UI0001234567FE002000 /* EmailAccountEditor.swift */; };
+		AB14UI0001234567FE002002 /* EmailAccountEditor.swift in Sources */ = {isa = PBXBuildFile; fileRef = AB14UI0001234567FE002000 /* EmailAccountEditor.swift */; };
+		AB14UI0001234567FE003001 /* AddEmailAccountSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = AB14UI0001234567FE003000 /* AddEmailAccountSheet.swift */; };
+		AB14UI0001234567FE003002 /* AddEmailAccountSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = AB14UI0001234567FE003000 /* AddEmailAccountSheet.swift */; };
+		AB14UI0001234567FE004001 /* MailDefaultsSection.swift in Sources */ = {isa = PBXBuildFile; fileRef = AB14UI0001234567FE004000 /* MailDefaultsSection.swift */; };
+		AB14UI0001234567FE004002 /* MailDefaultsSection.swift in Sources */ = {isa = PBXBuildFile; fileRef = AB14UI0001234567FE004000 /* MailDefaultsSection.swift */; };
+		AB15IOS0001234567FE001001 /* IOSEmailAccountList.swift in Sources */ = {isa = PBXBuildFile; fileRef = AB15IOS0001234567FE001000 /* IOSEmailAccountList.swift */; };
+		AB15IOS0001234567FE001002 /* IOSEmailAccountList.swift in Sources */ = {isa = PBXBuildFile; fileRef = AB15IOS0001234567FE001000 /* IOSEmailAccountList.swift */; };
+		AB15IOS0001234567FE002001 /* IOSEmailAccountEditor.swift in Sources */ = {isa = PBXBuildFile; fileRef = AB15IOS0001234567FE002000 /* IOSEmailAccountEditor.swift */; };
+		AB15IOS0001234567FE002002 /* IOSEmailAccountEditor.swift in Sources */ = {isa = PBXBuildFile; fileRef = AB15IOS0001234567FE002000 /* IOSEmailAccountEditor.swift */; };
+		AB15IOS0001234567FE003001 /* IOSMailDefaultsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AB15IOS0001234567FE003000 /* IOSMailDefaultsView.swift */; };
+		AB15IOS0001234567FE003002 /* IOSMailDefaultsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AB15IOS0001234567FE003000 /* IOSMailDefaultsView.swift */; };
+		AB15IOS0001234567FE004001 /* IOSAddEmailAccountSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = AB15IOS0001234567FE004000 /* IOSAddEmailAccountSheet.swift */; };
+		AB15IOS0001234567FE004002 /* IOSAddEmailAccountSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = AB15IOS0001234567FE004000 /* IOSAddEmailAccountSheet.swift */; };
 		1A5087796E77E3A1B3254A6A /* AddEditRepoView.swift in Sources */ = {isa = PBXBuildFile; fileRef = DA2585A8442E3BBFF49D6958 /* AddEditRepoView.swift */; };
 		1CAF1910E24C4A56CF158ADB /* HiddenAppStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = C897756C0C9A16325888F788 /* HiddenAppStore.swift */; };
 		1CF1DBFBD18235D25DF8D101 /* IssueBodyParser.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2EA9ED253AAB1648CE69C3C8 /* IssueBodyParser.swift */; };
@@ -437,6 +465,20 @@
 		AB12CD34EF5601234567FE01 /* RepoFetchState.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RepoFetchState.swift; sourceTree = "<group>"; };
 		AB12CD34EF5601234567FE10 /* IssueTranslation.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = IssueTranslation.swift; sourceTree = "<group>"; };
 		AB12CD34EF5601234567FE20 /* IssueSummaryCache.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = IssueSummaryCache.swift; sourceTree = "<group>"; };
+		AB12CD34EF5601234567FE30 /* MailSettings.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MailSettings.swift; sourceTree = "<group>"; };
+		AB12CD34EF5601234567FE40 /* MailSettingsStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MailSettingsStore.swift; sourceTree = "<group>"; };
+		AB12CD34EF5601234567FE43 /* MailSettingsStoreTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MailSettingsStoreTests.swift; sourceTree = "<group>"; };
+		AB12CD34EF5601234567FE4F /* KeychainServicePerAccountTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = KeychainServicePerAccountTests.swift; sourceTree = "<group>"; };
+		AB12CD34EF5601234567FE60 /* MailSyncCoordinatorRegistry.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MailSyncCoordinatorRegistry.swift; sourceTree = "<group>"; };
+		AB12CD34EF5601234567FE63 /* MailSyncCoordinatorRegistryTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MailSyncCoordinatorRegistryTests.swift; sourceTree = "<group>"; };
+		AB14UI0001234567FE001000 /* EmailAccountList.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EmailAccountList.swift; sourceTree = "<group>"; };
+		AB14UI0001234567FE002000 /* EmailAccountEditor.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EmailAccountEditor.swift; sourceTree = "<group>"; };
+		AB14UI0001234567FE003000 /* AddEmailAccountSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AddEmailAccountSheet.swift; sourceTree = "<group>"; };
+		AB14UI0001234567FE004000 /* MailDefaultsSection.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MailDefaultsSection.swift; sourceTree = "<group>"; };
+		AB15IOS0001234567FE001000 /* IOSEmailAccountList.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = IOSEmailAccountList.swift; sourceTree = "<group>"; };
+		AB15IOS0001234567FE002000 /* IOSEmailAccountEditor.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = IOSEmailAccountEditor.swift; sourceTree = "<group>"; };
+		AB15IOS0001234567FE003000 /* IOSMailDefaultsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = IOSMailDefaultsView.swift; sourceTree = "<group>"; };
+		AB15IOS0001234567FE004000 /* IOSAddEmailAccountSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = IOSAddEmailAccountSheet.swift; sourceTree = "<group>"; };
 		ED45644F876811CA79E17198 /* IMAPClientError.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = IMAPClientError.swift; sourceTree = "<group>"; };
 		F21997922568B439D705E5DA /* UnreadSummaryViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UnreadSummaryViewModel.swift; sourceTree = "<group>"; };
 		F3AC2A1A49FFA4A03F179B09 /* MessageIDGeneratorTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MessageIDGeneratorTests.swift; sourceTree = "<group>"; };
@@ -481,10 +523,12 @@
 				93B756CB500E6F04BB86F616 /* MailAccountLocalStateStore.swift */,
 				2A5E2F5FD335BF8BEDD0FC0A /* MailAccountMigration.swift */,
 				86D913610C499CDB7C15463E /* MailAccountStore.swift */,
+				AB12CD34EF5601234567FE40 /* MailSettingsStore.swift */,
 				0FC01BF334B5D65CF0147005 /* MailComposer.swift */,
 				14204B0FB15E1C987B6ADC0F /* MailSender.swift */,
 				B746144B4F5496E44825F77A /* MailSubject.swift */,
 				17F075AD1022BBE0E737AFE0 /* MailSyncCoordinator.swift */,
+				AB12CD34EF5601234567FE60 /* MailSyncCoordinatorRegistry.swift */,
 				6735A1797CDAD61EEB8EA194 /* MailThreadStore.swift */,
 				BFEED000AAAA0001AAAA0001 /* OutboundSendTracker.swift */,
 				BFEED000AAAA0003AAAA0003 /* OutboundFailureStore.swift */,
@@ -604,11 +648,19 @@
 			isa = PBXGroup;
 			children = (
 				DA2585A8442E3BBFF49D6958 /* AddEditRepoView.swift */,
+				AB14UI0001234567FE003000 /* AddEmailAccountSheet.swift */,
 				49269C3629BF0756B51F7C1D /* CloudSyncStatusRow.swift */,
+				AB14UI0001234567FE002000 /* EmailAccountEditor.swift */,
+				AB14UI0001234567FE001000 /* EmailAccountList.swift */,
 				997018B54F967FD27571808D /* EmailSettingsView.swift */,
 				8179D7E75894D24AAF1B685B /* GitHubLoginView.swift */,
 				6C81A296860E49F3AC70386D /* IntelligenceSettingsSection.swift */,
+				AB15IOS0001234567FE004000 /* IOSAddEmailAccountSheet.swift */,
+				AB15IOS0001234567FE002000 /* IOSEmailAccountEditor.swift */,
+				AB15IOS0001234567FE001000 /* IOSEmailAccountList.swift */,
 				1C6703D11EE7CF4ADD71A1BB /* IOSEmailSettingsView.swift */,
+				AB15IOS0001234567FE003000 /* IOSMailDefaultsView.swift */,
+				AB14UI0001234567FE004000 /* MailDefaultsSection.swift */,
 				76F517911AEFC8F2CB8939A1 /* NotificationsSettingsView.swift */,
 				68B931F0D2D397FA605DCCBA /* SettingsView.swift */,
 			);
@@ -623,6 +675,7 @@
 				DD959DEDBC95A458BAD75F14 /* GitHubAuthModels.swift */,
 				5A7F74F71D395BBAB4CC3F68 /* HiddenApp.swift */,
 				4C43048AAC73BB06B69C533F /* MailAccount.swift */,
+				AB12CD34EF5601234567FE30 /* MailSettings.swift */,
 				EBC84D73F559C8192BD55BC8 /* MailAccountLocalState.swift */,
 				74EEB069BDE0A64E29F975A5 /* MailAttachment.swift */,
 				D52AEB04216AE069C6C81348 /* MailAttachmentLocal.swift */,
@@ -688,6 +741,9 @@
 				C820036DA685AB28006B7941 /* LanguageDetectorTests.swift */,
 				78B64902EBFA643CA5B6BB2B /* MailAccountMigrationTests.swift */,
 				D8AAA23A1C319EADB6C477E9 /* MailAccountStoreTests.swift */,
+				AB12CD34EF5601234567FE43 /* MailSettingsStoreTests.swift */,
+				AB12CD34EF5601234567FE4F /* KeychainServicePerAccountTests.swift */,
+				AB12CD34EF5601234567FE63 /* MailSyncCoordinatorRegistryTests.swift */,
 				23A9BA2E68773A9401ABCE89 /* MailComposerTests.swift */,
 				B01371BB929AA76F679A4403 /* MailSubjectTests.swift */,
 				1CFA70463075474DBA852686 /* MailSyncCoordinatorTests.swift */,
@@ -920,7 +976,15 @@
 				DCD80C3DDF8D746ACF14A72B /* ComposeMailView.swift in Sources */,
 				9ABAD1F98FAA0295F43C1FEA /* ComposeMailViewModel.swift in Sources */,
 				9C849E6C1803FFA445354CA5 /* DeviceName.swift in Sources */,
+				AB14UI0001234567FE001001 /* EmailAccountList.swift in Sources */,
+				AB14UI0001234567FE002001 /* EmailAccountEditor.swift in Sources */,
+				AB14UI0001234567FE003001 /* AddEmailAccountSheet.swift in Sources */,
+				AB14UI0001234567FE004001 /* MailDefaultsSection.swift in Sources */,
 				8FBD0F509C7C35FC4F31F0EF /* EmailSettingsView.swift in Sources */,
+				AB15IOS0001234567FE001001 /* IOSEmailAccountList.swift in Sources */,
+				AB15IOS0001234567FE002001 /* IOSEmailAccountEditor.swift in Sources */,
+				AB15IOS0001234567FE003001 /* IOSMailDefaultsView.swift in Sources */,
+				AB15IOS0001234567FE004001 /* IOSAddEmailAccountSheet.swift in Sources */,
 				C9CAB46A8636312907588E63 /* FeedbackIssue.swift in Sources */,
 				79081346B12D94B6E60A2D42 /* FilterBarView.swift in Sources */,
 				7A2403C90C2120458BEDA8B7 /* GitHubAuthModels.swift in Sources */,
@@ -950,10 +1014,12 @@
 				2EAC138DDFD25ED8DB286CDA /* LanguageDetector.swift in Sources */,
 				5D65487C7B26AF4292BFA1EF /* MacBackgroundRefreshDriver.swift in Sources */,
 				CEE4ED65A8B68E6419739230 /* MailAccount.swift in Sources */,
+				AB12CD34EF5601234567FE31 /* MailSettings.swift in Sources */,
 				C5679C0BB770DE79B7264B8A /* MailAccountLocalState.swift in Sources */,
 				E906AAA5A7F1B49D767A3492 /* MailAccountLocalStateStore.swift in Sources */,
 				4E1981FC97C631FEA076F7D2 /* MailAccountMigration.swift in Sources */,
 				09C5FD3D7748A31244DA87B7 /* MailAccountStore.swift in Sources */,
+				AB12CD34EF5601234567FE41 /* MailSettingsStore.swift in Sources */,
 				63F02A0EA217240DEF51BB90 /* MailAttachment.swift in Sources */,
 				0AAF8CE759DC46B71DAAA626 /* MailAttachmentLocal.swift in Sources */,
 				F3AD0B937BC2C7295D0B4EFD /* MailComposer.swift in Sources */,
@@ -963,6 +1029,7 @@
 				1292A3DBE0EBE94AD93E72F3 /* MailSender.swift in Sources */,
 				4C677EDBF8EB31CD4D6E49F1 /* MailSubject.swift in Sources */,
 				AC1251935F860C1C8331D9EF /* MailSyncCoordinator.swift in Sources */,
+				AB12CD34EF5601234567FE61 /* MailSyncCoordinatorRegistry.swift in Sources */,
 				0013ACCBC18F35001EE1A1F9 /* MailThread.swift in Sources */,
 				BD159F6F074B6CF51A9BA83B /* MailThreadStore.swift in Sources */,
 				BFEED001AAAA0001AAAA0001 /* OutboundSendTracker.swift in Sources */,
@@ -1023,6 +1090,9 @@
 				13FBCDDC9A5DD54B6DA3002B /* LanguageDetectorTests.swift in Sources */,
 				C1F0221E07C29AE50FB4D45F /* MailAccountMigrationTests.swift in Sources */,
 				8192DDA72C5F679CEE06DCE8 /* MailAccountStoreTests.swift in Sources */,
+				AB12CD34EF5601234567FE44 /* MailSettingsStoreTests.swift in Sources */,
+				AB12CD34EF5601234567FE50 /* KeychainServicePerAccountTests.swift in Sources */,
+				AB12CD34EF5601234567FE64 /* MailSyncCoordinatorRegistryTests.swift in Sources */,
 				DECF813444D0EBF84A396179 /* MailComposerTests.swift in Sources */,
 				C56CB37E84985ECEAA4F436C /* MailSubjectTests.swift in Sources */,
 				C68119198EEC100CD92FFBB4 /* MailSyncCoordinatorTests.swift in Sources */,
@@ -1069,7 +1139,15 @@
 				10A007A9081FBCE9132EC113 /* ComposeMailView.swift in Sources */,
 				D522E73475746CCDF99A3394 /* ComposeMailViewModel.swift in Sources */,
 				9BDD7E145C60D5DD6FE85E09 /* DeviceName.swift in Sources */,
+				AB14UI0001234567FE001002 /* EmailAccountList.swift in Sources */,
+				AB14UI0001234567FE002002 /* EmailAccountEditor.swift in Sources */,
+				AB14UI0001234567FE003002 /* AddEmailAccountSheet.swift in Sources */,
+				AB14UI0001234567FE004002 /* MailDefaultsSection.swift in Sources */,
 				7ED89EB752383D353A3734D7 /* EmailSettingsView.swift in Sources */,
+				AB15IOS0001234567FE001002 /* IOSEmailAccountList.swift in Sources */,
+				AB15IOS0001234567FE002002 /* IOSEmailAccountEditor.swift in Sources */,
+				AB15IOS0001234567FE003002 /* IOSMailDefaultsView.swift in Sources */,
+				AB15IOS0001234567FE004002 /* IOSAddEmailAccountSheet.swift in Sources */,
 				E3611B8BC7E8C7EE99D7407D /* FeedbackIssue.swift in Sources */,
 				6F4322ADD276DC8E84E3ACEF /* FilterBarView.swift in Sources */,
 				EA29D7D0BC140D0B14DDAAD6 /* GitHubAuthModels.swift in Sources */,
@@ -1099,10 +1177,12 @@
 				0ABF90F2A3F44E5C2F984840 /* LanguageDetector.swift in Sources */,
 				F13DB2F749781777309599FE /* MacBackgroundRefreshDriver.swift in Sources */,
 				16B57103087717C8C19AABFA /* MailAccount.swift in Sources */,
+				AB12CD34EF5601234567FE32 /* MailSettings.swift in Sources */,
 				6364A006B3ED98BB20F34E3D /* MailAccountLocalState.swift in Sources */,
 				F3CE932101925DBF69422ACE /* MailAccountLocalStateStore.swift in Sources */,
 				F5F677A0EEC00AED2CD1B73B /* MailAccountMigration.swift in Sources */,
 				41B72E1D883407E28AC5E6CB /* MailAccountStore.swift in Sources */,
+				AB12CD34EF5601234567FE42 /* MailSettingsStore.swift in Sources */,
 				C7871668D49A7AB530DE6804 /* MailAttachment.swift in Sources */,
 				DB7C1DFACDD2D142932E319E /* MailAttachmentLocal.swift in Sources */,
 				E1E73AAC7E5ED58A44D5DB71 /* MailComposer.swift in Sources */,
@@ -1112,6 +1192,7 @@
 				CCD0C830DFEA15E57CA49F72 /* MailSender.swift in Sources */,
 				EFEC64B6C5F7928105CC03F0 /* MailSubject.swift in Sources */,
 				8DEBFBEE72879D3118547A26 /* MailSyncCoordinator.swift in Sources */,
+				AB12CD34EF5601234567FE62 /* MailSyncCoordinatorRegistry.swift in Sources */,
 				2461DBE31C8A7050BA7A15C9 /* MailThread.swift in Sources */,
 				AB492DD8BAAE83FD2D3ED134 /* MailThreadStore.swift in Sources */,
 				BFEED002AAAA0001AAAA0001 /* OutboundSendTracker.swift in Sources */,
@@ -1172,6 +1253,9 @@
 				DAE3BF47B7041F2C51C9D009 /* LanguageDetectorTests.swift in Sources */,
 				DC5344E897AE43C37E2DA4EB /* MailAccountMigrationTests.swift in Sources */,
 				CF3B46C5D3FAF8C7978DA90A /* MailAccountStoreTests.swift in Sources */,
+				AB12CD34EF5601234567FE45 /* MailSettingsStoreTests.swift in Sources */,
+				AB12CD34EF5601234567FE51 /* KeychainServicePerAccountTests.swift in Sources */,
+				AB12CD34EF5601234567FE65 /* MailSyncCoordinatorRegistryTests.swift in Sources */,
 				8252793B884DF31E2DEBA41E /* MailComposerTests.swift in Sources */,
 				743E23C9879F1535ED3CEA9A /* MailSubjectTests.swift in Sources */,
 				84DCF075572215359DFFB0D1 /* MailSyncCoordinatorTests.swift in Sources */,
