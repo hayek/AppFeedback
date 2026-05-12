@@ -40,6 +40,8 @@
 		AB12CD34EF5601234567FE12 /* IssueTranslation.swift in Sources */ = {isa = PBXBuildFile; fileRef = AB12CD34EF5601234567FE10 /* IssueTranslation.swift */; };
 		AB12CD34EF5601234567FE21 /* IssueSummaryCache.swift in Sources */ = {isa = PBXBuildFile; fileRef = AB12CD34EF5601234567FE20 /* IssueSummaryCache.swift */; };
 		AB12CD34EF5601234567FE22 /* IssueSummaryCache.swift in Sources */ = {isa = PBXBuildFile; fileRef = AB12CD34EF5601234567FE20 /* IssueSummaryCache.swift */; };
+		AB12CD34EF5601234567FE31 /* MailSettings.swift in Sources */ = {isa = PBXBuildFile; fileRef = AB12CD34EF5601234567FE30 /* MailSettings.swift */; };
+		AB12CD34EF5601234567FE32 /* MailSettings.swift in Sources */ = {isa = PBXBuildFile; fileRef = AB12CD34EF5601234567FE30 /* MailSettings.swift */; };
 		1A5087796E77E3A1B3254A6A /* AddEditRepoView.swift in Sources */ = {isa = PBXBuildFile; fileRef = DA2585A8442E3BBFF49D6958 /* AddEditRepoView.swift */; };
 		1CAF1910E24C4A56CF158ADB /* HiddenAppStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = C897756C0C9A16325888F788 /* HiddenAppStore.swift */; };
 		1CF1DBFBD18235D25DF8D101 /* IssueBodyParser.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2EA9ED253AAB1648CE69C3C8 /* IssueBodyParser.swift */; };
@@ -437,6 +439,7 @@
 		AB12CD34EF5601234567FE01 /* RepoFetchState.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RepoFetchState.swift; sourceTree = "<group>"; };
 		AB12CD34EF5601234567FE10 /* IssueTranslation.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = IssueTranslation.swift; sourceTree = "<group>"; };
 		AB12CD34EF5601234567FE20 /* IssueSummaryCache.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = IssueSummaryCache.swift; sourceTree = "<group>"; };
+		AB12CD34EF5601234567FE30 /* MailSettings.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MailSettings.swift; sourceTree = "<group>"; };
 		ED45644F876811CA79E17198 /* IMAPClientError.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = IMAPClientError.swift; sourceTree = "<group>"; };
 		F21997922568B439D705E5DA /* UnreadSummaryViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UnreadSummaryViewModel.swift; sourceTree = "<group>"; };
 		F3AC2A1A49FFA4A03F179B09 /* MessageIDGeneratorTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MessageIDGeneratorTests.swift; sourceTree = "<group>"; };
@@ -623,6 +626,7 @@
 				DD959DEDBC95A458BAD75F14 /* GitHubAuthModels.swift */,
 				5A7F74F71D395BBAB4CC3F68 /* HiddenApp.swift */,
 				4C43048AAC73BB06B69C533F /* MailAccount.swift */,
+				AB12CD34EF5601234567FE30 /* MailSettings.swift */,
 				EBC84D73F559C8192BD55BC8 /* MailAccountLocalState.swift */,
 				74EEB069BDE0A64E29F975A5 /* MailAttachment.swift */,
 				D52AEB04216AE069C6C81348 /* MailAttachmentLocal.swift */,
@@ -950,6 +954,7 @@
 				2EAC138DDFD25ED8DB286CDA /* LanguageDetector.swift in Sources */,
 				5D65487C7B26AF4292BFA1EF /* MacBackgroundRefreshDriver.swift in Sources */,
 				CEE4ED65A8B68E6419739230 /* MailAccount.swift in Sources */,
+				AB12CD34EF5601234567FE31 /* MailSettings.swift in Sources */,
 				C5679C0BB770DE79B7264B8A /* MailAccountLocalState.swift in Sources */,
 				E906AAA5A7F1B49D767A3492 /* MailAccountLocalStateStore.swift in Sources */,
 				4E1981FC97C631FEA076F7D2 /* MailAccountMigration.swift in Sources */,
@@ -1099,6 +1104,7 @@
 				0ABF90F2A3F44E5C2F984840 /* LanguageDetector.swift in Sources */,
 				F13DB2F749781777309599FE /* MacBackgroundRefreshDriver.swift in Sources */,
 				16B57103087717C8C19AABFA /* MailAccount.swift in Sources */,
+				AB12CD34EF5601234567FE32 /* MailSettings.swift in Sources */,
 				6364A006B3ED98BB20F34E3D /* MailAccountLocalState.swift in Sources */,
 				F3CE932101925DBF69422ACE /* MailAccountLocalStateStore.swift in Sources */,
 				F5F677A0EEC00AED2CD1B73B /* MailAccountMigration.swift in Sources */,
