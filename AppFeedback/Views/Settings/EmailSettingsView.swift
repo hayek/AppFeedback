@@ -5,20 +5,24 @@ struct EmailSettingsView: View {
     @State private var editingAccount: EditingAccount?
 
     var body: some View {
-        VStack(spacing: 0) {
-            Form {
-                EmailAccountList(editingAccountID: Binding(
-                    get: { editingAccount?.id },
-                    set: { editingAccount = $0.map(EditingAccount.init(id:)) }
-                ))
-                MailDefaultsSection()
-            }
-            .formStyle(.grouped)
+        ScrollView {
+            VStack(spacing: 0) {
+                Form {
+                    EmailAccountList(editingAccountID: Binding(
+                        get: { editingAccount?.id },
+                        set: { editingAccount = $0.map(EditingAccount.init(id:)) }
+                    ))
+                    MailDefaultsSection()
+                }
+                .formStyle(.grouped)
+                .scrollDisabled(true)
+                .frame(maxWidth: .infinity)
 
-            MailPlaceholdersList()
-                .padding(.horizontal, 22)
-                .padding(.vertical, 14)
-                .frame(maxWidth: .infinity, alignment: .leading)
+                MailPlaceholdersList()
+                    .padding(.horizontal, 22)
+                    .padding(.vertical, 14)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+            }
         }
         .sheet(item: $editingAccount) { item in
             EmailAccountEditorSheet(accountID: item.id)
