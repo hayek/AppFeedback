@@ -25,6 +25,7 @@ struct AppFeedbackApp: App {
     @State private var notificationRouter: NotificationRouter
     @State private var downloaderHolder: AttachmentDownloaderHolder
     @State private var coordinatorHolder: MailSyncCoordinatorHolder
+    @State private var coordinatorRegistry: MailSyncCoordinatorRegistry?
     @State private var mirrorHolder: MailToGitHubMirrorHolder
     @State private var mailLocalStateStore: MailAccountLocalStateStore
     #if os(iOS)
@@ -137,40 +138,51 @@ struct AppFeedbackApp: App {
         _mirrorHolder = State(initialValue: MailToGitHubMirrorHolder(mirrorLocal))
 
         #if canImport(SwiftMail)
-        // TEMPORARY: per-account spin-up arrives with MailSyncCoordinatorRegistry in Plan Task 11.
-        // Until then, route the single coordinator and downloader through the default sender's
-        // account (or a placeholder when no account exists yet — the coordinator no-ops in that case).
-        let provisionalAccountID = mailAccountStoreLocal.defaultSender?.id ?? UUID()
-        let imapProvider = IMAPClientProvider(accountStore: mailAccountStoreLocal, accountID: provisionalAccountID)
-        let localStateStore = localStateStoreLocal
-        // Provide real CachedIssue titles to ThreadMatcher for backfill subject matching.
-        // Capture `container` as a local constant so the @Sendable closure doesn't capture `self`.
-        // The provider returns titles from ALL repos; ThreadMatcher.matchToIssue does not yet
-        // disambiguate cross-repo title collisions — for v1, the highest-number heuristic is acceptable.
         let titlesContainer = container
-        let coordinator = MailSyncCoordinator(
-            client: imapProvider,
-            accountID: provisionalAccountID,
-            threadStore: threadStoreLocal,
-            accountStore: mailAccountStoreLocal,
-            localState: localStateStore,
-            activityLog: activityLogValue,
-            mirror: mirrorLocal,
-            notificationService: service,
-            knownIssueTitlesProvider: { @Sendable in
-                await MainActor.run {
-                    let ctx = ModelContext(titlesContainer)
-                    let cached = (try? ctx.fetch(FetchDescriptor<CachedIssue>())) ?? []
-                    return cached.map { (owner: $0.repoOwner, repo: $0.repoName, number: $0.number, title: $0.title) }
+        let mirrorRef = mirrorLocal
+        let serviceRef = service
+        let activityLogRef = activityLogValue
+        let registryFactory: (UUID) -> MailSyncCoordinator = { id in
+            let provider = IMAPClientProvider(accountStore: mailAccountStoreLocal, accountID: id)
+            return MailSyncCoordinator(
+                client: provider,
+                accountID: id,
+                threadStore: threadStoreLocal,
+                accountStore: mailAccountStoreLocal,
+                localState: localStateStoreLocal,
+                activityLog: activityLogRef,
+                mirror: mirrorRef,
+                notificationService: serviceRef,
+                knownIssueTitlesProvider: { @Sendable in
+                    await MainActor.run {
+                        let ctx = ModelContext(titlesContainer)
+                        let cached = (try? ctx.fetch(FetchDescriptor<CachedIssue>())) ?? []
+                        return cached.map { (owner: $0.repoOwner, repo: $0.repoName, number: $0.number, title: $0.title) }
+                    }
                 }
-            }
+            )
+        }
+        let registry = MailSyncCoordinatorRegistry(
+            accountStore: mailAccountStoreLocal,
+            factory: registryFactory
         )
-        _coordinatorHolder = State(initialValue: MailSyncCoordinatorHolder(coordinator))
+        registry.syncWithAccounts()
+        _coordinatorRegistry = State(initialValue: registry)
 
+        // SHIM: the existing MailSyncCoordinatorHolder env injection is kept for legacy views
+        // (EmailSettingsView, IOSEmailSettingsView, RootView, AppFeedbackApp's own onChange).
+        // Plan Task 17 removes this shim once those call sites switch to the registry.
+        let provisionalAccountID = mailAccountStoreLocal.defaultSender?.id ?? UUID()
+        let legacyHolderCoordinator = registry.coordinator(for: provisionalAccountID)
+        _coordinatorHolder = State(initialValue: MailSyncCoordinatorHolder(legacyHolderCoordinator))
+
+        // The attachment downloader needs ONE IMAPClient; route through the default sender.
+        let downloaderProvider = IMAPClientProvider(accountStore: mailAccountStoreLocal, accountID: provisionalAccountID)
         let attachmentLocalStore = MailAttachmentLocalStore(context: ModelContext(container))
-        let downloader = AttachmentDownloader(client: imapProvider, localStore: attachmentLocalStore)
+        let downloader = AttachmentDownloader(client: downloaderProvider, localStore: attachmentLocalStore)
         _downloaderHolder = State(initialValue: AttachmentDownloaderHolder(downloader))
         #else
+        _coordinatorRegistry = State(initialValue: nil)
         _coordinatorHolder = State(initialValue: MailSyncCoordinatorHolder(nil))
         _downloaderHolder = State(initialValue: AttachmentDownloaderHolder(nil))
         #endif
@@ -215,13 +227,14 @@ struct AppFeedbackApp: App {
                 .environment(notificationRouter)
                 .environment(downloaderHolder)
                 .environment(coordinatorHolder)
+                .environment(\.mailSyncCoordinatorRegistry, coordinatorRegistry)
                 .environment(mirrorHolder)
                 .environment(mailLocalStateStore)
                 .environment(\.notificationService, notificationService)
                 .task { await notificationService.requestAuthorizationIfNeeded() }
                 .onAppear {
                     #if canImport(SwiftMail)
-                    Task { await coordinatorHolder.coordinator?.start() }
+                    coordinatorRegistry?.start()
                     #endif
                 }
                 .onChange(of: notificationSettings.isEnabled) { _, isOn in
@@ -235,7 +248,7 @@ struct AppFeedbackApp: App {
                 .onChange(of: scenePhase) { _, phase in
                     #if canImport(SwiftMail)
                     if phase == .active {
-                        Task { await coordinatorHolder.coordinator?.pollNow() }
+                        Task { await coordinatorRegistry?.pollNow() }
                     }
                     #endif
                     if phase == .background { iosRefreshDriver.scheduleNextRefresh() }
@@ -244,7 +257,7 @@ struct AppFeedbackApp: App {
                 .onChange(of: scenePhase) { _, phase in
                     #if canImport(SwiftMail)
                     if phase == .active {
-                        Task { await coordinatorHolder.coordinator?.pollNow() }
+                        Task { await coordinatorRegistry?.pollNow() }
                     }
                     #endif
                 }
@@ -279,12 +292,26 @@ struct AppFeedbackApp: App {
                 .environment(notificationRouter)
                 .environment(downloaderHolder)
                 .environment(coordinatorHolder)
+                .environment(\.mailSyncCoordinatorRegistry, coordinatorRegistry)
                 .environment(mirrorHolder)
                 .environment(mailLocalStateStore)
                 .environment(\.notificationService, notificationService)
         }
         .windowResizability(.contentMinSize)
         #endif
+    }
+}
+
+// MARK: - EnvironmentKey for MailSyncCoordinatorRegistry
+
+private struct MailSyncCoordinatorRegistryKey: EnvironmentKey {
+    static let defaultValue: MailSyncCoordinatorRegistry? = nil
+}
+
+extension EnvironmentValues {
+    var mailSyncCoordinatorRegistry: MailSyncCoordinatorRegistry? {
+        get { self[MailSyncCoordinatorRegistryKey.self] }
+        set { self[MailSyncCoordinatorRegistryKey.self] = newValue }
     }
 }
 

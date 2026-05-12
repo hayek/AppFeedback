@@ -48,6 +48,10 @@
 		AB12CD34EF5601234567FE45 /* MailSettingsStoreTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = AB12CD34EF5601234567FE43 /* MailSettingsStoreTests.swift */; };
 		AB12CD34EF5601234567FE50 /* KeychainServicePerAccountTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = AB12CD34EF5601234567FE4F /* KeychainServicePerAccountTests.swift */; };
 		AB12CD34EF5601234567FE51 /* KeychainServicePerAccountTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = AB12CD34EF5601234567FE4F /* KeychainServicePerAccountTests.swift */; };
+		AB12CD34EF5601234567FE61 /* MailSyncCoordinatorRegistry.swift in Sources */ = {isa = PBXBuildFile; fileRef = AB12CD34EF5601234567FE60 /* MailSyncCoordinatorRegistry.swift */; };
+		AB12CD34EF5601234567FE62 /* MailSyncCoordinatorRegistry.swift in Sources */ = {isa = PBXBuildFile; fileRef = AB12CD34EF5601234567FE60 /* MailSyncCoordinatorRegistry.swift */; };
+		AB12CD34EF5601234567FE64 /* MailSyncCoordinatorRegistryTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = AB12CD34EF5601234567FE63 /* MailSyncCoordinatorRegistryTests.swift */; };
+		AB12CD34EF5601234567FE65 /* MailSyncCoordinatorRegistryTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = AB12CD34EF5601234567FE63 /* MailSyncCoordinatorRegistryTests.swift */; };
 		1A5087796E77E3A1B3254A6A /* AddEditRepoView.swift in Sources */ = {isa = PBXBuildFile; fileRef = DA2585A8442E3BBFF49D6958 /* AddEditRepoView.swift */; };
 		1CAF1910E24C4A56CF158ADB /* HiddenAppStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = C897756C0C9A16325888F788 /* HiddenAppStore.swift */; };
 		1CF1DBFBD18235D25DF8D101 /* IssueBodyParser.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2EA9ED253AAB1648CE69C3C8 /* IssueBodyParser.swift */; };
@@ -449,6 +453,8 @@
 		AB12CD34EF5601234567FE40 /* MailSettingsStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MailSettingsStore.swift; sourceTree = "<group>"; };
 		AB12CD34EF5601234567FE43 /* MailSettingsStoreTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MailSettingsStoreTests.swift; sourceTree = "<group>"; };
 		AB12CD34EF5601234567FE4F /* KeychainServicePerAccountTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = KeychainServicePerAccountTests.swift; sourceTree = "<group>"; };
+		AB12CD34EF5601234567FE60 /* MailSyncCoordinatorRegistry.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MailSyncCoordinatorRegistry.swift; sourceTree = "<group>"; };
+		AB12CD34EF5601234567FE63 /* MailSyncCoordinatorRegistryTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MailSyncCoordinatorRegistryTests.swift; sourceTree = "<group>"; };
 		ED45644F876811CA79E17198 /* IMAPClientError.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = IMAPClientError.swift; sourceTree = "<group>"; };
 		F21997922568B439D705E5DA /* UnreadSummaryViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UnreadSummaryViewModel.swift; sourceTree = "<group>"; };
 		F3AC2A1A49FFA4A03F179B09 /* MessageIDGeneratorTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MessageIDGeneratorTests.swift; sourceTree = "<group>"; };
@@ -498,6 +504,7 @@
 				14204B0FB15E1C987B6ADC0F /* MailSender.swift */,
 				B746144B4F5496E44825F77A /* MailSubject.swift */,
 				17F075AD1022BBE0E737AFE0 /* MailSyncCoordinator.swift */,
+				AB12CD34EF5601234567FE60 /* MailSyncCoordinatorRegistry.swift */,
 				6735A1797CDAD61EEB8EA194 /* MailThreadStore.swift */,
 				BFEED000AAAA0001AAAA0001 /* OutboundSendTracker.swift */,
 				BFEED000AAAA0003AAAA0003 /* OutboundFailureStore.swift */,
@@ -704,6 +711,7 @@
 				D8AAA23A1C319EADB6C477E9 /* MailAccountStoreTests.swift */,
 				AB12CD34EF5601234567FE43 /* MailSettingsStoreTests.swift */,
 				AB12CD34EF5601234567FE4F /* KeychainServicePerAccountTests.swift */,
+				AB12CD34EF5601234567FE63 /* MailSyncCoordinatorRegistryTests.swift */,
 				23A9BA2E68773A9401ABCE89 /* MailComposerTests.swift */,
 				B01371BB929AA76F679A4403 /* MailSubjectTests.swift */,
 				1CFA70463075474DBA852686 /* MailSyncCoordinatorTests.swift */,
@@ -981,6 +989,7 @@
 				1292A3DBE0EBE94AD93E72F3 /* MailSender.swift in Sources */,
 				4C677EDBF8EB31CD4D6E49F1 /* MailSubject.swift in Sources */,
 				AC1251935F860C1C8331D9EF /* MailSyncCoordinator.swift in Sources */,
+				AB12CD34EF5601234567FE61 /* MailSyncCoordinatorRegistry.swift in Sources */,
 				0013ACCBC18F35001EE1A1F9 /* MailThread.swift in Sources */,
 				BD159F6F074B6CF51A9BA83B /* MailThreadStore.swift in Sources */,
 				BFEED001AAAA0001AAAA0001 /* OutboundSendTracker.swift in Sources */,
@@ -1043,6 +1052,7 @@
 				8192DDA72C5F679CEE06DCE8 /* MailAccountStoreTests.swift in Sources */,
 				AB12CD34EF5601234567FE44 /* MailSettingsStoreTests.swift in Sources */,
 				AB12CD34EF5601234567FE50 /* KeychainServicePerAccountTests.swift in Sources */,
+				AB12CD34EF5601234567FE64 /* MailSyncCoordinatorRegistryTests.swift in Sources */,
 				DECF813444D0EBF84A396179 /* MailComposerTests.swift in Sources */,
 				C56CB37E84985ECEAA4F436C /* MailSubjectTests.swift in Sources */,
 				C68119198EEC100CD92FFBB4 /* MailSyncCoordinatorTests.swift in Sources */,
@@ -1134,6 +1144,7 @@
 				CCD0C830DFEA15E57CA49F72 /* MailSender.swift in Sources */,
 				EFEC64B6C5F7928105CC03F0 /* MailSubject.swift in Sources */,
 				8DEBFBEE72879D3118547A26 /* MailSyncCoordinator.swift in Sources */,
+				AB12CD34EF5601234567FE62 /* MailSyncCoordinatorRegistry.swift in Sources */,
 				2461DBE31C8A7050BA7A15C9 /* MailThread.swift in Sources */,
 				AB492DD8BAAE83FD2D3ED134 /* MailThreadStore.swift in Sources */,
 				BFEED002AAAA0001AAAA0001 /* OutboundSendTracker.swift in Sources */,
@@ -1196,6 +1207,7 @@
 				CF3B46C5D3FAF8C7978DA90A /* MailAccountStoreTests.swift in Sources */,
 				AB12CD34EF5601234567FE45 /* MailSettingsStoreTests.swift in Sources */,
 				AB12CD34EF5601234567FE51 /* KeychainServicePerAccountTests.swift in Sources */,
+				AB12CD34EF5601234567FE65 /* MailSyncCoordinatorRegistryTests.swift in Sources */,
 				8252793B884DF31E2DEBA41E /* MailComposerTests.swift in Sources */,
 				743E23C9879F1535ED3CEA9A /* MailSubjectTests.swift in Sources */,
 				84DCF075572215359DFFB0D1 /* MailSyncCoordinatorTests.swift in Sources */,
