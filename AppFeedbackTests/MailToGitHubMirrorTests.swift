@@ -32,7 +32,7 @@ final class MailToGitHubMirrorTests: XCTestCase {
         XCTAssertTrue(body.contains("> Still happening on 2.1"))
         // Quoted history should be stripped from the mirrored body.
         XCTAssertFalse(body.contains("earlier text"))
-        XCTAssertTrue(body.contains("Mirrored automatically by AppFeedback"))
+        XCTAssertTrue(body.contains("Mirrored automatically by Feedbeek"))
     }
 
     func test_buildCommentBody_outboundShowsRecipientAndKeepsAddressOnPrivate() {
