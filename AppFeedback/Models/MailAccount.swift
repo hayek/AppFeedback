@@ -18,6 +18,9 @@ final class MailAccount {
     var templateHeaderHTML: String = ""
     var templateFooterHTML: String = ""
     var backfillCompleted: Bool = false
+    /// Exactly one configured account has this true at a time. Used as the default FROM for
+    /// new replies. `MailAccountStore` enforces the invariant.
+    var isDefaultSender: Bool = false
     var createdAt: Date = Date()
 
     init(
@@ -36,6 +39,7 @@ final class MailAccount {
         templateHeaderHTML: String = "",
         templateFooterHTML: String = "",
         backfillCompleted: Bool = false,
+        isDefaultSender: Bool = false,
         createdAt: Date = Date()
     ) {
         self.id = id
@@ -53,6 +57,7 @@ final class MailAccount {
         self.templateHeaderHTML = templateHeaderHTML
         self.templateFooterHTML = templateFooterHTML
         self.backfillCompleted = backfillCompleted
+        self.isDefaultSender = isDefaultSender
         self.createdAt = createdAt
     }
 
