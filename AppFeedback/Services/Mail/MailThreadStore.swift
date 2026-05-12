@@ -24,6 +24,13 @@ final class MailThreadStore {
         message.direction == .inbound && sessionUnreadMessageIDs.contains(message.messageID)
     }
 
+    /// True when the thread has any inbound message that hasn't been viewed this session.
+    /// Used by `IssueCardView` to surface the "new" badge when a user replies via email.
+    func hasUnreadInbound(thread: MailThread) -> Bool {
+        guard !sessionUnreadMessageIDs.isEmpty else { return false }
+        return (thread.messages ?? []).contains(where: isUnread)
+    }
+
     func markSeen(_ messageID: String) {
         guard sessionUnreadMessageIDs.remove(messageID) != nil else { return }
         version &+= 1

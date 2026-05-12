@@ -47,6 +47,7 @@ actor MailSyncCoordinator {
     private let localState: MailAccountLocalStateStore // @MainActor
     private let activityLog: ActivityLog               // @MainActor
     private let mirror: MailToGitHubMirror?            // @MainActor
+    private let notificationService: NotificationService? // @MainActor
     private let knownIssueTitlesProvider: @Sendable () async -> [(owner: String, repo: String, number: Int, title: String)]
     private let clock: @Sendable () -> Date
 
@@ -65,6 +66,7 @@ actor MailSyncCoordinator {
         localState: MailAccountLocalStateStore,
         activityLog: ActivityLog,
         mirror: MailToGitHubMirror? = nil,
+        notificationService: NotificationService? = nil,
         knownIssueTitlesProvider: @Sendable @escaping () async -> [(owner: String, repo: String, number: Int, title: String)],
         clock: @Sendable @escaping () -> Date = { Date() }
     ) {
@@ -74,6 +76,7 @@ actor MailSyncCoordinator {
         self.localState = localState
         self.activityLog = activityLog
         self.mirror = mirror
+        self.notificationService = notificationService
         self.knownIssueTitlesProvider = knownIssueTitlesProvider
         self.clock = clock
     }
@@ -183,10 +186,28 @@ actor MailSyncCoordinator {
                 fromAddresses: fromAddresses
             )
 
-            await MainActor.run {
+            let inserted: [NotificationService.InboundReply] = await MainActor.run {
+                var newOnes: [NotificationService.InboundReply] = []
                 for msg in messages {
-                    self.threadStore.recordInbound(message: msg)
+                    guard let stored = self.threadStore.recordInbound(message: msg) else { continue }
+                    let issue: NotificationService.InboundReply.IssueRef? = {
+                        guard let t = stored.thread, t.issueNumber > 0,
+                              !t.issueRepoOwner.isEmpty, !t.issueRepoName.isEmpty else { return nil }
+                        return .init(owner: t.issueRepoOwner, repo: t.issueRepoName, number: t.issueNumber)
+                    }()
+                    newOnes.append(.init(
+                        messageID: stored.messageID,
+                        fromName: stored.fromName,
+                        fromAddress: stored.fromAddress,
+                        subject: stored.subject,
+                        issue: issue
+                    ))
                 }
+                return newOnes
+            }
+
+            if let notificationService, !inserted.isEmpty {
+                await notificationService.notifyInboundReplies(inserted)
             }
 
             let maxUID = messages.map(\.uid).max() ?? localSnapshot.inboxLastUID

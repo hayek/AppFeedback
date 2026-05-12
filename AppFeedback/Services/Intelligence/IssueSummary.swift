@@ -17,32 +17,22 @@ struct TranslationResult: Equatable, Sendable {
 @available(macOS 26, iOS 26, *)
 @Generable
 struct IssueSummary: Equatable, Sendable {
-    @Guide(description: "A 1-sentence headline summarizing all of the new feedback overall")
+    @Guide(description: "One headline sentence on overall feedback tone and focus for this period.")
     var headline: String
 
-    @Guide(description: "Per-theme sections. Combine similar issues into a single section and discuss them. Aim for 2-5 sections.")
-    var sections: [Section]
+    @Guide(description: "2-4 concise sentences of factual prose naming what delighted users or worked well — praise, stable areas, positives. Mention rough frequencies when clear. Plain sentences only.")
+    var pros: String
 
-    @Generable
-    struct Section: Equatable, Sendable {
-        @Guide(description: "Short title naming the theme (e.g. 'Login failures', 'Crash on launch')")
-        var title: String
-
-        @Guide(description: "1-3 sentences of plain prose describing this theme: what users reported, any common patterns, rough counts. No bullets or markdown.")
-        var body: String
-    }
+    @Guide(description: "2-4 concise sentences of factual prose naming problems — bugs, regressions, pain points, frustrations. Mention rough frequencies when clear. Plain sentences only.")
+    var cons: String
 }
 #endif
 
 /// Plain-Swift mirror used by views and tests so they don't need FoundationModels.
 struct IssueSummaryDTO: Equatable, Sendable {
     var headline: String
-    var sections: [Section]
-
-    struct Section: Equatable, Sendable {
-        var title: String
-        var body: String
-    }
+    var pros: String
+    var cons: String
 }
 
 #if canImport(FoundationModels)
@@ -50,7 +40,8 @@ struct IssueSummaryDTO: Equatable, Sendable {
 extension IssueSummaryDTO {
     init(_ summary: IssueSummary) {
         self.headline = summary.headline
-        self.sections = summary.sections.map { Section(title: $0.title, body: $0.body) }
+        self.pros = summary.pros
+        self.cons = summary.cons
     }
 }
 #endif

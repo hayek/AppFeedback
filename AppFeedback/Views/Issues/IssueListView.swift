@@ -75,31 +75,26 @@ struct IssueListView: View {
         let visible = viewModel.visibleIssues
         let hasActiveFilter = !viewModel.appFilter.isEmpty || !viewModel.filters.isEmpty
         let showsFilterBar = !viewModel.allIssues.isEmpty || hasActiveFilter
-        if visible.isEmpty {
-            VStack(spacing: 0) {
-                if showsFilterBar {
-                    FilterBarView(viewModel: viewModel, accent: filterAccent)
-                        .padding(.horizontal, 20)
-                        .padding(.top, 16)
-                }
-                Text("No issues found")
-                    .foregroundStyle(.secondary)
-                    .frame(maxWidth: .infinity, maxHeight: .infinity)
-            }
-        } else {
-            ScrollViewReader { proxy in
-                ScrollView {
-                    LazyVStack(spacing: 12) {
-                        if showsFilterBar {
-                            FilterBarView(viewModel: viewModel, accent: filterAccent)
-                        }
+        ScrollViewReader { proxy in
+            ScrollView {
+                LazyVStack(spacing: 12) {
+                    UnreadSummaryView(
+                        state: summaryVM.state,
+                        collapseKey: summaryCollapseKey,
+                        summarizesUnreadIssues: viewModel.aiSummarizesUnreadIssuesOnly
+                    )
+                    .padding(.horizontal, 2)
 
-                        UnreadSummaryView(
-                            state: summaryVM.state,
-                            collapseKey: summaryCollapseKey
-                        )
-                        .padding(.horizontal, 2)
+                    if showsFilterBar {
+                        FilterBarView(viewModel: viewModel, accent: filterAccent)
+                    }
 
+                    if visible.isEmpty {
+                        Text("No issues found")
+                            .foregroundStyle(.secondary)
+                            .frame(maxWidth: .infinity)
+                            .padding(.vertical, 32)
+                    } else {
                         HStack {
                             Text(summaryText(total: viewModel.allIssues.count, visible: visible.count))
                                 .font(.system(size: 13, weight: .medium))
@@ -113,37 +108,40 @@ struct IssueListView: View {
                                 .id(issue.number)
                         }
                     }
-                    .padding(.horizontal, 20)
-                    .padding(.vertical, 16)
-                    .task(id: summaryTaskID) {
-                        await summaryVM.update(
-                            unread: viewModel.unreadIssues,
-                            targetLanguage: targetLanguageCode
-                        )
-                    }
                 }
-                .onChange(of: viewModel.highlightedIssueNumber) { _, newValue in
-                    guard let number = newValue else { return }
-                    withAnimation {
-                        proxy.scrollTo(number, anchor: .top)
-                    }
-                    Task {
-                        try? await Task.sleep(for: .seconds(1.5))
-                        viewModel.highlightedIssueNumber = nil
-                    }
+                .padding(.horizontal, 20)
+                .padding(.vertical, 16)
+                .task(id: summaryTaskID) {
+                    let context: AISummaryPromptContext = viewModel.aiSummarizesUnreadIssuesOnly
+                        ? .unreadIssues : .rollingLastThirtyDays
+                    await summaryVM.update(
+                        issues: viewModel.issuesForAISummaryCard,
+                        targetLanguage: targetLanguageCode,
+                        promptContext: context
+                    )
                 }
             }
-            #if canImport(SwiftMail)
-            .sheet(item: $composing) { ctx in
-                ComposeMailView(
-                    recipient: ctx.recipient,
-                    issue: ctx.issue,
-                    repoOwner: repoOwner,
-                    repoName: repoName
-                )
+            .onChange(of: viewModel.highlightedIssueNumber) { _, newValue in
+                guard let number = newValue else { return }
+                withAnimation {
+                    proxy.scrollTo(number, anchor: .top)
+                }
+                Task {
+                    try? await Task.sleep(for: .seconds(1.5))
+                    viewModel.highlightedIssueNumber = nil
+                }
             }
-            #endif
         }
+        #if canImport(SwiftMail)
+        .sheet(item: $composing) { ctx in
+            ComposeMailView(
+                recipient: ctx.recipient,
+                issue: ctx.issue,
+                repoOwner: repoOwner,
+                repoName: repoName
+            )
+        }
+        #endif
     }
 
     private var filterAccent: Color {
@@ -217,7 +215,9 @@ struct IssueListView: View {
 
     private var summaryTaskID: String {
         let unread = viewModel.unreadIssues.map(\.number).sorted().map(String.init).joined(separator: ",")
-        return "\(targetLanguageCode)|\(unread)"
+        let window = viewModel.issuesRecentForSummary.map(\.number).sorted().map(String.init).joined(separator: ",")
+        let mode = viewModel.aiSummarizesUnreadIssuesOnly ? "u" : "r"
+        return "\(targetLanguageCode)|\(mode)|\(unread)|\(window)"
     }
 
     private func summaryText(total: Int, visible: Int) -> String {

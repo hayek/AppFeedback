@@ -104,6 +104,45 @@ final class IssueListViewModelTests: XCTestCase {
         XCTAssertEqual(vm.visibleIssues.count, 2)
     }
 
+    func test_issuesRecentForSummary_ordersNewestWithinThirtyDays() {
+        let vm = IssueListViewModel()
+        vm.allIssues = [
+            makeIssue(number: 10, title: "A", daysAgo: 10),
+            makeIssue(number: 20, title: "B", daysAgo: 45),
+            makeIssue(number: 30, title: "C", daysAgo: 1),
+        ]
+        XCTAssertEqual(vm.issuesRecentForSummary.map(\.number), [30, 10])
+    }
+
+    func test_issuesRecentForSummary_respectsHiddenApps() {
+        let vm = IssueListViewModel()
+        vm.allIssues = [
+            makeIssue(number: 1, appName: "Hide", daysAgo: 5),
+            makeIssue(number: 2, appName: "Show", daysAgo: 5),
+        ]
+        vm.hiddenApps = ["Hide"]
+        XCTAssertEqual(vm.issuesRecentForSummary.map(\.number), [2])
+    }
+
+    func test_issuesForAISummary_prefersUnreadWhenTwoOrMore() throws {
+        let vm = IssueListViewModel()
+        vm.attachSeenStore(try makeStore(), owner: "o", repo: "r")
+        let a = makeIssue(number: 1)
+        let b = makeIssue(number: 2)
+        vm.applyLoaded([a, b])
+        XCTAssertTrue(vm.aiSummarizesUnreadIssuesOnly)
+        XCTAssertEqual(Set(vm.issuesForAISummaryCard.map(\.number)), [1, 2])
+    }
+
+    func test_issuesForAISummary_usesRollingWhenUnreadBelowThreshold() throws {
+        let vm = IssueListViewModel()
+        vm.attachSeenStore(try makeStore(), owner: "o", repo: "r")
+        vm.applyLoaded([makeIssue(number: 1), makeIssue(number: 2)])
+        vm.markSeen(makeIssue(number: 1))
+        XCTAssertFalse(vm.aiSummarizesUnreadIssuesOnly)
+        XCTAssertEqual(vm.issuesForAISummaryCard.map(\.number), vm.issuesRecentForSummary.map(\.number))
+    }
+
     func test_hiddenApps_excludedFromUnreadIssues() throws {
         let vm = IssueListViewModel()
         vm.attachSeenStore(try makeStore(), owner: "o", repo: "r")

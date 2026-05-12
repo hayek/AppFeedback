@@ -23,14 +23,14 @@ final class UnreadSummaryViewModel {
         self.debounceMs = debounceMs
     }
 
-    func update(unread: [FeedbackIssue], targetLanguage: String) async {
+    func update(issues: [FeedbackIssue], targetLanguage: String, promptContext: AISummaryPromptContext) async {
         currentTask?.cancel()
 
         if !provider.availability.isReady {
             state = .unavailable
             return
         }
-        if unread.count < 2 {
+        if issues.count < 2 {
             state = .skipped
             return
         }
@@ -43,7 +43,11 @@ final class UnreadSummaryViewModel {
             }
             if Task.isCancelled { return }
             do {
-                let result = try await provider.summarize(issues: unread, targetLanguage: targetLanguage)
+                let result = try await provider.summarize(
+                    issues: issues,
+                    targetLanguage: targetLanguage,
+                    promptContext: promptContext
+                )
                 if Task.isCancelled { return }
                 await MainActor.run { self?.state = .ready(result) }
             } catch is CancellationError {

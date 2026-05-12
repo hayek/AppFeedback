@@ -7,15 +7,25 @@ import FoundationModels
 @Observable
 final class IntelligenceService: IntelligenceProvider {
     private(set) var availability: IntelligenceAvailability = .osTooOld
-    private let summaryInstructions = """
-    You are a concise product manager summarizing new user feedback.
-    Produce a structured summary:
-      • headline: one sentence covering all of the new feedback overall.
-      • sections: 2-5 themed sections. Each section combines similar/related issues into one theme.
-        - title: a short, specific theme name (e.g. "Login failures", "Crash on launch").
-        - body: 1-3 sentences of plain prose describing what users reported, common patterns, and rough counts (e.g. "three users mentioned…"). No bullets, no markdown.
-    Combine similar issues into the same section instead of repeating them. Be specific and factual; avoid speculation and filler.
-    Always respond in the requested target language.
+    private let rollingSummaryInstructions = """
+    Summarize rolling 30-day user feedback tickets for a PM audience.
+    Output:
+      headline — one concise sentence capturing overall posture (volume, moods, hotspots).
+      pros — factual positives/praise/stable areas drawn from explicit reports (2–4 short sentences).
+      cons — factual problems/friction/bugs (2–4 short sentences).
+    Ground every claim in the provided issues; note rough frequencies when justified. Combine duplicates; skip speculation.
+    No bullets, numbering, or markdown inside prose fields.
+    Respond only in the requested target language.
+    """
+    private let unreadSummaryInstructions = """
+    Summarize currently new / unread user feedback tickets the reviewer hasn't opened yet (short backlog snapshot).
+    Output:
+      headline — one concise sentence on what jumped out recently (volume + tone).
+      pros — factual positives surfaced in those unread items (2–4 short sentences).
+      cons — factual problems surfaced in those unread items (2–4 short sentences).
+    Ground claims only in the provided issues; note rough repetition when justified. Combine duplicates; skip speculation.
+    No bullets, numbering, or markdown inside prose fields.
+    Respond only in the requested target language.
     """
     private let translationInstructions = """
     You are a translator. Translate the user's text into the requested target language.
@@ -27,17 +37,6 @@ final class IntelligenceService: IntelligenceProvider {
 
     Never explain why you could not translate. Either translate, or set didTranslate to false with an empty translation.
     """
-
-    #if canImport(FoundationModels)
-    @ObservationIgnored
-    @available(macOS 26, iOS 26, *)
-    private var summarySession: LanguageModelSession? {
-        get { _summarySession as? LanguageModelSession }
-        set { _summarySession = newValue }
-    }
-    @ObservationIgnored
-    private var _summarySession: Any?
-    #endif
 
     init() {}
 
@@ -62,11 +61,19 @@ final class IntelligenceService: IntelligenceProvider {
         #endif
     }
 
-    nonisolated func summarize(issues: [FeedbackIssue], targetLanguage: String) async throws -> IssueSummaryDTO {
+    nonisolated func summarize(
+        issues: [FeedbackIssue],
+        targetLanguage: String,
+        promptContext: AISummaryPromptContext
+    ) async throws -> IssueSummaryDTO {
         try await MainActor.run { try checkAvailable() }
         #if canImport(FoundationModels)
         if #available(macOS 26, iOS 26, *) {
-            return try await runSummarize(issues: issues, targetLanguage: targetLanguage)
+            return try await runSummarize(
+                issues: issues,
+                targetLanguage: targetLanguage,
+                promptContext: promptContext
+            )
         }
         #endif
         throw IntelligenceError.unavailable
@@ -96,28 +103,51 @@ enum IntelligenceError: Error {
 #if canImport(FoundationModels)
 @available(macOS 26, iOS 26, *)
 extension IntelligenceService {
-    fileprivate func runSummarize(issues: [FeedbackIssue], targetLanguage: String) async throws -> IssueSummaryDTO {
+    fileprivate func runSummarize(
+        issues: [FeedbackIssue],
+        targetLanguage: String,
+        promptContext: AISummaryPromptContext
+    ) async throws -> IssueSummaryDTO {
         guard !issues.isEmpty else { throw IntelligenceError.empty }
-        let session = await MainActor.run { () -> LanguageModelSession in
-            if let cached = self.summarySession { return cached }
-            let model = SystemLanguageModel(guardrails: .permissiveContentTransformations)
-            let s = LanguageModelSession(model: model, instructions: self.summaryInstructions)
-            self.summarySession = s
-            return s
-        }
-        let prompt = SummaryPromptBuilder.build(issues: issues, targetLanguage: targetLanguage)
-        do {
-            let response = try await session.respond(to: prompt, generating: IssueSummary.self)
-            return IssueSummaryDTO(response.content)
-        } catch let error as LanguageModelSession.GenerationError {
-            if case .guardrailViolation = error {
-                return IssueSummaryDTO(
-                    headline: "\(issues.count) unread issues",
-                    sections: []
-                )
+        let instructionsTemplate = promptContext == .unreadIssues
+            ? unreadSummaryInstructions
+            : rollingSummaryInstructions
+        let instructions = await MainActor.run { instructionsTemplate }
+        let model = SystemLanguageModel(guardrails: .permissiveContentTransformations)
+        let attemptConfigs = SummaryPromptBuilder.contextSafeConfigs()
+        var lastBudgetError: Error?
+        for config in attemptConfigs {
+            let prompt = SummaryPromptBuilder.build(
+                issues: issues,
+                targetLanguage: targetLanguage,
+                issueCap: config.issueCap,
+                bodyCharCap: config.bodyCharCap,
+                promptContext: promptContext
+            )
+            /// One session per attempt so prior failures never accumulate transcript into the budget.
+            let session = LanguageModelSession(model: model, instructions: instructions)
+            do {
+                let response = try await session.respond(to: prompt, generating: IssueSummary.self)
+                return IssueSummaryDTO(response.content)
+            } catch let error as LanguageModelSession.GenerationError {
+                if case .guardrailViolation = error {
+                    let headlinePrefix = promptContext == .unreadIssues
+                        ? "\(issues.count) unread feedback issues"
+                        : "\(issues.count) feedback items (last ~30 days)"
+                    return IssueSummaryDTO(
+                        headline: headlinePrefix,
+                        pros: "",
+                        cons: ""
+                    )
+                }
+                if case .exceededContextWindowSize = error {
+                    lastBudgetError = error
+                    continue
+                }
+                throw error
             }
-            throw error
         }
+        throw lastBudgetError ?? IntelligenceError.unavailable
     }
     fileprivate func runTranslate(text: String, from sourceCode: String?, to targetCode: String) async throws -> String {
         let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)

@@ -1,22 +1,56 @@
 import Foundation
 
-enum SummaryPromptBuilder {
-    static let issueCap = 30
-    static let bodyCharCap = 200
+/// What the summary prompt emphasizes (picked in ``IssueListViewModel/aiSummarizesUnreadIssuesOnly``).
+enum AISummaryPromptContext: Equatable, Sendable {
+    case unreadIssues
+    case rollingLastThirtyDays
+}
 
-    static func build(issues: [FeedbackIssue], targetLanguage: String) -> String {
-        let included = Array(issues.prefix(issueCap))
-        let extra = max(0, issues.count - issueCap)
+enum SummaryPromptBuilder {
+    /// First attempt favors coverage; subsequent pairs shrink prompts for the 4096-token session ceiling (TN3193).
+    static func contextSafeConfigs() -> [(issueCap: Int, bodyCharCap: Int)] {
+        [(28, 160), (20, 120), (14, 80), (8, 56), (5, 40)]
+    }
+
+    /// Maximum issues embedded before an “(+ N more…)“ line — used when tests pin older expectations.
+    static let defaultIssueCap = 28
+    /// Truncated body snippet length per ticket.
+    static let defaultBodyCharCap = 160
+
+    static func build(
+        issues: [FeedbackIssue],
+        targetLanguage: String,
+        issueCap: Int = defaultIssueCap,
+        bodyCharCap: Int = defaultBodyCharCap,
+        promptContext: AISummaryPromptContext = .rollingLastThirtyDays
+    ) -> String {
+        let included = Array(issues.prefix(max(issueCap, 1)))
+        let extra = max(0, issues.count - included.count)
 
         var lines: [String] = []
-        lines.append("Summarize the following new feedback issues.")
+        switch promptContext {
+        case .unreadIssues:
+            lines.append("Each issue below is new / unread in this inbox right now (newest first).")
+            lines.append("Summarize what's fresh for the reviewer: themes, urgency, standout praise vs pain.")
+        case .rollingLastThirtyDays:
+            lines.append("Each issue below was filed within roughly the past 30 days (newest first).")
+            lines.append("Write a factual headline plus pros vs cons prose as instructed.")
+        }
         lines.append("Target output language: \(languageDisplayName(targetLanguage)).")
-        lines.append("Output a one-sentence overall headline plus 2-5 themed sections. Each section has a short title and a 1-3 sentence prose body. Combine similar issues into a single section and mention rough counts inline. No bullets, lists, or markdown in the body text.")
+        lines.append("")
+        lines.append(
+            """
+            Constraints:
+              • Mention patterns and approximate counts grounded in these issues only.
+              • Keep pros and cons in plain prose (no bullets, lists, headings, markdown).
+              • If positives or negatives look thin, briefly say volumes are uneven rather than guessing.
+            """
+        )
         lines.append("")
 
         for issue in included {
             let body = stripCodeBlocks(issue.description)
-                .prefix(bodyCharCap)
+                .prefix(max(bodyCharCap, 20))
             let labels = issue.labels.map(\.name).joined(separator: ", ")
             let labelSuffix = labels.isEmpty ? "" : " [labels: \(labels)]"
             lines.append("- #\(issue.number) \(issue.title): \(body)\(labelSuffix)")
@@ -24,7 +58,8 @@ enum SummaryPromptBuilder {
 
         if extra > 0 {
             lines.append("")
-            lines.append("(+\(extra) more issues not shown)")
+            let scope = promptContext == .unreadIssues ? "more unread issues" : "more recent issues"
+            lines.append("(+\(extra) \(scope) omitted to fit Apple Intelligence prompt budget)")
         }
         return lines.joined(separator: "\n")
     }

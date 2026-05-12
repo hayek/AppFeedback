@@ -9,8 +9,35 @@ final class IssueListViewModel {
     /// is in this set are excluded from all derived properties and counts.
     var hiddenApps: Set<String> = []
 
+    /// Rolling window for AI summary (respects hidden apps + current app scope like `visibleBase`).
+    private static let summarizationWindowDays = 30
+    /// When at least this many issues are unread, AI summarizes unread only instead of the rolling-month digest.
+    private static let minUnreadIssuesToPreferUnreadSummary = 2
+
     var unreadIssues: [FeedbackIssue] {
         allIssues.filter { sessionUnread.contains($0.number) && !hiddenApps.contains($0.appName ?? "") }
+    }
+
+    /// `true` when the summary card should summarize the unread backlog; otherwise rolling 30 days.
+    var aiSummarizesUnreadIssuesOnly: Bool {
+        unreadIssues.count >= Self.minUnreadIssuesToPreferUnreadSummary
+    }
+
+    /// Issues sent to Apple Intelligence — unread batch when catching up has enough novelty, otherwise the rolling window digest.
+    var issuesForAISummaryCard: [FeedbackIssue] {
+        if aiSummarizesUnreadIssuesOnly {
+            unreadIssues.sorted { $0.createdAt > $1.createdAt }
+        } else {
+            issuesRecentForSummary
+        }
+    }
+
+    /// Newest-first issues filed within roughly the past 30 days, for Apple Intelligence rollup.
+    var issuesRecentForSummary: [FeedbackIssue] {
+        guard let cutoff = Calendar.current.date(byAdding: .day, value: -Self.summarizationWindowDays, to: Date())
+        else { return [] }
+        return visibleBase.filter { $0.createdAt >= cutoff }
+            .sorted { $0.createdAt > $1.createdAt }
     }
     var searchQuery = ""
     var appFilter: Set<String> = []

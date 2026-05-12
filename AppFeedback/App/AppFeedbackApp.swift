@@ -141,6 +141,7 @@ struct AppFeedbackApp: App {
             localState: localStateStore,
             activityLog: activityLogValue,
             mirror: mirrorLocal,
+            notificationService: service,
             knownIssueTitlesProvider: { @Sendable in
                 await MainActor.run {
                     let ctx = ModelContext(titlesContainer)

@@ -15,7 +15,7 @@ final class UnreadSummaryViewModelTests: XCTestCase {
     func test_skipped_whenLessThanTwo() async {
         let mock = MockIntelligenceProvider()
         let vm = UnreadSummaryViewModel(provider: mock, debounceMs: 0)
-        await vm.update(unread: [issue(1)], targetLanguage: "en")
+        await vm.update(issues: [issue(1)], targetLanguage: "en", promptContext: .rollingLastThirtyDays)
         try? await Task.sleep(nanoseconds: 30_000_000)
         if case .skipped = vm.state { } else { XCTFail("expected .skipped, got \(vm.state)") }
         XCTAssertEqual(mock.summarizeCalls.count, 0)
@@ -25,7 +25,7 @@ final class UnreadSummaryViewModelTests: XCTestCase {
         let mock = MockIntelligenceProvider()
         mock.availability = .appleIntelligenceNotEnabled
         let vm = UnreadSummaryViewModel(provider: mock, debounceMs: 0)
-        await vm.update(unread: [issue(1), issue(2)], targetLanguage: "en")
+        await vm.update(issues: [issue(1), issue(2)], targetLanguage: "en", promptContext: .rollingLastThirtyDays)
         try? await Task.sleep(nanoseconds: 30_000_000)
         if case .unavailable = vm.state { } else { XCTFail("expected .unavailable, got \(vm.state)") }
     }
@@ -33,7 +33,7 @@ final class UnreadSummaryViewModelTests: XCTestCase {
     func test_ready_whenSummarizeSucceeds() async {
         let mock = MockIntelligenceProvider()
         let vm = UnreadSummaryViewModel(provider: mock, debounceMs: 0)
-        await vm.update(unread: [issue(1), issue(2), issue(3)], targetLanguage: "en")
+        await vm.update(issues: [issue(1), issue(2), issue(3)], targetLanguage: "en", promptContext: .rollingLastThirtyDays)
         for _ in 0..<50 {
             if case .ready = vm.state { break }
             try? await Task.sleep(nanoseconds: 20_000_000)
@@ -41,7 +41,7 @@ final class UnreadSummaryViewModelTests: XCTestCase {
         guard case .ready(let summary) = vm.state else {
             XCTFail("expected .ready, got \(vm.state)"); return
         }
-        XCTAssertEqual(summary.headline, "3 unread issues")
+        XCTAssertEqual(summary.headline, "3 issues (stub)")
     }
 
     func test_failed_whenSummarizeThrows() async {
@@ -49,7 +49,7 @@ final class UnreadSummaryViewModelTests: XCTestCase {
         struct Boom: Error {}
         mock.summarizeHandler = { _, _ in throw Boom() }
         let vm = UnreadSummaryViewModel(provider: mock, debounceMs: 0)
-        await vm.update(unread: [issue(1), issue(2)], targetLanguage: "en")
+        await vm.update(issues: [issue(1), issue(2)], targetLanguage: "en", promptContext: .rollingLastThirtyDays)
         for _ in 0..<50 {
             if case .failed = vm.state { break }
             try? await Task.sleep(nanoseconds: 20_000_000)
@@ -58,13 +58,12 @@ final class UnreadSummaryViewModelTests: XCTestCase {
     }
 
     func test_skipped_whenAllUnreadIssuesAreFromHiddenApps() async {
-        // Hidden-app filtering is applied by IssueListViewModel.unreadIssues before
-        // the list is passed to UnreadSummaryViewModel. This test simulates that by
-        // calling update() with an empty list (all issues were filtered out upstream).
+        // Hidden-app filtering trims `IssueListViewModel.issuesRecentForSummary`;
+        // upstream can leave fewer than two issues suitable for summaries.
         let mock = MockIntelligenceProvider()
         let vm = UnreadSummaryViewModel(provider: mock, debounceMs: 0)
         // Pass only one issue (the hidden-app issues have been filtered out upstream).
-        await vm.update(unread: [issue(1)], targetLanguage: "en")
+        await vm.update(issues: [issue(1)], targetLanguage: "en", promptContext: .rollingLastThirtyDays)
         try? await Task.sleep(nanoseconds: 30_000_000)
         if case .skipped = vm.state { } else { XCTFail("expected .skipped, got \(vm.state)") }
         XCTAssertEqual(mock.summarizeCalls.count, 0)
@@ -74,12 +73,12 @@ final class UnreadSummaryViewModelTests: XCTestCase {
         let mock = MockIntelligenceProvider()
         mock.summarizeHandler = { issues, _ in
             try? await Task.sleep(nanoseconds: 80_000_000)
-            return IssueSummaryDTO(headline: "\(issues.count)", sections: [])
+            return IssueSummaryDTO(headline: "\(issues.count)", pros: "", cons: "")
         }
         let vm = UnreadSummaryViewModel(provider: mock, debounceMs: 0)
-        await vm.update(unread: [issue(1), issue(2)], targetLanguage: "en")
+        await vm.update(issues: [issue(1), issue(2)], targetLanguage: "en", promptContext: .rollingLastThirtyDays)
         try? await Task.sleep(nanoseconds: 10_000_000)
-        await vm.update(unread: [issue(1), issue(2), issue(3), issue(4)], targetLanguage: "en")
+        await vm.update(issues: [issue(1), issue(2), issue(3), issue(4)], targetLanguage: "en", promptContext: .rollingLastThirtyDays)
         for _ in 0..<50 {
             if case .ready(let s) = vm.state, s.headline == "4" { break }
             try? await Task.sleep(nanoseconds: 20_000_000)

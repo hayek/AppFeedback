@@ -80,6 +80,13 @@ struct IssueCardView: View {
 
     private var translationVisible: Bool { issue.hasTranslation && !showOriginal }
 
+    /// True when the issue itself is unread, or any attached mail thread has an inbound
+    /// reply the user hasn't viewed yet. Re-evaluates on `threadStore.version` changes.
+    private var effectiveUnread: Bool {
+        if isUnread { return true }
+        return threads.contains { threadStore.hasUnreadInbound(thread: $0) }
+    }
+
     private var sourceLanguageDisplayName: String? {
         guard let code = issue.detectedLanguageCode, !code.isEmpty else { return nil }
         return Locale.current.localizedString(forLanguageCode: code)
@@ -164,7 +171,7 @@ struct IssueCardView: View {
 
             VStack(alignment: .leading, spacing: 8) {
                 HStack(alignment: .top, spacing: 8) {
-                    if isUnread {
+                    if effectiveUnread {
                         Circle()
                             .fill(Color.accentColor)
                             .frame(width: 8, height: 8)
