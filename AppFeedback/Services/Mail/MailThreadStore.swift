@@ -443,6 +443,28 @@ final class MailThreadStore {
         return .new(fallback())
     }
 
+    /// Stamps every existing thread and message with the given accountID **only when it is
+    /// currently nil**. Used by the v2 multi-account migration to retroactively associate
+    /// pre-migration rows with the user's sole account. Cheap on re-run: the predicate
+    /// short-circuits when nothing is nil.
+    func backfillAccountIDIfMissing(_ accountID: UUID) {
+        let threadDescriptor = FetchDescriptor<MailThread>(
+            predicate: #Predicate { $0.accountID == nil }
+        )
+        let threads = (try? context.fetch(threadDescriptor)) ?? []
+        for t in threads { t.accountID = accountID }
+
+        let messageDescriptor = FetchDescriptor<MailMessage>(
+            predicate: #Predicate { $0.accountID == nil }
+        )
+        let messages = (try? context.fetch(messageDescriptor)) ?? []
+        for m in messages { m.accountID = accountID }
+
+        if !threads.isEmpty || !messages.isEmpty {
+            try? context.save()
+        }
+    }
+
     /// Merge `additions` into `base`, preserving insertion order and skipping duplicates.
     private func unionPreservingOrder(_ base: [String], _ additions: [String]) -> [String] {
         var seen = Set(base)

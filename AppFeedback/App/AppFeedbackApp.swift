@@ -10,6 +10,7 @@ struct AppFeedbackApp: App {
     @State private var syncStatus: CloudSyncStatus
     @State private var activityLog: ActivityLog
     @State private var mailAccountStore: MailAccountStore
+    @State private var mailSettingsStore: MailSettingsStore
     @State private var threadStore: MailThreadStore
     @State private var outboundTracker: OutboundSendTracker = OutboundSendTracker()
     @State private var outboundFailures: OutboundFailureStore
@@ -73,11 +74,18 @@ struct AppFeedbackApp: App {
         let cloudContext = ModelContext(container)
         let hiddenAppStoreLocal = HiddenAppStore(context: cloudContext)
         let mailAccountStoreLocal = MailAccountStore(context: ModelContext(container))
+        let mailSettingsStoreLocal = MailSettingsStore(context: ModelContext(container))
+        let threadStoreLocal = MailThreadStore(context: ModelContext(container))
         if !isTesting {
             MailAccountMigration.runIfNeeded(store: mailAccountStoreLocal)
+            MailAccountMigration.runV2IfNeeded(
+                accountStore: mailAccountStoreLocal,
+                settingsStore: mailSettingsStoreLocal,
+                threadStore: threadStoreLocal
+            )
         }
         _mailAccountStore = State(initialValue: mailAccountStoreLocal)
-        let threadStoreLocal = MailThreadStore(context: ModelContext(container))
+        _mailSettingsStore = State(initialValue: mailSettingsStoreLocal)
         _threadStore = State(initialValue: threadStoreLocal)
         let localStateStoreLocal = MailAccountLocalStateStore(context: ModelContext(container))
         _mailLocalStateStore = State(initialValue: localStateStoreLocal)
@@ -191,6 +199,7 @@ struct AppFeedbackApp: App {
                 .environment(syncStatus)
                 .environment(activityLog)
                 .environment(mailAccountStore)
+                .environment(mailSettingsStore)
                 .environment(threadStore)
                 .environment(outboundTracker)
                 .environment(outboundFailures)
@@ -254,6 +263,7 @@ struct AppFeedbackApp: App {
                 .environment(syncStatus)
                 .environment(activityLog)
                 .environment(mailAccountStore)
+                .environment(mailSettingsStore)
                 .environment(threadStore)
                 .environment(outboundTracker)
                 .environment(outboundFailures)
