@@ -24,6 +24,7 @@ final class MailComposerTests: XCTestCase {
             appName: "MyApp",
             issueTitle: issueTitle,
             issueURL: issueURL,
+            feedbackBody: nil,
             date: ISO8601DateFormatter().date(from: "2026-04-27T10:00:00Z")!
         )
     }

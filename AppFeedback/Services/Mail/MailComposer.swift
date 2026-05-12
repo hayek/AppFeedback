@@ -18,6 +18,7 @@ struct PlaceholderContext: Sendable {
     var appName: String
     var issueTitle: String?
     var issueURL: URL?
+    var feedbackBody: String?
     var date: Date
 }
 
@@ -93,6 +94,7 @@ struct MailComposer {
         s = s.replacingOccurrences(of: "{{app_name}}",        with: context.appName)
         s = s.replacingOccurrences(of: "{{issue_title}}",     with: context.issueTitle ?? "")
         s = s.replacingOccurrences(of: "{{issue_url}}",       with: context.issueURL?.absoluteString ?? "")
+        s = s.replacingOccurrences(of: "{{feedback_body}}",   with: context.feedbackBody ?? "")
         return s
     }
 

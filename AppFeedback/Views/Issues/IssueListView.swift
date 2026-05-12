@@ -80,15 +80,18 @@ struct IssueListView: View {
         let visible = viewModel.visibleIssues
         let hasActiveFilter = !viewModel.appFilter.isEmpty || !viewModel.filters.isEmpty
         let showsFilterBar = !viewModel.allIssues.isEmpty || hasActiveFilter
+        let summariesEnabled = viewModel.intelligenceSettings?.summariesEnabled ?? true
         ScrollViewReader { proxy in
             ScrollView {
                 LazyVStack(spacing: 12) {
-                    UnreadSummaryView(
-                        state: summaryVM.state,
-                        collapseKey: summaryCollapseKey,
-                        summarizesUnreadIssues: viewModel.aiSummarizesUnreadIssuesOnly
-                    )
-                    .padding(.horizontal, 2)
+                    if summariesEnabled {
+                        UnreadSummaryView(
+                            state: summaryVM.state,
+                            collapseKey: summaryCollapseKey,
+                            summarizesUnreadIssues: viewModel.aiSummarizesUnreadIssuesOnly
+                        )
+                        .padding(.horizontal, 2)
+                    }
 
                     if showsFilterBar {
                         FilterBarView(viewModel: viewModel, accent: filterAccent)
@@ -117,6 +120,7 @@ struct IssueListView: View {
                 .padding(.horizontal, 20)
                 .padding(.vertical, 16)
                 .task(id: summaryTaskID) {
+                    guard summariesEnabled else { return }
                     let context: AISummaryPromptContext = viewModel.aiSummarizesUnreadIssuesOnly
                         ? .unreadIssues : .rollingLastThirtyDays
                     await summaryVM.update(

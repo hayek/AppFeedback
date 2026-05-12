@@ -6,6 +6,7 @@ final class IntelligenceSettings {
     private let defaults: UserDefaults
     private static let translationEnabledKey = "intelligence.translationEnabled"
     private static let targetLanguageKey = "intelligence.targetLanguage"
+    private static let summariesEnabledKey = "intelligence.summariesEnabled"
 
     var translationEnabled: Bool {
         didSet { defaults.set(translationEnabled, forKey: Self.translationEnabledKey) }
@@ -13,10 +14,14 @@ final class IntelligenceSettings {
     var targetLanguageCode: String {
         didSet { defaults.set(targetLanguageCode, forKey: Self.targetLanguageKey) }
     }
+    var summariesEnabled: Bool {
+        didSet { defaults.set(summariesEnabled, forKey: Self.summariesEnabledKey) }
+    }
 
     init(defaults: UserDefaults = .standard) {
         self.defaults = defaults
         self.translationEnabled = (defaults.object(forKey: Self.translationEnabledKey) as? Bool) ?? true
+        self.summariesEnabled = (defaults.object(forKey: Self.summariesEnabledKey) as? Bool) ?? true
         let storedLanguage = defaults.string(forKey: Self.targetLanguageKey) ?? ""
         self.targetLanguageCode = storedLanguage.isEmpty ? Self.systemLanguageCode() : storedLanguage
     }

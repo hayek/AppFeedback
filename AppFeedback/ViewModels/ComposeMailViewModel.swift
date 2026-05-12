@@ -79,12 +79,14 @@ final class ComposeMailViewModel {
     func placeholderContext(date: Date = Date()) -> PlaceholderContext {
         let creds = currentCredentials() ?? SMTPCredentials.defaults(for: .gmail)
         let issueURL = URL(string: "https://github.com/\(repoOwner)/\(repoName)/issues/\(issue.number)")
+        let body = issue.description.trimmingCharacters(in: .whitespacesAndNewlines)
         return PlaceholderContext(
             sender: creds,
             recipient: recipient,
             appName: issue.appName ?? repoName,
             issueTitle: issue.title,
             issueURL: issueURL,
+            feedbackBody: body.isEmpty ? nil : body,
             date: date
         )
     }

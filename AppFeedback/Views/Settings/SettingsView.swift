@@ -22,10 +22,14 @@ private struct WindowResizableAccessor: NSViewRepresentable {
         DispatchQueue.main.async {
             guard let window = v.window else { return }
             window.styleMask.insert(.resizable)
-            window.collectionBehavior.insert(.fullScreenNone)
-            window.minSize = NSSize(width: 540, height: 380)
+            window.styleMask.remove(.fullScreen)
+            window.collectionBehavior.insert(.fullScreenAuxiliary)
+            window.isMovableByWindowBackground = false
+            window.minSize = NSSize(width: 480, height: 320)
             window.maxSize = NSSize(width: CGFloat.greatestFiniteMagnitude,
                                     height: CGFloat.greatestFiniteMagnitude)
+            window.setContentSize(NSSize(width: max(window.frame.width, 720),
+                                         height: max(window.frame.height, 620)))
         }
         return v
     }

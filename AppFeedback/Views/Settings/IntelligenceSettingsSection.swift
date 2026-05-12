@@ -19,6 +19,17 @@ struct IntelligenceSettingsSection: View {
                     }
                 }
             }
+            Section("Summaries") {
+                Toggle(isOn: $settings.summariesEnabled) {
+                    VStack(alignment: .leading, spacing: 1) {
+                        Text("Summarize unread feedback")
+                        Text("Show an AI-generated rollup of the last 30 days of replies.")
+                            .font(.system(size: 11))
+                            .foregroundStyle(.secondary)
+                    }
+                }
+                .disabled(!availability.isReady)
+            }
             Section("Translation") {
                 Toggle("Translate non-English issues", isOn: $settings.translationEnabled)
                     .disabled(!availability.isReady)
