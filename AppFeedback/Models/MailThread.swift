@@ -12,6 +12,9 @@ final class MailThread {
     var issueRepoName: String = ""
     var issueNumber: Int = 0           // 0 = unlinked
     var matchSourceRaw: String = MatchSource.direct.rawValue
+    /// UUID of the `MailAccount` whose poll loop produced this thread, or whose outbound
+    /// send created it. `nil` on legacy rows.
+    var accountID: UUID? = nil
     // CloudKit requires to-many relationships to be optional.
     @Relationship(deleteRule: .cascade, inverse: \MailMessage.thread)
     var messages: [MailMessage]? = []
@@ -34,6 +37,7 @@ final class MailThread {
         issueRepoName: String = "",
         issueNumber: Int = 0,
         matchSourceRaw: String = MatchSource.direct.rawValue,
+        accountID: UUID? = nil,
         messages: [MailMessage]? = []
     ) {
         self.id = id
@@ -45,6 +49,7 @@ final class MailThread {
         self.issueRepoName = issueRepoName
         self.issueNumber = issueNumber
         self.matchSourceRaw = matchSourceRaw
+        self.accountID = accountID
         self.messages = messages
     }
 
