@@ -74,6 +74,8 @@ struct MailThreadView: View {
             ToggleableDateText(date: thread.lastMessageAt)
                 .font(.system(size: 11))
                 .foregroundStyle(.tertiary)
+                .lineLimit(1)
+                .fixedSize(horizontal: true, vertical: false)
             Spacer()
         }
         .padding(.vertical, 4)

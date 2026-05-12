@@ -64,13 +64,6 @@ struct MailMessageRowView: View {
 
     private var header: some View {
         VStack(alignment: .leading, spacing: 2) {
-            if !message.subject.isEmpty {
-                HStack(alignment: .firstTextBaseline, spacing: 6) {
-                    if isUnread { unreadDot }
-                    Text(message.subject)
-                        .font(.subheadline.weight(.semibold))
-                }
-            }
             HStack {
                 if isUnread && message.subject.isEmpty { unreadDot }
                 Menu {
@@ -97,6 +90,13 @@ struct MailMessageRowView: View {
                     }
                 }
                 .animation(.easeInOut(duration: 0.25), value: sendState)
+            }
+            if !message.subject.isEmpty {
+                HStack(alignment: .firstTextBaseline, spacing: 6) {
+                    if isUnread { unreadDot }
+                    Text(message.subject)
+                        .font(.body.weight(.bold))
+                }
             }
         }
     }
