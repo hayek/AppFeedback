@@ -202,6 +202,7 @@ struct EmailAccountEditor: View {
         await KeychainService.deleteSMTPPassword(for: accountID)
         await KeychainService.deleteIMAPPassword(for: accountID)
         store.delete(acc)
+        registry?.syncWithAccounts()
     }
 
     private func testConnection() {

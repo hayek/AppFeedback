@@ -195,6 +195,7 @@ struct IOSEmailAccountEditor: View {
         await KeychainService.deleteSMTPPassword(for: accountID)
         await KeychainService.deleteIMAPPassword(for: accountID)
         store.delete(acc)
+        registry?.syncWithAccounts()
         dismiss()
     }
 

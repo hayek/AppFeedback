@@ -3,6 +3,7 @@ import SwiftUI
 
 struct AddEmailAccountSheet: View {
     @Environment(MailAccountStore.self) private var store
+    @Environment(\.mailSyncCoordinatorRegistry) private var registry: MailSyncCoordinatorRegistry?
     @Environment(\.dismiss) private var dismiss
 
     @State private var preset: SMTPCredentials.Preset = .gmail
@@ -52,6 +53,7 @@ struct AddEmailAccountSheet: View {
         }
         _ = await KeychainService.saveSMTPPassword(password, for: acc.id)
         _ = await KeychainService.saveIMAPPassword(password, for: acc.id)
+        registry?.syncWithAccounts()
         onCreated(acc.id)
         dismiss()
     }
