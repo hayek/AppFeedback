@@ -78,9 +78,11 @@ struct UnreadSummaryView: View {
                             prosConsSection(title: "Pros", text: summary.pros, tint: Color.green.opacity(0.82))
                             prosConsSection(title: "Cons", text: summary.cons, tint: Color.red.opacity(0.78))
                         }
+                        .transition(.opacity)
                     }
                 }
             }
+            .animation(.default, value: collapsed)
         }
     }
 
