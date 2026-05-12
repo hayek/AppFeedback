@@ -78,7 +78,53 @@ final class MailAccountStore {
         let descriptor = FetchDescriptor<MailAccount>(
             sortBy: [SortDescriptor(\.createdAt, order: .forward)]
         )
-        return (try? context.fetch(descriptor)) ?? []
+        let rows = (try? context.fetch(descriptor)) ?? []
+        return coalesce(rows, in: context)
+    }
+
+    /// Collapses duplicate rows produced by CloudKit syncing the same single-account install
+    /// across devices. Two rows are duplicates when their `smtpUsername` matches
+    /// case-insensitively. The oldest wins; the rest are deleted. Empty-username rows
+    /// (typically left over from an aborted Add flow) are dropped whenever any non-empty row
+    /// exists. Idempotent: a clean store passes through unchanged.
+    private static func coalesce(_ rows: [MailAccount], in context: ModelContext) -> [MailAccount] {
+        var winners: [MailAccount] = []
+        var winnersByKey: [String: MailAccount] = [:]
+        var toDelete: [MailAccount] = []
+
+        let hasAnyNonEmpty = rows.contains { !$0.smtpUsername.trimmingCharacters(in: .whitespaces).isEmpty }
+
+        for row in rows {
+            let trimmed = row.smtpUsername.trimmingCharacters(in: .whitespaces)
+            if trimmed.isEmpty {
+                if hasAnyNonEmpty {
+                    toDelete.append(row)
+                } else {
+                    winners.append(row)
+                }
+                continue
+            }
+            let key = trimmed.lowercased()
+            if winnersByKey[key] == nil {
+                winnersByKey[key] = row
+                winners.append(row)
+            } else {
+                toDelete.append(row)
+            }
+        }
+
+        guard !toDelete.isEmpty else { return winners }
+
+        // Preserve the default-sender flag if it was on a loser row.
+        let needsDefaultReassignment = toDelete.contains(where: { $0.isDefaultSender })
+        for row in toDelete { context.delete(row) }
+        if needsDefaultReassignment,
+           !winners.contains(where: { $0.isDefaultSender }),
+           let oldest = winners.first {
+            oldest.isDefaultSender = true
+        }
+        try? context.save()
+        return winners
     }
 }
 

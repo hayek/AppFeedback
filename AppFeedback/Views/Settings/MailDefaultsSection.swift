@@ -14,7 +14,7 @@ struct MailDefaultsSection: View {
     @State private var copiedToken: String?
 
     var body: some View {
-        Form {
+        Group {
             Section("Header") {
                 TextEditor(text: $headerText).font(.body).frame(minHeight: 120)
             }
@@ -41,7 +41,6 @@ struct MailDefaultsSection: View {
                 placeholdersHint
             }
         }
-        .formStyle(.grouped)
         .task { load() }
         .onChange(of: headerText) { _, _ in scheduleSave() }
         .onChange(of: footerText) { _, _ in scheduleSave() }
