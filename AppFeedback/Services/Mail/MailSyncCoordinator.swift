@@ -192,10 +192,11 @@ actor MailSyncCoordinator {
                 fromAddresses: fromAddresses
             )
 
+            let accountID = self.accountID
             let inserted: [NotificationService.InboundReply] = await MainActor.run {
                 var newOnes: [NotificationService.InboundReply] = []
                 for msg in messages {
-                    guard let stored = self.threadStore.recordInbound(message: msg) else { continue }
+                    guard let stored = self.threadStore.recordInbound(message: msg, accountID: accountID) else { continue }
                     let issue: NotificationService.InboundReply.IssueRef? = {
                         guard let t = stored.thread, t.issueNumber > 0,
                               !t.issueRepoOwner.isEmpty, !t.issueRepoName.isEmpty else { return nil }
@@ -319,6 +320,7 @@ actor MailSyncCoordinator {
                             bodyPlain: msg.bodyPlain,
                             bodyHTML: msg.bodyHTML,
                             date: msg.date,
+                            accountID: accountID,
                             replyHeaders: nil
                         )
                     }
