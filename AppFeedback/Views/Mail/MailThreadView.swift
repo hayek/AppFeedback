@@ -75,7 +75,6 @@ struct MailThreadView: View {
                 .font(.system(size: 11))
                 .foregroundStyle(.tertiary)
                 .lineLimit(1)
-                .fixedSize(horizontal: true, vertical: false)
             Spacer()
         }
         .padding(.vertical, 4)

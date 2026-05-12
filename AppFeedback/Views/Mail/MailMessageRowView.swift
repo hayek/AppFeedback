@@ -72,11 +72,12 @@ struct MailMessageRowView: View {
                     Text("From: \(senderLine)")
                         .font(.system(size: 11))
                         .foregroundStyle(.tertiary)
+                        .lineLimit(2)
+                        .truncationMode(.tail)
                 }
                 .menuStyle(.button)
                 .buttonStyle(.plain)
                 .menuIndicator(.hidden)
-                .fixedSize()
                 .contextMenu {
                     Button("Copy address") { copyFromAddress() }
                 }
@@ -89,6 +90,7 @@ struct MailMessageRowView: View {
                         MailSendStatusBadge(state: sendState)
                     }
                 }
+                .lineLimit(1)
                 .animation(.easeInOut(duration: 0.25), value: sendState)
             }
             if !message.subject.isEmpty {
