@@ -5,54 +5,98 @@ import Observation
 @MainActor
 @Observable
 final class MailAccountStore {
-    private(set) var account: MailAccount?
+    private(set) var accounts: [MailAccount] = []
 
     private let context: ModelContext
 
     init(context: ModelContext) {
         self.context = context
-        self.account = Self.fetch(in: context)
+        self.accounts = Self.fetch(in: context)
     }
 
-    func upsert(_ mutate: (MailAccount) -> Void) {
-        let target: MailAccount
-        if let existing = account {
-            target = existing
-        } else {
-            let new = MailAccount()
-            context.insert(new)
-            target = new
+    var defaultSender: MailAccount? {
+        accounts.first(where: { $0.isDefaultSender }) ?? accounts.first
+    }
+
+    func account(id: UUID) -> MailAccount? {
+        accounts.first(where: { $0.id == id })
+    }
+
+    @discardableResult
+    func add(_ mutate: (MailAccount) -> Void = { _ in }) -> MailAccount {
+        let new = MailAccount()
+        context.insert(new)
+        mutate(new)
+        if accounts.isEmpty {
+            new.isDefaultSender = true
         }
+        save()
+        reload()
+        return account(id: new.id) ?? new
+    }
+
+    func update(id: UUID, _ mutate: (MailAccount) -> Void) {
+        guard let target = account(id: id) else { return }
         mutate(target)
-        // Skip the save (and the CloudKit round-trip) when nothing actually changed —
-        // settings views debounce-save on every keystroke, even when the user types and
-        // immediately backspaces. SwiftData's own dirty tracking handles the diff.
-        if context.hasChanges {
-            do {
-                try context.save()
-            } catch {
-                assertionFailure("MailAccountStore save failed: \(error)")
+        save()
+    }
+
+    func setDefaultSender(_ target: MailAccount) {
+        for acc in accounts {
+            let shouldBeDefault = acc.id == target.id
+            if acc.isDefaultSender != shouldBeDefault {
+                acc.isDefaultSender = shouldBeDefault
             }
         }
-        account = target
+        save()
     }
 
-    func deleteAccount() {
-        guard let acc = account else { return }
-        context.delete(acc)
-        try? context.save()
-        account = nil
+    func delete(_ target: MailAccount) {
+        let wasDefault = target.isDefaultSender
+        context.delete(target)
+        save()
+        reload()
+        if wasDefault, let oldest = accounts.first {
+            setDefaultSender(oldest)
+        }
     }
 
     func reload() {
-        account = Self.fetch(in: context)
+        accounts = Self.fetch(in: context)
     }
 
-    private static func fetch(in context: ModelContext) -> MailAccount? {
-        var descriptor = FetchDescriptor<MailAccount>(
+    private func save() {
+        guard context.hasChanges else { return }
+        do {
+            try context.save()
+        } catch {
+            assertionFailure("MailAccountStore save failed: \(error)")
+        }
+    }
+
+    private static func fetch(in context: ModelContext) -> [MailAccount] {
+        let descriptor = FetchDescriptor<MailAccount>(
             sortBy: [SortDescriptor(\.createdAt, order: .forward)]
         )
-        descriptor.fetchLimit = 1
-        return (try? context.fetch(descriptor))?.first
+        return (try? context.fetch(descriptor)) ?? []
+    }
+}
+
+// MARK: - Transitional single-account compatibility
+// Removed in Plan Task 17 after all call sites adopt the multi-account API.
+extension MailAccountStore {
+    var account: MailAccount? { defaultSender ?? accounts.first }
+
+    func upsert(_ mutate: (MailAccount) -> Void) {
+        if let acc = accounts.first {
+            update(id: acc.id, mutate)
+        } else {
+            _ = add(mutate)
+        }
+    }
+
+    func deleteAccount() {
+        guard let acc = accounts.first else { return }
+        delete(acc)
     }
 }
