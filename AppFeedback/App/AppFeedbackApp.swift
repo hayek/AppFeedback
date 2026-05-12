@@ -24,7 +24,6 @@ struct AppFeedbackApp: App {
     @State private var notificationService: NotificationService
     @State private var notificationRouter: NotificationRouter
     @State private var downloaderHolder: AttachmentDownloaderHolder
-    @State private var coordinatorHolder: MailSyncCoordinatorHolder
     @State private var coordinatorRegistry: MailSyncCoordinatorRegistry?
     @State private var mirrorHolder: MailToGitHubMirrorHolder
     @State private var mailLocalStateStore: MailAccountLocalStateStore
@@ -169,21 +168,14 @@ struct AppFeedbackApp: App {
         registry.syncWithAccounts()
         _coordinatorRegistry = State(initialValue: registry)
 
-        // SHIM: the existing MailSyncCoordinatorHolder env injection is kept for legacy views
-        // (EmailSettingsView, IOSEmailSettingsView, RootView, AppFeedbackApp's own onChange).
-        // Plan Task 17 removes this shim once those call sites switch to the registry.
-        let provisionalAccountID = mailAccountStoreLocal.defaultSender?.id ?? UUID()
-        let legacyHolderCoordinator = registry.coordinator(for: provisionalAccountID)
-        _coordinatorHolder = State(initialValue: MailSyncCoordinatorHolder(legacyHolderCoordinator))
-
         // The attachment downloader needs ONE IMAPClient; route through the default sender.
-        let downloaderProvider = IMAPClientProvider(accountStore: mailAccountStoreLocal, accountID: provisionalAccountID)
+        let defaultAccountID = mailAccountStoreLocal.defaultSender?.id ?? UUID()
+        let downloaderProvider = IMAPClientProvider(accountStore: mailAccountStoreLocal, accountID: defaultAccountID)
         let attachmentLocalStore = MailAttachmentLocalStore(context: ModelContext(container))
         let downloader = AttachmentDownloader(client: downloaderProvider, localStore: attachmentLocalStore)
         _downloaderHolder = State(initialValue: AttachmentDownloaderHolder(downloader))
         #else
         _coordinatorRegistry = State(initialValue: nil)
-        _coordinatorHolder = State(initialValue: MailSyncCoordinatorHolder(nil))
         _downloaderHolder = State(initialValue: AttachmentDownloaderHolder(nil))
         #endif
 
@@ -226,7 +218,6 @@ struct AppFeedbackApp: App {
                 .environment(notificationSettings)
                 .environment(notificationRouter)
                 .environment(downloaderHolder)
-                .environment(coordinatorHolder)
                 .environment(\.mailSyncCoordinatorRegistry, coordinatorRegistry)
                 .environment(mirrorHolder)
                 .environment(mailLocalStateStore)
@@ -291,7 +282,6 @@ struct AppFeedbackApp: App {
                 .environment(notificationSettings)
                 .environment(notificationRouter)
                 .environment(downloaderHolder)
-                .environment(coordinatorHolder)
                 .environment(\.mailSyncCoordinatorRegistry, coordinatorRegistry)
                 .environment(mirrorHolder)
                 .environment(mailLocalStateStore)

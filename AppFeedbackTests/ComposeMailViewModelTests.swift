@@ -32,7 +32,7 @@ final class ComposeMailViewModelTests: XCTestCase {
         let container = try ModelContainer(for: MailAccount.self, configurations: config)
         let store = MailAccountStore(context: ModelContext(container))
         if configured {
-            store.upsert { acc in
+            _ = store.add { acc in
                 acc.presetRaw = SMTPCredentials.Preset.gmail.rawValue
                 acc.smtpHost = "smtp.gmail.com"
                 acc.smtpPort = 587

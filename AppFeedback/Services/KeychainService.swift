@@ -56,26 +56,6 @@ enum KeychainService {
 
     private static let smtpAccount = "smtp.password"
 
-    @discardableResult
-    static func saveSMTPPassword(_ password: String) async -> Bool {
-        let data = Data(password.utf8)
-        let query: [String: Any] = [
-            kSecClass as String:              kSecClassGenericPassword,
-            kSecAttrService as String:        service,
-            kSecAttrAccount as String:        smtpAccount,
-            kSecAttrSynchronizable as String: kCFBooleanTrue!,
-        ]
-        let attributes: [String: Any] = [kSecValueData as String: data]
-        let status = SecItemUpdate(query as CFDictionary, attributes as CFDictionary)
-        if status == errSecItemNotFound {
-            var newItem = query
-            newItem[kSecValueData as String] = data
-            let addStatus = SecItemAdd(newItem as CFDictionary, nil)
-            return addStatus == errSecSuccess
-        }
-        return status == errSecSuccess
-    }
-
     static func loadSMTPPassword() async -> String? {
         let query: [String: Any] = [
             kSecClass as String:              kSecClassGenericPassword,
@@ -91,7 +71,7 @@ enum KeychainService {
         return String(data: data, encoding: .utf8)
     }
 
-    static func deleteSMTPPassword() async {
+    static func deleteLegacySMTPPassword() async {
         let query: [String: Any] = [
             kSecClass as String:              kSecClassGenericPassword,
             kSecAttrService as String:        service,
@@ -102,25 +82,6 @@ enum KeychainService {
     }
 
     private static let imapAccount = "imap.password"
-
-    @discardableResult
-    static func saveIMAPPassword(_ password: String) async -> Bool {
-        let data = Data(password.utf8)
-        let query: [String: Any] = [
-            kSecClass as String:              kSecClassGenericPassword,
-            kSecAttrService as String:        service,
-            kSecAttrAccount as String:        imapAccount,
-            kSecAttrSynchronizable as String: kCFBooleanTrue!,
-        ]
-        let attributes: [String: Any] = [kSecValueData as String: data]
-        let status = SecItemUpdate(query as CFDictionary, attributes as CFDictionary)
-        if status == errSecItemNotFound {
-            var newItem = query
-            newItem[kSecValueData as String] = data
-            return SecItemAdd(newItem as CFDictionary, nil) == errSecSuccess
-        }
-        return status == errSecSuccess
-    }
 
     static func loadIMAPPassword() async -> String? {
         loadIMAPPasswordResult().password
@@ -146,7 +107,7 @@ enum KeychainService {
         return (String(data: data, encoding: .utf8), status)
     }
 
-    static func deleteIMAPPassword() async {
+    static func deleteLegacyIMAPPassword() async {
         let query: [String: Any] = [
             kSecClass as String:              kSecClassGenericPassword,
             kSecAttrService as String:        service,

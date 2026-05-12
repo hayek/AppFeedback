@@ -17,7 +17,7 @@ enum MailAccountMigration {
 
         guard legacyCreds != nil || legacyTemplate != nil else { return }
 
-        store.upsert { acc in
+        let applyLegacy = { (acc: MailAccount) in
             if let creds = legacyCreds {
                 acc.presetRaw = creds.preset.rawValue
                 acc.smtpHost = creds.host
@@ -33,6 +33,11 @@ enum MailAccountMigration {
                 acc.templateHeaderHTML = tmpl.headerHTML
                 acc.templateFooterHTML = tmpl.footerHTML
             }
+        }
+        if let existing = store.accounts.first {
+            store.update(id: existing.id, applyLegacy)
+        } else {
+            _ = store.add(applyLegacy)
         }
     }
 
@@ -125,8 +130,8 @@ extension MailAccountMigration {
             if let imap = await KeychainService.loadIMAPPassword(), !imap.isEmpty {
                 _ = await KeychainService.saveIMAPPassword(imap, for: legacyID)
             }
-            await KeychainService.deleteSMTPPassword()
-            await KeychainService.deleteIMAPPassword()
+            await KeychainService.deleteLegacySMTPPassword()
+            await KeychainService.deleteLegacyIMAPPassword()
         }
 
         // (4) Backfill thread / message accountID.
@@ -139,8 +144,8 @@ extension MailAccountMigration {
     @MainActor
     static func purgeLegacyKeychain() {
         Task { @MainActor in
-            await KeychainService.deleteSMTPPassword()
-            await KeychainService.deleteIMAPPassword()
+            await KeychainService.deleteLegacySMTPPassword()
+            await KeychainService.deleteLegacyIMAPPassword()
         }
     }
 }

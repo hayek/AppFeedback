@@ -76,7 +76,8 @@ struct ComposeMailView: View {
     }
 
     private var hasCredentials: Bool {
-        guard let acc = store.account else { return false }
+        guard let id = senderAccountID ?? store.defaultSender?.id,
+              let acc = store.account(id: id) else { return false }
         return !acc.smtpUsername.isEmpty
     }
 

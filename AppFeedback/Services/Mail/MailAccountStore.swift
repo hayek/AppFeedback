@@ -82,21 +82,3 @@ final class MailAccountStore {
     }
 }
 
-// MARK: - Transitional single-account compatibility
-// Removed in Plan Task 17 after all call sites adopt the multi-account API.
-extension MailAccountStore {
-    var account: MailAccount? { defaultSender ?? accounts.first }
-
-    func upsert(_ mutate: (MailAccount) -> Void) {
-        if let acc = accounts.first {
-            update(id: acc.id, mutate)
-        } else {
-            _ = add(mutate)
-        }
-    }
-
-    func deleteAccount() {
-        guard let acc = accounts.first else { return }
-        delete(acc)
-    }
-}

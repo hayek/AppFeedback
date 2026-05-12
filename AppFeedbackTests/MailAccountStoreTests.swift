@@ -11,46 +11,19 @@ final class MailAccountStoreTests: XCTestCase {
         return ModelContext(container)
     }
 
-    func test_account_isNilWhenStoreIsEmpty() throws {
+    func test_accountsIsEmptyWhenStoreIsEmpty() throws {
         let store = MailAccountStore(context: try makeContext())
-        XCTAssertNil(store.account)
+        XCTAssertTrue(store.accounts.isEmpty)
+        XCTAssertNil(store.defaultSender)
     }
 
-    func test_upsert_createsAccountWhenAbsent() throws {
+    func test_updateMutatesExistingAccountInPlace() throws {
         let store = MailAccountStore(context: try makeContext())
-        store.upsert { acc in
-            acc.smtpUsername = "alice@x"
-            acc.senderName = "Alice"
-            acc.smtpHost = "smtp.gmail.com"
-        }
-        XCTAssertEqual(store.account?.smtpUsername, "alice@x")
-        XCTAssertEqual(store.account?.senderName, "Alice")
-        XCTAssertEqual(store.account?.smtpHost, "smtp.gmail.com")
-    }
-
-    func test_upsert_updatesExistingAccountInPlace() throws {
-        let context = try makeContext()
-        let store = MailAccountStore(context: context)
-        store.upsert { $0.smtpUsername = "first@x" }
-        let firstID = store.account?.id
-        store.upsert { $0.smtpUsername = "second@x" }
-        let secondID = store.account?.id
-
-        let descriptor = FetchDescriptor<MailAccount>()
-        let rows = try context.fetch(descriptor)
-        XCTAssertEqual(rows.count, 1)
-        XCTAssertEqual(rows.first?.smtpUsername, "second@x")
-        XCTAssertEqual(firstID, secondID)
-    }
-
-    func test_deleteAccount_clearsBothStateAndPersistence() throws {
-        let context = try makeContext()
-        let store = MailAccountStore(context: context)
-        store.upsert { $0.smtpUsername = "x@x" }
-        store.deleteAccount()
-        XCTAssertNil(store.account)
-        let rows = try context.fetch(FetchDescriptor<MailAccount>())
-        XCTAssertTrue(rows.isEmpty)
+        let a = store.add { $0.smtpUsername = "first@x" }
+        let firstID = a.id
+        store.update(id: a.id) { $0.smtpUsername = "second@x" }
+        XCTAssertEqual(store.accounts.first?.id, firstID, "update should not change the id")
+        XCTAssertEqual(store.accounts.first?.smtpUsername, "second@x")
     }
 
     func test_reload_picksUpExternalChanges() throws {
@@ -61,9 +34,9 @@ final class MailAccountStoreTests: XCTestCase {
         context.insert(external)
         try context.save()
 
-        XCTAssertNil(store.account)
+        XCTAssertTrue(store.accounts.isEmpty)
         store.reload()
-        XCTAssertEqual(store.account?.smtpUsername, "external@x")
+        XCTAssertEqual(store.accounts.first?.smtpUsername, "external@x")
     }
 
     // MARK: - Multi-account API tests
