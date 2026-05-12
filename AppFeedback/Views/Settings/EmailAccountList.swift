@@ -108,15 +108,15 @@ struct EmailAccountList: View {
             HStack(spacing: 12) {
                 ZStack {
                     Circle()
-                        .strokeBorder(.tint.opacity(0.5), style: StrokeStyle(lineWidth: 1, dash: [3, 2]))
+                        .strokeBorder(Color.secondary.opacity(0.45), style: StrokeStyle(lineWidth: 1, dash: [3, 2]))
                         .frame(width: 28, height: 28)
                     Image(systemName: "plus")
                         .font(.system(size: 12, weight: .semibold))
-                        .foregroundStyle(.tint)
+                        .foregroundStyle(.primary)
                 }
                 Text("Add Mail Account")
                     .font(.system(size: 13, weight: .medium))
-                    .foregroundStyle(.tint)
+                    .foregroundStyle(.primary)
                 Spacer()
             }
             .contentShape(Rectangle())

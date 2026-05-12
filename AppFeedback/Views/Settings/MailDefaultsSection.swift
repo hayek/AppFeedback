@@ -80,23 +80,19 @@ struct MailDefaultsSection: View {
     // MARK: - Attachments
 
     private var attachmentsSection: some View {
-        Section("Attachments") {
+        Section("Download Attachments Path") {
             HStack(spacing: 12) {
                 Image(systemName: "folder.fill")
                     .font(.system(size: 16))
                     .foregroundStyle(.tint)
                     .symbolRenderingMode(.hierarchical)
                     .frame(width: 22)
-                VStack(alignment: .leading, spacing: 1) {
-                    Text("Download location")
-                        .font(.system(size: 13, weight: .medium))
-                    Text(attachmentFolderURL?.path ?? "Default — ~/Downloads")
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                        .lineLimit(1)
-                        .truncationMode(.middle)
-                }
-                Spacer()
+                Text(attachmentFolderURL?.path ?? "~/Downloads")
+                    .font(.system(size: 13))
+                    .foregroundStyle(.primary)
+                    .lineLimit(1)
+                    .truncationMode(.middle)
+                Spacer(minLength: 8)
                 Button("Change…") { pickAttachmentFolder() }
                     .buttonStyle(.bordered)
                     .controlSize(.small)
@@ -135,14 +131,14 @@ struct MailDefaultsSection: View {
                         .foregroundStyle(.secondary)
                 }
                 Spacer()
-                Stepper(
-                    value: $pollIntervalMinutes,
-                    in: 1...60
-                ) {
-                    Text("Every \(pollIntervalMinutes) min")
-                        .monospacedDigit()
-                        .frame(width: 76, alignment: .trailing)
+                Picker("", selection: $pollIntervalMinutes) {
+                    ForEach(Self.pollIntervalChoices, id: \.self) { mins in
+                        Text(intervalLabel(mins)).tag(mins)
+                    }
                 }
+                .labelsHidden()
+                .pickerStyle(.menu)
+                .fixedSize()
                 .onChange(of: pollIntervalMinutes) { _, _ in scheduleSave() }
             }
             .padding(.vertical, 2)
@@ -151,32 +147,43 @@ struct MailDefaultsSection: View {
         }
     }
 
+    private static let pollIntervalChoices: [Int] = [1, 2, 5, 10, 15, 30, 60]
+
+    private func intervalLabel(_ minutes: Int) -> String {
+        switch minutes {
+        case 1:  return "Every minute"
+        case 60: return "Every hour"
+        default: return "Every \(minutes) minutes"
+        }
+    }
+
     // MARK: - Placeholders
 
     private var placeholdersSection: some View {
         Section {
-            DisclosureGroup(isExpanded: $showPlaceholders) {
-                VStack(alignment: .leading, spacing: 4) {
+            VStack(alignment: .leading, spacing: 10) {
+                HStack(spacing: 6) {
+                    Image(systemName: "curlybraces")
+                        .font(.system(size: 11, weight: .semibold))
+                        .foregroundStyle(.secondary)
+                    Text("Available placeholders")
+                        .font(.system(size: 11, weight: .semibold))
+                        .foregroundStyle(.secondary)
+                        .textCase(.uppercase)
+                        .tracking(0.4)
+                }
+                VStack(alignment: .leading, spacing: 6) {
                     ForEach(Self.placeholderHints, id: \.token) { hint in
                         placeholderRow(hint)
                     }
                 }
-                .padding(.vertical, 4)
-            } label: {
-                HStack {
-                    Image(systemName: "curlybraces")
-                        .font(.system(size: 12, weight: .semibold))
-                        .foregroundStyle(.secondary)
-                    Text("Available placeholders")
-                        .font(.system(size: 13, weight: .medium))
-                    Spacer()
-                    Text("\(Self.placeholderHints.count)")
-                        .font(.system(size: 11, weight: .medium))
-                        .foregroundStyle(.secondary)
-                        .padding(.horizontal, 6).padding(.vertical, 1)
-                        .background(Capsule().fill(Color.secondary.opacity(0.12)))
-                }
             }
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .padding(.horizontal, 4)
+            .padding(.vertical, 8)
+            .listRowBackground(Color.clear)
+            .listRowSeparator(.hidden)
+            .listRowInsets(EdgeInsets(top: 0, leading: 0, bottom: 0, trailing: 0))
         }
     }
 

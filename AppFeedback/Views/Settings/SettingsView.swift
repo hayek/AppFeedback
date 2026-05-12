@@ -87,8 +87,8 @@ struct SettingsView: View {
             }
         }
         .frame(
-            minWidth: 540, idealWidth: 720, maxWidth: .infinity,
-            minHeight: 380, idealHeight: 620, maxHeight: .infinity
+            minWidth: 480, idealWidth: 720, maxWidth: .infinity,
+            minHeight: 320, idealHeight: 620, maxHeight: .infinity
         )
         .background(WindowResizableAccessor())
     }

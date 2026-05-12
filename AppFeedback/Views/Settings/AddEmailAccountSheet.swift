@@ -22,37 +22,40 @@ struct AddEmailAccountSheet: View {
 
     var body: some View {
         VStack(spacing: 0) {
-            hero
-            Divider().opacity(0.6)
             form
             footer
         }
-        .frame(width: 520)
+        .frame(width: 520, height: 560)
         .background(.windowBackground)
     }
 
     // MARK: - Sections
 
-    private var hero: some View {
-        VStack(spacing: 14) {
-            MailProviderBadge(preset: preset, size: 56)
-                .padding(.top, 24)
-                .animation(.spring(response: 0.35, dampingFraction: 0.72), value: preset)
-            VStack(spacing: 4) {
-                Text("Add Mail Account")
-                    .font(.system(size: 19, weight: .semibold))
-                Text("Connect a mailbox so replies can flow back into your issues.")
-                    .font(.system(size: 12))
-                    .foregroundStyle(.secondary)
-                    .multilineTextAlignment(.center)
-                    .padding(.horizontal, 36)
+    private var heroSection: some View {
+        Section {
+            VStack(spacing: 14) {
+                MailProviderBadge(preset: preset, size: 56)
+                    .padding(.top, 12)
+                    .animation(.spring(response: 0.35, dampingFraction: 0.72), value: preset)
+                VStack(spacing: 4) {
+                    Text("Add Mail Account")
+                        .font(.system(size: 19, weight: .semibold))
+                    Text("Connect a mailbox so replies can flow back into your issues.")
+                        .font(.system(size: 12))
+                        .foregroundStyle(.secondary)
+                        .multilineTextAlignment(.center)
+                        .padding(.horizontal, 36)
+                }
+                .padding(.bottom, 6)
             }
-            .padding(.bottom, 18)
+            .frame(maxWidth: .infinity)
+            .listRowBackground(Color.clear)
         }
     }
 
     private var form: some View {
         Form {
+            heroSection
             Section("Provider") {
                 Picker("Service", selection: $preset) {
                     ForEach(SMTPCredentials.Preset.allCases) { p in
@@ -90,7 +93,6 @@ struct AddEmailAccountSheet: View {
             }
         }
         .formStyle(.grouped)
-        .frame(minHeight: 280)
     }
 
     private var footer: some View {

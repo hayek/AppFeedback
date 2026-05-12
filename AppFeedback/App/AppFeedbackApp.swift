@@ -288,6 +288,7 @@ struct AppFeedbackApp: App {
                 .environment(mailLocalStateStore)
                 .environment(\.notificationService, notificationService)
         }
+        .defaultSize(width: 720, height: 620)
         .windowResizability(.contentMinSize)
         #endif
     }

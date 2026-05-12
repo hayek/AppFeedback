@@ -163,7 +163,7 @@ struct EmailAccountEditor: View {
 
     private var advancedSection: some View {
         Section {
-            DisclosureGroup("Advanced", isExpanded: $showAdvanced) {
+            DisclosureGroup(isExpanded: $showAdvanced) {
                 LabeledContent("SMTP host") {
                     TextField("", text: $host).disabled(preset != .custom)
                         .multilineTextAlignment(.trailing)
@@ -188,6 +188,13 @@ struct EmailAccountEditor: View {
                         pasteButton { imapPassword = preset.sanitize(password: $0) }
                     }
                 }
+            } label: {
+                Text("Advanced")
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .contentShape(Rectangle())
+                    .onTapGesture {
+                        withAnimation(.easeInOut(duration: 0.18)) { showAdvanced.toggle() }
+                    }
             }
         }
     }
