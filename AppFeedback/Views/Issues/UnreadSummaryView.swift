@@ -90,12 +90,12 @@ struct UnreadSummaryView: View {
         if !trimmed.isEmpty {
             VStack(alignment: .leading, spacing: 11) {
                 Text(title.uppercased())
-                    .font(.system(size: 10.5, weight: .heavy))
-                    .tracking(0.5)
-                    .foregroundStyle(Color.white.opacity(0.94))
-                    .padding(.horizontal, 13)
-                    .padding(.vertical, 6)
-                    .background(tint, in: Capsule())
+                    .font(.system(size: 11, weight: .semibold))
+                    .tracking(0.3)
+                    .foregroundStyle(tint)
+                    .padding(.horizontal, 8)
+                    .padding(.vertical, 3)
+                    .background(tint.opacity(0.18), in: Capsule())
 
                 Text(trimmed)
                     .font(.system(size: 12))
