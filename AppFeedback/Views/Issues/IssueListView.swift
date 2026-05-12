@@ -1,4 +1,5 @@
 import SwiftUI
+import SwiftData
 
 struct IssueListView: View {
     @Bindable var viewModel: IssueListViewModel
@@ -10,6 +11,10 @@ struct IssueListView: View {
     var appColorOverrides: [String: String] = [:]
     @Bindable var summaryVM: UnreadSummaryViewModel
     let summaryCollapseKey: String
+
+    /// Reactive view of cloud-synced summary rows so devices without on-device
+    /// Foundation Models re-evaluate when CloudKit delivers a row written by another device.
+    @Query private var summaryCaches: [IssueSummaryCache]
 
     #if canImport(SwiftMail)
     @State private var composing: ComposeContext?
@@ -117,7 +122,8 @@ struct IssueListView: View {
                     await summaryVM.update(
                         issues: viewModel.issuesForAISummaryCard,
                         targetLanguage: targetLanguageCode,
-                        promptContext: context
+                        promptContext: context,
+                        cache: viewModel.summaryCacheBinding(targetLanguage: targetLanguageCode)
                     )
                 }
             }
@@ -214,10 +220,22 @@ struct IssueListView: View {
     }
 
     private var summaryTaskID: String {
-        let unread = viewModel.unreadIssues.map(\.number).sorted().map(String.init).joined(separator: ",")
-        let window = viewModel.issuesRecentForSummary.map(\.number).sorted().map(String.init).joined(separator: ",")
+        let unread = UnreadSummaryViewModel.issueNumbersFingerprint(viewModel.unreadIssues)
+        let window = UnreadSummaryViewModel.issueNumbersFingerprint(viewModel.issuesRecentForSummary)
         let mode = viewModel.aiSummarizesUnreadIssuesOnly ? "u" : "r"
-        return "\(targetLanguageCode)|\(mode)|\(unread)|\(window)"
+        // Include the freshest matching cache row's updatedAt so .task re-fires when
+        // CloudKit delivers a summary written by another device. `max(by:)` matches
+        // `fetchSummaryRow`'s newest-wins semantics during CloudKit duplicate-row
+        // sync convergence — otherwise the two could disagree and `cacheSig` oscillate.
+        let cacheSig = summaryCaches
+            .filter {
+                $0.repoOwner == repoOwner
+                    && $0.repoName == repoName
+                    && $0.targetLanguage == targetLanguageCode
+            }
+            .max(by: { $0.updatedAt < $1.updatedAt })?
+            .updatedAt.timeIntervalSince1970 ?? 0
+        return "\(targetLanguageCode)|\(mode)|\(unread)|\(window)|\(cacheSig)"
     }
 
     private func summaryText(total: Int, visible: Int) -> String {

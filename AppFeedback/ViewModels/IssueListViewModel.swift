@@ -187,6 +187,23 @@ final class IssueListViewModel {
         translatingNumbers.contains(issue.number)
     }
 
+    /// Returns a write target for the rolling 30-day summary cache, or nil when
+    /// caching shouldn't apply (no context attached, missing repo identity, or
+    /// transient per-device filters are active).
+    func summaryCacheBinding(targetLanguage: String) -> SummaryCacheBinding? {
+        guard let cacheContext,
+              appFilter.isEmpty, filters.isEmpty,
+              !seenOwner.isEmpty, !seenRepo.isEmpty else { return nil }
+        return SummaryCacheBinding(
+            scope: SummaryCacheScope(
+                repoOwner: seenOwner,
+                repoName: seenRepo,
+                targetLanguage: targetLanguage
+            ),
+            context: cacheContext
+        )
+    }
+
     func attachIntelligence(
         provider: IntelligenceProvider,
         settings: IntelligenceSettings,

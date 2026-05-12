@@ -1,5 +1,6 @@
 import Foundation
 import Observation
+import SwiftData
 
 enum SummaryState: Equatable {
     case idle
@@ -8,6 +9,20 @@ enum SummaryState: Equatable {
     case skipped
     case unavailable
     case failed(String)
+}
+
+struct SummaryCacheScope: Equatable, Sendable {
+    let repoOwner: String
+    let repoName: String
+    let targetLanguage: String
+}
+
+/// Cache identity plus the SwiftData context to read/write through. Bundled
+/// so the "scope without context (or vice versa)" combination is unrepresentable.
+/// Only meaningful in rolling-30-day mode and for the unfiltered repo view.
+struct SummaryCacheBinding {
+    let scope: SummaryCacheScope
+    let context: ModelContext
 }
 
 @Observable @MainActor
@@ -23,20 +38,43 @@ final class UnreadSummaryViewModel {
         self.debounceMs = debounceMs
     }
 
-    func update(issues: [FeedbackIssue], targetLanguage: String, promptContext: AISummaryPromptContext) async {
+    func update(
+        issues: [FeedbackIssue],
+        targetLanguage: String,
+        promptContext: AISummaryPromptContext,
+        cache: SummaryCacheBinding? = nil
+    ) async {
         currentTask?.cancel()
 
+        let fingerprint = Self.issueNumbersFingerprint(issues)
+        let activeCache = promptContext == .rollingLastThirtyDays ? cache : nil
+
+        var cachedDTO: IssueSummaryDTO? = nil
+        var cachedFingerprint: String? = nil
+        if let activeCache, let row = fetchSummaryRow(binding: activeCache) {
+            cachedDTO = IssueSummaryDTO(headline: row.headline, pros: row.pros, cons: row.cons)
+            cachedFingerprint = row.inputFingerprint
+        }
+
         if !provider.availability.isReady {
-            state = .unavailable
+            state = cachedDTO.map { .ready($0) } ?? .unavailable
             return
         }
         if issues.count < 2 {
-            state = .skipped
+            state = cachedDTO.map { .ready($0) } ?? .skipped
             return
         }
-        state = .loading
+
+        if let cachedDTO {
+            state = .ready(cachedDTO)
+            if cachedFingerprint == fingerprint { return }
+        } else {
+            state = .loading
+        }
+
         let provider = self.provider
         let debounceMs = self.debounceMs
+        let hadCached = cachedDTO != nil
         currentTask = Task { [weak self] in
             if debounceMs > 0 {
                 try? await Task.sleep(nanoseconds: debounceMs * 1_000_000)
@@ -49,12 +87,21 @@ final class UnreadSummaryViewModel {
                     promptContext: promptContext
                 )
                 if Task.isCancelled { return }
-                await MainActor.run { self?.state = .ready(result) }
+                await MainActor.run {
+                    guard let self else { return }
+                    self.state = .ready(result)
+                    if let activeCache {
+                        self.persistSummary(binding: activeCache, dto: result, fingerprint: fingerprint)
+                    }
+                }
             } catch is CancellationError {
             } catch {
                 if Task.isCancelled { return }
                 let message = error.localizedDescription
-                await MainActor.run { self?.state = .failed(message) }
+                await MainActor.run {
+                    guard let self else { return }
+                    if !hadCached { self.state = .failed(message) }
+                }
             }
         }
     }
@@ -63,5 +110,52 @@ final class UnreadSummaryViewModel {
         currentTask?.cancel()
         currentTask = nil
         state = .idle
+    }
+
+    /// Sorted, comma-joined issue numbers — stable identity for a set of issues.
+    /// Shared so cache-fingerprint and SwiftUI task-id derive from the same source.
+    static func issueNumbersFingerprint(_ issues: [FeedbackIssue]) -> String {
+        issues.map(\.number).sorted().map(String.init).joined(separator: ",")
+    }
+
+    private func fetchSummaryRow(binding: SummaryCacheBinding) -> IssueSummaryCache? {
+        let owner = binding.scope.repoOwner
+        let repo = binding.scope.repoName
+        let lang = binding.scope.targetLanguage
+        var descriptor = FetchDescriptor<IssueSummaryCache>(
+            predicate: #Predicate { row in
+                row.repoOwner == owner && row.repoName == repo && row.targetLanguage == lang
+            },
+            // Newest-first + limit 1: CloudKit can briefly materialize duplicate rows
+            // during sync convergence; pick the freshest without paying for the rest.
+            sortBy: [SortDescriptor(\.updatedAt, order: .reverse)]
+        )
+        descriptor.fetchLimit = 1
+        return (try? binding.context.fetch(descriptor))?.first
+    }
+
+    private func persistSummary(
+        binding: SummaryCacheBinding,
+        dto: IssueSummaryDTO,
+        fingerprint: String
+    ) {
+        if let row = fetchSummaryRow(binding: binding) {
+            row.headline = dto.headline
+            row.pros = dto.pros
+            row.cons = dto.cons
+            row.inputFingerprint = fingerprint
+            row.updatedAt = Date()
+        } else {
+            binding.context.insert(IssueSummaryCache(
+                repoOwner: binding.scope.repoOwner,
+                repoName: binding.scope.repoName,
+                targetLanguage: binding.scope.targetLanguage,
+                headline: dto.headline,
+                pros: dto.pros,
+                cons: dto.cons,
+                inputFingerprint: fingerprint
+            ))
+        }
+        try? binding.context.save()
     }
 }

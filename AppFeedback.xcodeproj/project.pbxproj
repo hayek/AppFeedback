@@ -38,6 +38,8 @@
 		AB12CD34EF5601234567FE03 /* RepoFetchState.swift in Sources */ = {isa = PBXBuildFile; fileRef = AB12CD34EF5601234567FE01 /* RepoFetchState.swift */; };
 		AB12CD34EF5601234567FE11 /* IssueTranslation.swift in Sources */ = {isa = PBXBuildFile; fileRef = AB12CD34EF5601234567FE10 /* IssueTranslation.swift */; };
 		AB12CD34EF5601234567FE12 /* IssueTranslation.swift in Sources */ = {isa = PBXBuildFile; fileRef = AB12CD34EF5601234567FE10 /* IssueTranslation.swift */; };
+		AB12CD34EF5601234567FE21 /* IssueSummaryCache.swift in Sources */ = {isa = PBXBuildFile; fileRef = AB12CD34EF5601234567FE20 /* IssueSummaryCache.swift */; };
+		AB12CD34EF5601234567FE22 /* IssueSummaryCache.swift in Sources */ = {isa = PBXBuildFile; fileRef = AB12CD34EF5601234567FE20 /* IssueSummaryCache.swift */; };
 		1A5087796E77E3A1B3254A6A /* AddEditRepoView.swift in Sources */ = {isa = PBXBuildFile; fileRef = DA2585A8442E3BBFF49D6958 /* AddEditRepoView.swift */; };
 		1CAF1910E24C4A56CF158ADB /* HiddenAppStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = C897756C0C9A16325888F788 /* HiddenAppStore.swift */; };
 		1CF1DBFBD18235D25DF8D101 /* IssueBodyParser.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2EA9ED253AAB1648CE69C3C8 /* IssueBodyParser.swift */; };
@@ -434,6 +436,7 @@
 		ED152BDBBB643F768E8F162F /* CachedIssue.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CachedIssue.swift; sourceTree = "<group>"; };
 		AB12CD34EF5601234567FE01 /* RepoFetchState.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RepoFetchState.swift; sourceTree = "<group>"; };
 		AB12CD34EF5601234567FE10 /* IssueTranslation.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = IssueTranslation.swift; sourceTree = "<group>"; };
+		AB12CD34EF5601234567FE20 /* IssueSummaryCache.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = IssueSummaryCache.swift; sourceTree = "<group>"; };
 		ED45644F876811CA79E17198 /* IMAPClientError.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = IMAPClientError.swift; sourceTree = "<group>"; };
 		F21997922568B439D705E5DA /* UnreadSummaryViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UnreadSummaryViewModel.swift; sourceTree = "<group>"; };
 		F3AC2A1A49FFA4A03F179B09 /* MessageIDGeneratorTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MessageIDGeneratorTests.swift; sourceTree = "<group>"; };
@@ -631,6 +634,7 @@
 				CB4F1AB8C4EA41A8708C1EA3 /* RepoConfig.swift */,
 				AB12CD34EF5601234567FE01 /* RepoFetchState.swift */,
 				AB12CD34EF5601234567FE10 /* IssueTranslation.swift */,
+				AB12CD34EF5601234567FE20 /* IssueSummaryCache.swift */,
 				710A53166721A8AB169D5504 /* SeenIssue.swift */,
 				7D45273CCFDF0900BE1142A5 /* SidebarSelection.swift */,
 			);
@@ -909,6 +913,7 @@
 				1A4519EDB28C074C99F76742 /* CachedIssue.swift in Sources */,
 				AB12CD34EF5601234567FE02 /* RepoFetchState.swift in Sources */,
 				AB12CD34EF5601234567FE11 /* IssueTranslation.swift in Sources */,
+				AB12CD34EF5601234567FE21 /* IssueSummaryCache.swift in Sources */,
 				302B3F175D4ECEA78AD65FBE /* CloudSyncStatus.swift in Sources */,
 				7FFFB0770659A4F9F59648F9 /* CloudSyncStatusRow.swift in Sources */,
 				2691E53189E014D7B36A236C /* ColorPalette.swift in Sources */,
@@ -1057,6 +1062,7 @@
 				C40C31553933350C02218269 /* CachedIssue.swift in Sources */,
 				AB12CD34EF5601234567FE03 /* RepoFetchState.swift in Sources */,
 				AB12CD34EF5601234567FE12 /* IssueTranslation.swift in Sources */,
+				AB12CD34EF5601234567FE22 /* IssueSummaryCache.swift in Sources */,
 				F4A10388C761178F5BBDD845 /* CloudSyncStatus.swift in Sources */,
 				06D39198121162064798816A /* CloudSyncStatusRow.swift in Sources */,
 				1FC6FF311F9D78628F13989A /* ColorPalette.swift in Sources */,
