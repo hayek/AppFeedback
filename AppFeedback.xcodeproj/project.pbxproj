@@ -60,6 +60,8 @@
 		AB14UI0001234567FE003002 /* AddEmailAccountSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = AB14UI0001234567FE003000 /* AddEmailAccountSheet.swift */; };
 		AB14UI0001234567FE005001 /* EmailAccountEditorSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = AB14UI0001234567FE005000 /* EmailAccountEditorSheet.swift */; };
 		AB14UI0001234567FE005002 /* EmailAccountEditorSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = AB14UI0001234567FE005000 /* EmailAccountEditorSheet.swift */; };
+		AB14UI0001234567FE006001 /* MailProviderBadge.swift in Sources */ = {isa = PBXBuildFile; fileRef = AB14UI0001234567FE006000 /* MailProviderBadge.swift */; };
+		AB14UI0001234567FE006002 /* MailProviderBadge.swift in Sources */ = {isa = PBXBuildFile; fileRef = AB14UI0001234567FE006000 /* MailProviderBadge.swift */; };
 		AB14UI0001234567FE004001 /* MailDefaultsSection.swift in Sources */ = {isa = PBXBuildFile; fileRef = AB14UI0001234567FE004000 /* MailDefaultsSection.swift */; };
 		AB14UI0001234567FE004002 /* MailDefaultsSection.swift in Sources */ = {isa = PBXBuildFile; fileRef = AB14UI0001234567FE004000 /* MailDefaultsSection.swift */; };
 		AB15IOS0001234567FE001001 /* IOSEmailAccountList.swift in Sources */ = {isa = PBXBuildFile; fileRef = AB15IOS0001234567FE001000 /* IOSEmailAccountList.swift */; };
@@ -478,6 +480,7 @@
 		AB14UI0001234567FE003000 /* AddEmailAccountSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AddEmailAccountSheet.swift; sourceTree = "<group>"; };
 		AB14UI0001234567FE004000 /* MailDefaultsSection.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MailDefaultsSection.swift; sourceTree = "<group>"; };
 		AB14UI0001234567FE005000 /* EmailAccountEditorSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EmailAccountEditorSheet.swift; sourceTree = "<group>"; };
+		AB14UI0001234567FE006000 /* MailProviderBadge.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MailProviderBadge.swift; sourceTree = "<group>"; };
 		AB15IOS0001234567FE001000 /* IOSEmailAccountList.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = IOSEmailAccountList.swift; sourceTree = "<group>"; };
 		AB15IOS0001234567FE002000 /* IOSEmailAccountEditor.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = IOSEmailAccountEditor.swift; sourceTree = "<group>"; };
 		AB15IOS0001234567FE003000 /* IOSMailDefaultsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = IOSMailDefaultsView.swift; sourceTree = "<group>"; };
@@ -656,6 +659,7 @@
 				AB14UI0001234567FE002000 /* EmailAccountEditor.swift */,
 				AB14UI0001234567FE005000 /* EmailAccountEditorSheet.swift */,
 				AB14UI0001234567FE001000 /* EmailAccountList.swift */,
+				AB14UI0001234567FE006000 /* MailProviderBadge.swift */,
 				997018B54F967FD27571808D /* EmailSettingsView.swift */,
 				8179D7E75894D24AAF1B685B /* GitHubLoginView.swift */,
 				6C81A296860E49F3AC70386D /* IntelligenceSettingsSection.swift */,
@@ -983,6 +987,7 @@
 				AB14UI0001234567FE001001 /* EmailAccountList.swift in Sources */,
 				AB14UI0001234567FE002001 /* EmailAccountEditor.swift in Sources */,
 				AB14UI0001234567FE005001 /* EmailAccountEditorSheet.swift in Sources */,
+				AB14UI0001234567FE006001 /* MailProviderBadge.swift in Sources */,
 				AB14UI0001234567FE003001 /* AddEmailAccountSheet.swift in Sources */,
 				AB14UI0001234567FE004001 /* MailDefaultsSection.swift in Sources */,
 				8FBD0F509C7C35FC4F31F0EF /* EmailSettingsView.swift in Sources */,
@@ -1147,6 +1152,7 @@
 				AB14UI0001234567FE001002 /* EmailAccountList.swift in Sources */,
 				AB14UI0001234567FE002002 /* EmailAccountEditor.swift in Sources */,
 				AB14UI0001234567FE005002 /* EmailAccountEditorSheet.swift in Sources */,
+				AB14UI0001234567FE006002 /* MailProviderBadge.swift in Sources */,
 				AB14UI0001234567FE003002 /* AddEmailAccountSheet.swift in Sources */,
 				AB14UI0001234567FE004002 /* MailDefaultsSection.swift in Sources */,
 				7ED89EB752383D353A3734D7 /* EmailSettingsView.swift in Sources */,

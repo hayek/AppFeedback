@@ -2,55 +2,223 @@
 import SwiftUI
 import AppKit
 
+/// Shared template + sync defaults section group. Body returns a `Group` of Sections so it can
+/// be composed inside the outer `Form` in `EmailSettingsView` (single scrolling surface).
 struct MailDefaultsSection: View {
     @Environment(MailSettingsStore.self) private var settingsStore
 
     @State private var headerText: String = ""
     @State private var footerText: String = ""
     @State private var pollIntervalMinutes: Int = 5
-    @State private var attachmentFolderDisplayPath: String = "Default (~/Downloads)"
+    @State private var attachmentFolderURL: URL? = nil
     @State private var didLoad = false
     @State private var saveTask: Task<Void, Never>?
     @State private var copiedToken: String?
+    @State private var showPlaceholders: Bool = false
 
     var body: some View {
         Group {
-            Section("Header") {
-                TextEditor(text: $headerText).font(.body).frame(minHeight: 120)
-            }
-            Section("Footer") {
-                TextEditor(text: $footerText).font(.body).frame(minHeight: 120)
-            }
-            Section("Attachments") {
-                HStack {
-                    Button("Attachments folder…") { pickAttachmentFolder() }
-                    Text(attachmentFolderDisplayPath)
-                        .font(.caption).foregroundStyle(.secondary)
-                        .lineLimit(1).truncationMode(.middle)
-                }
-            }
-            Section("Fetching") {
-                Stepper(
-                    "Every \(pollIntervalMinutes) minute\(pollIntervalMinutes == 1 ? "" : "s")",
-                    value: $pollIntervalMinutes,
-                    in: 1...60
-                )
-                .onChange(of: pollIntervalMinutes) { _, _ in scheduleSave() }
-            }
-            Section("Placeholders") {
-                placeholdersHint
-            }
+            templatesSection
+            attachmentsSection
+            fetchingSection
+            placeholdersSection
         }
         .task { load() }
         .onChange(of: headerText) { _, _ in scheduleSave() }
         .onChange(of: footerText) { _, _ in scheduleSave() }
     }
 
+    // MARK: - Templates
+
+    private var templatesSection: some View {
+        Section {
+            templateEditor(label: "Header", icon: "text.alignleft", text: $headerText)
+            templateEditor(label: "Footer", icon: "text.append", text: $footerText)
+        } header: {
+            Text("Templates")
+        } footer: {
+            Text("These wrap every outgoing reply. Use the placeholders below for dynamic content.")
+                .font(.caption).foregroundStyle(.secondary)
+        }
+    }
+
+    @ViewBuilder
+    private func templateEditor(label: String, icon: String, text: Binding<String>) -> some View {
+        VStack(alignment: .leading, spacing: 6) {
+            HStack(spacing: 6) {
+                Image(systemName: icon)
+                    .font(.system(size: 11, weight: .semibold))
+                    .foregroundStyle(.secondary)
+                Text(label)
+                    .font(.system(size: 11, weight: .semibold))
+                    .foregroundStyle(.secondary)
+                    .textCase(.uppercase)
+                    .tracking(0.4)
+                Spacer()
+                Text("\(text.wrappedValue.count) chars")
+                    .font(.system(size: 10))
+                    .foregroundStyle(.tertiary)
+                    .monospacedDigit()
+            }
+            TextEditor(text: text)
+                .font(.system(size: 12))
+                .scrollContentBackground(.hidden)
+                .padding(8)
+                .frame(minHeight: 96)
+                .background(
+                    RoundedRectangle(cornerRadius: 6, style: .continuous)
+                        .fill(Color(nsColor: .textBackgroundColor))
+                )
+                .overlay(
+                    RoundedRectangle(cornerRadius: 6, style: .continuous)
+                        .strokeBorder(Color.gray.opacity(0.25), lineWidth: 0.5)
+                )
+        }
+        .padding(.vertical, 4)
+    }
+
+    // MARK: - Attachments
+
+    private var attachmentsSection: some View {
+        Section("Attachments") {
+            HStack(spacing: 12) {
+                Image(systemName: "folder.fill")
+                    .font(.system(size: 16))
+                    .foregroundStyle(.tint)
+                    .symbolRenderingMode(.hierarchical)
+                    .frame(width: 22)
+                VStack(alignment: .leading, spacing: 1) {
+                    Text("Download location")
+                        .font(.system(size: 13, weight: .medium))
+                    Text(attachmentFolderURL?.path ?? "Default — ~/Downloads")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                        .lineLimit(1)
+                        .truncationMode(.middle)
+                }
+                Spacer()
+                Button("Change…") { pickAttachmentFolder() }
+                    .buttonStyle(.bordered)
+                    .controlSize(.small)
+                if attachmentFolderURL != nil {
+                    Button {
+                        settingsStore.update { $0.attachmentFolderBookmark = nil }
+                        attachmentFolderURL = nil
+                    } label: {
+                        Image(systemName: "xmark.circle.fill")
+                            .font(.system(size: 14))
+                            .foregroundStyle(.tertiary)
+                    }
+                    .buttonStyle(.plain)
+                    .help("Reset to default")
+                }
+            }
+            .padding(.vertical, 2)
+        }
+    }
+
+    // MARK: - Fetching
+
+    private var fetchingSection: some View {
+        Section {
+            HStack(spacing: 12) {
+                Image(systemName: "arrow.clockwise.circle.fill")
+                    .font(.system(size: 16))
+                    .symbolRenderingMode(.hierarchical)
+                    .foregroundStyle(.tint)
+                    .frame(width: 22)
+                VStack(alignment: .leading, spacing: 1) {
+                    Text("Check for new mail")
+                        .font(.system(size: 13, weight: .medium))
+                    Text("Applies to every auto-fetching account.")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
+                Spacer()
+                Stepper(
+                    value: $pollIntervalMinutes,
+                    in: 1...60
+                ) {
+                    Text("Every \(pollIntervalMinutes) min")
+                        .monospacedDigit()
+                        .frame(width: 76, alignment: .trailing)
+                }
+                .onChange(of: pollIntervalMinutes) { _, _ in scheduleSave() }
+            }
+            .padding(.vertical, 2)
+        } header: {
+            Text("Sync")
+        }
+    }
+
+    // MARK: - Placeholders
+
+    private var placeholdersSection: some View {
+        Section {
+            DisclosureGroup(isExpanded: $showPlaceholders) {
+                VStack(alignment: .leading, spacing: 4) {
+                    ForEach(Self.placeholderHints, id: \.token) { hint in
+                        placeholderRow(hint)
+                    }
+                }
+                .padding(.vertical, 4)
+            } label: {
+                HStack {
+                    Image(systemName: "curlybraces")
+                        .font(.system(size: 12, weight: .semibold))
+                        .foregroundStyle(.secondary)
+                    Text("Available placeholders")
+                        .font(.system(size: 13, weight: .medium))
+                    Spacer()
+                    Text("\(Self.placeholderHints.count)")
+                        .font(.system(size: 11, weight: .medium))
+                        .foregroundStyle(.secondary)
+                        .padding(.horizontal, 6).padding(.vertical, 1)
+                        .background(Capsule().fill(Color.secondary.opacity(0.12)))
+                }
+            }
+        }
+    }
+
+    @ViewBuilder
+    private func placeholderRow(_ hint: PlaceholderHint) -> some View {
+        HStack(spacing: 10) {
+            Button {
+                copyToken(hint.token)
+            } label: {
+                HStack(spacing: 4) {
+                    Text(hint.token)
+                        .font(.system(.caption, design: .monospaced))
+                        .foregroundStyle(.primary)
+                    Image(systemName: copiedToken == hint.token ? "checkmark.circle.fill" : "doc.on.doc")
+                        .font(.system(size: 10))
+                        .foregroundStyle(copiedToken == hint.token ? Color.green : Color.gray.opacity(0.6))
+                }
+                .padding(.horizontal, 7).padding(.vertical, 3)
+                .background(
+                    RoundedRectangle(cornerRadius: 5, style: .continuous)
+                        .fill(Color.secondary.opacity(0.10))
+                )
+                .contentShape(Rectangle())
+                .animation(.easeInOut(duration: 0.15), value: copiedToken)
+            }
+            .buttonStyle(.plain)
+            .help("Copy \(hint.token)")
+            Text(hint.descriptionText)
+                .font(.caption)
+                .foregroundStyle(.secondary)
+            Spacer()
+        }
+        .padding(.vertical, 1)
+    }
+
+    // MARK: - Persistence
+
     private func load() {
         headerText = MailTemplatePlainText.from(html: settingsStore.settings.templateHeaderHTML)
         footerText = MailTemplatePlainText.from(html: settingsStore.settings.templateFooterHTML)
         pollIntervalMinutes = max(1, min(60, settingsStore.settings.pollIntervalSeconds / 60))
-        resolveDisplayPath()
+        resolveDisplayURL()
         didLoad = true
     }
 
@@ -82,14 +250,14 @@ struct MailDefaultsSection: View {
                 relativeTo: nil
             ) {
                 settingsStore.update { $0.attachmentFolderBookmark = bookmark }
-                attachmentFolderDisplayPath = url.path
+                attachmentFolderURL = url
             }
         }
     }
 
-    private func resolveDisplayPath() {
+    private func resolveDisplayURL() {
         guard let data = settingsStore.settings.attachmentFolderBookmark else {
-            attachmentFolderDisplayPath = "Default (~/Downloads)"
+            attachmentFolderURL = nil
             return
         }
         var stale = false
@@ -99,31 +267,9 @@ struct MailDefaultsSection: View {
             relativeTo: nil,
             bookmarkDataIsStale: &stale
         ) {
-            attachmentFolderDisplayPath = url.path
+            attachmentFolderURL = url
         } else {
-            attachmentFolderDisplayPath = "Default (~/Downloads)"
-        }
-    }
-
-    private var placeholdersHint: some View {
-        VStack(alignment: .leading, spacing: 6) {
-            Text("Drop these tokens into the header or footer — they'll be replaced when the email is sent. Click a token to copy it.")
-                .font(.caption).foregroundStyle(.secondary)
-            Grid(alignment: .leadingFirstTextBaseline, horizontalSpacing: 10, verticalSpacing: 2) {
-                ForEach(Self.placeholderHints, id: \.token) { hint in
-                    GridRow {
-                        Button { copyToken(hint.token) } label: {
-                            HStack(spacing: 4) {
-                                Text(hint.token).font(.system(.caption, design: .monospaced))
-                                Image(systemName: copiedToken == hint.token ? "checkmark" : "doc.on.doc")
-                                    .font(.caption2).foregroundStyle(.secondary)
-                            }
-                        }
-                        .buttonStyle(.plain)
-                        Text(hint.descriptionText).font(.caption).foregroundStyle(.secondary)
-                    }
-                }
-            }
+            attachmentFolderURL = nil
         }
     }
 

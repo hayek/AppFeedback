@@ -25,76 +25,39 @@ struct EmailAccountEditor: View {
     @State private var pollingEnabled: Bool = true
     @State private var showAdvanced: Bool = false
     @State private var saveStatus: String?
-    @State private var testStatus: String?
+    @State private var testStatus: TestStatus = .idle
     @State private var showRemoveConfirm: Bool = false
+    @State private var isRefreshing: Bool = false
     @State private var didLoad = false
     @State private var saveTask: Task<Void, Never>?
 
+    private enum TestStatus: Equatable {
+        case idle
+        case running
+        case success
+        case failure(message: String)
+    }
+
     private var account: MailAccount? { store.account(id: accountID) }
     private var isDefault: Bool { account?.isDefaultSender ?? false }
+    private var hasCredentialsForTest: Bool {
+        !username.isEmpty && !host.isEmpty && !password.isEmpty
+    }
 
     var body: some View {
         Form {
-            Section("Provider") {
-                Picker("Preset", selection: $preset) {
-                    ForEach(SMTPCredentials.Preset.allCases) { p in
-                        Text(p.displayName).tag(p)
-                    }
-                }
-                .onChange(of: preset) { _, new in applyPresetDefaults(new); scheduleSave() }
-            }
-            Section("Account") {
-                TextField("Email address", text: $username)
-                HStack {
-                    SecureField("Password", text: $password)
-                    pasteButton { password = preset.sanitize(password: $0) }
-                }
-                if preset == .gmail {
-                    HStack(spacing: 6) {
-                        Text("Gmail requires a 16-character app password (not your account password). 2-Step Verification must be on.")
-                            .font(.caption).foregroundStyle(.secondary)
-                        Spacer(minLength: 8)
-                        Button("Get app password") { openGmailAppPasswords() }
-                            .buttonStyle(.link).font(.caption)
-                    }
-                }
-                TextField("Sender display name", text: $senderName)
-                Toggle("Auto-fetch replies", isOn: $pollingEnabled)
-                    .onChange(of: pollingEnabled) { _, _ in scheduleSave() }
-            }
-            Section {
-                DisclosureGroup("Advanced", isExpanded: $showAdvanced) {
-                    LabeledContent("SMTP host") { TextField("", text: $host).disabled(preset != .custom) }
-                    LabeledContent("SMTP port") { TextField("", text: $port).disabled(preset != .custom) }
-                    LabeledContent("IMAP host") { TextField("", text: $imapHost).disabled(preset != .custom) }
-                    LabeledContent("IMAP port") { TextField("", text: $imapPort).disabled(preset != .custom) }
-                    Toggle("Use a different IMAP login", isOn: $separateIMAPCreds)
-                    if separateIMAPCreds {
-                        TextField("IMAP username", text: $imapUsername)
-                        HStack {
-                            SecureField("IMAP password", text: $imapPassword)
-                            pasteButton { imapPassword = preset.sanitize(password: $0) }
-                        }
-                    }
-                }
-            }
-            Section("Tools") {
-                HStack {
-                    Button("Test Connection") { testConnection() }
-                        .disabled(username.isEmpty || host.isEmpty || password.isEmpty)
-                    if !isDefault {
-                        Button("Set as default") {
-                            if let acc = account { store.setDefaultSender(acc) }
-                        }
-                    }
-                    Button("Refresh now") {
-                        Task { await registry?.coordinator(for: accountID)?.pollNow() }
-                    }
-                    .disabled(registry?.coordinator(for: accountID) == nil)
-                    Spacer()
-                    Button("Remove account…", role: .destructive) { showRemoveConfirm = true }
-                    if let testStatus { Text(testStatus).foregroundStyle(.secondary).font(.caption) }
-                    if let saveStatus { Text(saveStatus).font(.caption).foregroundStyle(.secondary) }
+            providerSection
+            accountSection
+            syncSection
+            advancedSection
+            actionsSection
+            removeSection
+            if let saveStatus {
+                Section {
+                    Label(saveStatus, systemImage: "checkmark.circle.fill")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                        .symbolRenderingMode(.hierarchical)
                 }
             }
         }
@@ -123,12 +86,262 @@ struct EmailAccountEditor: View {
         }
     }
 
+    // MARK: - Sections
+
+    private var providerSection: some View {
+        Section {
+            LabeledContent("Service") {
+                HStack(spacing: 8) {
+                    MailProviderBadge(preset: preset, size: 18)
+                    Picker("", selection: $preset) {
+                        ForEach(SMTPCredentials.Preset.allCases) { p in
+                            Text(p.displayName).tag(p)
+                        }
+                    }
+                    .labelsHidden()
+                    .pickerStyle(.menu)
+                    .fixedSize()
+                }
+            }
+            .onChange(of: preset) { _, new in applyPresetDefaults(new); scheduleSave() }
+        } footer: {
+            if preset == .custom {
+                Text("Configure SMTP and IMAP hosts under Advanced.")
+                    .font(.caption).foregroundStyle(.secondary)
+            }
+        }
+    }
+
+    private var accountSection: some View {
+        Section("Account") {
+            TextField("Email address", text: $username, prompt: Text("you@example.com"))
+                .textContentType(.emailAddress)
+            HStack(spacing: 6) {
+                SecureField("Password", text: $password, prompt: Text("App password"))
+                pasteButton { password = preset.sanitize(password: $0) }
+            }
+            if preset == .gmail {
+                gmailHint
+            }
+            TextField("Sender display name", text: $senderName,
+                      prompt: Text("Shown to recipients"))
+        }
+    }
+
+    private var gmailHint: some View {
+        HStack(alignment: .top, spacing: 8) {
+            Image(systemName: "info.circle.fill")
+                .font(.system(size: 12))
+                .symbolRenderingMode(.hierarchical)
+                .foregroundStyle(.tint)
+                .padding(.top, 1)
+            VStack(alignment: .leading, spacing: 3) {
+                Text("Gmail requires a 16-character app password.")
+                    .font(.caption).foregroundStyle(.secondary)
+                Button("Generate one at myaccount.google.com") {
+                    openGmailAppPasswords()
+                }
+                .buttonStyle(.link)
+                .font(.caption)
+            }
+        }
+        .padding(.vertical, 2)
+    }
+
+    private var syncSection: some View {
+        Section("Sync") {
+            Toggle(isOn: $pollingEnabled) {
+                VStack(alignment: .leading, spacing: 1) {
+                    Text("Auto-fetch replies")
+                    Text("Check this mailbox on the shared poll interval.")
+                        .font(.caption).foregroundStyle(.secondary)
+                }
+            }
+            .onChange(of: pollingEnabled) { _, _ in scheduleSave() }
+        }
+    }
+
+    private var advancedSection: some View {
+        Section {
+            DisclosureGroup("Advanced", isExpanded: $showAdvanced) {
+                LabeledContent("SMTP host") {
+                    TextField("", text: $host).disabled(preset != .custom)
+                        .multilineTextAlignment(.trailing)
+                }
+                LabeledContent("SMTP port") {
+                    TextField("", text: $port).disabled(preset != .custom)
+                        .multilineTextAlignment(.trailing)
+                }
+                LabeledContent("IMAP host") {
+                    TextField("", text: $imapHost).disabled(preset != .custom)
+                        .multilineTextAlignment(.trailing)
+                }
+                LabeledContent("IMAP port") {
+                    TextField("", text: $imapPort).disabled(preset != .custom)
+                        .multilineTextAlignment(.trailing)
+                }
+                Toggle("Use a different IMAP login", isOn: $separateIMAPCreds)
+                if separateIMAPCreds {
+                    TextField("IMAP username", text: $imapUsername)
+                    HStack(spacing: 6) {
+                        SecureField("IMAP password", text: $imapPassword)
+                        pasteButton { imapPassword = preset.sanitize(password: $0) }
+                    }
+                }
+            }
+        }
+    }
+
+    private var actionsSection: some View {
+        Section {
+            // Test row
+            Button {
+                testConnection()
+            } label: {
+                actionRow(
+                    icon: testIcon,
+                    iconTint: testIconTint,
+                    title: "Test Connection",
+                    subtitle: testSubtitle,
+                    progressVisible: testStatus == .running
+                )
+            }
+            .buttonStyle(.plain)
+            .disabled(!hasCredentialsForTest || testStatus == .running)
+
+            // Refresh row
+            Button {
+                Task {
+                    isRefreshing = true
+                    await registry?.coordinator(for: accountID)?.pollNow()
+                    isRefreshing = false
+                }
+            } label: {
+                actionRow(
+                    icon: isRefreshing ? nil : "arrow.triangle.2.circlepath",
+                    iconTint: .accentColor,
+                    title: "Refresh Mailbox",
+                    subtitle: "Fetch new replies immediately.",
+                    progressVisible: isRefreshing
+                )
+            }
+            .buttonStyle(.plain)
+            .disabled(registry?.coordinator(for: accountID) == nil || isRefreshing)
+
+            // Set-as-default row
+            if !isDefault {
+                Button {
+                    if let acc = account { store.setDefaultSender(acc) }
+                } label: {
+                    actionRow(
+                        icon: "paperplane.circle.fill",
+                        iconTint: .accentColor,
+                        title: "Set as Default Sender",
+                        subtitle: "New replies use this account by default."
+                    )
+                }
+                .buttonStyle(.plain)
+            }
+        } header: {
+            Text("Connection")
+        }
+    }
+
+    private var removeSection: some View {
+        Section {
+            Button(role: .destructive) {
+                showRemoveConfirm = true
+            } label: {
+                actionRow(
+                    icon: "trash.fill",
+                    iconTint: .red,
+                    title: "Remove Account",
+                    subtitle: "Deletes credentials from this device.",
+                    titleTint: .red
+                )
+            }
+            .buttonStyle(.plain)
+        }
+    }
+
+    // MARK: - Action row
+
+    @ViewBuilder
+    private func actionRow(
+        icon: String?,
+        iconTint: Color,
+        title: String,
+        subtitle: String,
+        progressVisible: Bool = false,
+        titleTint: Color? = nil
+    ) -> some View {
+        HStack(spacing: 12) {
+            Group {
+                if progressVisible {
+                    ProgressView().controlSize(.small)
+                        .frame(width: 22, height: 22)
+                } else if let icon {
+                    Image(systemName: icon)
+                        .font(.system(size: 16))
+                        .symbolRenderingMode(.hierarchical)
+                        .foregroundStyle(iconTint)
+                        .frame(width: 22, height: 22)
+                } else {
+                    Color.clear.frame(width: 22, height: 22)
+                }
+            }
+            VStack(alignment: .leading, spacing: 1) {
+                Text(title)
+                    .font(.system(size: 13, weight: .medium))
+                    .foregroundStyle(titleTint ?? .primary)
+                Text(subtitle)
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+            Spacer()
+        }
+        .contentShape(Rectangle())
+        .padding(.vertical, 2)
+    }
+
+    // MARK: - Test status helpers
+
+    private var testIcon: String? {
+        switch testStatus {
+        case .running: return nil
+        case .success: return "checkmark.circle.fill"
+        case .failure: return "exclamationmark.triangle.fill"
+        case .idle:    return "bolt.horizontal.circle.fill"
+        }
+    }
+
+    private var testIconTint: Color {
+        switch testStatus {
+        case .success: return .green
+        case .failure: return .orange
+        default:       return .accentColor
+        }
+    }
+
+    private var testSubtitle: String {
+        switch testStatus {
+        case .idle:               return "Sign in once to verify SMTP credentials."
+        case .running:            return "Contacting \(host)…"
+        case .success:            return "Last test succeeded."
+        case .failure(let msg):   return "Last test failed: \(msg)"
+        }
+    }
+
+    // MARK: - Helpers
+
     @ViewBuilder
     private func pasteButton(assign: @escaping (String) -> Void) -> some View {
         Button {
             if let s = NSPasteboard.general.string(forType: .string) { assign(s) }
         } label: {
             Image(systemName: "doc.on.clipboard")
+                .font(.system(size: 12))
+                .foregroundStyle(.secondary)
         }
         .buttonStyle(.borderless)
         .help("Paste password")
@@ -194,6 +407,13 @@ struct EmailAccountEditor: View {
         let smtpOk = await KeychainService.saveSMTPPassword(password, for: accountID)
         let imapOk = await KeychainService.saveIMAPPassword(effectiveIMAPPassword, for: accountID)
         saveStatus = (smtpOk && imapOk) ? "Saved" : "Saved settings, but Keychain failed"
+        // Auto-hide the saved indicator after a beat.
+        Task { @MainActor in
+            try? await Task.sleep(nanoseconds: 1_800_000_000)
+            if saveStatus == "Saved" || saveStatus == "Saved settings, but Keychain failed" {
+                withAnimation(.easeOut(duration: 0.25)) { saveStatus = nil }
+            }
+        }
     }
 
     @MainActor
@@ -213,6 +433,7 @@ struct EmailAccountEditor: View {
             username: username,
             senderName: senderName
         )
+        testStatus = .running
         let id = activityLog.start(kind: .testConnection, title: "\(freshCreds.host):\(freshCreds.port)")
         Task {
             #if canImport(SwiftMail)
@@ -220,13 +441,16 @@ struct EmailAccountEditor: View {
                 let sender = MailSender()
                 try await sender.testConnection(freshCreds, password: password)
                 activityLog.finish(id, status: .success, detail: "Login OK")
-                testStatus = "Connection OK"
+                withAnimation(.easeInOut(duration: 0.2)) { testStatus = .success }
             } catch {
                 activityLog.finish(id, status: .failure, detail: error.localizedDescription)
-                testStatus = "Failed: \(error.localizedDescription)"
+                withAnimation(.easeInOut(duration: 0.2)) {
+                    testStatus = .failure(message: error.localizedDescription)
+                }
             }
             #else
             activityLog.finish(id, status: .failure, detail: "SwiftMail not available")
+            withAnimation { testStatus = .failure(message: "SwiftMail not available") }
             #endif
         }
     }

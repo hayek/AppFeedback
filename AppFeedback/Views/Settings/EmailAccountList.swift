@@ -9,19 +9,24 @@ struct EmailAccountList: View {
     @State private var showAddSheet = false
 
     var body: some View {
-        Section("Accounts") {
+        Section {
             if store.accounts.isEmpty {
-                Text("No email accounts configured.")
-                    .font(.caption).foregroundStyle(.secondary)
+                emptyState
             } else {
                 ForEach(store.accounts, id: \.id) { acc in
                     accountRow(acc)
                 }
             }
-            Button {
-                showAddSheet = true
-            } label: {
-                Label("Add account", systemImage: "plus")
+            addRow
+        } header: {
+            HStack {
+                Text("Accounts").textCase(nil)
+                Spacer()
+                if store.accounts.count > 1 {
+                    Text("\(store.accounts.count) configured")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
             }
         }
         .sheet(isPresented: $showAddSheet) {
@@ -32,29 +37,90 @@ struct EmailAccountList: View {
     }
 
     @ViewBuilder
+    private var emptyState: some View {
+        HStack(spacing: 12) {
+            MailProviderBadge(preset: .gmail, size: 28)
+                .opacity(0.35)
+            VStack(alignment: .leading, spacing: 2) {
+                Text("No accounts yet")
+                    .font(.system(size: 13, weight: .medium))
+                Text("Add a mailbox to start exchanging replies.")
+                    .font(.caption).foregroundStyle(.secondary)
+            }
+            Spacer()
+        }
+        .padding(.vertical, 4)
+    }
+
+    @ViewBuilder
     private func accountRow(_ acc: MailAccount) -> some View {
         Button {
             editingAccountID = acc.id
         } label: {
-            HStack {
-                VStack(alignment: .leading, spacing: 1) {
+            HStack(spacing: 12) {
+                MailProviderBadge(preset: acc.preset)
+                VStack(alignment: .leading, spacing: 2) {
                     Text(acc.smtpUsername.isEmpty ? "New account" : acc.smtpUsername)
+                        .font(.system(size: 13, weight: .medium))
                         .foregroundStyle(.primary)
                     Text(acc.preset.displayName)
-                        .font(.caption).foregroundStyle(.secondary)
-                }
-                Spacer()
-                if acc.isDefaultSender {
-                    Text("Default")
                         .font(.caption)
-                        .padding(.horizontal, 6).padding(.vertical, 2)
-                        .background(Capsule().fill(Color.accentColor.opacity(0.2)))
+                        .foregroundStyle(.secondary)
+                }
+                Spacer(minLength: 8)
+                if acc.isDefaultSender {
+                    defaultBadge
+                        .transition(.scale.combined(with: .opacity))
                 }
                 Image(systemName: "chevron.right")
-                    .font(.caption)
+                    .font(.system(size: 11, weight: .semibold))
                     .foregroundStyle(.tertiary)
             }
             .contentShape(Rectangle())
+            .padding(.vertical, 3)
+            .animation(.easeInOut(duration: 0.18), value: acc.isDefaultSender)
+        }
+        .buttonStyle(.plain)
+    }
+
+    private var defaultBadge: some View {
+        Text("Default")
+            .font(.system(size: 10, weight: .semibold))
+            .tracking(0.3)
+            .textCase(.uppercase)
+            .padding(.horizontal, 7)
+            .padding(.vertical, 2)
+            .foregroundStyle(.tint)
+            .background(
+                Capsule(style: .continuous)
+                    .fill(Color.accentColor.opacity(0.14))
+            )
+            .overlay(
+                Capsule(style: .continuous)
+                    .strokeBorder(Color.accentColor.opacity(0.28), lineWidth: 0.5)
+            )
+    }
+
+    private var addRow: some View {
+        Button {
+            showAddSheet = true
+        } label: {
+            HStack(spacing: 12) {
+                ZStack {
+                    Circle()
+                        .strokeBorder(.tint.opacity(0.5), style: StrokeStyle(lineWidth: 1, dash: [3, 2]))
+                        .frame(width: 28, height: 28)
+                    Image(systemName: "plus")
+                        .font(.system(size: 12, weight: .semibold))
+                        .foregroundStyle(.tint)
+                }
+                Text("Add Mail Account")
+                    .font(.system(size: 13, weight: .medium))
+                    .foregroundStyle(.tint)
+                Spacer()
+            }
+            .contentShape(Rectangle())
+            .padding(.vertical, 3)
         }
         .buttonStyle(.plain)
     }
