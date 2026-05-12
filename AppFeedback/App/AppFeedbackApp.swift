@@ -77,7 +77,7 @@ struct AppFeedbackApp: App {
         let mailSettingsStoreLocal = MailSettingsStore(context: ModelContext(container))
         let threadStoreLocal = MailThreadStore(context: ModelContext(container))
         if !isTesting {
-            MailAccountMigration.runIfNeeded(store: mailAccountStoreLocal)
+            MailAccountMigration.runIfNeeded(store: mailAccountStoreLocal, settingsStore: mailSettingsStoreLocal)
             MailAccountMigration.runV2IfNeeded(
                 accountStore: mailAccountStoreLocal,
                 settingsStore: mailSettingsStoreLocal,
@@ -148,6 +148,7 @@ struct AppFeedbackApp: App {
                 accountID: id,
                 threadStore: threadStoreLocal,
                 accountStore: mailAccountStoreLocal,
+                settingsStore: mailSettingsStoreLocal,
                 localState: localStateStoreLocal,
                 activityLog: activityLogRef,
                 mirror: mirrorRef,

@@ -49,6 +49,7 @@ final class MailSyncCoordinatorTests: XCTestCase {
         let container = try ModelContainer(
             for: MailThread.self, MailMessage.self, MailAttachment.self,
                 MailAttachmentLocal.self, MailAccountLocalState.self, MailAccount.self,
+                MailSettings.self,
             configurations: config
         )
         return ModelContext(container)
@@ -97,13 +98,13 @@ final class MailSyncCoordinatorTests: XCTestCase {
     ) {
         let threadStore = MailThreadStore(context: context)
         let accountStore = MailAccountStore(context: context)
+        let settingsStore = MailSettingsStore(context: context)
         let localStateStore = MailAccountLocalStateStore(context: context)
         let activityLog = ActivityLog(persistenceURL: nil)
 
         // Insert a test account
         _ = accountStore.add { acc in
             acc.pollingEnabled = true
-            acc.pollIntervalSeconds = 300
             acc.backfillCompleted = backfillCompleted
         }
         let accountID = accountStore.accounts.first!.id
@@ -113,6 +114,7 @@ final class MailSyncCoordinatorTests: XCTestCase {
             accountID: accountID,
             threadStore: threadStore,
             accountStore: accountStore,
+            settingsStore: settingsStore,
             localState: localStateStore,
             activityLog: activityLog,
             knownIssueTitlesProvider: { [] },
@@ -173,12 +175,12 @@ final class MailSyncCoordinatorTests: XCTestCase {
 
         let threadStore = MailThreadStore(context: context)
         let accountStore = MailAccountStore(context: context)
+        let settingsStore = MailSettingsStore(context: context)
         let localStateStore = MailAccountLocalStateStore(context: context)
         let activityLog = ActivityLog(persistenceURL: nil)
 
         _ = accountStore.add { acc in
             acc.pollingEnabled = true
-            acc.pollIntervalSeconds = 300
             acc.backfillCompleted = true
         }
         let accountID = accountStore.accounts.first!.id
@@ -188,6 +190,7 @@ final class MailSyncCoordinatorTests: XCTestCase {
             accountID: accountID,
             threadStore: threadStore,
             accountStore: accountStore,
+            settingsStore: settingsStore,
             localState: localStateStore,
             activityLog: activityLog,
             knownIssueTitlesProvider: { [] }

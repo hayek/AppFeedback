@@ -5,23 +5,25 @@ import SwiftData
 @MainActor
 final class MailAccountMigrationTests: XCTestCase {
 
-    private func makeStore() throws -> (MailAccountStore, UserDefaults) {
+    private func makeStore() throws -> (MailAccountStore, MailSettingsStore, UserDefaults) {
+        let schema = Schema([MailAccount.self, MailSettings.self])
         let config = ModelConfiguration(isStoredInMemoryOnly: true)
-        let container = try ModelContainer(for: MailAccount.self, configurations: config)
+        let container = try ModelContainer(for: schema, configurations: config)
+        let ctx = ModelContext(container)
         let suite = "MailAccountMigrationTests-\(UUID().uuidString)"
         let defaults = UserDefaults(suiteName: suite)!
-        return (MailAccountStore(context: ModelContext(container)), defaults)
+        return (MailAccountStore(context: ctx), MailSettingsStore(context: ctx), defaults)
     }
 
     func test_noLegacyData_doesNothingButMarksCompleted() throws {
-        let (store, defaults) = try makeStore()
-        MailAccountMigration.runIfNeeded(store: store, defaults: defaults)
+        let (store, settingsStore, defaults) = try makeStore()
+        MailAccountMigration.runIfNeeded(store: store, settingsStore: settingsStore, defaults: defaults)
         XCTAssertTrue(store.accounts.isEmpty)
         XCTAssertTrue(defaults.bool(forKey: "mail.migration.v1.completed"))
     }
 
     func test_legacyCredentials_migrateIntoMailAccount() throws {
-        let (store, defaults) = try makeStore()
+        let (store, settingsStore, defaults) = try makeStore()
         let creds = SMTPCredentials(
             preset: .gmail, host: "smtp.gmail.com", port: 587,
             username: "alice@x", senderName: "Alice"
@@ -30,7 +32,7 @@ final class MailAccountMigrationTests: XCTestCase {
         let template = MailTemplate(headerHTML: "<p>hi</p>", footerHTML: "<p>bye</p>")
         defaults.set(try JSONEncoder().encode(template), forKey: "mail.template")
 
-        MailAccountMigration.runIfNeeded(store: store, defaults: defaults)
+        MailAccountMigration.runIfNeeded(store: store, settingsStore: settingsStore, defaults: defaults)
 
         XCTAssertEqual(store.accounts.first?.smtpUsername, "alice@x")
         XCTAssertEqual(store.accounts.first?.smtpHost, "smtp.gmail.com")
@@ -40,16 +42,29 @@ final class MailAccountMigrationTests: XCTestCase {
         XCTAssertEqual(store.accounts.first?.imapHost, "imap.gmail.com")
         XCTAssertEqual(store.accounts.first?.imapPort, 993)
         XCTAssertEqual(store.accounts.first?.imapUsername, "alice@x")
-        XCTAssertEqual(store.accounts.first?.templateHeaderHTML, "<p>hi</p>")
-        XCTAssertEqual(store.accounts.first?.templateFooterHTML, "<p>bye</p>")
+        // Templates now live in MailSettings, not on MailAccount.
+        XCTAssertEqual(settingsStore.settings.templateHeaderHTML, "<p>hi</p>")
+        XCTAssertEqual(settingsStore.settings.templateFooterHTML, "<p>bye</p>")
+    }
+
+    func test_v1_movesTemplateToMailSettings() throws {
+        let (store, settingsStore, defaults) = try makeStore()
+        let template = MailTemplate(headerHTML: "<p>v1 header</p>", footerHTML: "<p>v1 footer</p>")
+        defaults.set(try JSONEncoder().encode(template), forKey: "mail.template")
+        defaults.set(false, forKey: "mail.migration.v1.completed")
+
+        MailAccountMigration.runIfNeeded(store: store, settingsStore: settingsStore, defaults: defaults)
+
+        XCTAssertEqual(settingsStore.settings.templateHeaderHTML, "<p>v1 header</p>")
+        XCTAssertEqual(settingsStore.settings.templateFooterHTML, "<p>v1 footer</p>")
     }
 
     func test_runIfNeeded_isIdempotent() throws {
-        let (store, defaults) = try makeStore()
+        let (store, settingsStore, defaults) = try makeStore()
         let creds = SMTPCredentials.defaults(for: .icloud)
         defaults.set(try JSONEncoder().encode(creds), forKey: "mail.credentials")
 
-        MailAccountMigration.runIfNeeded(store: store, defaults: defaults)
+        MailAccountMigration.runIfNeeded(store: store, settingsStore: settingsStore, defaults: defaults)
         let firstID = store.accounts.first?.id
 
         // Pretend a user updated the account after migration; second run must
@@ -58,7 +73,7 @@ final class MailAccountMigrationTests: XCTestCase {
             store.update(id: id) { $0.smtpUsername = "renamed@x" }
         }
 
-        MailAccountMigration.runIfNeeded(store: store, defaults: defaults)
+        MailAccountMigration.runIfNeeded(store: store, settingsStore: settingsStore, defaults: defaults)
 
         XCTAssertEqual(store.accounts.first?.id, firstID)
         XCTAssertEqual(store.accounts.first?.smtpUsername, "renamed@x")
@@ -71,10 +86,10 @@ final class MailAccountMigrationTests: XCTestCase {
             (.outlook, "outlook.office365.com")
         ]
         for (preset, expectedHost) in cases {
-            let (store, defaults) = try makeStore()
+            let (store, settingsStore, defaults) = try makeStore()
             let creds = SMTPCredentials.defaults(for: preset)
             defaults.set(try JSONEncoder().encode(creds), forKey: "mail.credentials")
-            MailAccountMigration.runIfNeeded(store: store, defaults: defaults)
+            MailAccountMigration.runIfNeeded(store: store, settingsStore: settingsStore, defaults: defaults)
             XCTAssertEqual(store.accounts.first?.imapHost, expectedHost, "preset: \(preset)")
             XCTAssertEqual(store.accounts.first?.imapPort, 993)
         }
@@ -99,35 +114,10 @@ final class MailAccountMigrationTests: XCTestCase {
         XCTAssertTrue(defaults.bool(forKey: "mail.multiaccount.migration.v1.completed"))
     }
 
-    func test_v2_movesSharedSettingsIntoMailSettings() async throws {
-        let (store, settingsStore, threadStore, defaults, _) = try makeV2Fixtures()
-        let acc = store.add { a in
-            a.smtpUsername = "old@x"
-            a.templateHeaderHTML = "<p>hello</p>"
-            a.templateFooterHTML = "<p>cheers</p>"
-            a.pollIntervalSeconds = 600
-        }
-        defaults.set(false, forKey: "mail.multiaccount.migration.v1.completed")
-
-        MailAccountMigration.runV2IfNeeded(
-            accountStore: store,
-            settingsStore: settingsStore,
-            threadStore: threadStore,
-            defaults: defaults
-        )
-
-        XCTAssertEqual(settingsStore.settings.templateHeaderHTML, "<p>hello</p>")
-        XCTAssertEqual(settingsStore.settings.templateFooterHTML, "<p>cheers</p>")
-        XCTAssertEqual(settingsStore.settings.pollIntervalSeconds, 600)
-        XCTAssertEqual(store.account(id: acc.id)?.templateHeaderHTML, "")
-        XCTAssertEqual(store.account(id: acc.id)?.templateFooterHTML, "")
-    }
-
     func test_v2_isIdempotent() async throws {
         let (store, settingsStore, threadStore, defaults, _) = try makeV2Fixtures()
         _ = store.add { a in
             a.smtpUsername = "old@x"
-            a.templateHeaderHTML = "<p>once</p>"
         }
         MailAccountMigration.runV2IfNeeded(
             accountStore: store,

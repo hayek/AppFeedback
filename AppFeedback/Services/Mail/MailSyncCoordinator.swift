@@ -34,6 +34,7 @@ actor MailSyncCoordinator {
     private let accountID: UUID
     private let threadStore: MailThreadStore           // @MainActor
     private let accountStore: MailAccountStore         // @MainActor
+    private let settingsStore: MailSettingsStore       // @MainActor
     private let localState: MailAccountLocalStateStore // @MainActor
     private let activityLog: ActivityLog               // @MainActor
     private let mirror: MailToGitHubMirror?            // @MainActor
@@ -54,6 +55,7 @@ actor MailSyncCoordinator {
         accountID: UUID,
         threadStore: MailThreadStore,
         accountStore: MailAccountStore,
+        settingsStore: MailSettingsStore,
         localState: MailAccountLocalStateStore,
         activityLog: ActivityLog,
         mirror: MailToGitHubMirror? = nil,
@@ -65,6 +67,7 @@ actor MailSyncCoordinator {
         self.accountID = accountID
         self.threadStore = threadStore
         self.accountStore = accountStore
+        self.settingsStore = settingsStore
         self.localState = localState
         self.activityLog = activityLog
         self.mirror = mirror
@@ -91,7 +94,7 @@ actor MailSyncCoordinator {
                     let account = self.accountStore.account(id: accountID)
                     let failures = self.localState.state?.consecutiveFailures ?? 0
                     return (
-                        account?.pollIntervalSeconds ?? 300,
+                        self.settingsStore.settings.pollIntervalSeconds,
                         account?.pollingEnabled ?? true,
                         failures
                     )
@@ -143,7 +146,7 @@ actor MailSyncCoordinator {
             guard let acc = self.accountStore.account(id: accountID) else { return nil }
             return AccountSnapshot(
                 id: acc.id,
-                pollIntervalSeconds: acc.pollIntervalSeconds,
+                pollIntervalSeconds: self.settingsStore.settings.pollIntervalSeconds,
                 pollingEnabled: acc.pollingEnabled,
                 backfillCompleted: acc.backfillCompleted
             )

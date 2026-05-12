@@ -41,6 +41,7 @@ final class MailSyncCoordinatorRegistryTests: XCTestCase {
     struct Fixtures {
         let context: ModelContext
         let accountStore: MailAccountStore
+        let settingsStore: MailSettingsStore
         let threadStore: MailThreadStore
         let localStateStore: MailAccountLocalStateStore
         let activityLog: ActivityLog
@@ -55,6 +56,7 @@ final class MailSyncCoordinatorRegistryTests: XCTestCase {
         return Fixtures(
             context: ctx,
             accountStore: MailAccountStore(context: ctx),
+            settingsStore: MailSettingsStore(context: ctx),
             threadStore: MailThreadStore(context: ctx),
             localStateStore: MailAccountLocalStateStore(context: ctx),
             activityLog: ActivityLog(persistenceURL: nil)
@@ -77,6 +79,7 @@ extension MailSyncCoordinatorRegistry {
                 accountID: id,
                 threadStore: fixtures.threadStore,
                 accountStore: fixtures.accountStore,
+                settingsStore: fixtures.settingsStore,
                 localState: fixtures.localStateStore,
                 activityLog: fixtures.activityLog,
                 knownIssueTitlesProvider: { [] }

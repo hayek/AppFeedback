@@ -6,7 +6,11 @@ enum MailAccountMigration {
     private static let legacyTemplateKey = "mail.template"
 
     @MainActor
-    static func runIfNeeded(store: MailAccountStore, defaults: UserDefaults = .standard) {
+    static func runIfNeeded(
+        store: MailAccountStore,
+        settingsStore: MailSettingsStore,
+        defaults: UserDefaults = .standard
+    ) {
         guard !defaults.bool(forKey: completedKey) else { return }
         defer { defaults.set(true, forKey: completedKey) }
 
@@ -17,8 +21,17 @@ enum MailAccountMigration {
 
         guard legacyCreds != nil || legacyTemplate != nil else { return }
 
-        let applyLegacy = { (acc: MailAccount) in
-            if let creds = legacyCreds {
+        // Templates now live in MailSettings.
+        if let tmpl = legacyTemplate {
+            settingsStore.update { s in
+                if s.templateHeaderHTML.isEmpty { s.templateHeaderHTML = tmpl.headerHTML }
+                if s.templateFooterHTML.isEmpty { s.templateFooterHTML = tmpl.footerHTML }
+            }
+        }
+
+        // Credentials still live on MailAccount.
+        if let creds = legacyCreds {
+            let applyCreds = { (acc: MailAccount) in
                 acc.presetRaw = creds.preset.rawValue
                 acc.smtpHost = creds.host
                 acc.smtpPort = creds.port
@@ -29,15 +42,11 @@ enum MailAccountMigration {
                 acc.imapPort = imap.port
                 acc.imapUsername = creds.username
             }
-            if let tmpl = legacyTemplate {
-                acc.templateHeaderHTML = tmpl.headerHTML
-                acc.templateFooterHTML = tmpl.footerHTML
+            if let existing = store.accounts.first {
+                store.update(id: existing.id, applyCreds)
+            } else {
+                _ = store.add(applyCreds)
             }
-        }
-        if let existing = store.accounts.first {
-            store.update(id: existing.id, applyLegacy)
-        } else {
-            _ = store.add(applyLegacy)
         }
     }
 
@@ -61,13 +70,10 @@ extension MailAccountMigration {
     ///
     /// Steps:
     ///   1. Mark the existing single MailAccount (if any) as the default sender.
-    ///   2. Copy templateHeaderHTML / templateFooterHTML / attachmentFolderBookmark /
-    ///      pollIntervalSeconds into `MailSettings` (leaving the fields cleared on
-    ///      `MailAccount`).
-    ///   3. Read legacy fixed-slot Keychain creds and re-save them keyed by the account's UUID,
+    ///   2. Read legacy fixed-slot Keychain creds and re-save them keyed by the account's UUID,
     ///      then delete the legacy slots. The legacy delete is also called on every launch via
     ///      `purgeLegacyKeychain()` to defeat a downgraded-device resurrecting the legacy slot.
-    ///   4. Backfill MailMessage.accountID and MailThread.accountID with the surviving
+    ///   3. Backfill MailMessage.accountID and MailThread.accountID with the surviving
     ///      account's UUID.
     @MainActor
     static func runV2IfNeeded(
@@ -94,30 +100,7 @@ extension MailAccountMigration {
             accountStore.setDefaultSender(legacy)
         }
 
-        // (2) Shared settings extraction.
-        settingsStore.update { s in
-            if s.templateHeaderHTML.isEmpty {
-                s.templateHeaderHTML = legacy.templateHeaderHTML
-            }
-            if s.templateFooterHTML.isEmpty {
-                s.templateFooterHTML = legacy.templateFooterHTML
-            }
-            if s.attachmentFolderBookmark == nil {
-                s.attachmentFolderBookmark = legacy.attachmentFolderBookmark
-            }
-            // Only seed the poll interval the first time, so a user who later changes it
-            // in MailSettings isn't reset by a re-run.
-            if s.pollIntervalSeconds == 300 && legacy.pollIntervalSeconds != 300 {
-                s.pollIntervalSeconds = legacy.pollIntervalSeconds
-            }
-        }
-        accountStore.update(id: legacy.id) { a in
-            a.templateHeaderHTML = ""
-            a.templateFooterHTML = ""
-            a.attachmentFolderBookmark = nil
-        }
-
-        // (3) Keychain reissue. We fire-and-forget because init() can't be async; the migration
+        // (2) Keychain reissue. We fire-and-forget because init() can't be async; the migration
         // flag is set in the synchronous defer above. If the app crashes in the microsecond
         // window between the defer firing and this Task running, the user re-enters credentials
         // once on next launch — preferable to making the migration retry forever on a transient
@@ -134,7 +117,7 @@ extension MailAccountMigration {
             await KeychainService.deleteLegacyIMAPPassword()
         }
 
-        // (4) Backfill thread / message accountID.
+        // (3) Backfill thread / message accountID.
         threadStore.backfillAccountIDIfMissing(legacy.id)
     }
 
