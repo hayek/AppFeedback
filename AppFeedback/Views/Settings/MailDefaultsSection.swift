@@ -13,15 +13,12 @@ struct MailDefaultsSection: View {
     @State private var attachmentFolderURL: URL? = nil
     @State private var didLoad = false
     @State private var saveTask: Task<Void, Never>?
-    @State private var copiedToken: String?
-    @State private var showPlaceholders: Bool = false
 
     var body: some View {
         Group {
             templatesSection
             attachmentsSection
             fetchingSection
-            placeholdersSection
         }
         .task { load() }
         .onChange(of: headerText) { _, _ in scheduleSave() }
@@ -157,68 +154,6 @@ struct MailDefaultsSection: View {
         }
     }
 
-    // MARK: - Placeholders
-
-    private var placeholdersSection: some View {
-        Section {
-            VStack(alignment: .leading, spacing: 10) {
-                HStack(spacing: 6) {
-                    Image(systemName: "curlybraces")
-                        .font(.system(size: 11, weight: .semibold))
-                        .foregroundStyle(.secondary)
-                    Text("Available placeholders")
-                        .font(.system(size: 11, weight: .semibold))
-                        .foregroundStyle(.secondary)
-                        .textCase(.uppercase)
-                        .tracking(0.4)
-                }
-                VStack(alignment: .leading, spacing: 6) {
-                    ForEach(Self.placeholderHints, id: \.token) { hint in
-                        placeholderRow(hint)
-                    }
-                }
-            }
-            .frame(maxWidth: .infinity, alignment: .leading)
-            .padding(.horizontal, 4)
-            .padding(.vertical, 8)
-            .listRowBackground(Color.clear)
-            .listRowSeparator(.hidden)
-            .listRowInsets(EdgeInsets(top: 0, leading: 0, bottom: 0, trailing: 0))
-        }
-    }
-
-    @ViewBuilder
-    private func placeholderRow(_ hint: PlaceholderHint) -> some View {
-        HStack(spacing: 10) {
-            Button {
-                copyToken(hint.token)
-            } label: {
-                HStack(spacing: 4) {
-                    Text(hint.token)
-                        .font(.system(.caption, design: .monospaced))
-                        .foregroundStyle(.primary)
-                    Image(systemName: copiedToken == hint.token ? "checkmark.circle.fill" : "doc.on.doc")
-                        .font(.system(size: 10))
-                        .foregroundStyle(copiedToken == hint.token ? Color.green : Color.gray.opacity(0.6))
-                }
-                .padding(.horizontal, 7).padding(.vertical, 3)
-                .background(
-                    RoundedRectangle(cornerRadius: 5, style: .continuous)
-                        .fill(Color.secondary.opacity(0.10))
-                )
-                .contentShape(Rectangle())
-                .animation(.easeInOut(duration: 0.15), value: copiedToken)
-            }
-            .buttonStyle(.plain)
-            .help("Copy \(hint.token)")
-            Text(hint.descriptionText)
-                .font(.caption)
-                .foregroundStyle(.secondary)
-            Spacer()
-        }
-        .padding(.vertical, 1)
-    }
-
     // MARK: - Persistence
 
     private func load() {
@@ -280,6 +215,66 @@ struct MailDefaultsSection: View {
         }
     }
 
+}
+
+/// Always-visible placeholders reference. Rendered OUTSIDE the Form so it sits on the
+/// window background without a grouped-section card.
+struct MailPlaceholdersList: View {
+    @State private var copiedToken: String?
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            HStack(spacing: 6) {
+                Image(systemName: "curlybraces")
+                    .font(.system(size: 11, weight: .semibold))
+                    .foregroundStyle(.secondary)
+                Text("Available placeholders")
+                    .font(.system(size: 11, weight: .semibold))
+                    .foregroundStyle(.secondary)
+                    .textCase(.uppercase)
+                    .tracking(0.4)
+            }
+            VStack(alignment: .leading, spacing: 6) {
+                ForEach(Self.placeholderHints, id: \.token) { hint in
+                    row(hint)
+                }
+            }
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+    }
+
+    @ViewBuilder
+    private func row(_ hint: PlaceholderHint) -> some View {
+        HStack(spacing: 10) {
+            Button {
+                copyToken(hint.token)
+            } label: {
+                HStack(spacing: 4) {
+                    Text(hint.token)
+                        .font(.system(.caption, design: .monospaced))
+                        .foregroundStyle(.primary)
+                    Image(systemName: copiedToken == hint.token ? "checkmark.circle.fill" : "doc.on.doc")
+                        .font(.system(size: 10))
+                        .foregroundStyle(copiedToken == hint.token ? Color.green : Color.gray.opacity(0.6))
+                }
+                .padding(.horizontal, 7).padding(.vertical, 3)
+                .background(
+                    RoundedRectangle(cornerRadius: 5, style: .continuous)
+                        .fill(Color.secondary.opacity(0.10))
+                )
+                .contentShape(Rectangle())
+                .animation(.easeInOut(duration: 0.15), value: copiedToken)
+            }
+            .buttonStyle(.plain)
+            .help("Copy \(hint.token)")
+            Text(hint.descriptionText)
+                .font(.caption)
+                .foregroundStyle(.secondary)
+            Spacer()
+        }
+        .padding(.vertical, 1)
+    }
+
     private func copyToken(_ token: String) {
         let pb = NSPasteboard.general
         pb.clearContents()
@@ -291,8 +286,8 @@ struct MailDefaultsSection: View {
         }
     }
 
-    private struct PlaceholderHint { let token: String; let descriptionText: String }
-    private static let placeholderHints: [PlaceholderHint] = [
+    fileprivate struct PlaceholderHint { let token: String; let descriptionText: String }
+    fileprivate static let placeholderHints: [PlaceholderHint] = [
         .init(token: "{{sender_name}}",     descriptionText: "Your sender display name"),
         .init(token: "{{sender_email}}",    descriptionText: "Your from address"),
         .init(token: "{{recipient_email}}", descriptionText: "The recipient's email"),

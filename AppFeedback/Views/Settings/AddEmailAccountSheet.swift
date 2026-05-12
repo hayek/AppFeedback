@@ -80,12 +80,22 @@ struct AddEmailAccountSheet: View {
                             .font(.system(size: 14))
                             .symbolRenderingMode(.hierarchical)
                             .foregroundStyle(.tint)
-                        VStack(alignment: .leading, spacing: 4) {
+                        VStack(alignment: .leading, spacing: 6) {
                             Text("Gmail needs an app password.")
                                 .font(.system(size: 12, weight: .medium))
-                            Text("Account passwords are rejected — generate a 16-character app password at myaccount.google.com.")
+                            Text("Account passwords are rejected. Generate a 16-character app password and paste it here — 2-Step Verification must be enabled first.")
                                 .font(.caption)
                                 .foregroundStyle(.secondary)
+                                .fixedSize(horizontal: false, vertical: true)
+                            Link(destination: gmailAppPasswordURL) {
+                                HStack(spacing: 4) {
+                                    Text("Open Google App Passwords")
+                                    Image(systemName: "arrow.up.right.square")
+                                        .font(.system(size: 10, weight: .semibold))
+                                }
+                                .font(.caption.weight(.medium))
+                            }
+                            .buttonStyle(.link)
                         }
                     }
                     .padding(.vertical, 2)
@@ -141,6 +151,15 @@ struct AddEmailAccountSheet: View {
         saving = false
         onCreated(acc.id)
         dismiss()
+    }
+
+    private var gmailAppPasswordURL: URL {
+        var components = URLComponents(string: "https://myaccount.google.com/apppasswords")!
+        let trimmed = email.trimmingCharacters(in: .whitespacesAndNewlines)
+        if trimmed.contains("@") {
+            components.queryItems = [URLQueryItem(name: "authuser", value: trimmed)]
+        }
+        return components.url ?? URL(string: "https://myaccount.google.com/apppasswords")!
     }
 }
 #endif
