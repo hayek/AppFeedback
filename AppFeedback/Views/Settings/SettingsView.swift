@@ -16,59 +16,6 @@ final class SettingsNavigation {
 }
 
 #if os(macOS)
-/// Forces `.resizable` into the Settings window's styleMask. `Settings { }` in SwiftUI
-/// ignores `.windowResizability(.contentMinSize)` in practice (defaults to .contentSize
-/// and snaps back). We bridge to AppKit, set the style mask once at attach and again on
-/// `didBecomeKey` so it persists even if SwiftUI re-applies its constraint.
-private struct WindowResizableAccessor: NSViewRepresentable {
-    final class Coordinator {
-        var observer: NSObjectProtocol?
-        var sizedOnce = false
-    }
-
-    func makeCoordinator() -> Coordinator { Coordinator() }
-
-    func makeNSView(context: Context) -> NSView {
-        let v = NSView()
-        DispatchQueue.main.async { Self.configureWindow(of: v, coordinator: context.coordinator) }
-        // Re-apply on every key-window event so a SwiftUI resize-constraint snap-back
-        // is corrected as soon as the user interacts with the window.
-        context.coordinator.observer = NotificationCenter.default.addObserver(
-            forName: NSWindow.didBecomeKeyNotification,
-            object: nil,
-            queue: .main
-        ) { [weak v] _ in
-            guard let v else { return }
-            Self.configureWindow(of: v, coordinator: context.coordinator)
-        }
-        return v
-    }
-
-    func updateNSView(_ nsView: NSView, context: Context) {
-        Self.configureWindow(of: nsView, coordinator: context.coordinator)
-    }
-
-    static func dismantleNSView(_ nsView: NSView, coordinator: Coordinator) {
-        if let observer = coordinator.observer {
-            NotificationCenter.default.removeObserver(observer)
-        }
-    }
-
-    private static func configureWindow(of view: NSView, coordinator: Coordinator) {
-        guard let window = view.window else { return }
-        window.styleMask.insert(.resizable)
-        window.collectionBehavior.insert(.fullScreenAuxiliary)
-        window.minSize = NSSize(width: 480, height: 320)
-        window.maxSize = NSSize(width: CGFloat.greatestFiniteMagnitude,
-                                height: CGFloat.greatestFiniteMagnitude)
-        if !coordinator.sizedOnce {
-            coordinator.sizedOnce = true
-            let target = NSSize(width: max(window.frame.width, 720),
-                                height: max(window.frame.height, 620))
-            window.setContentSize(target)
-        }
-    }
-}
 #endif
 
 struct SettingsView: View {
@@ -128,7 +75,6 @@ struct SettingsView: View {
             minWidth: 480, idealWidth: 720, maxWidth: .infinity,
             minHeight: 320, idealHeight: 620, maxHeight: .infinity
         )
-        .background(WindowResizableAccessor())
     }
     #endif
 

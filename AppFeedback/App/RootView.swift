@@ -21,7 +21,7 @@ struct RootView: View {
     @Environment(\.notificationService) private var notificationService
     @Environment(\.mailSyncCoordinatorRegistry) private var coordinatorRegistry: MailSyncCoordinatorRegistry?
     #if os(macOS)
-    @Environment(\.openSettings) private var openSettings
+    @Environment(\.openWindow) private var openWindow
     #endif
 
     /// Legacy single-Bool key — read-once for migration, then deleted.
@@ -36,7 +36,7 @@ struct RootView: View {
                     ToolbarItem(placement: .primaryAction) {
                         Button {
                             #if os(macOS)
-                            openSettings()
+                            openWindow(id: "settings")
                             #else
                             showSettings = true
                             #endif

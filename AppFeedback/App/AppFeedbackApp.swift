@@ -261,6 +261,12 @@ struct AppFeedbackApp: App {
             CommandGroup(after: .windowList) {
                 ActivityMenuCommand()
             }
+            // Replace the system Settings… menu item so Cmd-, opens our
+            // standalone Window scene (Settings { } scene's resizability
+            // is fundamentally restricted; a regular Window resizes normally).
+            CommandGroup(replacing: .appSettings) {
+                OpenSettingsCommand()
+            }
             #endif
         }
         #if os(macOS)
@@ -268,7 +274,7 @@ struct AppFeedbackApp: App {
             ActivityWindow()
                 .environment(activityLog)
         }
-        Settings {
+        Window("Settings", id: "settings") {
             SettingsView(store: store)
                 .environment(syncStatus)
                 .environment(activityLog)
@@ -293,6 +299,22 @@ struct AppFeedbackApp: App {
         #endif
     }
 }
+
+#if os(macOS)
+/// "Settings…" menu entry that opens our Window-scene-based Settings, with the
+/// standard Cmd-, shortcut. We can't use SettingsLink because it's tied to the
+/// Settings { } scene; instead we drive the openWindow environment action.
+private struct OpenSettingsCommand: View {
+    @Environment(\.openWindow) private var openWindow
+
+    var body: some View {
+        Button("Settings…") {
+            openWindow(id: "settings")
+        }
+        .keyboardShortcut(",", modifiers: .command)
+    }
+}
+#endif
 
 // MARK: - EnvironmentKey for MailSyncCoordinatorRegistry
 

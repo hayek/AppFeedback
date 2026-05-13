@@ -22,6 +22,9 @@ struct ComposeMailView: View {
     @Environment(SettingsNavigation.self) private var settingsNavigation
     @Environment(MailToGitHubMirrorHolder.self) private var mirrorHolder: MailToGitHubMirrorHolder?
     @Environment(\.dismiss) private var dismiss
+    #if os(macOS)
+    @Environment(\.openWindow) private var openWindow
+    #endif
 
     @State private var viewModel: ComposeMailViewModel?
     @State private var headerPreview: String = ""
@@ -119,13 +122,13 @@ struct ComposeMailView: View {
             }
             .frame(maxWidth: .infinity, alignment: .leading)
             #if os(macOS)
-            SettingsLink {
+            Button {
+                settingsNavigation.selectedTab = .email
+                openWindow(id: "settings")
+            } label: {
                 Label("Edit", systemImage: "pencil")
                     .labelStyle(.titleAndIcon)
             }
-            .simultaneousGesture(TapGesture().onEnded {
-                settingsNavigation.selectedTab = .email
-            })
             .controlSize(.small)
             #endif
         }
@@ -158,8 +161,8 @@ struct ComposeMailView: View {
             Text("Configure email in Settings → Email to send from this app.")
             Spacer()
             #if os(macOS)
-            SettingsLink {
-                Text("Open Settings…")
+            Button("Open Settings…") {
+                openWindow(id: "settings")
             }
             #endif
         }
