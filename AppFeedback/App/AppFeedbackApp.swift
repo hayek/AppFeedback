@@ -27,6 +27,7 @@ struct AppFeedbackApp: App {
     @State private var coordinatorRegistry: MailSyncCoordinatorRegistry?
     @State private var mirrorHolder: MailToGitHubMirrorHolder
     @State private var mailLocalStateStore: MailAccountLocalStateStore
+    @State private var mailDraftStore = MailDraftStore()
     @State private var composeWindowHolder = ComposeWindowHolder()
     #if os(iOS)
     @State private var iosRefreshDriver: iOSBackgroundRefreshDriver
@@ -223,6 +224,7 @@ struct AppFeedbackApp: App {
                 .environment(\.mailSyncCoordinatorRegistry, coordinatorRegistry)
                 .environment(mirrorHolder)
                 .environment(mailLocalStateStore)
+                .environment(mailDraftStore)
                 .environment(composeWindowHolder)
                 .environment(\.notificationService, notificationService)
                 .task { await notificationService.requestAuthorizationIfNeeded() }
@@ -310,6 +312,7 @@ struct AppFeedbackApp: App {
                 .environment(outboundFailures)
                 .environment(settingsNavigation)
                 .environment(mirrorHolder)
+                .environment(mailDraftStore)
                 .environment(composeWindowHolder)
                 .modelContainer(container)
         }
