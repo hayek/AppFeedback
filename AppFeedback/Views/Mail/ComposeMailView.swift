@@ -52,26 +52,19 @@ struct ComposeMailView: View {
                 missingCredentialsBanner
             }
             ScrollView {
-                VStack(alignment: .leading, spacing: 0) {
-                    fromRow
-                    Divider()
-                    recipientRow
-                    Divider()
-                    subjectRow(vm: vm)
-                    Divider()
-                    templateRow(label: "Header", text: headerPreview)
-                    Divider()
-                    TextEditor(text: plainBindingFor(vm))
-                        .font(.body)
-                        .scrollDisabled(true)
-                        .frame(minHeight: 200)
-                        .padding(.horizontal, 8).padding(.vertical, 4)
-                    Divider()
-                    templateRow(label: "Footer", text: footerPreview)
-                }
+                ComposeFormCore(
+                    vm: vm,
+                    headerPreview: headerPreview,
+                    footerPreview: footerPreview,
+                    sendLabel: "Send",
+                    onSend: {
+                        Task { await vm.send() }
+                        dismiss()
+                    },
+                    onDiscard: { dismiss() },
+                    discardLabel: "Cancel"
+                )
             }
-            Divider()
-            footerButtons(vm: vm)
         }
         .onAppear { refreshPreviews(vm: vm) }
         .onChange(of: settingsStore.settings.templateHeaderHTML) { _, _ in refreshPreviews(vm: vm) }
@@ -101,39 +94,6 @@ struct ComposeMailView: View {
         footerPreview = MailTemplatePlainText
             .from(html: composer.applyPlaceholders(template.footerHTML, context: context))
             .trimmingCharacters(in: .whitespacesAndNewlines)
-    }
-
-    private func templateRow(label: String, text: String) -> some View {
-        HStack(alignment: .top, spacing: 8) {
-            Text("\(label):")
-                .foregroundStyle(.secondary)
-                .frame(width: 60, alignment: .leading)
-            Group {
-                if text.isEmpty {
-                    Text("Not set")
-                        .foregroundStyle(.tertiary)
-                        .italic()
-                } else {
-                    Text(text)
-                        .foregroundStyle(.secondary)
-                        .fixedSize(horizontal: false, vertical: true)
-                        .textSelection(.enabled)
-                }
-            }
-            .frame(maxWidth: .infinity, alignment: .leading)
-            #if os(macOS)
-            Button {
-                settingsNavigation.selectedTab = .email
-                openWindow(id: "settings")
-            } label: {
-                Label("Edit", systemImage: "pencil")
-                    .labelStyle(.titleAndIcon)
-            }
-            .controlSize(.small)
-            #endif
-        }
-        .font(.caption)
-        .padding(.horizontal, 12).padding(.vertical, 8)
     }
 
     private var titleBar: some View {
@@ -168,62 +128,6 @@ struct ComposeMailView: View {
         }
         .padding(8)
         .background(Color.yellow.opacity(0.18))
-    }
-
-    private var fromRow: some View {
-        HStack {
-            Text("From:").foregroundStyle(.secondary).frame(width: 60, alignment: .leading)
-            if let id = senderAccountID ?? store.defaultSender?.id, let acc = store.account(id: id) {
-                Text(acc.smtpUsername).fontWeight(.medium)
-            } else {
-                Text("—").foregroundStyle(.tertiary)
-            }
-            Spacer()
-        }
-        .padding(.horizontal, 12).padding(.vertical, 8)
-    }
-
-    private var recipientRow: some View {
-        HStack {
-            Text("To:").foregroundStyle(.secondary).frame(width: 60, alignment: .leading)
-            Text(recipient).fontWeight(.medium)
-            Spacer()
-        }
-        .padding(.horizontal, 12).padding(.vertical, 8)
-    }
-
-    private func subjectRow(vm: ComposeMailViewModel) -> some View {
-        HStack {
-            Text("Subject:").foregroundStyle(.secondary).frame(width: 60, alignment: .leading)
-            TextField("", text: Binding(
-                get: { vm.subject },
-                set: { vm.subject = $0 }
-            ))
-            .textFieldStyle(.plain)
-        }
-        .padding(.horizontal, 12).padding(.vertical, 8)
-    }
-
-    private func footerButtons(vm: ComposeMailViewModel) -> some View {
-        HStack {
-            Spacer()
-            Button("Cancel") { dismiss() }
-            Button("Send") {
-                Task { await vm.send() }
-                dismiss()
-            }
-            .buttonStyle(.borderedProminent)
-            .keyboardShortcut(.defaultAction)
-            .disabled(!vm.canSend)
-        }
-        .padding(12)
-    }
-
-    private func plainBindingFor(_ vm: ComposeMailViewModel) -> Binding<String> {
-        Binding(
-            get: { vm.body.string },
-            set: { vm.body = NSAttributedString(string: $0) }
-        )
     }
 
     private func setupViewModel() {
