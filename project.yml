@@ -13,6 +13,8 @@ packages:
   SwiftMail:
     url: https://github.com/Cocoanetics/SwiftMail
     from: 1.0.0
+  AppFeedbackSDK:
+    path: ../AppFeedbackSDK
 
 targets:
   AppFeedback:
@@ -27,6 +29,8 @@ targets:
     dependencies:
       - package: SwiftMail
         product: SwiftMail
+      - package: AppFeedbackSDK
+        product: AppFeedbackCore
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: com.amirhayek.AppFeedback
