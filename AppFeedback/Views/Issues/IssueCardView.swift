@@ -65,13 +65,15 @@ struct IssueCardView: View {
     var onToggleOSVersion: ((String) -> Void)? = nil
     var activeIssueType: Set<IssueType> = []
     var onToggleIssueType: ((IssueType) -> Void)? = nil
-    var onTapEmail: ((String) -> Void)? = nil
     var intelligenceAvailable: Bool = false
     var targetLanguageCode: String = "en"
     var isTranslating: Bool = false
     var isHighlighted: Bool = false
 
     @Environment(MailThreadStore.self) private var threadStore
+    #if canImport(SwiftMail)
+    @Environment(MailDraftStore.self) private var drafts
+    #endif
 
     @State private var showOriginal: Bool = false
     @State private var highlightActive: Bool = false
@@ -146,10 +148,22 @@ struct IssueCardView: View {
     }
 
     private func replyToEmail(_ email: String) {
-        if let onTapEmail {
-            onTapEmail(email)
-            return
+        #if canImport(SwiftMail)
+        withAnimation(.easeOut(duration: 0.2)) {
+            drafts.setOpenRequest(
+                ComposeRequest(
+                    recipient: email,
+                    issue: issue,
+                    repoOwner: repoOwner,
+                    repoName: repoName,
+                    inReplyTo: nil,
+                    subjectOverride: nil,
+                    senderAccountID: nil
+                ),
+                for: newEmailKey(for: email)
+            )
         }
+        #else
         guard let encoded = email.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed),
               let mailURL = URL(string: "mailto:\(encoded)") else { return }
         #if os(macOS)
@@ -157,7 +171,23 @@ struct IssueCardView: View {
         #else
         UIApplication.shared.open(mailURL)
         #endif
+        #endif
     }
+
+    #if canImport(SwiftMail)
+    private func newEmailKey(for email: String) -> DraftKey {
+        .newEmail(repoOwner: repoOwner, repoName: repoName, issueNumber: issue.number, recipient: email)
+    }
+
+    private var activeInlineComposers: [(key: DraftKey, request: ComposeRequest)] {
+        guard let email = issue.email else { return [] }
+        let key = newEmailKey(for: email)
+        if let req = drafts.openRequest(for: key) {
+            return [(key, req)]
+        }
+        return []
+    }
+    #endif
 
     var body: some View {
         HStack(spacing: 0) {
@@ -320,6 +350,20 @@ struct IssueCardView: View {
                             .padding(.top, 8)
                     }
                 }
+                #if canImport(SwiftMail)
+                ForEach(activeInlineComposers, id: \.key) { entry in
+                    InlineReplyView(
+                        key: entry.key,
+                        request: entry.request,
+                        onClose: {
+                            withAnimation(.easeOut(duration: 0.2)) {
+                                drafts.clearOpenRequest(for: entry.key)
+                            }
+                        }
+                    )
+                    .padding(.top, 8)
+                }
+                #endif
             }
             .padding(.horizontal, 16)
             .padding(.vertical, 14)
