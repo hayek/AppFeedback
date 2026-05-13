@@ -1,55 +1,164 @@
 #if os(macOS)
 import SwiftUI
+import AppKit
 
-/// macOS Settings-style top tab strip: icon stacked over label, subtle highlight
-/// on the active tab. Mirrors Apple's preferences look — needed because we use a
-/// regular Window scene (which doesn't auto-style TabView's `.tabItem` with icons).
-struct SettingsTabBar: View {
+/// Installs a real `NSToolbar` on the host window with `toolbarStyle = .preference`,
+/// giving us the System Settings / Xcode Preferences look: SF Symbol stacked above a
+/// label, centered in the title bar, with native selected-state highlighting.
+///
+/// SwiftUI's TabView in a regular Window scene renders `.tabItem` as a text-only top
+/// tab bar — there's no SwiftUI API to get the `.preference` toolbar style. Bridging
+/// to AppKit is the canonical fix used by macOS apps that ship outside the
+/// `Settings { }` scene (e.g. sindresorhus/Settings, SettingsKit).
+struct SettingsToolbarAccessor: NSViewRepresentable {
     @Binding var selection: SettingsTab
     let hasNotifications: Bool
 
-    var body: some View {
-        HStack(spacing: 6) {
-            Spacer(minLength: 0)
-            tab(.repos,         icon: "folder",   label: "Repos")
-            tab(.email,         icon: "envelope", label: "Email")
-            tab(.intelligence,  icon: "sparkles", label: "Intelligence")
-            if hasNotifications {
-                tab(.notifications, icon: "bell", label: "Notifications")
-            }
-            Spacer(minLength: 0)
+    func makeCoordinator() -> Coordinator { Coordinator(parent: self) }
+
+    func makeNSView(context: Context) -> NSView {
+        let v = NSView()
+        DispatchQueue.main.async {
+            guard let window = v.window else { return }
+            context.coordinator.attach(to: window)
         }
-        .padding(.horizontal, 12)
-        .padding(.top, 10)
-        .padding(.bottom, 8)
-        .background(.bar)
+        return v
     }
 
-    @ViewBuilder
-    private func tab(_ tab: SettingsTab, icon: String, label: String) -> some View {
-        let isSelected = selection == tab
-        Button {
-            withAnimation(.easeInOut(duration: 0.15)) { selection = tab }
-        } label: {
-            VStack(spacing: 3) {
-                Image(systemName: icon)
-                    .font(.system(size: 18, weight: .regular))
-                    .symbolRenderingMode(.hierarchical)
-                Text(label)
-                    .font(.system(size: 11))
-            }
-            .foregroundStyle(isSelected ? Color.primary : Color.secondary)
-            .frame(minWidth: 64)
-            .padding(.horizontal, 10)
-            .padding(.vertical, 6)
-            .background(
-                RoundedRectangle(cornerRadius: 6, style: .continuous)
-                    .fill(isSelected ? Color.primary.opacity(0.10) : Color.clear)
-            )
-            .contentShape(Rectangle())
+    func updateNSView(_ nsView: NSView, context: Context) {
+        context.coordinator.parent = self
+        context.coordinator.syncSelectionToToolbar()
+    }
+
+    static func dismantleNSView(_ nsView: NSView, coordinator: Coordinator) {
+        coordinator.detach()
+    }
+
+    final class Coordinator: NSObject, NSToolbarDelegate {
+        var parent: SettingsToolbarAccessor
+        private weak var window: NSWindow?
+        private weak var toolbar: NSToolbar?
+
+        init(parent: SettingsToolbarAccessor) {
+            self.parent = parent
         }
-        .buttonStyle(.plain)
-        .help(label)
+
+        func attach(to window: NSWindow) {
+            guard window.toolbar == nil else {
+                // Already installed (e.g., re-entry on view re-creation). Resync only.
+                self.window = window
+                self.toolbar = window.toolbar
+                syncSelectionToToolbar()
+                return
+            }
+            let toolbar = NSToolbar(identifier: "AppFeedback.SettingsToolbar")
+            toolbar.delegate = self
+            toolbar.displayMode = .iconAndLabel
+            toolbar.allowsUserCustomization = false
+            toolbar.autosavesConfiguration = false
+            toolbar.selectedItemIdentifier = identifier(for: parent.selection)
+            window.toolbar = toolbar
+            window.toolbarStyle = .preference
+            window.titleVisibility = .visible
+            window.title = "Settings"
+            self.window = window
+            self.toolbar = toolbar
+        }
+
+        func detach() {
+            // Leave the toolbar in place; the window will tear it down on close.
+            window = nil
+            toolbar = nil
+        }
+
+        func syncSelectionToToolbar() {
+            guard let toolbar else { return }
+            let id = identifier(for: parent.selection)
+            if toolbar.selectedItemIdentifier != id {
+                toolbar.selectedItemIdentifier = id
+            }
+        }
+
+        // MARK: - Identifiers
+
+        private func identifier(for tab: SettingsTab) -> NSToolbarItem.Identifier {
+            NSToolbarItem.Identifier(rawValue: tab.rawValue)
+        }
+
+        private func tab(for identifier: NSToolbarItem.Identifier) -> SettingsTab? {
+            SettingsTab(rawValue: identifier.rawValue)
+        }
+
+        private func allTabIdentifiers() -> [NSToolbarItem.Identifier] {
+            var ids: [NSToolbarItem.Identifier] = [
+                identifier(for: .repos),
+                identifier(for: .email),
+                identifier(for: .intelligence),
+            ]
+            if parent.hasNotifications {
+                ids.append(identifier(for: .notifications))
+            }
+            return ids
+        }
+
+        // MARK: - NSToolbarDelegate
+
+        func toolbarAllowedItemIdentifiers(_ toolbar: NSToolbar) -> [NSToolbarItem.Identifier] {
+            allTabIdentifiers()
+        }
+
+        func toolbarDefaultItemIdentifiers(_ toolbar: NSToolbar) -> [NSToolbarItem.Identifier] {
+            allTabIdentifiers()
+        }
+
+        func toolbarSelectableItemIdentifiers(_ toolbar: NSToolbar) -> [NSToolbarItem.Identifier] {
+            allTabIdentifiers()
+        }
+
+        func toolbar(
+            _ toolbar: NSToolbar,
+            itemForItemIdentifier itemIdentifier: NSToolbarItem.Identifier,
+            willBeInsertedIntoToolbar flag: Bool
+        ) -> NSToolbarItem? {
+            guard let tab = tab(for: itemIdentifier) else { return nil }
+            let item = NSToolbarItem(itemIdentifier: itemIdentifier)
+            item.label = tab.displayName
+            item.paletteLabel = tab.displayName
+            item.toolTip = tab.displayName
+            item.image = NSImage(
+                systemSymbolName: tab.systemImageName,
+                accessibilityDescription: tab.displayName
+            )
+            item.target = self
+            item.action = #selector(itemTapped(_:))
+            return item
+        }
+
+        @objc private func itemTapped(_ sender: NSToolbarItem) {
+            guard let tab = tab(for: sender.itemIdentifier) else { return }
+            // Bridge selection change back to SwiftUI state.
+            parent.selection = tab
+        }
+    }
+}
+
+private extension SettingsTab {
+    var displayName: String {
+        switch self {
+        case .repos:         return "Repos"
+        case .email:         return "Email"
+        case .intelligence:  return "Intelligence"
+        case .notifications: return "Notifications"
+        }
+    }
+
+    var systemImageName: String {
+        switch self {
+        case .repos:         return "folder"
+        case .email:         return "envelope"
+        case .intelligence:  return "sparkles"
+        case .notifications: return "bell"
+        }
     }
 }
 #endif

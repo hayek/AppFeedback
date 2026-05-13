@@ -3,7 +3,7 @@ import SwiftUI
 import AppKit
 #endif
 
-enum SettingsTab: Hashable {
+enum SettingsTab: String, Hashable, CaseIterable {
     case repos
     case email
     case intelligence
@@ -47,19 +47,19 @@ struct SettingsView: View {
     #if os(macOS)
     private var macBody: some View {
         @Bindable var nav = navigation
-        return VStack(spacing: 0) {
-            SettingsTabBar(
-                selection: $nav.selectedTab,
-                hasNotifications: notificationService != nil
+        return tabContent(selection: nav.selectedTab)
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
+            .frame(
+                minWidth: 480, idealWidth: 720, maxWidth: .infinity,
+                minHeight: 320, idealHeight: 620, maxHeight: .infinity
             )
-            Divider()
-            tabContent(selection: nav.selectedTab)
-                .frame(maxWidth: .infinity, maxHeight: .infinity)
-        }
-        .frame(
-            minWidth: 480, idealWidth: 720, maxWidth: .infinity,
-            minHeight: 320, idealHeight: 620, maxHeight: .infinity
-        )
+            .background(
+                SettingsToolbarAccessor(
+                    selection: $nav.selectedTab,
+                    hasNotifications: notificationService != nil
+                )
+                .frame(width: 0, height: 0)
+            )
     }
 
     @ViewBuilder
