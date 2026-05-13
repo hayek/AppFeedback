@@ -61,4 +61,36 @@ final class MailDraftStoreTests: XCTestCase {
         XCTAssertEqual(store.draft(for: replyKey)?.body, "reply")
         XCTAssertEqual(store.draft(for: newKey)?.body, "new")
     }
+
+    func test_openRequest_returnsNilForUnknownKey() {
+        let store = MailDraftStore()
+        XCTAssertNil(store.openRequest(for: .reply(threadID: threadA)))
+    }
+
+    func test_setOpenRequest_persistsAndClears() {
+        let store = MailDraftStore()
+        let key = DraftKey.reply(threadID: threadA)
+        let issue = FeedbackIssue(
+            number: 7, title: "Crash", createdAt: Date(),
+            rawBody: "", appName: "MyApp", appVersion: "1.0",
+            device: "Mac", osVersion: "14.0", email: "bob@example.com",
+            description: "Crash on launch", labels: []
+        )
+        let request = ComposeRequest(
+            recipient: "bob@example.com",
+            issue: issue,
+            repoOwner: "o",
+            repoName: "r",
+            inReplyTo: nil,
+            subjectOverride: nil,
+            senderAccountID: nil
+        )
+
+        store.setOpenRequest(request, for: key)
+        XCTAssertEqual(store.openRequest(for: key)?.recipient, "bob@example.com")
+        XCTAssertEqual(store.openRequest(for: key)?.issue.number, 7)
+
+        store.clearOpenRequest(for: key)
+        XCTAssertNil(store.openRequest(for: key))
+    }
 }

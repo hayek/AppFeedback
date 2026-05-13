@@ -42,9 +42,13 @@ struct MailThreadView: View {
     let appColor: Color
 
     @Environment(MailAccountStore.self) private var accountStore
+    @Environment(MailDraftStore.self) private var drafts
 
     @State private var isExpanded: Bool = true
-    @State private var activeReply: ComposeRequest? = nil
+
+    private var replyKey: DraftKey { .reply(threadID: thread.id) }
+
+    private var activeReply: ComposeRequest? { drafts.openRequest(for: replyKey) }
 
     private var messages: [MailMessage] { thread.sortedDedupedMessages }
 
@@ -110,6 +114,7 @@ struct MailThreadView: View {
     }
 
     private func beginReply(senderAccountID: UUID? = nil) {
+        #if canImport(SwiftMail)
         guard let last = messages.last, let recipient = replyRecipient else { return }
         guard let chosen = senderAccountID ?? resolvedSenderAccountID else { return }
         let headers = MailMessageHeaders(
@@ -127,8 +132,9 @@ struct MailThreadView: View {
             senderAccountID: chosen
         )
         withAnimation(.easeOut(duration: 0.2)) {
-            activeReply = request
+            drafts.setOpenRequest(request, for: replyKey)
         }
+        #endif
     }
 
     private func copyRecipient() {
@@ -147,11 +153,11 @@ struct MailThreadView: View {
         if let req = activeReply {
             #if canImport(SwiftMail)
             InlineReplyView(
-                key: .reply(threadID: thread.id),
+                key: replyKey,
                 request: req,
                 onClose: {
                     withAnimation(.easeOut(duration: 0.2)) {
-                        activeReply = nil
+                        drafts.clearOpenRequest(for: replyKey)
                     }
                 }
             )

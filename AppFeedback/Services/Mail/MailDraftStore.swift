@@ -20,6 +20,7 @@ struct Draft: Equatable {
 @Observable
 final class MailDraftStore {
     private var drafts: [DraftKey: Draft] = [:]
+    private var openRequests: [DraftKey: ComposeRequest] = [:]
 
     func draft(for key: DraftKey) -> Draft? {
         drafts[key]
@@ -39,5 +40,17 @@ final class MailDraftStore {
 
     func clear(_ key: DraftKey) {
         drafts.removeValue(forKey: key)
+    }
+
+    func openRequest(for key: DraftKey) -> ComposeRequest? {
+        openRequests[key]
+    }
+
+    func setOpenRequest(_ request: ComposeRequest, for key: DraftKey) {
+        openRequests[key] = request
+    }
+
+    func clearOpenRequest(for key: DraftKey) {
+        openRequests.removeValue(forKey: key)
     }
 }
