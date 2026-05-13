@@ -62,6 +62,8 @@
 		AB14UI0001234567FE005002 /* EmailAccountEditorSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = AB14UI0001234567FE005000 /* EmailAccountEditorSheet.swift */; };
 		AB14UI0001234567FE006001 /* MailProviderBadge.swift in Sources */ = {isa = PBXBuildFile; fileRef = AB14UI0001234567FE006000 /* MailProviderBadge.swift */; };
 		AB14UI0001234567FE006002 /* MailProviderBadge.swift in Sources */ = {isa = PBXBuildFile; fileRef = AB14UI0001234567FE006000 /* MailProviderBadge.swift */; };
+		AB14UI0001234567FE008001 /* MailProviderHintCard.swift in Sources */ = {isa = PBXBuildFile; fileRef = AB14UI0001234567FE008000 /* MailProviderHintCard.swift */; };
+		AB14UI0001234567FE008002 /* MailProviderHintCard.swift in Sources */ = {isa = PBXBuildFile; fileRef = AB14UI0001234567FE008000 /* MailProviderHintCard.swift */; };
 		AB14UI0001234567FE007001 /* SettingsTabBar.swift in Sources */ = {isa = PBXBuildFile; fileRef = AB14UI0001234567FE007000 /* SettingsTabBar.swift */; };
 		AB14UI0001234567FE007002 /* SettingsTabBar.swift in Sources */ = {isa = PBXBuildFile; fileRef = AB14UI0001234567FE007000 /* SettingsTabBar.swift */; };
 		AB14UI0001234567FE004001 /* MailDefaultsSection.swift in Sources */ = {isa = PBXBuildFile; fileRef = AB14UI0001234567FE004000 /* MailDefaultsSection.swift */; };
@@ -197,6 +199,8 @@
 		9387D0B34FAAB17E338B6448 /* MessageIDGeneratorTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = F3AC2A1A49FFA4A03F179B09 /* MessageIDGeneratorTests.swift */; };
 		939E9E35143B354C009D56A4 /* IntelligenceAvailability.swift in Sources */ = {isa = PBXBuildFile; fileRef = FE75574D86561E85E76AF1C8 /* IntelligenceAvailability.swift */; };
 		94E17C80659F37FFD4BA94B8 /* IMAPClientError.swift in Sources */ = {isa = PBXBuildFile; fileRef = ED45644F876811CA79E17198 /* IMAPClientError.swift */; };
+		AB14ML0001234567FE009001 /* MailErrorTranslator.swift in Sources */ = {isa = PBXBuildFile; fileRef = AB14ML0001234567FE009000 /* MailErrorTranslator.swift */; };
+		AB14ML0001234567FE009002 /* MailErrorTranslator.swift in Sources */ = {isa = PBXBuildFile; fileRef = AB14ML0001234567FE009000 /* MailErrorTranslator.swift */; };
 		95C780F86DEB1FEF68E14805 /* IssueListViewModelTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 10EE93E06CD371298BA38A85 /* IssueListViewModelTests.swift */; };
 		976DBA8EDA1F85E76E139283 /* MockIntelligenceProvider.swift in Sources */ = {isa = PBXBuildFile; fileRef = 11D293FE78104BAAD6D47E4E /* MockIntelligenceProvider.swift */; };
 		97AD207D583CC4107CD4E2B9 /* SummaryPromptBuilder.swift in Sources */ = {isa = PBXBuildFile; fileRef = BB83534C837E0AC43EC21616 /* SummaryPromptBuilder.swift */; };
@@ -483,12 +487,14 @@
 		AB14UI0001234567FE004000 /* MailDefaultsSection.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MailDefaultsSection.swift; sourceTree = "<group>"; };
 		AB14UI0001234567FE005000 /* EmailAccountEditorSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EmailAccountEditorSheet.swift; sourceTree = "<group>"; };
 		AB14UI0001234567FE006000 /* MailProviderBadge.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MailProviderBadge.swift; sourceTree = "<group>"; };
+		AB14UI0001234567FE008000 /* MailProviderHintCard.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MailProviderHintCard.swift; sourceTree = "<group>"; };
 		AB14UI0001234567FE007000 /* SettingsTabBar.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsTabBar.swift; sourceTree = "<group>"; };
 		AB15IOS0001234567FE001000 /* IOSEmailAccountList.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = IOSEmailAccountList.swift; sourceTree = "<group>"; };
 		AB15IOS0001234567FE002000 /* IOSEmailAccountEditor.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = IOSEmailAccountEditor.swift; sourceTree = "<group>"; };
 		AB15IOS0001234567FE003000 /* IOSMailDefaultsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = IOSMailDefaultsView.swift; sourceTree = "<group>"; };
 		AB15IOS0001234567FE004000 /* IOSAddEmailAccountSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = IOSAddEmailAccountSheet.swift; sourceTree = "<group>"; };
 		ED45644F876811CA79E17198 /* IMAPClientError.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = IMAPClientError.swift; sourceTree = "<group>"; };
+		AB14ML0001234567FE009000 /* MailErrorTranslator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MailErrorTranslator.swift; sourceTree = "<group>"; };
 		F21997922568B439D705E5DA /* UnreadSummaryViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UnreadSummaryViewModel.swift; sourceTree = "<group>"; };
 		F3AC2A1A49FFA4A03F179B09 /* MessageIDGeneratorTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MessageIDGeneratorTests.swift; sourceTree = "<group>"; };
 		F4CA31D8EBA15B135854E873 /* FeedbackIssue.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FeedbackIssue.swift; sourceTree = "<group>"; };
@@ -535,6 +541,7 @@
 				AB12CD34EF5601234567FE40 /* MailSettingsStore.swift */,
 				0FC01BF334B5D65CF0147005 /* MailComposer.swift */,
 				14204B0FB15E1C987B6ADC0F /* MailSender.swift */,
+				AB14ML0001234567FE009000 /* MailErrorTranslator.swift */,
 				B746144B4F5496E44825F77A /* MailSubject.swift */,
 				17F075AD1022BBE0E737AFE0 /* MailSyncCoordinator.swift */,
 				AB12CD34EF5601234567FE60 /* MailSyncCoordinatorRegistry.swift */,
@@ -663,6 +670,7 @@
 				AB14UI0001234567FE005000 /* EmailAccountEditorSheet.swift */,
 				AB14UI0001234567FE001000 /* EmailAccountList.swift */,
 				AB14UI0001234567FE006000 /* MailProviderBadge.swift */,
+				AB14UI0001234567FE008000 /* MailProviderHintCard.swift */,
 				AB14UI0001234567FE007000 /* SettingsTabBar.swift */,
 				997018B54F967FD27571808D /* EmailSettingsView.swift */,
 				8179D7E75894D24AAF1B685B /* GitHubLoginView.swift */,
@@ -992,6 +1000,7 @@
 				AB14UI0001234567FE002001 /* EmailAccountEditor.swift in Sources */,
 				AB14UI0001234567FE005001 /* EmailAccountEditorSheet.swift in Sources */,
 				AB14UI0001234567FE006001 /* MailProviderBadge.swift in Sources */,
+				AB14UI0001234567FE008001 /* MailProviderHintCard.swift in Sources */,
 				AB14UI0001234567FE007001 /* SettingsTabBar.swift in Sources */,
 				AB14UI0001234567FE003001 /* AddEmailAccountSheet.swift in Sources */,
 				AB14UI0001234567FE004001 /* MailDefaultsSection.swift in Sources */,
@@ -1011,6 +1020,7 @@
 				25866AE52D41DF210553EC0C /* HiddenAppStore.swift in Sources */,
 				31203CA5AE4E4D007E0029F3 /* IMAPClient.swift in Sources */,
 				CBFA3850A52C0D9C613EA79E /* IMAPClientError.swift in Sources */,
+				AB14ML0001234567FE009001 /* MailErrorTranslator.swift in Sources */,
 				F40035D3B5FB88C445388ECA /* IMAPClientProtocol.swift in Sources */,
 				E1E011994123EF9AA5F26612 /* IMAPClientProvider.swift in Sources */,
 				637305982C42185746A5D3BC /* IOSEmailSettingsView.swift in Sources */,
@@ -1158,6 +1168,7 @@
 				AB14UI0001234567FE002002 /* EmailAccountEditor.swift in Sources */,
 				AB14UI0001234567FE005002 /* EmailAccountEditorSheet.swift in Sources */,
 				AB14UI0001234567FE006002 /* MailProviderBadge.swift in Sources */,
+				AB14UI0001234567FE008002 /* MailProviderHintCard.swift in Sources */,
 				AB14UI0001234567FE007002 /* SettingsTabBar.swift in Sources */,
 				AB14UI0001234567FE003002 /* AddEmailAccountSheet.swift in Sources */,
 				AB14UI0001234567FE004002 /* MailDefaultsSection.swift in Sources */,
@@ -1177,6 +1188,7 @@
 				1CAF1910E24C4A56CF158ADB /* HiddenAppStore.swift in Sources */,
 				E039ADF11F4CA497462BB0DC /* IMAPClient.swift in Sources */,
 				94E17C80659F37FFD4BA94B8 /* IMAPClientError.swift in Sources */,
+				AB14ML0001234567FE009002 /* MailErrorTranslator.swift in Sources */,
 				3E0DE421ADF58833B980B8EA /* IMAPClientProtocol.swift in Sources */,
 				FFE7476990D5397F2EAE6167 /* IMAPClientProvider.swift in Sources */,
 				98DB2FD94894499014B84FBA /* IOSEmailSettingsView.swift in Sources */,

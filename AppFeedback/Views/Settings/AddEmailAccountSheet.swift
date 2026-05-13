@@ -7,6 +7,7 @@ struct AddEmailAccountSheet: View {
     @Environment(\.dismiss) private var dismiss
 
     @State private var preset: SMTPCredentials.Preset = .gmail
+    @State private var presetWasUserSet: Bool = false
     @State private var email: String = ""
     @State private var password: String = ""
     @State private var senderName: String = ""
@@ -57,7 +58,7 @@ struct AddEmailAccountSheet: View {
         Form {
             heroSection
             Section("Provider") {
-                Picker("Service", selection: $preset) {
+                Picker("Service", selection: presetUserBinding) {
                     ForEach(SMTPCredentials.Preset.allCases) { p in
                         Text(p.displayName).tag(p)
                     }
@@ -68,41 +69,45 @@ struct AddEmailAccountSheet: View {
                 TextField("Email address", text: $email,
                           prompt: Text("you@example.com"))
                     .textContentType(.emailAddress)
-                SecureField("Password", text: $password,
-                            prompt: Text(preset == .gmail ? "16-character app password" : "Mailbox password"))
+                    .onChange(of: email) { _, new in autoDetectPreset(from: new) }
+                SanitizedPasswordField(
+                    title: "Password",
+                    prompt: Text(preset.passwordPrompt),
+                    text: $password
+                )
                 TextField("Sender display name", text: $senderName,
                           prompt: Text("Optional"))
             }
-            if preset == .gmail {
+            if let help = preset.help {
                 Section {
-                    HStack(alignment: .top, spacing: 10) {
-                        Image(systemName: "info.circle.fill")
-                            .font(.system(size: 14))
-                            .symbolRenderingMode(.hierarchical)
-                            .foregroundStyle(.tint)
-                        VStack(alignment: .leading, spacing: 6) {
-                            Text("Gmail needs an app password.")
-                                .font(.system(size: 12, weight: .medium))
-                            Text("Account passwords are rejected. Generate a 16-character app password and paste it here — 2-Step Verification must be enabled first.")
-                                .font(.caption)
-                                .foregroundStyle(.secondary)
-                                .fixedSize(horizontal: false, vertical: true)
-                            Link(destination: gmailAppPasswordURL) {
-                                HStack(spacing: 4) {
-                                    Text("Open Google App Passwords")
-                                    Image(systemName: "arrow.up.right.square")
-                                        .font(.system(size: 10, weight: .semibold))
-                                }
-                                .font(.caption.weight(.medium))
-                            }
-                            .buttonStyle(.link)
-                        }
-                    }
-                    .padding(.vertical, 2)
+                    MailProviderHintCard(
+                        preset: preset,
+                        help: help,
+                        appPasswordURL: preset.appPasswordsURL(forEmail: email)
+                    )
                 }
             }
         }
         .formStyle(.grouped)
+    }
+
+    /// Picker binding that flags any user interaction so future autodetects are skipped —
+    /// once the user picks a provider, typing a different email shouldn't quietly switch it.
+    private var presetUserBinding: Binding<SMTPCredentials.Preset> {
+        Binding(get: { preset }, set: { new in
+            preset = new
+            presetWasUserSet = true
+        })
+    }
+
+    /// Switches the preset to match the email's domain on first detection, so users
+    /// don't sign in with the wrong provider preset and hit an authentication failure.
+    private func autoDetectPreset(from email: String) {
+        guard !presetWasUserSet,
+              let detected = SMTPCredentials.Preset.detect(fromEmail: email),
+              detected != preset
+        else { return }
+        preset = detected
     }
 
     private var footer: some View {
@@ -153,13 +158,5 @@ struct AddEmailAccountSheet: View {
         dismiss()
     }
 
-    private var gmailAppPasswordURL: URL {
-        var components = URLComponents(string: "https://myaccount.google.com/apppasswords")!
-        let trimmed = email.trimmingCharacters(in: .whitespacesAndNewlines)
-        if trimmed.contains("@") {
-            components.queryItems = [URLQueryItem(name: "authuser", value: trimmed)]
-        }
-        return components.url ?? URL(string: "https://myaccount.google.com/apppasswords")!
-    }
 }
 #endif

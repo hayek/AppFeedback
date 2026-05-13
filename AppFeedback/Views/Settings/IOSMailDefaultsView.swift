@@ -8,6 +8,7 @@ struct IOSMailDefaultsView: View {
 
     @State private var headerText: String = ""
     @State private var footerText: String = ""
+    @State private var defaultSubject: String = ""
     @State private var pollIntervalMinutes: Int = 5
     @State private var attachmentFolderDisplayPath: String = "Default"
     @State private var didLoad = false
@@ -17,6 +18,15 @@ struct IOSMailDefaultsView: View {
 
     var body: some View {
         Form {
+            Section {
+                TextField("Feedback on {{app_name}}", text: $defaultSubject)
+                    .textInputAutocapitalization(.sentences)
+                    .autocorrectionDisabled(false)
+            } header: {
+                Text("Default Subject")
+            } footer: {
+                Text("Seeds the subject line on new messages. Placeholders below also work here.")
+            }
             Section("Header") {
                 TextEditor(text: $headerText).frame(minHeight: 100)
             }
@@ -55,6 +65,7 @@ struct IOSMailDefaultsView: View {
         .task { load() }
         .onChange(of: headerText) { _, _ in scheduleSave() }
         .onChange(of: footerText) { _, _ in scheduleSave() }
+        .onChange(of: defaultSubject) { _, _ in scheduleSave() }
         .fileImporter(
             isPresented: $showFolderPicker,
             allowedContentTypes: [.folder]
@@ -78,6 +89,7 @@ struct IOSMailDefaultsView: View {
     private func load() {
         headerText = MailTemplatePlainText.from(html: settingsStore.settings.templateHeaderHTML)
         footerText = MailTemplatePlainText.from(html: settingsStore.settings.templateFooterHTML)
+        defaultSubject = settingsStore.settings.defaultSubjectTemplate
         pollIntervalMinutes = max(1, min(60, settingsStore.settings.pollIntervalSeconds / 60))
         resolveDisplayPath()
         didLoad = true
@@ -92,6 +104,7 @@ struct IOSMailDefaultsView: View {
             settingsStore.update { s in
                 s.templateHeaderHTML = MailTemplatePlainText.toHTML(headerText)
                 s.templateFooterHTML = MailTemplatePlainText.toHTML(footerText)
+                s.defaultSubjectTemplate = defaultSubject
                 s.pollIntervalSeconds = pollIntervalMinutes * 60
             }
         }

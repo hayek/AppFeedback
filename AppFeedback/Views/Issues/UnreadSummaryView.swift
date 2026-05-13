@@ -2,25 +2,10 @@ import SwiftUI
 
 struct UnreadSummaryView: View {
     let state: SummaryState
-    let collapseKey: String
+    @Binding var collapsed: Bool
     /// Matches ``IssueListViewModel/aiSummarizesUnreadIssuesOnly`` — drives loading copy only.
     var summarizesUnreadIssues: Bool = false
     var onRetry: () -> Void = {}
-
-    @AppStorage private var collapsed: Bool
-
-    init(
-        state: SummaryState,
-        collapseKey: String,
-        summarizesUnreadIssues: Bool = false,
-        onRetry: @escaping () -> Void = {}
-    ) {
-        self.state = state
-        self.collapseKey = collapseKey
-        self.summarizesUnreadIssues = summarizesUnreadIssues
-        self.onRetry = onRetry
-        self._collapsed = AppStorage(wrappedValue: false, "summary.collapsed.\(collapseKey)")
-    }
 
     var body: some View {
         switch state {
@@ -78,6 +63,7 @@ struct UnreadSummaryView: View {
                             prosConsSection(title: "Pros", text: summary.pros, tint: Color.green.opacity(0.82))
                             prosConsSection(title: "Cons", text: summary.cons, tint: Color.red.opacity(0.78))
                         }
+                        .transition(.opacity.combined(with: .move(edge: .top)))
                     }
                 }
             }
@@ -124,7 +110,8 @@ struct UnreadSummaryView: View {
             .background(.tint.opacity(0.08), in: RoundedRectangle(cornerRadius: 10))
             .overlay(
                 RoundedRectangle(cornerRadius: 10)
-                    .stroke(.tint.opacity(0.2), lineWidth: 0.5)
+                    .strokeBorder(.tint.opacity(0.2), lineWidth: 0.5)
             )
+            .clipShape(RoundedRectangle(cornerRadius: 10))
     }
 }

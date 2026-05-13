@@ -25,7 +25,7 @@ enum IMAPClientError: LocalizedError, Equatable {
         case .notConnected:
             return "Not connected to the IMAP server."
         case .authFailed:
-            return "IMAP login was rejected. For Gmail, use a 16-character app password (no spaces) with 2-Step Verification enabled."
+            return "IMAP login was rejected. Most providers require an app-specific password (not your account password) — open the account in Email settings to generate one."
         case .malformed(let detail):
             return "Malformed IMAP response: \(detail)"
         case .passwordUnavailable:

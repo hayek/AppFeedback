@@ -247,4 +247,18 @@ struct ComposeMailView: View {
     }
 }
 
+extension ComposeMailView {
+    init(request: ComposeRequest) {
+        self.init(
+            recipient: request.recipient,
+            issue: request.issue,
+            repoOwner: request.repoOwner,
+            repoName: request.repoName,
+            inReplyTo: request.inReplyTo,
+            subjectOverride: request.subjectOverride,
+            senderAccountID: request.senderAccountID
+        )
+    }
+}
+
 #endif

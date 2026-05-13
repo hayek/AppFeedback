@@ -12,13 +12,43 @@ struct IssueListView: View {
     @Bindable var summaryVM: UnreadSummaryViewModel
     let summaryCollapseKey: String
 
+    @AppStorage private var summaryCollapsed: Bool
+
     /// Reactive view of cloud-synced summary rows so devices without on-device
     /// Foundation Models re-evaluate when CloudKit delivers a row written by another device.
     @Query private var summaryCaches: [IssueSummaryCache]
 
     #if canImport(SwiftMail)
-    @State private var composing: ComposeContext?
+    #if os(iOS)
+    @State private var pendingCompose: ComposeRequest?
+    #else
+    @Environment(\.openWindow) private var openWindow
+    @Environment(ComposeWindowHolder.self) private var composeHolder
     #endif
+    #endif
+
+    init(
+        viewModel: IssueListViewModel,
+        loader: IssueLoader?,
+        allApps: [String],
+        onRefresh: (() async -> Void)? = nil,
+        repoOwner: String = "",
+        repoName: String = "",
+        appColorOverrides: [String: String] = [:],
+        summaryVM: UnreadSummaryViewModel,
+        summaryCollapseKey: String
+    ) {
+        self.viewModel = viewModel
+        self.loader = loader
+        self.allApps = allApps
+        self.onRefresh = onRefresh
+        self.repoOwner = repoOwner
+        self.repoName = repoName
+        self.appColorOverrides = appColorOverrides
+        self.summaryVM = summaryVM
+        self.summaryCollapseKey = summaryCollapseKey
+        self._summaryCollapsed = AppStorage(wrappedValue: false, "summary.collapsed.\(summaryCollapseKey)")
+    }
 
     var body: some View {
         VStack(spacing: 0) {
@@ -87,7 +117,7 @@ struct IssueListView: View {
                     if summariesEnabled {
                         UnreadSummaryView(
                             state: summaryVM.state,
-                            collapseKey: summaryCollapseKey,
+                            collapsed: $summaryCollapsed,
                             summarizesUnreadIssues: viewModel.aiSummarizesUnreadIssuesOnly
                         )
                         .padding(.horizontal, 2)
@@ -119,6 +149,7 @@ struct IssueListView: View {
                 }
                 .padding(.horizontal, 20)
                 .padding(.vertical, 16)
+                .animation(.default, value: summaryCollapsed)
                 .task(id: summaryTaskID) {
                     guard summariesEnabled else { return }
                     let context: AISummaryPromptContext = viewModel.aiSummarizesUnreadIssuesOnly
@@ -142,14 +173,9 @@ struct IssueListView: View {
                 }
             }
         }
-        #if canImport(SwiftMail)
-        .sheet(item: $composing) { ctx in
-            ComposeMailView(
-                recipient: ctx.recipient,
-                issue: ctx.issue,
-                repoOwner: repoOwner,
-                repoName: repoName
-            )
+        #if canImport(SwiftMail) && os(iOS)
+        .sheet(item: $pendingCompose) { req in
+            ComposeMailView(request: req)
         }
         #endif
     }
@@ -207,7 +233,22 @@ struct IssueListView: View {
 
     private func tapEmailHandler(for issue: FeedbackIssue) -> ((String) -> Void)? {
         #if canImport(SwiftMail)
-        return { email in composing = ComposeContext(recipient: email, issue: issue) }
+        return { email in
+            let request = ComposeRequest(
+                recipient: email,
+                issue: issue,
+                repoOwner: repoOwner,
+                repoName: repoName,
+                inReplyTo: nil,
+                subjectOverride: nil,
+                senderAccountID: nil
+            )
+            #if os(macOS)
+            composeHolder.present(request, openWindow: openWindow)
+            #else
+            pendingCompose = request
+            #endif
+        }
         #else
         return nil
         #endif
@@ -249,10 +290,3 @@ struct IssueListView: View {
     }
 }
 
-#if canImport(SwiftMail)
-struct ComposeContext: Identifiable {
-    let id = UUID()
-    let recipient: String
-    let issue: FeedbackIssue
-}
-#endif

@@ -9,6 +9,7 @@ struct MailDefaultsSection: View {
 
     @State private var headerText: String = ""
     @State private var footerText: String = ""
+    @State private var defaultSubject: String = ""
     @State private var pollIntervalMinutes: Int = 5
     @State private var attachmentFolderURL: URL? = nil
     @State private var didLoad = false
@@ -23,20 +24,42 @@ struct MailDefaultsSection: View {
         .task { load() }
         .onChange(of: headerText) { _, _ in scheduleSave() }
         .onChange(of: footerText) { _, _ in scheduleSave() }
+        .onChange(of: defaultSubject) { _, _ in scheduleSave() }
     }
 
     // MARK: - Templates
 
     private var templatesSection: some View {
         Section {
+            defaultSubjectField
             templateEditor(label: "Header", icon: "text.alignleft", text: $headerText)
             templateEditor(label: "Footer", icon: "text.append", text: $footerText)
         } header: {
             Text("Templates")
         } footer: {
-            Text("These wrap every outgoing reply. Use the placeholders below for dynamic content.")
+            Text("Default Subject seeds the subject line on new messages. Header and footer wrap every outgoing reply. Placeholders below work in all three.")
                 .font(.caption).foregroundStyle(.secondary)
         }
+    }
+
+    private var defaultSubjectField: some View {
+        VStack(alignment: .leading, spacing: 6) {
+            HStack(spacing: 6) {
+                Image(systemName: "textformat")
+                    .font(.system(size: 11, weight: .semibold))
+                    .foregroundStyle(.secondary)
+                Text("Default Subject")
+                    .font(.system(size: 11, weight: .semibold))
+                    .foregroundStyle(.secondary)
+                    .textCase(.uppercase)
+                    .tracking(0.4)
+                Spacer()
+            }
+            TextField("", text: $defaultSubject, prompt: Text("Feedback on {{app_name}}"))
+                .textFieldStyle(.roundedBorder)
+                .font(.system(size: 12))
+        }
+        .padding(.vertical, 4)
     }
 
     @ViewBuilder
@@ -159,6 +182,7 @@ struct MailDefaultsSection: View {
     private func load() {
         headerText = MailTemplatePlainText.from(html: settingsStore.settings.templateHeaderHTML)
         footerText = MailTemplatePlainText.from(html: settingsStore.settings.templateFooterHTML)
+        defaultSubject = settingsStore.settings.defaultSubjectTemplate
         pollIntervalMinutes = max(1, min(60, settingsStore.settings.pollIntervalSeconds / 60))
         resolveDisplayURL()
         didLoad = true
@@ -173,6 +197,7 @@ struct MailDefaultsSection: View {
             settingsStore.update { s in
                 s.templateHeaderHTML = MailTemplatePlainText.toHTML(headerText)
                 s.templateFooterHTML = MailTemplatePlainText.toHTML(footerText)
+                s.defaultSubjectTemplate = defaultSubject
                 s.pollIntervalSeconds = pollIntervalMinutes * 60
             }
         }

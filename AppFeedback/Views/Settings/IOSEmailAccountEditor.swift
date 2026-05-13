@@ -8,7 +8,6 @@ struct IOSEmailAccountEditor: View {
     @Environment(MailAccountStore.self) private var store
     @Environment(ActivityLog.self) private var activityLog
     @Environment(\.mailSyncCoordinatorRegistry) private var registry: MailSyncCoordinatorRegistry?
-    @Environment(\.openURL) private var openURL
     @Environment(\.dismiss) private var dismiss
 
     @State private var preset: SMTPCredentials.Preset = .gmail
@@ -49,12 +48,19 @@ struct IOSEmailAccountEditor: View {
                     .textInputAutocapitalization(.never)
                     .autocorrectionDisabled()
                 HStack {
-                    SecureField("Password", text: $password)
+                    SanitizedPasswordField(
+                        title: "Password",
+                        prompt: Text(preset.passwordPrompt),
+                        text: $password
+                    )
                     pasteButton { password = preset.sanitize(password: $0) }
                 }
-                if preset == .gmail {
-                    Button("Get app password") { openGmailAppPasswords() }
-                        .font(.caption)
+                if let help = preset.help {
+                    MailProviderHintCard(
+                        preset: preset,
+                        help: help,
+                        appPasswordURL: preset.appPasswordsURL(forEmail: username)
+                    )
                 }
                 TextField("Sender display name", text: $senderName)
                 Toggle("Auto-fetch replies", isOn: $pollingEnabled)
@@ -69,7 +75,10 @@ struct IOSEmailAccountEditor: View {
                 if separateIMAPCreds {
                     TextField("IMAP username", text: $imapUsername)
                     HStack {
-                        SecureField("IMAP password", text: $imapPassword)
+                        SanitizedPasswordField(
+                            title: "IMAP password",
+                            text: $imapPassword
+                        )
                         pasteButton { imapPassword = preset.sanitize(password: $0) }
                     }
                 }
@@ -97,18 +106,12 @@ struct IOSEmailAccountEditor: View {
         .onChange(of: host)     { _, _ in scheduleSave() }
         .onChange(of: port)     { _, _ in scheduleSave() }
         .onChange(of: username) { _, _ in scheduleSave() }
-        .onChange(of: password) { _, new in
-            let cleaned = preset.sanitize(password: new)
-            if cleaned != new { password = cleaned } else { scheduleSave() }
-        }
+        .onChange(of: password) { _, _ in scheduleSave() }
         .onChange(of: senderName) { _, _ in scheduleSave() }
         .onChange(of: imapHost) { _, _ in scheduleSave() }
         .onChange(of: imapPort) { _, _ in scheduleSave() }
         .onChange(of: imapUsername) { _, _ in scheduleSave() }
-        .onChange(of: imapPassword) { _, new in
-            let cleaned = preset.sanitize(password: new)
-            if cleaned != new { imapPassword = cleaned } else { scheduleSave() }
-        }
+        .onChange(of: imapPassword) { _, _ in scheduleSave() }
         .alert("Remove this account?", isPresented: $showRemoveConfirm) {
             Button("Cancel", role: .cancel) { }
             Button("Remove", role: .destructive) { Task { await removeAccount() } }
@@ -214,22 +217,14 @@ struct IOSEmailAccountEditor: View {
                 activityLog.finish(id, status: .success, detail: "Login OK")
                 testStatus = "Connection OK"
             } catch {
-                activityLog.finish(id, status: .failure, detail: error.localizedDescription)
-                testStatus = "Failed: \(error.localizedDescription)"
+                let friendly = MailErrorTranslator.describe(error, preset: preset)
+                activityLog.finish(id, status: .failure, detail: friendly)
+                testStatus = "Failed: \(friendly)"
             }
             #else
             activityLog.finish(id, status: .failure, detail: "SwiftMail not available")
             #endif
         }
-    }
-
-    private func openGmailAppPasswords() {
-        var components = URLComponents(string: "https://myaccount.google.com/apppasswords")!
-        let trimmed = username.trimmingCharacters(in: .whitespacesAndNewlines)
-        if trimmed.contains("@") {
-            components.queryItems = [URLQueryItem(name: "authuser", value: trimmed)]
-        }
-        if let url = components.url { openURL(url) }
     }
 }
 #endif

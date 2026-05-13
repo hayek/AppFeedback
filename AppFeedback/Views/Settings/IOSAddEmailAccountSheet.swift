@@ -7,6 +7,7 @@ struct IOSAddEmailAccountSheet: View {
     @Environment(\.dismiss) private var dismiss
 
     @State private var preset: SMTPCredentials.Preset = .gmail
+    @State private var presetWasUserSet: Bool = false
     @State private var email: String = ""
     @State private var password: String = ""
     @State private var senderName: String = ""
@@ -17,7 +18,7 @@ struct IOSAddEmailAccountSheet: View {
         NavigationStack {
             Form {
                 Section("Provider") {
-                    Picker("Preset", selection: $preset) {
+                    Picker("Preset", selection: presetUserBinding) {
                         ForEach(SMTPCredentials.Preset.allCases) { Text($0.displayName).tag($0) }
                     }
                 }
@@ -26,8 +27,22 @@ struct IOSAddEmailAccountSheet: View {
                         .keyboardType(.emailAddress)
                         .textInputAutocapitalization(.never)
                         .autocorrectionDisabled()
-                    SecureField("Password", text: $password)
+                        .onChange(of: email) { _, new in autoDetectPreset(from: new) }
+                    SanitizedPasswordField(
+                        title: "Password",
+                        prompt: Text(preset.passwordPrompt),
+                        text: $password
+                    )
                     TextField("Sender display name", text: $senderName)
+                }
+                if let help = preset.help {
+                    Section {
+                        MailProviderHintCard(
+                            preset: preset,
+                            help: help,
+                            appPasswordURL: preset.appPasswordsURL(forEmail: email)
+                        )
+                    }
                 }
             }
             .navigationTitle("Add Email Account")
@@ -42,6 +57,21 @@ struct IOSAddEmailAccountSheet: View {
                 }
             }
         }
+    }
+
+    private var presetUserBinding: Binding<SMTPCredentials.Preset> {
+        Binding(get: { preset }, set: { new in
+            preset = new
+            presetWasUserSet = true
+        })
+    }
+
+    private func autoDetectPreset(from email: String) {
+        guard !presetWasUserSet,
+              let detected = SMTPCredentials.Preset.detect(fromEmail: email),
+              detected != preset
+        else { return }
+        preset = detected
     }
 
     private func saveAndDismiss() async {

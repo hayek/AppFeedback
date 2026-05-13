@@ -60,6 +60,13 @@ final class ComposeMailViewModel {
         self.passwordLoader = passwordLoader
         if inReplyTo != nil {
             self.subject = initialSubject ?? MailSubject.replyPrefixed(issue.title)
+        } else if let initialSubject {
+            self.subject = initialSubject
+        } else {
+            let template = settingsStore.settings.defaultSubjectTemplate
+            if !template.isEmpty {
+                self.subject = composer.applyPlaceholders(template, context: placeholderContext())
+            }
         }
     }
 
