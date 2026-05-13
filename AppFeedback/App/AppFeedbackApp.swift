@@ -28,7 +28,6 @@ struct AppFeedbackApp: App {
     @State private var mirrorHolder: MailToGitHubMirrorHolder
     @State private var mailLocalStateStore: MailAccountLocalStateStore
     @State private var mailDraftStore = MailDraftStore()
-    @State private var composeWindowHolder = ComposeWindowHolder()
     #if os(iOS)
     @State private var iosRefreshDriver: iOSBackgroundRefreshDriver
     #elseif os(macOS)
@@ -225,7 +224,6 @@ struct AppFeedbackApp: App {
                 .environment(mirrorHolder)
                 .environment(mailLocalStateStore)
                 .environment(mailDraftStore)
-                .environment(composeWindowHolder)
                 .environment(\.notificationService, notificationService)
                 .task { await notificationService.requestAuthorizationIfNeeded() }
                 .onAppear {
@@ -300,26 +298,6 @@ struct AppFeedbackApp: App {
         }
         .defaultSize(width: 720, height: 620)
         .windowResizability(.contentMinSize)
-
-        #if canImport(SwiftMail)
-        WindowGroup("Compose", id: ComposeWindowHolder.windowID, for: UUID.self) { $requestID in
-            ComposeWindowContent(requestID: requestID)
-                .environment(activityLog)
-                .environment(mailAccountStore)
-                .environment(mailSettingsStore)
-                .environment(threadStore)
-                .environment(outboundTracker)
-                .environment(outboundFailures)
-                .environment(settingsNavigation)
-                .environment(mirrorHolder)
-                .environment(mailDraftStore)
-                .environment(composeWindowHolder)
-                .modelContainer(container)
-        }
-        .windowStyle(.titleBar)
-        .defaultSize(width: 620, height: 540)
-        .windowResizability(.contentMinSize)
-        #endif
         #endif
     }
 }

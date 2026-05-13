@@ -5,35 +5,6 @@ import AppKit
 import UIKit
 #endif
 
-
-/// Backs the macOS compose window scene. Multiple requests can be queued; each one is
-/// presented in its own window (keyed by `request.id`). The window removes its entry on
-/// close so the holder doesn't leak.
-@MainActor
-@Observable
-final class ComposeWindowHolder {
-    static let windowID = "compose"
-
-    private(set) var requests: [ComposeRequest] = []
-
-    func request(id: UUID) -> ComposeRequest? {
-        requests.first { $0.id == id }
-    }
-
-    func remove(id: UUID) {
-        requests.removeAll { $0.id == id }
-    }
-
-    #if os(macOS)
-    /// Enqueues `request` and opens a compose window keyed by its id. Single dispatch entry
-    /// point so call sites don't repeat the enqueue + openWindow pair.
-    func present(_ request: ComposeRequest, openWindow: OpenWindowAction) {
-        requests.append(request)
-        openWindow(id: Self.windowID, value: request.id)
-    }
-    #endif
-}
-
 struct MailThreadView: View {
     let thread: MailThread
     let issue: FeedbackIssue
@@ -181,28 +152,4 @@ struct MailThreadView: View {
     }
 }
 
-#if os(macOS) && canImport(SwiftMail)
-/// Hosted inside the "compose" `WindowGroup` scene. Looks up the queued `ComposeRequest`
-/// by id and renders `ComposeMailView`. When the window closes, the entry is removed from
-/// the holder so it doesn't leak.
-struct ComposeWindowContent: View {
-    let requestID: UUID?
-
-    @Environment(ComposeWindowHolder.self) private var holder
-
-    var body: some View {
-        Group {
-            if let id = requestID, let request = holder.request(id: id) {
-                ComposeMailView(request: request)
-                    .navigationTitle("Reply — \(request.issue.title)")
-                    .onDisappear { holder.remove(id: id) }
-            } else {
-                Text("This compose window is no longer available.")
-                    .foregroundStyle(.secondary)
-                    .padding()
-            }
-        }
-    }
-}
-#endif
 
