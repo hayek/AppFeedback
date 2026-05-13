@@ -43,9 +43,9 @@ struct InlineReplyView: View {
                     sendLabel: "Send",
                     onSend: { send(vm: vm) },
                     onDiscard: { attemptDiscard(vm: vm) },
-                    discardLabel: "Discard"
+                    discardLabel: "Discard",
+                    bodyFocus: $bodyFocused
                 )
-                .focused($bodyFocused)
                 .onAppear {
                     refreshPreviews(vm: vm)
                     bodyFocused = true

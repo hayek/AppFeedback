@@ -15,6 +15,7 @@ struct ComposeFormCore: View {
     var onSend: () -> Void
     var onDiscard: (() -> Void)? = nil
     var discardLabel: String = "Cancel"
+    var bodyFocus: FocusState<Bool>.Binding? = nil
 
     @Environment(MailAccountStore.self) private var store
     @Environment(SettingsNavigation.self) private var settingsNavigation
@@ -32,10 +33,20 @@ struct ComposeFormCore: View {
             Divider()
             templateRow(label: "Header", text: headerPreview)
             Divider()
-            TextEditor(text: Binding(
-                get: { vm.body.string },
-                set: { vm.body = NSAttributedString(string: $0) }
-            ))
+            Group {
+                if let bodyFocus {
+                    TextEditor(text: Binding(
+                        get: { vm.body.string },
+                        set: { vm.body = NSAttributedString(string: $0) }
+                    ))
+                    .focused(bodyFocus)
+                } else {
+                    TextEditor(text: Binding(
+                        get: { vm.body.string },
+                        set: { vm.body = NSAttributedString(string: $0) }
+                    ))
+                }
+            }
             .font(.body)
             .scrollDisabled(true)
             .frame(minHeight: 200)
