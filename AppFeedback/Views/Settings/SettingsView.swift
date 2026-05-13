@@ -47,13 +47,29 @@ struct SettingsView: View {
     #if os(macOS)
     private var macBody: some View {
         @Bindable var nav = navigation
-        return TabView(selection: $nav.selectedTab) {
+        return VStack(spacing: 0) {
+            SettingsTabBar(
+                selection: $nav.selectedTab,
+                hasNotifications: notificationService != nil
+            )
+            Divider()
+            tabContent(selection: nav.selectedTab)
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+        }
+        .frame(
+            minWidth: 480, idealWidth: 720, maxWidth: .infinity,
+            minHeight: 320, idealHeight: 620, maxHeight: .infinity
+        )
+    }
+
+    @ViewBuilder
+    private func tabContent(selection: SettingsTab) -> some View {
+        switch selection {
+        case .repos:
             reposTab
-                .tabItem { Label("Repos", systemImage: "folder") }
-                .tag(SettingsTab.repos)
+        case .email:
             EmailSettingsView()
-                .tabItem { Label("Email", systemImage: "envelope") }
-                .tag(SettingsTab.email)
+        case .intelligence:
             IntelligenceSettingsSection(
                 settings: intelligenceSettings,
                 availability: intelligenceService.availability,
@@ -63,19 +79,13 @@ struct SettingsView: View {
                     }
                 }
             )
-            .tabItem { Label("Intelligence", systemImage: "sparkles") }
-            .tag(SettingsTab.intelligence)
+        case .notifications:
             if let notificationService {
                 NotificationsSettingsView(settings: notificationSettings, service: notificationService)
-                    .tabItem { Label("Notifications", systemImage: "bell") }
-                    .tag(SettingsTab.notifications)
             }
         }
-        .frame(
-            minWidth: 480, idealWidth: 720, maxWidth: .infinity,
-            minHeight: 320, idealHeight: 620, maxHeight: .infinity
-        )
     }
+
     #endif
 
     #if os(iOS)
