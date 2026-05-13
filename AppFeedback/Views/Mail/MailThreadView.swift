@@ -42,15 +42,9 @@ struct MailThreadView: View {
     let appColor: Color
 
     @Environment(MailAccountStore.self) private var accountStore
-    #if os(macOS)
-    @Environment(\.openWindow) private var openWindow
-    @Environment(ComposeWindowHolder.self) private var composeHolder
-    #endif
 
     @State private var isExpanded: Bool = true
-    #if os(iOS)
-    @State private var pendingCompose: ComposeRequest? = nil
-    #endif
+    @State private var activeReply: ComposeRequest? = nil
 
     private var messages: [MailMessage] { thread.sortedDedupedMessages }
 
@@ -72,18 +66,9 @@ struct MailThreadView: View {
                     MailMessageRowView(message: message)
                     Divider()
                 }
-                replyButton
+                replyArea
             }
         }
-        #if os(iOS)
-        .sheet(item: $pendingCompose) { req in
-            #if canImport(SwiftMail)
-            ComposeMailView(request: req)
-            #else
-            Text("ComposeMailView is unavailable on this build.")
-            #endif
-        }
-        #endif
     }
 
     private var headerPrefix: String {
@@ -141,15 +126,9 @@ struct MailThreadView: View {
             subjectOverride: MailSubject.replyPrefixed(last.subject),
             senderAccountID: chosen
         )
-        presentCompose(request)
-    }
-
-    private func presentCompose(_ request: ComposeRequest) {
-        #if os(macOS)
-        composeHolder.present(request, openWindow: openWindow)
-        #else
-        pendingCompose = request
-        #endif
+        withAnimation(.easeOut(duration: 0.2)) {
+            activeReply = request
+        }
     }
 
     private func copyRecipient() {
@@ -164,8 +143,21 @@ struct MailThreadView: View {
     }
 
     @ViewBuilder
-    private var replyButton: some View {
-        if let recipient = replyRecipient {
+    private var replyArea: some View {
+        if let req = activeReply {
+            #if canImport(SwiftMail)
+            InlineReplyView(
+                key: .reply(threadID: thread.id),
+                request: req,
+                onClose: {
+                    withAnimation(.easeOut(duration: 0.2)) {
+                        activeReply = nil
+                    }
+                }
+            )
+            .padding(.top, 8)
+            #endif
+        } else if let recipient = replyRecipient {
             let options = accountStore.accounts
                 .filter { !$0.smtpUsername.isEmpty }
                 .map { ReplyBadgeButton.ReplyFromOption(id: $0.id, address: $0.smtpUsername) }
