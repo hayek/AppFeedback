@@ -18,15 +18,6 @@ struct IssueListView: View {
     /// Foundation Models re-evaluate when CloudKit delivers a row written by another device.
     @Query private var summaryCaches: [IssueSummaryCache]
 
-    #if canImport(SwiftMail)
-    #if os(iOS)
-    @State private var pendingCompose: ComposeRequest?
-    #else
-    @Environment(\.openWindow) private var openWindow
-    @Environment(ComposeWindowHolder.self) private var composeHolder
-    #endif
-    #endif
-
     init(
         viewModel: IssueListViewModel,
         loader: IssueLoader?,
@@ -173,11 +164,6 @@ struct IssueListView: View {
                 }
             }
         }
-        #if canImport(SwiftMail) && os(iOS)
-        .sheet(item: $pendingCompose) { req in
-            ComposeMailView(request: req)
-        }
-        #endif
     }
 
     private var filterAccent: Color {
@@ -223,35 +209,11 @@ struct IssueListView: View {
             onToggleIssueType: { type in
                 viewModel.filters.issueType.toggleMembership(type)
             },
-            onTapEmail: tapEmailHandler(for: issue),
             intelligenceAvailable: viewModel.intelligenceProvider?.availability.isReady ?? false,
             targetLanguageCode: targetLanguageCode,
             isTranslating: viewModel.isTranslating(issue),
             isHighlighted: viewModel.highlightedIssueNumber == issue.number
         )
-    }
-
-    private func tapEmailHandler(for issue: FeedbackIssue) -> ((String) -> Void)? {
-        #if canImport(SwiftMail)
-        return { email in
-            let request = ComposeRequest(
-                recipient: email,
-                issue: issue,
-                repoOwner: repoOwner,
-                repoName: repoName,
-                inReplyTo: nil,
-                subjectOverride: nil,
-                senderAccountID: nil
-            )
-            #if os(macOS)
-            composeHolder.present(request, openWindow: openWindow)
-            #else
-            pendingCompose = request
-            #endif
-        }
-        #else
-        return nil
-        #endif
     }
 
     private var loaderState: IssueLoader.State { loader?.state ?? .idle }

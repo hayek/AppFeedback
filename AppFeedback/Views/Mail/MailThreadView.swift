@@ -5,48 +5,6 @@ import AppKit
 import UIKit
 #endif
 
-/// Single shape used by every "open the compose UI" call site — both first-time emails
-/// (no thread yet) and replies in an existing thread. Optional fields are nil when the
-/// compose is brand-new.
-struct ComposeRequest: Identifiable {
-    let id = UUID()
-    let recipient: String
-    let issue: FeedbackIssue
-    let repoOwner: String
-    let repoName: String
-    let inReplyTo: MailMessageHeaders?
-    let subjectOverride: String?
-    let senderAccountID: UUID?
-}
-
-/// Backs the macOS compose window scene. Multiple requests can be queued; each one is
-/// presented in its own window (keyed by `request.id`). The window removes its entry on
-/// close so the holder doesn't leak.
-@MainActor
-@Observable
-final class ComposeWindowHolder {
-    static let windowID = "compose"
-
-    private(set) var requests: [ComposeRequest] = []
-
-    func request(id: UUID) -> ComposeRequest? {
-        requests.first { $0.id == id }
-    }
-
-    func remove(id: UUID) {
-        requests.removeAll { $0.id == id }
-    }
-
-    #if os(macOS)
-    /// Enqueues `request` and opens a compose window keyed by its id. Single dispatch entry
-    /// point so call sites don't repeat the enqueue + openWindow pair.
-    func present(_ request: ComposeRequest, openWindow: OpenWindowAction) {
-        requests.append(request)
-        openWindow(id: Self.windowID, value: request.id)
-    }
-    #endif
-}
-
 struct MailThreadView: View {
     let thread: MailThread
     let issue: FeedbackIssue
@@ -55,15 +13,13 @@ struct MailThreadView: View {
     let appColor: Color
 
     @Environment(MailAccountStore.self) private var accountStore
-    #if os(macOS)
-    @Environment(\.openWindow) private var openWindow
-    @Environment(ComposeWindowHolder.self) private var composeHolder
-    #endif
+    @Environment(MailDraftStore.self) private var drafts
 
     @State private var isExpanded: Bool = true
-    #if os(iOS)
-    @State private var pendingCompose: ComposeRequest? = nil
-    #endif
+
+    private var replyKey: DraftKey { .reply(threadID: thread.id) }
+
+    private var activeReply: ComposeRequest? { drafts.openRequest(for: replyKey) }
 
     private var messages: [MailMessage] { thread.sortedDedupedMessages }
 
@@ -85,18 +41,9 @@ struct MailThreadView: View {
                     MailMessageRowView(message: message)
                     Divider()
                 }
-                replyButton
+                replyArea
             }
         }
-        #if os(iOS)
-        .sheet(item: $pendingCompose) { req in
-            #if canImport(SwiftMail)
-            ComposeMailView(request: req)
-            #else
-            Text("ComposeMailView is unavailable on this build.")
-            #endif
-        }
-        #endif
     }
 
     private var headerPrefix: String {
@@ -138,6 +85,7 @@ struct MailThreadView: View {
     }
 
     private func beginReply(senderAccountID: UUID? = nil) {
+        #if canImport(SwiftMail)
         guard let last = messages.last, let recipient = replyRecipient else { return }
         guard let chosen = senderAccountID ?? resolvedSenderAccountID else { return }
         let headers = MailMessageHeaders(
@@ -154,14 +102,9 @@ struct MailThreadView: View {
             subjectOverride: MailSubject.replyPrefixed(last.subject),
             senderAccountID: chosen
         )
-        presentCompose(request)
-    }
-
-    private func presentCompose(_ request: ComposeRequest) {
-        #if os(macOS)
-        composeHolder.present(request, openWindow: openWindow)
-        #else
-        pendingCompose = request
+        withAnimation(.easeOut(duration: 0.2)) {
+            drafts.setOpenRequest(request, for: replyKey)
+        }
         #endif
     }
 
@@ -177,8 +120,21 @@ struct MailThreadView: View {
     }
 
     @ViewBuilder
-    private var replyButton: some View {
-        if let recipient = replyRecipient {
+    private var replyArea: some View {
+        if let req = activeReply {
+            #if canImport(SwiftMail)
+            InlineReplyView(
+                key: replyKey,
+                request: req,
+                onClose: {
+                    withAnimation(.easeOut(duration: 0.2)) {
+                        drafts.clearOpenRequest(for: replyKey)
+                    }
+                }
+            )
+            .padding(.top, 8)
+            #endif
+        } else if let recipient = replyRecipient {
             let options = accountStore.accounts
                 .filter { !$0.smtpUsername.isEmpty }
                 .map { ReplyBadgeButton.ReplyFromOption(id: $0.id, address: $0.smtpUsername) }
@@ -196,28 +152,4 @@ struct MailThreadView: View {
     }
 }
 
-#if os(macOS) && canImport(SwiftMail)
-/// Hosted inside the "compose" `WindowGroup` scene. Looks up the queued `ComposeRequest`
-/// by id and renders `ComposeMailView`. When the window closes, the entry is removed from
-/// the holder so it doesn't leak.
-struct ComposeWindowContent: View {
-    let requestID: UUID?
-
-    @Environment(ComposeWindowHolder.self) private var holder
-
-    var body: some View {
-        Group {
-            if let id = requestID, let request = holder.request(id: id) {
-                ComposeMailView(request: request)
-                    .navigationTitle("Reply — \(request.issue.title)")
-                    .onDisappear { holder.remove(id: id) }
-            } else {
-                Text("This compose window is no longer available.")
-                    .foregroundStyle(.secondary)
-                    .padding()
-            }
-        }
-    }
-}
-#endif
 
