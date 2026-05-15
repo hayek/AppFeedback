@@ -92,12 +92,23 @@ Connect. Existing v2.6 stays available to them.
 ### Added
 
 - SPM dependency on `gonzalezreal/textual` pinned to `0.3.1`.
-- `IssueBodyMarkdownStyle` struct (small, local) that implements
-  Textual's `StructuredText.Style` to match the existing typography
-  (body 13pt, heading sizes 17 / 15 / 14, list bullet `•`).
-- Call site change in `IssueCardView.body` where `MarkdownBodyView(text:)`
-  was used (line 259): replaced with
-  `StructuredText(bodyText).textual.textSelection(.enabled).textual.structuredTextStyle(IssueBodyMarkdownStyle())`.
+- `IssueBodyHeadingStyle` struct (small, private, local) conforming to
+  Textual's `StructuredText.HeadingStyle` to preserve the existing
+  17 / 15 / 14pt heading sizes. Paragraphs, list items, and list markers
+  inherit Textual's defaults — which already produce 13pt body, `•`
+  bullets, and `1.` ordered markers when the ambient `.font(...)` is
+  `.system(size: 13)`.
+- The wrapper struct `MarkdownBodyView` keeps its name (the call site at
+  `IssueCardView.swift:229` is unchanged) but its body becomes:
+  `StructuredText(markdown: text).font(.system(size: 13)).textual.headingStyle(IssueBodyHeadingStyle()).textual.textSelection(.enabled).frame(maxWidth: .infinity, alignment: .leading)`.
+
+Implementing only `HeadingStyle` (rather than the full `Style` protocol)
+keeps the override surface to the one place where we diverge from
+Textual's defaults. `Style` requires 10 associated types
+(`HeadingStyle`, `ParagraphStyle`, `BlockQuoteStyle`, `CodeBlockStyle`,
+`ListItemStyle`, `UnorderedListMarker`, `OrderedListMarker`, `TableStyle`,
+`TableCellStyle`, `ThematicBreakStyle`) — declaring eight of them just to
+say "use the default" is busywork.
 
 ### Unchanged
 
