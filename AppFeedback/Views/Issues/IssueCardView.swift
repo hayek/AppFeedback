@@ -82,6 +82,8 @@ struct IssueCardView: View {
     @State private var didCopy: Bool = false
     @State private var threads: [MailThread] = []
 
+    private let metaColumnReserve: CGFloat = 96
+
     private var translationVisible: Bool { issue.hasTranslation && !showOriginal }
 
     /// True when the issue itself is unread, or any attached mail thread has an inbound
@@ -213,7 +215,7 @@ struct IssueCardView: View {
                     let titleText = issue.displayedTitle(translated: translationVisible)
                     let bodyText = issue.displayedBody(translated: translationVisible)
                     if !titleText.isEmpty || !bodyText.isEmpty {
-                        MarkdownBodyView(title: titleText, bodyMarkdown: bodyText)
+                        MarkdownBodyView(title: titleText, bodyMarkdown: bodyText, titleTrailingReserve: metaColumnReserve)
                     }
 
                     if isTranslating {
@@ -326,7 +328,10 @@ struct IssueCardView: View {
                     }
                     #endif
                 }
-                Spacer(minLength: 8)
+            }
+            .padding(.horizontal, 16)
+            .padding(.vertical, 14)
+            .overlay(alignment: .topTrailing) {
                 VStack(alignment: .trailing, spacing: 2) {
                     ToggleableDateText(date: issue.createdAt, onInteract: onInteract)
                         .font(.system(size: 11))
@@ -364,10 +369,9 @@ struct IssueCardView: View {
                     }
                     .foregroundStyle(.tertiary)
                 }
-                .padding(.top, 2)
+                .padding(.top, 16)
+                .padding(.trailing, 16)
             }
-            .padding(.horizontal, 16)
-            .padding(.vertical, 14)
         }
         .background(.background)
         .background(
@@ -417,22 +421,25 @@ struct IssueCardView: View {
 struct MarkdownBodyView: View {
     private let title: String
     private let bodyContent: String
+    private let titleTrailingReserve: CGFloat
 
-    init(title: String, bodyMarkdown: String) {
+    init(title: String, bodyMarkdown: String, titleTrailingReserve: CGFloat = 0) {
         self.title = title
         self.bodyContent = bodyMarkdown
+        self.titleTrailingReserve = titleTrailingReserve
     }
 
-    init(title: String, plainBody: String) {
+    init(title: String, plainBody: String, titleTrailingReserve: CGFloat = 0) {
         self.title = Self.escapeMarkdown(title)
         self.bodyContent = Self.escapeMarkdown(plainBody)
+        self.titleTrailingReserve = titleTrailingReserve
     }
 
     var body: some View {
         StructuredText(markdown: combinedMarkdown)
             .font(.system(size: 13))
             .foregroundStyle(.primary)
-            .textual.headingStyle(IssueBodyHeadingStyle())
+            .textual.headingStyle(IssueBodyHeadingStyle(trailingReserve: titleTrailingReserve))
             .textual.textSelection(.enabled)
             .frame(maxWidth: .infinity, alignment: .leading)
     }
@@ -462,6 +469,8 @@ struct MarkdownBodyView: View {
 }
 
 struct IssueBodyHeadingStyle: StructuredText.HeadingStyle {
+    var trailingReserve: CGFloat = 0
+
     func makeBody(configuration: Configuration) -> some View {
         let level = min(max(configuration.headingLevel, 1), 6)
         let size: CGFloat
@@ -473,6 +482,9 @@ struct IssueBodyHeadingStyle: StructuredText.HeadingStyle {
         return configuration.label
             .font(.system(size: size, weight: .semibold))
             .foregroundStyle(.primary)
+            .padding(.leading, 4)
+            .padding(.trailing, trailingReserve)
+            .padding(.bottom, 4)
             .textual.blockSpacing(.fontScaled(top: 1.0, bottom: 0.4))
     }
 }
