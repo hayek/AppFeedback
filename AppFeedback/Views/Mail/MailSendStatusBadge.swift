@@ -9,7 +9,11 @@ enum MailSendState: Equatable {
 struct MailSendStatusBadge: View {
     let state: MailSendState
 
+    #if os(macOS)
+    @Environment(\.openWindow) private var openWindow
+    #else
     @State private var showFailureAlert: Bool = false
+    #endif
 
     var body: some View {
         Group {
@@ -21,19 +25,35 @@ struct MailSendStatusBadge: View {
             case .sent:
                 row(icon: "checkmark", color: .tertiary) { Text("Sent") }
             case .failed(let reason):
-                Button { showFailureAlert = true } label: {
-                    row(icon: "exclamationmark.triangle.fill", color: .red) { Text("Failed") }
-                }
-                .buttonStyle(.plain)
-                .alert("Failed to send", isPresented: $showFailureAlert) {
-                    Button("OK", role: .cancel) {}
-                } message: {
-                    Text(reason)
-                }
+                failedBadge(reason: reason)
             }
         }
         .font(.system(size: 11))
         .animation(.easeInOut(duration: 0.25), value: state)
+    }
+
+    private func failedBadge(reason: String) -> some View {
+        Button(action: failedTapped) {
+            row(icon: "exclamationmark.triangle.fill", color: .red) { Text("Failed") }
+        }
+        .buttonStyle(.plain)
+        #if os(macOS)
+        .help(reason)
+        #else
+        .alert("Failed to send", isPresented: $showFailureAlert) {
+            Button("OK", role: .cancel) {}
+        } message: {
+            Text(reason)
+        }
+        #endif
+    }
+
+    private func failedTapped() {
+        #if os(macOS)
+        openWindow(id: "activity")
+        #else
+        showFailureAlert = true
+        #endif
     }
 
     @ViewBuilder
