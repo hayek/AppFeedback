@@ -69,6 +69,7 @@ struct IssueCardView: View {
     var targetLanguageCode: String = "en"
     var isTranslating: Bool = false
     var isHighlighted: Bool = false
+    var onRetranslate: (() -> Void)? = nil
 
     @Environment(MailThreadStore.self) private var threadStore
     #if canImport(SwiftMail)
@@ -278,6 +279,11 @@ struct IssueCardView: View {
                     }
                     .font(.system(size: 11, weight: .medium))
                     .padding(.top, 4)
+                    .contextMenu {
+                        if let onRetranslate {
+                            Button("Re-translate", action: onRetranslate)
+                        }
+                    }
                 } else if needsTranslationButUnavailable {
                     Text("Apple Intelligence required to translate")
                         .font(.system(size: 11))

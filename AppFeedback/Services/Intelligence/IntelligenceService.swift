@@ -165,13 +165,30 @@ extension IntelligenceService {
         } else {
             prompt = "Translate this to \(targetName):\n\n\(trimmed)"
         }
-        let response = try await session.respond(to: prompt, generating: TranslationResult.self)
-        let result = response.content
-        let translated = result.translation.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard result.didTranslate, !translated.isEmpty else {
-            throw IntelligenceError.empty
+        let inputLines = trimmed.components(separatedBy: "\n").count
+        let inputParas = trimmed.components(separatedBy: "\n\n").count
+        print("[Translate] → input chars=\(trimmed.count) lines=\(inputLines) paragraphs=\(inputParas) src=\(sourceCode ?? "auto") dst=\(targetCode)")
+        print("[Translate] → input preview: \(trimmed.prefix(120))\(trimmed.count > 120 ? "…" : "")")
+        do {
+            let response = try await session.respond(to: prompt, generating: TranslationResult.self)
+            let result = response.content
+            let translated = result.translation.trimmingCharacters(in: .whitespacesAndNewlines)
+            let outLines = translated.components(separatedBy: "\n").count
+            let outParas = translated.components(separatedBy: "\n\n").count
+            let ratio = trimmed.isEmpty ? 0.0 : Double(translated.count) / Double(trimmed.count)
+            print("[Translate] ← didTranslate=\(result.didTranslate) chars=\(translated.count) lines=\(outLines) paragraphs=\(outParas) ratio=\(String(format: "%.2f", ratio))")
+            print("[Translate] ← output preview: \(translated.prefix(120))\(translated.count > 120 ? "…" : "")")
+            if result.didTranslate && inputParas > 1 && outParas < inputParas {
+                print("[Translate] ⚠ paragraph count dropped: input=\(inputParas) → output=\(outParas) (likely truncated)")
+            }
+            guard result.didTranslate, !translated.isEmpty else {
+                throw IntelligenceError.empty
+            }
+            return translated
+        } catch {
+            print("[Translate] ✗ error: \(error)")
+            throw error
         }
-        return translated
     }
 }
 #endif

@@ -214,6 +214,44 @@ final class IssueListViewModel {
         self.cacheContext = cacheContext
     }
 
+    /// Clears local + cloud translation state for one issue and kicks off a fresh translate.
+    /// Useful for debugging the translation pipeline when a cached result already exists.
+    func forceRetranslate(issueNumber: Int) {
+        translationTasks[issueNumber]?.cancel()
+        translationTasks[issueNumber] = nil
+        translatingNumbers.remove(issueNumber)
+
+        if let idx = allIssues.firstIndex(where: { $0.number == issueNumber }) {
+            allIssues[idx].translatedTitle = nil
+            allIssues[idx].translatedBody = nil
+            allIssues[idx].translationTargetLanguage = nil
+            allIssues[idx].detectedLanguageCode = nil
+        }
+
+        if let context = cacheContext {
+            let owner = seenOwner
+            let repo = seenRepo
+            let cachedDescriptor = FetchDescriptor<CachedIssue>(predicate: #Predicate { cached in
+                cached.repoOwner == owner && cached.repoName == repo && cached.number == issueNumber
+            })
+            if let cached = try? context.fetch(cachedDescriptor).first {
+                cached.translatedTitle = nil
+                cached.translatedBody = nil
+                cached.translationTargetLanguage = nil
+                cached.detectedLanguageCode = nil
+            }
+            let cloudDescriptor = FetchDescriptor<IssueTranslation>(predicate: #Predicate { row in
+                row.repoOwner == owner && row.repoName == repo && row.number == issueNumber
+            })
+            for row in (try? context.fetch(cloudDescriptor)) ?? [] {
+                context.delete(row)
+            }
+            try? context.save()
+        }
+
+        startTranslationsIfNeeded()
+    }
+
     func startTranslationsIfNeeded() {
         guard let provider = intelligenceProvider,
               let settings = intelligenceSettings,

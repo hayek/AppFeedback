@@ -212,7 +212,8 @@ struct IssueListView: View {
             intelligenceAvailable: viewModel.intelligenceProvider?.availability.isReady ?? false,
             targetLanguageCode: targetLanguageCode,
             isTranslating: viewModel.isTranslating(issue),
-            isHighlighted: viewModel.highlightedIssueNumber == issue.number
+            isHighlighted: viewModel.highlightedIssueNumber == issue.number,
+            onRetranslate: { viewModel.forceRetranslate(issueNumber: issue.number) }
         )
     }
 
