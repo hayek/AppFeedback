@@ -190,6 +190,8 @@
 		94E17C80659F37FFD4BA94B8 /* IMAPClientError.swift in Sources */ = {isa = PBXBuildFile; fileRef = ED45644F876811CA79E17198 /* IMAPClientError.swift */; };
 		95C780F86DEB1FEF68E14805 /* IssueListViewModelTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 10EE93E06CD371298BA38A85 /* IssueListViewModelTests.swift */; };
 		976DBA8EDA1F85E76E139283 /* MockIntelligenceProvider.swift in Sources */ = {isa = PBXBuildFile; fileRef = 11D293FE78104BAAD6D47E4E /* MockIntelligenceProvider.swift */; };
+		9781E6432FB84AF6008FDDC6 /* Textual in Frameworks */ = {isa = PBXBuildFile; productRef = 9781E6422FB84AF6008FDDC6 /* Textual */; };
+		9781E6462FB84AFD008FDDC6 /* Textual in Frameworks */ = {isa = PBXBuildFile; productRef = 9781E6452FB84AFD008FDDC6 /* Textual */; };
 		97AD207D583CC4107CD4E2B9 /* SummaryPromptBuilder.swift in Sources */ = {isa = PBXBuildFile; fileRef = BB83534C837E0AC43EC21616 /* SummaryPromptBuilder.swift */; };
 		996661BA2AEC20636C5841C9 /* GitHubLoginView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8179D7E75894D24AAF1B685B /* GitHubLoginView.swift */; };
 		997E2227F13FCEF44B303A74 /* MailSettings.swift in Sources */ = {isa = PBXBuildFile; fileRef = B76034E05B788D76DEA237E5 /* MailSettings.swift */; };
@@ -213,6 +215,8 @@
 		A8B16CEE4E7B8CA4CCB0124E /* MailProviderHintCard.swift in Sources */ = {isa = PBXBuildFile; fileRef = 133B28DAE09BA529EE08E468 /* MailProviderHintCard.swift */; };
 		AB492DD8BAAE83FD2D3ED134 /* MailThreadStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6735A1797CDAD61EEB8EA194 /* MailThreadStore.swift */; };
 		AC1251935F860C1C8331D9EF /* MailSyncCoordinator.swift in Sources */ = {isa = PBXBuildFile; fileRef = 17F075AD1022BBE0E737AFE0 /* MailSyncCoordinator.swift */; };
+		ACDE0000000000000000A001 /* AccountDeletionConfirmation.swift in Sources */ = {isa = PBXBuildFile; fileRef = ACDE0000000000000000F001 /* AccountDeletionConfirmation.swift */; };
+		ACDE0000000000000000A002 /* AccountDeletionConfirmation.swift in Sources */ = {isa = PBXBuildFile; fileRef = ACDE0000000000000000F001 /* AccountDeletionConfirmation.swift */; };
 		AD218D0D98CD183C18E25901 /* MailDefaultsSection.swift in Sources */ = {isa = PBXBuildFile; fileRef = FEBBE0C28162DB5C340799E2 /* MailDefaultsSection.swift */; };
 		AD6F3231E6A73FC19859080D /* NotifiedIssueStoreTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 122F76E1799831D27D3C06FE /* NotifiedIssueStoreTests.swift */; };
 		AD72C524AE9F03E7E1FD6484 /* KeychainService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9FAC042F79EF94F76B9A8077 /* KeychainService.swift */; };
@@ -228,8 +232,6 @@
 		B9689C8F511CEFFC7154AE31 /* CloudSyncStatusTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1A5E9D6EA54332099D0A0E76 /* CloudSyncStatusTests.swift */; };
 		BA21E125A4A0FB9B55E7CA3A /* AttachmentDownloaderTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = F7AF27A3A83BA9E18C42D607 /* AttachmentDownloaderTests.swift */; };
 		BB64F1D9A7D592A904333F47 /* MailProviderBadge.swift in Sources */ = {isa = PBXBuildFile; fileRef = 173F40704108E1C47B7B46E1 /* MailProviderBadge.swift */; };
-		ACDE0000000000000000A001 /* AccountDeletionConfirmation.swift in Sources */ = {isa = PBXBuildFile; fileRef = ACDE0000000000000000F001 /* AccountDeletionConfirmation.swift */; };
-		ACDE0000000000000000A002 /* AccountDeletionConfirmation.swift in Sources */ = {isa = PBXBuildFile; fileRef = ACDE0000000000000000F001 /* AccountDeletionConfirmation.swift */; };
 		BD159F6F074B6CF51A9BA83B /* MailThreadStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6735A1797CDAD61EEB8EA194 /* MailThreadStore.swift */; };
 		BD62B2BAB09EFC09679CC074 /* AppleDevices.json in Resources */ = {isa = PBXBuildFile; fileRef = DE92D9261E5C2EBC2DD6FF7A /* AppleDevices.json */; };
 		BD8D747D2BEDD8B474FBE101 /* ComposeMailViewModelTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 44217CE722F7BB9B95104162 /* ComposeMailViewModelTests.swift */; };
@@ -370,7 +372,6 @@
 		14204B0FB15E1C987B6ADC0F /* MailSender.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MailSender.swift; sourceTree = "<group>"; };
 		1735FF9347A8F1F438359145 /* MailSendStatusBadge.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MailSendStatusBadge.swift; sourceTree = "<group>"; };
 		173F40704108E1C47B7B46E1 /* MailProviderBadge.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MailProviderBadge.swift; sourceTree = "<group>"; };
-		ACDE0000000000000000F001 /* AccountDeletionConfirmation.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AccountDeletionConfirmation.swift; sourceTree = "<group>"; };
 		17F075AD1022BBE0E737AFE0 /* MailSyncCoordinator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MailSyncCoordinator.swift; sourceTree = "<group>"; };
 		1A5E9D6EA54332099D0A0E76 /* CloudSyncStatusTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CloudSyncStatusTests.swift; sourceTree = "<group>"; };
 		1C5E4AF7386763AADC7864DE /* EmailAccountList.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EmailAccountList.swift; sourceTree = "<group>"; };
@@ -464,6 +465,7 @@
 		A3CCABE70C4F9C2F242C34A3 /* ActivityWindow.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ActivityWindow.swift; sourceTree = "<group>"; };
 		A558CA608A7858A089B1E342 /* OSVersionFormatTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OSVersionFormatTests.swift; sourceTree = "<group>"; };
 		A5A00E7444118AEC76580EAB /* FilterBarView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FilterBarView.swift; sourceTree = "<group>"; };
+		ACDE0000000000000000F001 /* AccountDeletionConfirmation.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AccountDeletionConfirmation.swift; sourceTree = "<group>"; };
 		AD51A65BAE673C49864200A4 /* InlineReplyView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = InlineReplyView.swift; sourceTree = "<group>"; };
 		ADB9724B7CB5D9FF9058FEE4 /* AppFeedbackApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppFeedbackApp.swift; sourceTree = "<group>"; };
 		AE7215BA1A0BAA6222B021CC /* HTMLSanitizerTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HTMLSanitizerTests.swift; sourceTree = "<group>"; };
@@ -525,6 +527,7 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				9781E6432FB84AF6008FDDC6 /* Textual in Frameworks */,
 				0746E055C9889BF43CA5F9F2 /* SwiftMail in Frameworks */,
 				CFB7DFF1613F2110DBC69959 /* AppFeedbackCore in Frameworks */,
 			);
@@ -534,6 +537,7 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				9781E6462FB84AFD008FDDC6 /* Textual in Frameworks */,
 				62FFF150FCEC91F9493CCED9 /* SwiftMail in Frameworks */,
 				2B7310B38F7432FC10CF73C0 /* AppFeedbackCore in Frameworks */,
 			);
@@ -676,6 +680,13 @@
 				2146AEEE96ACCB5EB3265B3E /* UnreadSummaryView.swift */,
 			);
 			path = Issues;
+			sourceTree = "<group>";
+		};
+		9781E6442FB84AFD008FDDC6 /* Frameworks */ = {
+			isa = PBXGroup;
+			children = (
+			);
+			name = Frameworks;
 			sourceTree = "<group>";
 		};
 		A1235423F6AC682292EBDF93 /* Settings */ = {
@@ -847,6 +858,7 @@
 				312D687933940BA780263C7D /* AppFeedback */,
 				CE978052D6951857C3AB9185 /* AppFeedbackTests */,
 				CE6BAEA115691C45938F8CA3 /* Packages */,
+				9781E6442FB84AFD008FDDC6 /* Frameworks */,
 				C476069CF208AC38179610EC /* Products */,
 			);
 			sourceTree = "<group>";
@@ -870,6 +882,7 @@
 			packageProductDependencies = (
 				50E79E282BC44074182BC176 /* SwiftMail */,
 				786D1310C496132B8AB44C1E /* AppFeedbackCore */,
+				9781E6452FB84AFD008FDDC6 /* Textual */,
 			);
 			productName = AppFeedback_macOS;
 			productReference = D6103AF9E531E723A81DA281 /* AppFeedback.app */;
@@ -909,6 +922,7 @@
 			packageProductDependencies = (
 				ADE324139D9B2D3ABE7C0ED2 /* SwiftMail */,
 				D03D6AD2C9193D81AD3AE68C /* AppFeedbackCore */,
+				9781E6422FB84AF6008FDDC6 /* Textual */,
 			);
 			productName = AppFeedback_iOS;
 			productReference = 005F6BC6E30CFBFB803770A1 /* AppFeedback.app */;
@@ -971,6 +985,7 @@
 			packageReferences = (
 				72244056B72316DC730F3129 /* XCRemoteSwiftPackageReference "SwiftMail" */,
 				20EC3CE7CFFA35ED83D94156 /* XCLocalSwiftPackageReference "../AppFeedbackSDK" */,
+				9781E6412FB84AF6008FDDC6 /* XCRemoteSwiftPackageReference "textual" */,
 			);
 			preferredProjectObjectVersion = 77;
 			productRefGroup = C476069CF208AC38179610EC /* Products */;
@@ -1738,6 +1753,14 @@
 				minimumVersion = 1.0.0;
 			};
 		};
+		9781E6412FB84AF6008FDDC6 /* XCRemoteSwiftPackageReference "textual" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/gonzalezreal/textual";
+			requirement = {
+				kind = upToNextMajorVersion;
+				minimumVersion = 0.3.1;
+			};
+		};
 /* End XCRemoteSwiftPackageReference section */
 
 /* Begin XCSwiftPackageProductDependency section */
@@ -1749,6 +1772,16 @@
 		786D1310C496132B8AB44C1E /* AppFeedbackCore */ = {
 			isa = XCSwiftPackageProductDependency;
 			productName = AppFeedbackCore;
+		};
+		9781E6422FB84AF6008FDDC6 /* Textual */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 9781E6412FB84AF6008FDDC6 /* XCRemoteSwiftPackageReference "textual" */;
+			productName = Textual;
+		};
+		9781E6452FB84AFD008FDDC6 /* Textual */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 9781E6412FB84AF6008FDDC6 /* XCRemoteSwiftPackageReference "textual" */;
+			productName = Textual;
 		};
 		ADE324139D9B2D3ABE7C0ED2 /* SwiftMail */ = {
 			isa = XCSwiftPackageProductDependency;
