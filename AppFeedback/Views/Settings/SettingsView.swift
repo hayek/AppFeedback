@@ -131,9 +131,7 @@ struct SettingsView: View {
                 #if canImport(SwiftMail)
                 Section {
                     NavigationLink {
-                        IOSEmailSettingsView()
-                            .navigationTitle("Email")
-                            .navigationBarTitleDisplayMode(.large)
+                        IOSEmailAccountList()
                     } label: {
                         Label("Email", systemImage: "envelope")
                     }

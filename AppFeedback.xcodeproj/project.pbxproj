@@ -122,7 +122,6 @@
 		62FFF150FCEC91F9493CCED9 /* SwiftMail in Frameworks */ = {isa = PBXBuildFile; productRef = 50E79E282BC44074182BC176 /* SwiftMail */; };
 		632021C4A0BE4A0B5C54AD95 /* NotifiedIssueStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = FBAAD6326BE1779473B7F6BF /* NotifiedIssueStore.swift */; };
 		6364A006B3ED98BB20F34E3D /* MailAccountLocalState.swift in Sources */ = {isa = PBXBuildFile; fileRef = EBC84D73F559C8192BD55BC8 /* MailAccountLocalState.swift */; };
-		637305982C42185746A5D3BC /* IOSEmailSettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1C6703D11EE7CF4ADD71A1BB /* IOSEmailSettingsView.swift */; };
 		6388F3ED429A58E19B91DBD6 /* MailMessageHeaders.swift in Sources */ = {isa = PBXBuildFile; fileRef = 392F2952F0E1656AED728FE5 /* MailMessageHeaders.swift */; };
 		63F02A0EA217240DEF51BB90 /* MailAttachment.swift in Sources */ = {isa = PBXBuildFile; fileRef = 74EEB069BDE0A64E29F975A5 /* MailAttachment.swift */; };
 		6604F5C9B9D507FABADF9B32 /* MailSettingsStoreTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 41A259F8580D4738755D4CC2 /* MailSettingsStoreTests.swift */; };
@@ -192,7 +191,6 @@
 		95C780F86DEB1FEF68E14805 /* IssueListViewModelTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 10EE93E06CD371298BA38A85 /* IssueListViewModelTests.swift */; };
 		976DBA8EDA1F85E76E139283 /* MockIntelligenceProvider.swift in Sources */ = {isa = PBXBuildFile; fileRef = 11D293FE78104BAAD6D47E4E /* MockIntelligenceProvider.swift */; };
 		97AD207D583CC4107CD4E2B9 /* SummaryPromptBuilder.swift in Sources */ = {isa = PBXBuildFile; fileRef = BB83534C837E0AC43EC21616 /* SummaryPromptBuilder.swift */; };
-		98DB2FD94894499014B84FBA /* IOSEmailSettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1C6703D11EE7CF4ADD71A1BB /* IOSEmailSettingsView.swift */; };
 		996661BA2AEC20636C5841C9 /* GitHubLoginView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8179D7E75894D24AAF1B685B /* GitHubLoginView.swift */; };
 		997E2227F13FCEF44B303A74 /* MailSettings.swift in Sources */ = {isa = PBXBuildFile; fileRef = B76034E05B788D76DEA237E5 /* MailSettings.swift */; };
 		9ABAD1F98FAA0295F43C1FEA /* ComposeMailViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 45BB9433B8ED3CFAB64EB7B0 /* ComposeMailViewModel.swift */; };
@@ -230,6 +228,8 @@
 		B9689C8F511CEFFC7154AE31 /* CloudSyncStatusTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1A5E9D6EA54332099D0A0E76 /* CloudSyncStatusTests.swift */; };
 		BA21E125A4A0FB9B55E7CA3A /* AttachmentDownloaderTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = F7AF27A3A83BA9E18C42D607 /* AttachmentDownloaderTests.swift */; };
 		BB64F1D9A7D592A904333F47 /* MailProviderBadge.swift in Sources */ = {isa = PBXBuildFile; fileRef = 173F40704108E1C47B7B46E1 /* MailProviderBadge.swift */; };
+		ACDE0000000000000000A001 /* AccountDeletionConfirmation.swift in Sources */ = {isa = PBXBuildFile; fileRef = ACDE0000000000000000F001 /* AccountDeletionConfirmation.swift */; };
+		ACDE0000000000000000A002 /* AccountDeletionConfirmation.swift in Sources */ = {isa = PBXBuildFile; fileRef = ACDE0000000000000000F001 /* AccountDeletionConfirmation.swift */; };
 		BD159F6F074B6CF51A9BA83B /* MailThreadStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6735A1797CDAD61EEB8EA194 /* MailThreadStore.swift */; };
 		BD62B2BAB09EFC09679CC074 /* AppleDevices.json in Resources */ = {isa = PBXBuildFile; fileRef = DE92D9261E5C2EBC2DD6FF7A /* AppleDevices.json */; };
 		BD8D747D2BEDD8B474FBE101 /* ComposeMailViewModelTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 44217CE722F7BB9B95104162 /* ComposeMailViewModelTests.swift */; };
@@ -370,10 +370,10 @@
 		14204B0FB15E1C987B6ADC0F /* MailSender.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MailSender.swift; sourceTree = "<group>"; };
 		1735FF9347A8F1F438359145 /* MailSendStatusBadge.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MailSendStatusBadge.swift; sourceTree = "<group>"; };
 		173F40704108E1C47B7B46E1 /* MailProviderBadge.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MailProviderBadge.swift; sourceTree = "<group>"; };
+		ACDE0000000000000000F001 /* AccountDeletionConfirmation.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AccountDeletionConfirmation.swift; sourceTree = "<group>"; };
 		17F075AD1022BBE0E737AFE0 /* MailSyncCoordinator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MailSyncCoordinator.swift; sourceTree = "<group>"; };
 		1A5E9D6EA54332099D0A0E76 /* CloudSyncStatusTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CloudSyncStatusTests.swift; sourceTree = "<group>"; };
 		1C5E4AF7386763AADC7864DE /* EmailAccountList.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EmailAccountList.swift; sourceTree = "<group>"; };
-		1C6703D11EE7CF4ADD71A1BB /* IOSEmailSettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = IOSEmailSettingsView.swift; sourceTree = "<group>"; };
 		1CFA70463075474DBA852686 /* MailSyncCoordinatorTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MailSyncCoordinatorTests.swift; sourceTree = "<group>"; };
 		1D93EA05B7A45FF6DD6E3E19 /* MailThreadStoreTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MailThreadStoreTests.swift; sourceTree = "<group>"; };
 		1E82DAEA39278D09C6F83D6A /* IssueBodyParserTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = IssueBodyParserTests.swift; sourceTree = "<group>"; };
@@ -681,6 +681,7 @@
 		A1235423F6AC682292EBDF93 /* Settings */ = {
 			isa = PBXGroup;
 			children = (
+				ACDE0000000000000000F001 /* AccountDeletionConfirmation.swift */,
 				DA2585A8442E3BBFF49D6958 /* AddEditRepoView.swift */,
 				45A22FEDD87C0455CBDCF0FA /* AddEmailAccountSheet.swift */,
 				49269C3629BF0756B51F7C1D /* CloudSyncStatusRow.swift */,
@@ -693,7 +694,6 @@
 				381BF60432757F69368AF849 /* IOSAddEmailAccountSheet.swift */,
 				50E7B2343E5EA7A4F9A10B43 /* IOSEmailAccountEditor.swift */,
 				612983D8AD19001A46BB98A3 /* IOSEmailAccountList.swift */,
-				1C6703D11EE7CF4ADD71A1BB /* IOSEmailSettingsView.swift */,
 				35F66F3A2861A2F66E5EB831 /* IOSMailDefaultsView.swift */,
 				FEBBE0C28162DB5C340799E2 /* MailDefaultsSection.swift */,
 				173F40704108E1C47B7B46E1 /* MailProviderBadge.swift */,
@@ -1048,7 +1048,6 @@
 				9E88186B266A34081A0BF2F5 /* IOSAddEmailAccountSheet.swift in Sources */,
 				EE286FC74959048F7DC74EF0 /* IOSEmailAccountEditor.swift in Sources */,
 				6E78B1AA147D194CDFF00D68 /* IOSEmailAccountList.swift in Sources */,
-				637305982C42185746A5D3BC /* IOSEmailSettingsView.swift in Sources */,
 				BFAB198DF0E83A583F4660F8 /* IOSMailDefaultsView.swift in Sources */,
 				EAC5CD362385D4BF52088A3D /* InlineReplyView.swift in Sources */,
 				3A97DFF7570825CC39DACE81 /* IntelligenceAvailability.swift in Sources */,
@@ -1081,6 +1080,7 @@
 				C3F985EC68E105B787C12D23 /* MailMessage.swift in Sources */,
 				CD2D7CB8FD13047E96D44374 /* MailMessageHeaders.swift in Sources */,
 				DD9028EDDCD9E90E15D0A16B /* MailMessageRowView.swift in Sources */,
+				ACDE0000000000000000A001 /* AccountDeletionConfirmation.swift in Sources */,
 				D3BD63EE5460B9281A1E20A1 /* MailProviderBadge.swift in Sources */,
 				A8B16CEE4E7B8CA4CCB0124E /* MailProviderHintCard.swift in Sources */,
 				23D5D8297DDADA55B02EC37B /* MailSendStatusBadge.swift in Sources */,
@@ -1220,7 +1220,6 @@
 				904DFD2356B0454FEA1EB789 /* IOSAddEmailAccountSheet.swift in Sources */,
 				E18DDC14372A1B013C7D3521 /* IOSEmailAccountEditor.swift in Sources */,
 				DE3593C7C342772A3EFD0A69 /* IOSEmailAccountList.swift in Sources */,
-				98DB2FD94894499014B84FBA /* IOSEmailSettingsView.swift in Sources */,
 				2ADFCADACE15F9CED14427B1 /* IOSMailDefaultsView.swift in Sources */,
 				D5C176B9591FEBC55CB2C388 /* InlineReplyView.swift in Sources */,
 				939E9E35143B354C009D56A4 /* IntelligenceAvailability.swift in Sources */,
@@ -1253,6 +1252,7 @@
 				D6D3A082A64CFBA56D0DAD6C /* MailMessage.swift in Sources */,
 				6388F3ED429A58E19B91DBD6 /* MailMessageHeaders.swift in Sources */,
 				FC798CB5728FEBA053FDA477 /* MailMessageRowView.swift in Sources */,
+				ACDE0000000000000000A002 /* AccountDeletionConfirmation.swift in Sources */,
 				BB64F1D9A7D592A904333F47 /* MailProviderBadge.swift in Sources */,
 				C331ED88245820476E01ADC2 /* MailProviderHintCard.swift in Sources */,
 				15C779D7C6BC7024A79B1B89 /* MailSendStatusBadge.swift in Sources */,

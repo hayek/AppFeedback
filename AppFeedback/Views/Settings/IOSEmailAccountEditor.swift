@@ -140,7 +140,6 @@ struct IOSEmailAccountEditor: View {
     }
 
     private func load() async {
-        store.reload()
         guard let acc = store.account(id: accountID) else { return }
         preset = acc.preset
         host = acc.smtpHost
@@ -195,9 +194,7 @@ struct IOSEmailAccountEditor: View {
     @MainActor
     private func removeAccount() async {
         guard let acc = store.account(id: accountID) else { return }
-        await KeychainService.deleteSMTPPassword(for: accountID)
-        await KeychainService.deleteIMAPPassword(for: accountID)
-        store.delete(acc)
+        await store.deleteWithCredentials(acc)
         registry?.syncWithAccounts()
         dismiss()
     }

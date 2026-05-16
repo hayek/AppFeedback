@@ -61,6 +61,16 @@ final class MailAccountStore {
         }
     }
 
+    /// Removes the account along with its SMTP/IMAP Keychain entries. Prefer this over
+    /// `delete(_:)` directly so credentials don't linger in the Keychain.
+    func deleteWithCredentials(_ target: MailAccount) async {
+        let id = target.id
+        async let smtp: Void = KeychainService.deleteSMTPPassword(for: id)
+        async let imap: Void = KeychainService.deleteIMAPPassword(for: id)
+        _ = await (smtp, imap)
+        delete(target)
+    }
+
     func reload() {
         accounts = Self.fetch(in: context)
     }
