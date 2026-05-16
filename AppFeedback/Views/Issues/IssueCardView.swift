@@ -227,7 +227,7 @@ struct IssueCardView: View {
                             }
                             .buttonStyle(.plain)
                             .foregroundStyle(.secondary)
-                            if let from = sourceLanguageDisplayName {
+                            if translationVisible, let from = sourceLanguageDisplayName {
                                 Text("(translated from \(from))")
                                     .foregroundStyle(.tertiary)
                             }
