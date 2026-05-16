@@ -13,6 +13,7 @@ final class RepoStore {
     private let hiddenAppStore: HiddenAppStore?
     private var didSaveTask: Task<Void, Never>?
     private var remoteChangeTask: Task<Void, Never>?
+    private var cloudKitImportTask: Task<Void, Never>?
 
     init(context: ModelContext, hiddenAppStore: HiddenAppStore? = nil) {
         self.context = context
@@ -39,11 +40,20 @@ final class RepoStore {
                 self?.reload()
             }
         }
+
+        // Belt-and-suspenders alongside NSPersistentStoreRemoteChange: that notification can
+        // be missed or arrive before imported rows are visible to fetches on a fresh install.
+        cloudKitImportTask = Task { @MainActor [weak self] in
+            for await _ in NotificationCenter.cloudKitImportSucceeded {
+                self?.reload()
+            }
+        }
     }
 
     isolated deinit {
         didSaveTask?.cancel()
         remoteChangeTask?.cancel()
+        cloudKitImportTask?.cancel()
     }
 
     // MARK: - Repos
@@ -164,5 +174,22 @@ final class RepoStore {
         if repos != newRepos { repos = newRepos }
         if hiddenApps != newHiddenApps { hiddenApps = newHiddenApps }
         if appColors != newAppColors { appColors = newAppColors }
+    }
+}
+
+extension NotificationCenter {
+    /// Successful `.import` events from `NSPersistentCloudKitContainer`, signaling that
+    /// remote rows have been merged into the local store and a refetch will see them.
+    static var cloudKitImportSucceeded: AsyncCompactMapSequence<NotificationCenter.Notifications, Bool> {
+        NotificationCenter.default
+            .notifications(named: NSPersistentCloudKitContainer.eventChangedNotification)
+            .compactMap { @Sendable note -> Bool? in
+                guard let event = note.userInfo?[NSPersistentCloudKitContainer.eventNotificationUserInfoKey]
+                        as? NSPersistentCloudKitContainer.Event,
+                      event.type == .import,
+                      event.succeeded
+                else { return nil }
+                return true
+            }
     }
 }

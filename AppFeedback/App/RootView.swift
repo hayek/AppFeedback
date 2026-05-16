@@ -13,6 +13,7 @@ struct RootView: View {
     @State private var showSettings = false
     @State private var showAddRepo = false
     @State private var columnVisibility: NavigationSplitViewVisibility = .automatic
+    @Environment(\.scenePhase) private var scenePhase
     @Environment(ActivityLog.self) private var activityLog
     @Environment(IntelligenceSettings.self) private var intelligenceSettings
     @Environment(IntelligenceService.self) private var intelligenceService
@@ -148,6 +149,14 @@ struct RootView: View {
         .onChange(of: notificationSettings.isEnabled) { _, isOn in
             if isOn { maybeSnapshotBacklog() }
         }
+        .onChange(of: scenePhase) { _, phase in
+            if phase == .active { retryStuckLoaders() }
+        }
+        .task {
+            for await _ in NotificationCenter.cloudKitImportSucceeded {
+                retryStuckLoaders()
+            }
+        }
     }
 
     #if os(iOS)
@@ -229,11 +238,30 @@ struct RootView: View {
             for repo in repos {
                 guard let loader = loaders[repo.id] else { continue }
                 group.addTask {
-                    guard let token = await KeychainService.load(for: repo) else { return }
-                    await loader.load(token: token)
+                    // iCloud Keychain may not have synced this token yet on a fresh device;
+                    // one short retry catches that without blocking the happy path.
+                    for attempt in 0..<2 {
+                        if attempt > 0 { try? await Task.sleep(for: .seconds(2)) }
+                        if let token = await KeychainService.load(for: repo) {
+                            await loader.load(token: token)
+                            return
+                        }
+                    }
                 }
             }
         }
+    }
+
+    private func retryStuckLoaders() {
+        let stuck = store.repos.filter { repo in
+            guard let loader = loaders[repo.id] else { return false }
+            switch loader.state {
+            case .idle, .failed: return true
+            case .loading, .loaded: return false
+            }
+        }
+        guard !stuck.isEmpty else { return }
+        Task { await loadRepos(stuck) }
     }
 
     // MARK: - Notification Tap Routing
