@@ -1,4 +1,5 @@
 import SwiftUI
+import Textual
 #if os(macOS)
 import AppKit
 #else
@@ -200,176 +201,170 @@ struct IssueCardView: View {
                     bottomTrailingRadius: 0, topTrailingRadius: 0
                 ))
 
-            VStack(alignment: .leading, spacing: 8) {
-                HStack(alignment: .top, spacing: 8) {
-                    if effectiveUnread {
-                        Circle()
-                            .fill(Color.accentColor)
-                            .frame(width: 8, height: 8)
-                            .padding(.top, 6)
-                            .accessibilityLabel("Unread")
+            HStack(alignment: .top, spacing: 8) {
+                if effectiveUnread {
+                    Circle()
+                        .fill(Color.accentColor)
+                        .frame(width: 8, height: 8)
+                        .padding(.top, 6)
+                        .accessibilityLabel("Unread")
+                }
+                VStack(alignment: .leading, spacing: 8) {
+                    let titleText = issue.displayedTitle(translated: translationVisible)
+                    let bodyText = issue.displayedBody(translated: translationVisible)
+                    if !titleText.isEmpty || !bodyText.isEmpty {
+                        MarkdownBodyView(title: titleText, bodyMarkdown: bodyText)
                     }
-                    Text(issue.displayedTitle(translated: translationVisible))
-                        .font(.system(size: 15, weight: .semibold))
-                        .foregroundStyle(.primary)
-                        .textSelection(.enabled)
-                        .fixedSize(horizontal: false, vertical: true)
-                    Spacer(minLength: 8)
-                    VStack(alignment: .trailing, spacing: 2) {
-                        ToggleableDateText(date: issue.createdAt, onInteract: onInteract)
-                            .font(.system(size: 11))
-                            .foregroundStyle(.tertiary)
-                            .fixedSize()
+
+                    if isTranslating {
+                        ShimmeringText("Translating…")
+                            .font(.system(size: 11, weight: .medium))
+                            .padding(.top, 4)
+                    } else if issue.hasTranslation {
                         HStack(spacing: 4) {
-                            if let typed = issue.labels.issueType {
-                                IssueTypeIconButton(
-                                    type: typed.type,
-                                    isActive: activeIssueType.contains(typed.type),
-                                    onTap: onToggleIssueType.map { handler in
-                                        { onInteract?(); handler(typed.type) }
-                                    }
-                                )
-                            }
-                            Text("#\(issue.number)")
-                                .font(.system(size: 11, weight: .medium))
-                            Button {
-                                onInteract?()
-                                copyToClipboard()
-                                didCopy = true
-                                Task {
-                                    try? await Task.sleep(for: .seconds(1.5))
-                                    didCopy = false
-                                }
-                            } label: {
-                                Image(systemName: didCopy ? "checkmark" : "doc.on.doc")
-                                    .font(.system(size: 10, weight: .medium))
-                                    .foregroundStyle(didCopy ? AnyShapeStyle(Color.green) : AnyShapeStyle(HierarchicalShapeStyle.tertiary))
-                                    .contentTransition(.symbolEffect(.replace))
+                            Button(showOriginal ? "Show translation" : "Show original") {
+                                showOriginal.toggle()
                             }
                             .buttonStyle(.plain)
-                            .help("Copy issue")
-                            .accessibilityLabel(didCopy ? "Copied" : "Copy issue")
+                            .foregroundStyle(.secondary)
+                            if let from = sourceLanguageDisplayName {
+                                Text("(translated from \(from))")
+                                    .foregroundStyle(.tertiary)
+                            }
                         }
-                        .foregroundStyle(.tertiary)
-                    }
-                    .padding(.top, 2)
-                }
-
-                let bodyText = issue.displayedBody(translated: translationVisible)
-                if !bodyText.isEmpty {
-                    MarkdownBodyView(text: bodyText)
-                        .textSelection(.enabled)
-                }
-
-                if isTranslating {
-                    ShimmeringText("Translating…")
                         .font(.system(size: 11, weight: .medium))
                         .padding(.top, 4)
-                } else if issue.hasTranslation {
-                    HStack(spacing: 4) {
-                        Button(showOriginal ? "Show translation" : "Show original") {
-                            showOriginal.toggle()
+                        .contextMenu {
+                            if let onRetranslate {
+                                Button("Re-translate", action: onRetranslate)
+                            }
                         }
-                        .buttonStyle(.plain)
-                        .foregroundStyle(.secondary)
-                        if let from = sourceLanguageDisplayName {
-                            Text("(translated from \(from))")
-                                .foregroundStyle(.tertiary)
+                    } else if needsTranslationButUnavailable {
+                        Text("Apple Intelligence required to translate")
+                            .font(.system(size: 11))
+                            .foregroundStyle(.tertiary)
+                            .padding(.top, 4)
+                    }
+
+                    HStack(spacing: 8) {
+                        ScrollView(.horizontal, showsIndicators: false) {
+                            HStack(spacing: 6) {
+                                ForEach(issue.labels.withoutTypeAndUserSubmitted, id: \.name) { label in
+                                    LabelChipView(label: label)
+                                }
+                                if let app = issue.appName, !activeApp.contains(app) {
+                                    tappable(value: app, onTap: onToggleApp) {
+                                        TagView(text: app, color: appColor, isActive: activeApp.contains(app))
+                                    }
+                                }
+                                if let version = issue.appVersion {
+                                    tappable(value: version, onTap: onToggleAppVersion) {
+                                        TagView(text: "v\(version)", color: appColor, isActive: activeAppVersion.contains(version))
+                                    }
+                                }
+                                if let device = issue.device {
+                                    tappable(value: device, onTap: onToggleDevice) {
+                                        MetaTagView(key: "device", value: DeviceName.friendly(device), isActive: activeDevice.contains(device))
+                                    }
+                                }
+                                if let os = issue.osVersion {
+                                    tappable(value: os, onTap: onToggleOSVersion) {
+                                        MetaTagView(key: "os", value: OSVersionFormat.display(os), isActive: activeOSVersion.contains(os))
+                                    }
+                                }
+                            }
+                            .padding(.horizontal, 12)
+                        }
+                        .mask(
+                            LinearGradient(
+                                stops: [
+                                    .init(color: .clear, location: 0.0),
+                                    .init(color: .black, location: 0.04),
+                                    .init(color: .black, location: 0.96),
+                                    .init(color: .clear, location: 1.0)
+                                ],
+                                startPoint: .leading,
+                                endPoint: .trailing
+                            )
+                        )
+                        .padding(.leading, -12)
+
+                        if let email = issue.email, threads.isEmpty {
+                            ReplyBadgeButton(
+                                email: email,
+                                color: appColor,
+                                onReply: {
+                                    onInteract?()
+                                    replyToEmail(email)
+                                },
+                                onCopy: {
+                                    onInteract?()
+                                    copyEmailToClipboard(email)
+                                }
+                            )
                         }
                     }
-                    .font(.system(size: 11, weight: .medium))
-                    .padding(.top, 4)
-                    .contextMenu {
-                        if let onRetranslate {
-                            Button("Re-translate", action: onRetranslate)
+
+                    if !threads.isEmpty {
+                        ForEach(threads) { thread in
+                            MailThreadView(thread: thread, issue: issue, repoOwner: repoOwner, repoName: repoName, appColor: appColor)
+                                .padding(.top, 8)
                         }
                     }
-                } else if needsTranslationButUnavailable {
-                    Text("Apple Intelligence required to translate")
+                    #if canImport(SwiftMail)
+                    ForEach(activeInlineComposers, id: \.key) { entry in
+                        InlineReplyView(
+                            key: entry.key,
+                            request: entry.request,
+                            onClose: {
+                                withAnimation(.easeOut(duration: 0.2)) {
+                                    drafts.clearOpenRequest(for: entry.key)
+                                }
+                            }
+                        )
+                        .padding(.top, 8)
+                    }
+                    #endif
+                }
+                Spacer(minLength: 8)
+                VStack(alignment: .trailing, spacing: 2) {
+                    ToggleableDateText(date: issue.createdAt, onInteract: onInteract)
                         .font(.system(size: 11))
                         .foregroundStyle(.tertiary)
-                        .padding(.top, 4)
-                }
-
-                HStack(spacing: 8) {
-                    ScrollView(.horizontal, showsIndicators: false) {
-                        HStack(spacing: 6) {
-                            ForEach(issue.labels.withoutTypeAndUserSubmitted, id: \.name) { label in
-                                LabelChipView(label: label)
-                            }
-                            if let app = issue.appName, !activeApp.contains(app) {
-                                tappable(value: app, onTap: onToggleApp) {
-                                    TagView(text: app, color: appColor, isActive: activeApp.contains(app))
+                        .fixedSize()
+                    HStack(spacing: 4) {
+                        if let typed = issue.labels.issueType {
+                            IssueTypeIconButton(
+                                type: typed.type,
+                                isActive: activeIssueType.contains(typed.type),
+                                onTap: onToggleIssueType.map { handler in
+                                    { onInteract?(); handler(typed.type) }
                                 }
-                            }
-                            if let version = issue.appVersion {
-                                tappable(value: version, onTap: onToggleAppVersion) {
-                                    TagView(text: "v\(version)", color: appColor, isActive: activeAppVersion.contains(version))
-                                }
-                            }
-                            if let device = issue.device {
-                                tappable(value: device, onTap: onToggleDevice) {
-                                    MetaTagView(key: "device", value: DeviceName.friendly(device), isActive: activeDevice.contains(device))
-                                }
-                            }
-                            if let os = issue.osVersion {
-                                tappable(value: os, onTap: onToggleOSVersion) {
-                                    MetaTagView(key: "os", value: OSVersionFormat.display(os), isActive: activeOSVersion.contains(os))
-                                }
-                            }
+                            )
                         }
-                        .padding(.horizontal, 12)
-                    }
-                    .mask(
-                        LinearGradient(
-                            stops: [
-                                .init(color: .clear, location: 0.0),
-                                .init(color: .black, location: 0.04),
-                                .init(color: .black, location: 0.96),
-                                .init(color: .clear, location: 1.0)
-                            ],
-                            startPoint: .leading,
-                            endPoint: .trailing
-                        )
-                    )
-                    .padding(.leading, -12)
-
-                    if let email = issue.email, threads.isEmpty {
-                        ReplyBadgeButton(
-                            email: email,
-                            color: appColor,
-                            onReply: {
-                                onInteract?()
-                                replyToEmail(email)
-                            },
-                            onCopy: {
-                                onInteract?()
-                                copyEmailToClipboard(email)
+                        Text("#\(issue.number)")
+                            .font(.system(size: 11, weight: .medium))
+                        Button {
+                            onInteract?()
+                            copyToClipboard()
+                            didCopy = true
+                            Task {
+                                try? await Task.sleep(for: .seconds(1.5))
+                                didCopy = false
                             }
-                        )
-                    }
-                }
-
-                if !threads.isEmpty {
-                    ForEach(threads) { thread in
-                        MailThreadView(thread: thread, issue: issue, repoOwner: repoOwner, repoName: repoName, appColor: appColor)
-                            .padding(.top, 8)
-                    }
-                }
-                #if canImport(SwiftMail)
-                ForEach(activeInlineComposers, id: \.key) { entry in
-                    InlineReplyView(
-                        key: entry.key,
-                        request: entry.request,
-                        onClose: {
-                            withAnimation(.easeOut(duration: 0.2)) {
-                                drafts.clearOpenRequest(for: entry.key)
-                            }
+                        } label: {
+                            Image(systemName: didCopy ? "checkmark" : "doc.on.doc")
+                                .font(.system(size: 10, weight: .medium))
+                                .foregroundStyle(didCopy ? AnyShapeStyle(Color.green) : AnyShapeStyle(HierarchicalShapeStyle.tertiary))
+                                .contentTransition(.symbolEffect(.replace))
                         }
-                    )
-                    .padding(.top, 8)
+                        .buttonStyle(.plain)
+                        .help("Copy issue")
+                        .accessibilityLabel(didCopy ? "Copied" : "Copy issue")
+                    }
+                    .foregroundStyle(.tertiary)
                 }
-                #endif
+                .padding(.top, 2)
             }
             .padding(.horizontal, 16)
             .padding(.vertical, 14)
@@ -420,157 +415,43 @@ struct IssueCardView: View {
 }
 
 private struct MarkdownBodyView: View {
-    private let blocks: [MarkdownBlock]
-
-    init(text: String) {
-        self.blocks = MarkdownBlock.parse(text)
-    }
+    let title: String
+    let bodyMarkdown: String
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            ForEach(Array(blocks.enumerated()), id: \.offset) { _, block in
-                blockView(block)
-            }
-        }
-        .frame(maxWidth: .infinity, alignment: .leading)
+        StructuredText(markdown: combinedMarkdown)
+            .font(.system(size: 13))
+            .foregroundStyle(.primary)
+            .textual.headingStyle(IssueBodyHeadingStyle())
+            .textual.textSelection(.enabled)
+            .frame(maxWidth: .infinity, alignment: .leading)
     }
 
-    @ViewBuilder
-    private func blockView(_ block: MarkdownBlock) -> some View {
-        switch block {
-        case .heading(let level, let text):
-            Text(inlineMarkdown(text))
-                .font(.system(size: headingSize(level), weight: .semibold))
-                .foregroundStyle(.primary)
-        case .paragraph(let lines):
-            VStack(alignment: .leading, spacing: 2) {
-                ForEach(Array(lines.enumerated()), id: \.offset) { _, line in
-                    Text(inlineMarkdown(line))
-                        .font(.system(size: 13))
-                        .foregroundStyle(.primary)
-                        .fixedSize(horizontal: false, vertical: true)
-                }
-            }
-        case .list(let ordered, let items):
-            VStack(alignment: .leading, spacing: 4) {
-                ForEach(Array(items.enumerated()), id: \.offset) { idx, item in
-                    HStack(alignment: .firstTextBaseline, spacing: 8) {
-                        Text(ordered ? "\(idx + 1)." : "•")
-                            .font(.system(size: 13))
-                            .foregroundStyle(.secondary)
-                            .frame(minWidth: 16, alignment: .trailing)
-                        Text(inlineMarkdown(item))
-                            .font(.system(size: 13))
-                            .foregroundStyle(.primary)
-                            .fixedSize(horizontal: false, vertical: true)
-                            .frame(maxWidth: .infinity, alignment: .leading)
-                    }
-                }
-            }
+    private var combinedMarkdown: String {
+        let trimmedTitle = title.trimmingCharacters(in: .whitespacesAndNewlines)
+        let trimmedBody = bodyMarkdown.trimmingCharacters(in: .whitespacesAndNewlines)
+        switch (trimmedTitle.isEmpty, trimmedBody.isEmpty) {
+        case (true, true): return ""
+        case (false, true): return "## \(trimmedTitle)"
+        case (true, false): return trimmedBody
+        case (false, false): return "## \(trimmedTitle)\n\n\(trimmedBody)"
         }
-    }
-
-    private func headingSize(_ level: Int) -> CGFloat {
-        switch level {
-        case 1: return 17
-        case 2: return 15
-        default: return 14
-        }
-    }
-
-    private func inlineMarkdown(_ s: String) -> AttributedString {
-        var options = AttributedString.MarkdownParsingOptions()
-        options.interpretedSyntax = .inlineOnlyPreservingWhitespace
-        return (try? AttributedString(markdown: s, options: options)) ?? AttributedString(s)
     }
 }
 
-private enum MarkdownBlock {
-    case heading(level: Int, text: String)
-    case paragraph(lines: [String])
-    case list(ordered: Bool, items: [String])
-
-    static func parse(_ text: String) -> [MarkdownBlock] {
-        var blocks: [MarkdownBlock] = []
-        var paragraph: [String] = []
-        var listItems: [String] = []
-        var listOrdered: Bool? = nil
-
-        func flushParagraph() {
-            if !paragraph.isEmpty {
-                blocks.append(.paragraph(lines: paragraph))
-                paragraph = []
-            }
+private struct IssueBodyHeadingStyle: StructuredText.HeadingStyle {
+    func makeBody(configuration: Configuration) -> some View {
+        let level = min(max(configuration.headingLevel, 1), 6)
+        let size: CGFloat
+        switch level {
+        case 1: size = 17
+        case 2: size = 15
+        default: size = 14
         }
-        func flushList() {
-            if let ordered = listOrdered, !listItems.isEmpty {
-                blocks.append(.list(ordered: ordered, items: listItems))
-            }
-            listItems = []
-            listOrdered = nil
-        }
-        func flushAll() { flushParagraph(); flushList() }
-
-        for rawLine in text.components(separatedBy: "\n") {
-            let line = rawLine.trimmingCharacters(in: .whitespaces)
-
-            if line.isEmpty { flushAll(); continue }
-
-            if let (level, content) = parseHeading(line) {
-                flushAll()
-                blocks.append(.heading(level: level, text: content))
-                continue
-            }
-
-            if let item = parseOrderedItem(line) {
-                flushParagraph()
-                if listOrdered == false { flushList() }
-                listOrdered = true
-                listItems.append(item)
-                continue
-            }
-
-            if let item = parseUnorderedItem(line) {
-                flushParagraph()
-                if listOrdered == true { flushList() }
-                listOrdered = false
-                listItems.append(item)
-                continue
-            }
-
-            flushList()
-            paragraph.append(line)
-        }
-        flushAll()
-        return blocks
-    }
-
-    private static func parseHeading(_ line: String) -> (Int, String)? {
-        var level = 0
-        for ch in line {
-            if ch == "#" { level += 1 } else { break }
-            if level > 6 { return nil }
-        }
-        guard level > 0, level < line.count else { return nil }
-        let rest = line.dropFirst(level)
-        guard rest.first == " " else { return nil }
-        return (level, String(rest.drop(while: { $0 == " " })))
-    }
-
-    private static func parseOrderedItem(_ line: String) -> String? {
-        guard let dot = line.firstIndex(of: ".") else { return nil }
-        let prefix = line[line.startIndex..<dot]
-        guard !prefix.isEmpty, prefix.allSatisfy(\.isNumber) else { return nil }
-        let after = line.index(after: dot)
-        guard after < line.endIndex, line[after] == " " else { return nil }
-        return String(line[line.index(after: after)...])
-    }
-
-    private static func parseUnorderedItem(_ line: String) -> String? {
-        guard let first = line.first, first == "-" || first == "*" || first == "+" else { return nil }
-        let rest = line.dropFirst()
-        guard rest.first == " " else { return nil }
-        return String(rest.drop(while: { $0 == " " }))
+        return configuration.label
+            .font(.system(size: size, weight: .semibold))
+            .foregroundStyle(.primary)
+            .textual.blockSpacing(.fontScaled(top: 1.0, bottom: 0.4))
     }
 }
 
