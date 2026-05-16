@@ -29,13 +29,16 @@ final class IntelligenceService: IntelligenceProvider {
     """
     private let translationInstructions = """
     You are a translator. Translate the user's text into the requested target language.
-    Preserve meaning, tone, and any URLs, code identifiers, or @mentions verbatim.
+
+    Critical rules:
+      • Translate the ENTIRE input. If the input contains multiple paragraphs (separated by blank lines), output the same number of paragraphs in the same order, separated by blank lines. Never drop, merge, or summarize paragraphs.
+      • Preserve meaning, tone, paragraph breaks, line breaks, and any URLs, code identifiers, or @mentions verbatim.
 
     Return a structured result:
-      • didTranslate: true only when you produced a real translation in the target language. Set to false for anything else — including when the input is a single letter, a symbol, already in the target language, untranslatable, or you would otherwise need to apologize or explain.
-      • translation: the translated text only. No preamble, no quotation marks, no apologies, no explanations, no notes about the input. If didTranslate is false, leave translation empty.
+      • didTranslate: true only when you produced a real translation in the target language. Set to false for anything else — single letters, symbols, already-in-target inputs, or untranslatable text.
+      • translation: the translated text only. No preamble, no quotation marks, no apologies, no explanations. Must contain every paragraph from the input. If didTranslate is false, leave translation empty.
 
-    Never explain why you could not translate. Either translate, or set didTranslate to false with an empty translation.
+    Never explain why you could not translate. Either translate (in full), or set didTranslate to false with an empty translation.
     """
 
     init() {}
@@ -159,11 +162,15 @@ extension IntelligenceService {
         let sourceName = sourceCode.flatMap {
             Locale(identifier: "en").localizedString(forLanguageCode: $0)
         }
+        let paraCount = trimmed.components(separatedBy: "\n\n").count
+        let countHint = paraCount > 1
+            ? " The input has \(paraCount) paragraphs; your output must have the same \(paraCount) paragraphs separated by blank lines."
+            : ""
         let prompt: String
         if let sourceName {
-            prompt = "Translate this from \(sourceName) to \(targetName):\n\n\(trimmed)"
+            prompt = "Translate this from \(sourceName) to \(targetName).\(countHint)\n\n\(trimmed)"
         } else {
-            prompt = "Translate this to \(targetName):\n\n\(trimmed)"
+            prompt = "Translate this to \(targetName).\(countHint)\n\n\(trimmed)"
         }
         let inputLines = trimmed.components(separatedBy: "\n").count
         let inputParas = trimmed.components(separatedBy: "\n\n").count

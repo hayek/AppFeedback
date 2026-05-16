@@ -414,9 +414,19 @@ struct IssueCardView: View {
     }
 }
 
-private struct MarkdownBodyView: View {
-    let title: String
-    let bodyMarkdown: String
+struct MarkdownBodyView: View {
+    private let title: String
+    private let bodyContent: String
+
+    init(title: String, bodyMarkdown: String) {
+        self.title = title
+        self.bodyContent = bodyMarkdown
+    }
+
+    init(title: String, plainBody: String) {
+        self.title = Self.escapeMarkdown(title)
+        self.bodyContent = Self.escapeMarkdown(plainBody)
+    }
 
     var body: some View {
         StructuredText(markdown: combinedMarkdown)
@@ -429,7 +439,7 @@ private struct MarkdownBodyView: View {
 
     private var combinedMarkdown: String {
         let trimmedTitle = title.trimmingCharacters(in: .whitespacesAndNewlines)
-        let trimmedBody = bodyMarkdown.trimmingCharacters(in: .whitespacesAndNewlines)
+        let trimmedBody = bodyContent.trimmingCharacters(in: .whitespacesAndNewlines)
         switch (trimmedTitle.isEmpty, trimmedBody.isEmpty) {
         case (true, true): return ""
         case (false, true): return "## \(trimmedTitle)"
@@ -437,9 +447,21 @@ private struct MarkdownBodyView: View {
         case (false, false): return "## \(trimmedTitle)\n\n\(trimmedBody)"
         }
     }
+
+    private static let markdownSpecials: Set<Character> = ["\\", "`", "*", "_", "{", "}", "[", "]", "(", ")", "#", "+", "-", ".", "!", ">"]
+
+    private static func escapeMarkdown(_ s: String) -> String {
+        var out = ""
+        out.reserveCapacity(s.count)
+        for ch in s {
+            if markdownSpecials.contains(ch) { out.append("\\") }
+            out.append(ch)
+        }
+        return out
+    }
 }
 
-private struct IssueBodyHeadingStyle: StructuredText.HeadingStyle {
+struct IssueBodyHeadingStyle: StructuredText.HeadingStyle {
     func makeBody(configuration: Configuration) -> some View {
         let level = min(max(configuration.headingLevel, 1), 6)
         let size: CGFloat

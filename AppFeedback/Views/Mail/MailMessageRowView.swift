@@ -63,52 +63,43 @@ struct MailMessageRowView: View {
     }
 
     private var header: some View {
-        VStack(alignment: .leading, spacing: 2) {
-            HStack {
-                if isUnread && message.subject.isEmpty { unreadDot }
-                Menu {
-                    Button("Copy address") { copyFromAddress() }
-                } label: {
-                    Text("From: \(senderLine)")
-                        .font(.system(size: 11))
-                        .foregroundStyle(.tertiary)
-                        .lineLimit(2)
-                        .truncationMode(.tail)
-                }
-                .menuStyle(.button)
-                .buttonStyle(.plain)
-                .menuIndicator(.hidden)
-                .contextMenu {
-                    Button("Copy address") { copyFromAddress() }
-                }
-                Spacer()
-                VStack(alignment: .trailing, spacing: 2) {
-                    ToggleableDateText(date: message.date)
-                        .font(.system(size: 11))
-                        .foregroundStyle(.tertiary)
-                    if let sendState = sendState {
-                        MailSendStatusBadge(state: sendState)
-                    }
-                }
-                .lineLimit(1)
-                .animation(.easeInOut(duration: 0.25), value: sendState)
+        HStack {
+            if isUnread { unreadDot }
+            Menu {
+                Button("Copy address") { copyFromAddress() }
+            } label: {
+                Text("From: \(senderLine)")
+                    .font(.system(size: 11))
+                    .foregroundStyle(.tertiary)
+                    .lineLimit(2)
+                    .truncationMode(.tail)
             }
-            if !message.subject.isEmpty {
-                HStack(alignment: .firstTextBaseline, spacing: 6) {
-                    if isUnread { unreadDot }
-                    Text(message.subject)
-                        .font(.body.weight(.bold))
+            .menuStyle(.button)
+            .buttonStyle(.plain)
+            .menuIndicator(.hidden)
+            .contextMenu {
+                Button("Copy address") { copyFromAddress() }
+            }
+            Spacer()
+            VStack(alignment: .trailing, spacing: 2) {
+                ToggleableDateText(date: message.date)
+                    .font(.system(size: 11))
+                    .foregroundStyle(.tertiary)
+                if let sendState = sendState {
+                    MailSendStatusBadge(state: sendState)
                 }
             }
+            .lineLimit(1)
+            .animation(.easeInOut(duration: 0.25), value: sendState)
         }
     }
 
     @ViewBuilder
     private var bodyView: some View {
-        Text(showFull ? stripped.full : stripped.cleaned)
-            .font(.body)
-            .frame(maxWidth: .infinity, alignment: .leading)
-            .textSelection(.enabled)
+        MarkdownBodyView(
+            title: message.subject,
+            plainBody: showFull ? stripped.full : stripped.cleaned
+        )
         if stripped.hasQuoted {
             Button(showFull ? "Show cleaned text" : "Show full text") {
                 showFull.toggle()
