@@ -70,6 +70,7 @@ struct IssueCardView: View {
     var targetLanguageCode: String = "en"
     var isTranslating: Bool = false
     var isHighlighted: Bool = false
+    var translationUnsupported: Bool = false
     var onRetranslate: (() -> Void)? = nil
 
     @Environment(MailThreadStore.self) private var threadStore
@@ -241,6 +242,12 @@ struct IssueCardView: View {
                                 Button("Re-translate", action: onRetranslate)
                             }
                         }
+                    } else if translationUnsupported {
+                        let lang = sourceLanguageDisplayName ?? "this language"
+                        Text("Translation not supported for \(lang)")
+                            .font(.system(size: 11))
+                            .foregroundStyle(.tertiary)
+                            .padding(.top, 4)
                     } else if needsTranslationButUnavailable {
                         Text("Apple Intelligence required to translate")
                             .font(.system(size: 11))
@@ -490,6 +497,49 @@ struct MarkdownBodyView: View {
             out.append(ch)
         }
         return out
+    }
+}
+
+/// Title + body rendered as two selectable Text views. Body parses inline-only
+/// markdown so `**bold**`, `*italic*`, `[link](url)` and `` `code` `` render
+/// styled while block-level markdown (`##`, `-`) appears verbatim.
+struct IssueBodyText: View {
+    private let title: String
+    private let bodyText: String
+    private let titleTrailingReserve: CGFloat
+
+    init(title: String, body: String, titleTrailingReserve: CGFloat = 0) {
+        self.title = title
+        self.bodyText = body
+        self.titleTrailingReserve = titleTrailingReserve
+    }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 6) {
+            if !title.isEmpty {
+                Text(title)
+                    .font(.system(size: 15, weight: .semibold))
+                    .foregroundStyle(.primary)
+                    .textSelection(.enabled)
+                    .padding(.trailing, titleTrailingReserve)
+                    .fixedSize(horizontal: false, vertical: true)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+            }
+            if !bodyText.isEmpty {
+                Text(bodyAttributed)
+                    .font(.system(size: 13))
+                    .foregroundStyle(.primary)
+                    .textSelection(.enabled)
+                    .fixedSize(horizontal: false, vertical: true)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+            }
+        }
+    }
+
+    private var bodyAttributed: AttributedString {
+        var options = AttributedString.MarkdownParsingOptions()
+        options.interpretedSyntax = .inlineOnlyPreservingWhitespace
+        return (try? AttributedString(markdown: bodyText, options: options)) ?? AttributedString(bodyText)
     }
 }
 
