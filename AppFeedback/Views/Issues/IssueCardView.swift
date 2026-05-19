@@ -418,10 +418,24 @@ struct IssueCardView: View {
     }
 }
 
+@MainActor
+@Observable
+final class TextSelectionFocus {
+    private(set) var activeID: UUID?
+
+    func activate(_ id: UUID) {
+        if activeID != id { activeID = id }
+    }
+}
+
 struct MarkdownBodyView: View {
     private let title: String
     private let bodyContent: String
     private let titleTrailingReserve: CGFloat
+
+    @Environment(TextSelectionFocus.self) private var focus
+    @State private var selectionID = UUID()
+    @State private var resetToken: Int = 0
 
     init(title: String, bodyMarkdown: String, titleTrailingReserve: CGFloat = 0) {
         self.title = title
@@ -437,11 +451,22 @@ struct MarkdownBodyView: View {
 
     var body: some View {
         StructuredText(markdown: combinedMarkdown)
+            .id(resetToken)
             .font(.system(size: 13))
             .foregroundStyle(.primary)
             .textual.headingStyle(IssueBodyHeadingStyle(trailingReserve: titleTrailingReserve))
             .textual.textSelection(.enabled)
             .frame(maxWidth: .infinity, alignment: .leading)
+            .simultaneousGesture(
+                DragGesture(minimumDistance: 0)
+                    .onChanged { _ in focus.activate(selectionID) }
+            )
+            .onChange(of: focus.activeID) { oldID, newID in
+                // Textual scopes its selection coordinator inside each StructuredText with no shared/clear API; bumping `.id()` recreates it and drops the selection.
+                if oldID == selectionID, newID != selectionID {
+                    resetToken &+= 1
+                }
+            }
     }
 
     private var combinedMarkdown: String {
