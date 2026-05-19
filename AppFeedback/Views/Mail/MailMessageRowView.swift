@@ -96,9 +96,9 @@ struct MailMessageRowView: View {
 
     @ViewBuilder
     private var bodyView: some View {
-        MarkdownBodyView(
+        IssueBodyText(
             title: message.subject,
-            plainBody: showFull ? stripped.full : stripped.cleaned
+            body: showFull ? stripped.full : stripped.cleaned
         )
         if stripped.hasQuoted {
             Button(showFull ? "Show cleaned text" : "Show full text") {
