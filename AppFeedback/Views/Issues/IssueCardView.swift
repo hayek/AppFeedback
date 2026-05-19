@@ -500,17 +500,31 @@ struct MarkdownBodyView: View {
     }
 }
 
-/// Title + body rendered as two selectable Text views. Body parses inline-only
-/// markdown so `**bold**`, `*italic*`, `[link](url)` and `` `code` `` render
-/// styled while block-level markdown (`##`, `-`) appears verbatim.
+/// Title + body rendered as two selectable Text views. Two initializers:
+/// - `body:` parses inline-only markdown so `**bold**`, `*italic*`,
+///   `[link](url)`, and `` `code` `` render styled; block markdown (`##`, `-`)
+///   appears verbatim. Use for GitHub issue bodies.
+/// - `plainBody:` renders the input as literal characters, no markdown parsing.
+///   Use for user-typed content (e.g. mail) where `**` and `_` are literal.
+/// Do NOT collapse these into one boolean-flagged init — the labeled API is
+/// what keeps the two semantics distinguishable at call sites.
 struct IssueBodyText: View {
     private let title: String
     private let bodyText: String
+    private let bodyParsesMarkdown: Bool
     private let titleTrailingReserve: CGFloat
 
     init(title: String, body: String, titleTrailingReserve: CGFloat = 0) {
         self.title = title
         self.bodyText = body
+        self.bodyParsesMarkdown = true
+        self.titleTrailingReserve = titleTrailingReserve
+    }
+
+    init(title: String, plainBody: String, titleTrailingReserve: CGFloat = 0) {
+        self.title = title
+        self.bodyText = plainBody
+        self.bodyParsesMarkdown = false
         self.titleTrailingReserve = titleTrailingReserve
     }
 
@@ -526,13 +540,22 @@ struct IssueBodyText: View {
                     .frame(maxWidth: .infinity, alignment: .leading)
             }
             if !bodyText.isEmpty {
-                Text(bodyAttributed)
+                bodyTextView
                     .font(.system(size: 13))
                     .foregroundStyle(.primary)
                     .textSelection(.enabled)
                     .fixedSize(horizontal: false, vertical: true)
                     .frame(maxWidth: .infinity, alignment: .leading)
             }
+        }
+    }
+
+    @ViewBuilder
+    private var bodyTextView: some View {
+        if bodyParsesMarkdown {
+            Text(bodyAttributed)
+        } else {
+            Text(bodyText)
         }
     }
 
