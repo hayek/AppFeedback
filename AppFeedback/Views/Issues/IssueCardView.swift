@@ -216,7 +216,7 @@ struct IssueCardView: View {
                     let titleText = issue.displayedTitle(translated: translationVisible)
                     let bodyText = issue.displayedBody(translated: translationVisible)
                     if !titleText.isEmpty || !bodyText.isEmpty {
-                        MarkdownBodyView(title: titleText, bodyMarkdown: bodyText, titleTrailingReserve: metaColumnReserve)
+                        IssueBodyText(title: titleText, body: bodyText, titleTrailingReserve: metaColumnReserve)
                     }
 
                     if isTranslating {
