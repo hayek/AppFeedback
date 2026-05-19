@@ -430,63 +430,63 @@ struct IssueCardView: View {
 ///   appears verbatim. Use for GitHub issue bodies.
 /// - `plainBody:` renders the input as literal characters, no markdown parsing.
 ///   Use for user-typed content (e.g. mail) where `**` and `_` are literal.
-/// Do NOT collapse these into one boolean-flagged init — the labeled API is
-/// what keeps the two semantics distinguishable at call sites.
 struct IssueBodyText: View {
     private let title: String
-    private let bodyText: String
-    private let bodyParsesMarkdown: Bool
+    private let content: BodyContent
     private let titleTrailingReserve: CGFloat
+
+    private enum BodyContent {
+        case empty
+        case markdown(AttributedString)
+        case plain(String)
+
+        var text: Text? {
+            switch self {
+            case .empty: return nil
+            case .markdown(let attr): return Text(attr)
+            case .plain(let str): return Text(str)
+            }
+        }
+    }
 
     init(title: String, body: String, titleTrailingReserve: CGFloat = 0) {
         self.title = title
-        self.bodyText = body
-        self.bodyParsesMarkdown = true
         self.titleTrailingReserve = titleTrailingReserve
+        if body.isEmpty {
+            self.content = .empty
+        } else {
+            var options = AttributedString.MarkdownParsingOptions()
+            options.interpretedSyntax = .inlineOnlyPreservingWhitespace
+            let parsed = (try? AttributedString(markdown: body, options: options)) ?? AttributedString(body)
+            self.content = .markdown(parsed)
+        }
     }
 
     init(title: String, plainBody: String, titleTrailingReserve: CGFloat = 0) {
         self.title = title
-        self.bodyText = plainBody
-        self.bodyParsesMarkdown = false
         self.titleTrailingReserve = titleTrailingReserve
+        self.content = plainBody.isEmpty ? .empty : .plain(plainBody)
     }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 6) {
             if !title.isEmpty {
-                Text(title)
-                    .font(.system(size: 15, weight: .semibold))
-                    .foregroundStyle(.primary)
-                    .textSelection(.enabled)
+                styled(Text(title), font: .system(size: 15, weight: .semibold))
                     .padding(.trailing, titleTrailingReserve)
-                    .fixedSize(horizontal: false, vertical: true)
-                    .frame(maxWidth: .infinity, alignment: .leading)
             }
-            if !bodyText.isEmpty {
-                bodyTextView
-                    .font(.system(size: 13))
-                    .foregroundStyle(.primary)
-                    .textSelection(.enabled)
-                    .fixedSize(horizontal: false, vertical: true)
-                    .frame(maxWidth: .infinity, alignment: .leading)
+            if let bodyText = content.text {
+                styled(bodyText, font: .system(size: 13))
             }
         }
     }
 
-    @ViewBuilder
-    private var bodyTextView: some View {
-        if bodyParsesMarkdown {
-            Text(bodyAttributed)
-        } else {
-            Text(bodyText)
-        }
-    }
-
-    private var bodyAttributed: AttributedString {
-        var options = AttributedString.MarkdownParsingOptions()
-        options.interpretedSyntax = .inlineOnlyPreservingWhitespace
-        return (try? AttributedString(markdown: bodyText, options: options)) ?? AttributedString(bodyText)
+    private func styled(_ text: Text, font: Font) -> some View {
+        text
+            .font(font)
+            .foregroundStyle(.primary)
+            .textSelection(.enabled)
+            .fixedSize(horizontal: false, vertical: true)
+            .frame(maxWidth: .infinity, alignment: .leading)
     }
 }
 
