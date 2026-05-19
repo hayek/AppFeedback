@@ -1,5 +1,4 @@
 import SwiftUI
-import Textual
 #if os(macOS)
 import AppKit
 #else
@@ -425,81 +424,6 @@ struct IssueCardView: View {
     }
 }
 
-@MainActor
-@Observable
-final class TextSelectionFocus {
-    private(set) var activeID: UUID?
-
-    func activate(_ id: UUID) {
-        if activeID != id { activeID = id }
-    }
-}
-
-struct MarkdownBodyView: View {
-    private let title: String
-    private let bodyContent: String
-    private let titleTrailingReserve: CGFloat
-
-    @Environment(TextSelectionFocus.self) private var focus
-    @State private var selectionID = UUID()
-    @State private var resetToken: Int = 0
-
-    init(title: String, bodyMarkdown: String, titleTrailingReserve: CGFloat = 0) {
-        self.title = title
-        self.bodyContent = bodyMarkdown
-        self.titleTrailingReserve = titleTrailingReserve
-    }
-
-    init(title: String, plainBody: String, titleTrailingReserve: CGFloat = 0) {
-        self.title = Self.escapeMarkdown(title)
-        self.bodyContent = Self.escapeMarkdown(plainBody)
-        self.titleTrailingReserve = titleTrailingReserve
-    }
-
-    var body: some View {
-        StructuredText(markdown: combinedMarkdown)
-            .id(resetToken)
-            .font(.system(size: 13))
-            .foregroundStyle(.primary)
-            .textual.headingStyle(IssueBodyHeadingStyle(trailingReserve: titleTrailingReserve))
-            .textual.textSelection(.enabled)
-            .frame(maxWidth: .infinity, alignment: .leading)
-            .simultaneousGesture(
-                DragGesture(minimumDistance: 0)
-                    .onChanged { _ in focus.activate(selectionID) }
-            )
-            .onChange(of: focus.activeID) { oldID, newID in
-                // Textual scopes its selection coordinator inside each StructuredText with no shared/clear API; bumping `.id()` recreates it and drops the selection.
-                if oldID == selectionID, newID != selectionID {
-                    resetToken &+= 1
-                }
-            }
-    }
-
-    private var combinedMarkdown: String {
-        let trimmedTitle = title.trimmingCharacters(in: .whitespacesAndNewlines)
-        let trimmedBody = bodyContent.trimmingCharacters(in: .whitespacesAndNewlines)
-        switch (trimmedTitle.isEmpty, trimmedBody.isEmpty) {
-        case (true, true): return ""
-        case (false, true): return "## \(trimmedTitle)"
-        case (true, false): return trimmedBody
-        case (false, false): return "## \(trimmedTitle)\n\n\(trimmedBody)"
-        }
-    }
-
-    private static let markdownSpecials: Set<Character> = ["\\", "`", "*", "_", "{", "}", "[", "]", "(", ")", "#", "+", "-", ".", "!", ">"]
-
-    private static func escapeMarkdown(_ s: String) -> String {
-        var out = ""
-        out.reserveCapacity(s.count)
-        for ch in s {
-            if markdownSpecials.contains(ch) { out.append("\\") }
-            out.append(ch)
-        }
-        return out
-    }
-}
-
 /// Title + body rendered as two selectable Text views. Two initializers:
 /// - `body:` parses inline-only markdown so `**bold**`, `*italic*`,
 ///   `[link](url)`, and `` `code` `` render styled; block markdown (`##`, `-`)
@@ -563,27 +487,6 @@ struct IssueBodyText: View {
         var options = AttributedString.MarkdownParsingOptions()
         options.interpretedSyntax = .inlineOnlyPreservingWhitespace
         return (try? AttributedString(markdown: bodyText, options: options)) ?? AttributedString(bodyText)
-    }
-}
-
-struct IssueBodyHeadingStyle: StructuredText.HeadingStyle {
-    var trailingReserve: CGFloat = 0
-
-    func makeBody(configuration: Configuration) -> some View {
-        let level = min(max(configuration.headingLevel, 1), 6)
-        let size: CGFloat
-        switch level {
-        case 1: size = 17
-        case 2: size = 15
-        default: size = 14
-        }
-        return configuration.label
-            .font(.system(size: size, weight: .semibold))
-            .foregroundStyle(.primary)
-            .padding(.leading, 4)
-            .padding(.trailing, trailingReserve)
-            .padding(.bottom, 4)
-            .textual.blockSpacing(.fontScaled(top: 1.0, bottom: 0.4))
     }
 }
 
