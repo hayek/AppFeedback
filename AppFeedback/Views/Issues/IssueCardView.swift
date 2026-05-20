@@ -82,8 +82,6 @@ struct IssueCardView: View {
     @State private var didCopy: Bool = false
     @State private var threads: [MailThread] = []
 
-    private let metaColumnReserve: CGFloat = 96
-
     private var translationVisible: Bool { issue.hasTranslation && !showOriginal }
 
     /// True when the issue itself is unread, or any attached mail thread has an inbound
@@ -214,8 +212,17 @@ struct IssueCardView: View {
                 VStack(alignment: .leading, spacing: 8) {
                     let titleText = issue.displayedTitle(translated: translationVisible)
                     let bodyText = issue.displayedBody(translated: translationVisible)
-                    if !titleText.isEmpty || !bodyText.isEmpty {
-                        IssueBodyText(title: titleText, body: bodyText, trailingReserve: metaColumnReserve)
+                    HStack(alignment: .top, spacing: 12) {
+                        if !titleText.isEmpty {
+                            IssueTitleText(text: titleText)
+                                .frame(maxWidth: .infinity, alignment: .leading)
+                        } else {
+                            Spacer(minLength: 0)
+                        }
+                        metaColumn
+                    }
+                    if !bodyText.isEmpty {
+                        IssueBodyText(body: bodyText)
                     }
 
                     if isTranslating {
@@ -337,47 +344,6 @@ struct IssueCardView: View {
             }
             .padding(.horizontal, 16)
             .padding(.vertical, 14)
-            .overlay(alignment: .topTrailing) {
-                VStack(alignment: .trailing, spacing: 2) {
-                    ToggleableDateText(date: issue.createdAt, onInteract: onInteract)
-                        .font(.system(size: 11))
-                        .foregroundStyle(.tertiary)
-                        .fixedSize()
-                    HStack(spacing: 4) {
-                        if let typed = issue.labels.issueType {
-                            IssueTypeIconButton(
-                                type: typed.type,
-                                isActive: activeIssueType.contains(typed.type),
-                                onTap: onToggleIssueType.map { handler in
-                                    { onInteract?(); handler(typed.type) }
-                                }
-                            )
-                        }
-                        Text("#\(issue.number)")
-                            .font(.system(size: 11, weight: .medium))
-                        Button {
-                            onInteract?()
-                            copyToClipboard()
-                            didCopy = true
-                            Task {
-                                try? await Task.sleep(for: .seconds(1.5))
-                                didCopy = false
-                            }
-                        } label: {
-                            Image(systemName: didCopy ? "checkmark" : "doc.on.doc")
-                                .font(.system(size: 10, weight: .medium))
-                                .foregroundStyle(didCopy ? AnyShapeStyle(Color.green) : AnyShapeStyle(HierarchicalShapeStyle.tertiary))
-                                .contentTransition(.symbolEffect(.replace))
-                        }
-                        .buttonStyle(.plain)
-                        .help("Copy issue")
-                        .accessibilityLabel(didCopy ? "Copied" : "Copy issue")
-                    }
-                    .foregroundStyle(.tertiary)
-                }
-                .padding(.top, 16)
-                .padding(.trailing, 16)
-            }
         }
         .background(.background)
         .background(
@@ -406,6 +372,47 @@ struct IssueCardView: View {
         threads = threadStore.threads(forIssue: (repoOwner, repoName, issue.number, issue.title))
     }
 
+    private var metaColumn: some View {
+        VStack(alignment: .trailing, spacing: 2) {
+            ToggleableDateText(date: issue.createdAt, onInteract: onInteract)
+                .font(.system(size: 11))
+                .foregroundStyle(.tertiary)
+                .fixedSize()
+            HStack(spacing: 4) {
+                if let typed = issue.labels.issueType {
+                    IssueTypeIconButton(
+                        type: typed.type,
+                        isActive: activeIssueType.contains(typed.type),
+                        onTap: onToggleIssueType.map { handler in
+                            { onInteract?(); handler(typed.type) }
+                        }
+                    )
+                }
+                Text("#\(issue.number)")
+                    .font(.system(size: 11, weight: .medium))
+                Button {
+                    onInteract?()
+                    copyToClipboard()
+                    didCopy = true
+                    Task {
+                        try? await Task.sleep(for: .seconds(1.5))
+                        didCopy = false
+                    }
+                } label: {
+                    Image(systemName: didCopy ? "checkmark" : "doc.on.doc")
+                        .font(.system(size: 10, weight: .medium))
+                        .foregroundStyle(didCopy ? AnyShapeStyle(Color.green) : AnyShapeStyle(HierarchicalShapeStyle.tertiary))
+                        .contentTransition(.symbolEffect(.replace))
+                }
+                .buttonStyle(.plain)
+                .help("Copy issue")
+                .accessibilityLabel(didCopy ? "Copied" : "Copy issue")
+            }
+            .foregroundStyle(.tertiary)
+        }
+        .fixedSize()
+    }
+
     @ViewBuilder
     private func tappable<Content: View>(
         value: String,
@@ -424,16 +431,29 @@ struct IssueCardView: View {
     }
 }
 
-/// Title + body rendered as two selectable Text views. Two initializers:
+/// Selectable issue title styled at 15pt semibold. Place inline next to other
+/// row-level chrome (e.g. a meta column) so the body can flow at full width
+/// below it.
+struct IssueTitleText: View {
+    let text: String
+
+    var body: some View {
+        Text(text)
+            .font(.system(size: 15, weight: .semibold))
+            .foregroundStyle(.primary)
+            .textSelection(.enabled)
+            .fixedSize(horizontal: false, vertical: true)
+    }
+}
+
+/// Selectable issue body. Two initializers:
 /// - `body:` parses inline-only markdown so `**bold**`, `*italic*`,
 ///   `[link](url)`, and `` `code` `` render styled; block markdown (`##`, `-`)
 ///   appears verbatim. Use for GitHub issue bodies.
 /// - `plainBody:` renders the input as literal characters, no markdown parsing.
 ///   Use for user-typed content (e.g. mail) where `**` and `_` are literal.
 struct IssueBodyText: View {
-    private let title: String
     private let content: BodyContent
-    private let trailingReserve: CGFloat
 
     private enum BodyContent {
         case empty
@@ -449,9 +469,7 @@ struct IssueBodyText: View {
         }
     }
 
-    init(title: String, body: String, trailingReserve: CGFloat = 0) {
-        self.title = title
-        self.trailingReserve = trailingReserve
+    init(body: String) {
         if body.isEmpty {
             self.content = .empty
         } else {
@@ -462,31 +480,19 @@ struct IssueBodyText: View {
         }
     }
 
-    init(title: String, plainBody: String, trailingReserve: CGFloat = 0) {
-        self.title = title
-        self.trailingReserve = trailingReserve
+    init(plainBody: String) {
         self.content = plainBody.isEmpty ? .empty : .plain(plainBody)
     }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 6) {
-            if !title.isEmpty {
-                styled(Text(title), font: .system(size: 15, weight: .semibold))
-            }
-            if let bodyText = content.text {
-                styled(bodyText, font: .system(size: 13))
-            }
+        if let bodyText = content.text {
+            bodyText
+                .font(.system(size: 13))
+                .foregroundStyle(.primary)
+                .textSelection(.enabled)
+                .fixedSize(horizontal: false, vertical: true)
+                .frame(maxWidth: .infinity, alignment: .leading)
         }
-        .padding(.trailing, trailingReserve)
-    }
-
-    private func styled(_ text: Text, font: Font) -> some View {
-        text
-            .font(font)
-            .foregroundStyle(.primary)
-            .textSelection(.enabled)
-            .fixedSize(horizontal: false, vertical: true)
-            .frame(maxWidth: .infinity, alignment: .leading)
     }
 }
 

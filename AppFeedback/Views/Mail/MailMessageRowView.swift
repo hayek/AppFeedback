@@ -96,10 +96,11 @@ struct MailMessageRowView: View {
 
     @ViewBuilder
     private var bodyView: some View {
-        IssueBodyText(
-            title: message.subject,
-            plainBody: showFull ? stripped.full : stripped.cleaned
-        )
+        if !message.subject.isEmpty {
+            IssueTitleText(text: message.subject)
+                .frame(maxWidth: .infinity, alignment: .leading)
+        }
+        IssueBodyText(plainBody: showFull ? stripped.full : stripped.cleaned)
         if stripped.hasQuoted {
             Button(showFull ? "Show cleaned text" : "Show full text") {
                 showFull.toggle()
