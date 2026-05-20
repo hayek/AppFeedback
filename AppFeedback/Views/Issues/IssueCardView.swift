@@ -215,7 +215,7 @@ struct IssueCardView: View {
                     let titleText = issue.displayedTitle(translated: translationVisible)
                     let bodyText = issue.displayedBody(translated: translationVisible)
                     if !titleText.isEmpty || !bodyText.isEmpty {
-                        IssueBodyText(title: titleText, body: bodyText, titleTrailingReserve: metaColumnReserve)
+                        IssueBodyText(title: titleText, body: bodyText, trailingReserve: metaColumnReserve)
                     }
 
                     if isTranslating {
@@ -433,7 +433,7 @@ struct IssueCardView: View {
 struct IssueBodyText: View {
     private let title: String
     private let content: BodyContent
-    private let titleTrailingReserve: CGFloat
+    private let trailingReserve: CGFloat
 
     private enum BodyContent {
         case empty
@@ -449,9 +449,9 @@ struct IssueBodyText: View {
         }
     }
 
-    init(title: String, body: String, titleTrailingReserve: CGFloat = 0) {
+    init(title: String, body: String, trailingReserve: CGFloat = 0) {
         self.title = title
-        self.titleTrailingReserve = titleTrailingReserve
+        self.trailingReserve = trailingReserve
         if body.isEmpty {
             self.content = .empty
         } else {
@@ -462,9 +462,9 @@ struct IssueBodyText: View {
         }
     }
 
-    init(title: String, plainBody: String, titleTrailingReserve: CGFloat = 0) {
+    init(title: String, plainBody: String, trailingReserve: CGFloat = 0) {
         self.title = title
-        self.titleTrailingReserve = titleTrailingReserve
+        self.trailingReserve = trailingReserve
         self.content = plainBody.isEmpty ? .empty : .plain(plainBody)
     }
 
@@ -472,12 +472,12 @@ struct IssueBodyText: View {
         VStack(alignment: .leading, spacing: 6) {
             if !title.isEmpty {
                 styled(Text(title), font: .system(size: 15, weight: .semibold))
-                    .padding(.trailing, titleTrailingReserve)
             }
             if let bodyText = content.text {
                 styled(bodyText, font: .system(size: 13))
             }
         }
+        .padding(.trailing, trailingReserve)
     }
 
     private func styled(_ text: Text, font: Font) -> some View {
