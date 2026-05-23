@@ -101,6 +101,7 @@ final class IntelligenceService: IntelligenceProvider {
 enum IntelligenceError: Error {
     case unavailable
     case empty
+    case unsupportedLanguage
 }
 
 #if canImport(FoundationModels)
@@ -194,6 +195,10 @@ extension IntelligenceService {
             return translated
         } catch {
             print("[Translate] ✗ error: \(error)")
+            if let gen = error as? LanguageModelSession.GenerationError,
+               case .unsupportedLanguageOrLocale = gen {
+                throw IntelligenceError.unsupportedLanguage
+            }
             throw error
         }
     }

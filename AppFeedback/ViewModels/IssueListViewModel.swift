@@ -182,6 +182,30 @@ final class IssueListViewModel {
     private var cacheContext: ModelContext?
     private var translationTasks: [Int: Task<Void, Never>] = [:]
     private(set) var translatingNumbers: Set<Int> = []
+    /// Session-scoped so a transient state can be cleared by a relaunch; the
+    /// on-device model's verdict on language support isn't worth persisting.
+    private(set) var unsupportedSourceLanguages: Set<String> = []
+
+    struct FallbackRequest: Identifiable, Equatable {
+        /// Per-enqueue identity. A second enqueue for the same issue (e.g. after
+        /// `forceRetranslate`) produces a distinct `requestID` so a late-arriving result
+        /// from the first enqueue can be distinguished from a fresh one and dropped.
+        let requestID: UUID
+        let issueNumber: Int
+        let title: String
+        let body: String
+        let detected: String
+        let target: String
+        var id: UUID { requestID }
+    }
+
+    private(set) var pendingFallbacks: [FallbackRequest] = []
+
+    /// Issue numbers granted a one-shot bypass of `unsupportedSourceLanguages` by
+    /// `forceRetranslate`. Consumed by `startTranslationsIfNeeded` so the retry runs
+    /// for this issue only — without un-blacklisting the language for every other
+    /// issue that the on-device model already said it can't handle.
+    private var forcedRetranslateNumbers: Set<Int> = []
 
     func isTranslating(_ issue: FeedbackIssue) -> Bool {
         translatingNumbers.contains(issue.number)
@@ -220,8 +244,14 @@ final class IssueListViewModel {
         translationTasks[issueNumber]?.cancel()
         translationTasks[issueNumber] = nil
         translatingNumbers.remove(issueNumber)
+        pendingFallbacks.removeAll { $0.issueNumber == issueNumber }
 
         if let idx = allIssues.firstIndex(where: { $0.number == issueNumber }) {
+            // Grant a one-shot bypass for this specific issue instead of removing the
+            // language from `unsupportedSourceLanguages`. Removing it would unblock every
+            // other issue in that language and cause repeated re-blacklist storms on the
+            // next sync.
+            forcedRetranslateNumbers.insert(issueNumber)
             allIssues[idx].translatedTitle = nil
             allIssues[idx].translatedBody = nil
             allIssues[idx].translationTargetLanguage = nil
@@ -267,8 +297,16 @@ final class IssueListViewModel {
                 let combined = allIssues[i].title + "\n" + allIssues[i].description
                 allIssues[i].detectedLanguageCode = LanguageDetector.detect(combined) ?? ""
             }
+            let issueNumber = allIssues[i].number
+            let isForced = forcedRetranslateNumbers.contains(issueNumber)
             guard let detected = allIssues[i].detectedLanguageCode, !detected.isEmpty,
-                  !detected.hasPrefix(target) else { continue }
+                  !detected.hasPrefix(target),
+                  isForced || !unsupportedSourceLanguages.contains(detected) else { continue }
+
+            // Consume the one-shot bypass exactly when we commit to running. Leaving
+            // it set across a no-op pass would let a later, unrelated translate-cycle
+            // accidentally bypass the language guard.
+            if isForced { forcedRetranslateNumbers.remove(issueNumber) }
 
             let issue = allIssues[i]
             translatingNumbers.insert(issue.number)
@@ -287,36 +325,143 @@ final class IssueListViewModel {
         guard let provider = intelligenceProvider else { return }
         async let titleT = Self.attemptTranslate(provider: provider, text: issue.title, from: detected, to: target)
         async let bodyT = Self.attemptTranslate(provider: provider, text: issue.description, from: detected, to: target)
-        let newTitle = await titleT
-        let newBody = await bodyT
+        let titleOutcome = await titleT
+        let bodyOutcome = await bodyT
         guard !Task.isCancelled else { return }
 
-        let idx = allIssues.firstIndex(where: { $0.number == issue.number })
+        let newTitle: String? = if case .translated(let s) = titleOutcome { s } else { nil }
+        let newBody: String? = if case .translated(let s) = bodyOutcome { s } else { nil }
 
-        if newTitle == nil && newBody == nil {
-            if let idx { allIssues[idx].translationTargetLanguage = target }
-            if let context = cacheContext {
-                markTranslationAttempt(issueNumber: issue.number, target: target, context: context)
-            }
+        // If either field comes back .unsupportedLanguage, the on-device model is telling
+        // us this source language isn't in its supported set — the Translation framework
+        // fallback should retry the whole issue. Discarding the partial on-device result
+        // is acceptable: the fallback covers both fields and the fallback's outputs are
+        // committed via the same `commitTranslation` path.
+        let titleUnsupported: Bool = if case .unsupportedLanguage = titleOutcome { true } else { false }
+        let bodyUnsupported: Bool = if case .unsupportedLanguage = bodyOutcome { true } else { false }
+        if titleUnsupported || bodyUnsupported {
+            enqueueFallback(for: issue, detected: detected, target: target)
             return
         }
 
-        if let idx {
+        if newTitle == nil && newBody == nil {
+            recordAttempted(issueNumber: issue.number, target: target)
+            return
+        }
+
+        commitTranslation(issueNumber: issue.number, detected: detected, title: newTitle, body: newBody, target: target)
+    }
+
+    @MainActor
+    func applyFallbackTranslation(_ request: FallbackRequest, title: String?, body: String?) {
+        // Match by requestID: if `forceRetranslate` (or a target switch) cleared this
+        // request from the queue between drain dispatch and resume, the entry is gone
+        // and we must NOT write its stale output. A new enqueue gets a fresh requestID,
+        // so an identical-looking re-enqueue won't match either.
+        guard pendingFallbacks.contains(where: { $0.requestID == request.requestID }) else { return }
+        pendingFallbacks.removeAll { $0.requestID == request.requestID }
+        guard title != nil || body != nil else { return }
+        commitTranslation(
+            issueNumber: request.issueNumber,
+            detected: request.detected,
+            title: title,
+            body: body,
+            target: request.target
+        )
+    }
+
+    /// Removes a single fallback request without blacklisting its language.
+    /// Used when the Translation framework threw a transient error (network,
+    /// cancellation) so the queue can keep draining without poisoning the
+    /// whole language for the session.
+    @MainActor
+    func dropPendingFallback(_ request: FallbackRequest) {
+        // Same currency check as `applyFallbackTranslation` — a cancelled request
+        // shouldn't stamp `translationTargetLanguage`, since a fresh translate may
+        // already be in flight.
+        guard pendingFallbacks.contains(where: { $0.requestID == request.requestID }) else { return }
+        pendingFallbacks.removeAll { $0.requestID == request.requestID }
+        recordAttempted(issueNumber: request.issueNumber, target: request.target)
+    }
+
+    @MainActor
+    func markFallbackUnsupported(detectedLanguage: String) {
+        unsupportedSourceLanguages.insert(detectedLanguage)
+        let drained = pendingFallbacks.filter { $0.detected == detectedLanguage }
+        pendingFallbacks.removeAll { $0.detected == detectedLanguage }
+        let indexByNumber = Dictionary(uniqueKeysWithValues: allIssues.enumerated().map { ($1.number, $0) })
+        for req in drained {
+            // Stamp each request with the target IT was enqueued for. Using a single
+            // caller-supplied target would record "attempted at <current target>" for
+            // requests that were enqueued under an earlier target — locking them out of
+            // a retry at the target they were actually meant for.
+            if let idx = indexByNumber[req.issueNumber] {
+                allIssues[idx].translationTargetLanguage = req.target
+            }
+            if let context = cacheContext {
+                markTranslationAttempt(issueNumber: req.issueNumber, target: req.target, context: context)
+            }
+        }
+    }
+
+    /// Records a successful translation in-memory and in the SwiftData cache.
+    /// Shared by the on-device path and the Translation-framework fallback so
+    /// persistence stays in lock-step if its shape changes.
+    ///
+    /// Merge semantics: a nil `title`/`body` parameter means "this side wasn't
+    /// translated this round" — keep the prior value. Without this, a partial
+    /// success (title translated, body errored) would wipe a previously-good body
+    /// translation (including one hydrated from CloudKit via `applyLoaded`).
+    @MainActor
+    private func commitTranslation(issueNumber: Int, detected: String, title: String?, body: String?, target: String) {
+        if let idx = allIssues.firstIndex(where: { $0.number == issueNumber }) {
             allIssues[idx].detectedLanguageCode = detected
-            allIssues[idx].translatedTitle = newTitle
-            allIssues[idx].translatedBody = newBody
+            if let title { allIssues[idx].translatedTitle = title }
+            if let body { allIssues[idx].translatedBody = body }
             allIssues[idx].translationTargetLanguage = target
         }
         if let context = cacheContext {
             persistTranslation(
-                issueNumber: issue.number,
+                issueNumber: issueNumber,
                 detected: detected,
-                title: newTitle,
-                body: newBody,
+                title: title,
+                body: body,
                 target: target,
                 context: context
             )
         }
+    }
+
+    /// Marks an issue as having been attempted for this target language so
+    /// `startTranslationsIfNeeded` won't retry it. Used when translation
+    /// failed but the source language itself isn't being blacklisted.
+    @MainActor
+    private func recordAttempted(issueNumber: Int, target: String) {
+        if let idx = allIssues.firstIndex(where: { $0.number == issueNumber }) {
+            allIssues[idx].translationTargetLanguage = target
+        }
+        if let context = cacheContext {
+            markTranslationAttempt(issueNumber: issueNumber, target: target, context: context)
+        }
+    }
+
+    @MainActor
+    private func enqueueFallback(for issue: FeedbackIssue, detected: String, target: String) {
+        guard !pendingFallbacks.contains(where: { $0.issueNumber == issue.number }) else { return }
+        pendingFallbacks.append(FallbackRequest(
+            requestID: UUID(),
+            issueNumber: issue.number,
+            title: issue.title,
+            body: issue.description,
+            detected: detected,
+            target: target
+        ))
+    }
+
+    enum TranslateAttempt {
+        case translated(String)
+        case unsupportedLanguage
+        case failed
     }
 
     nonisolated private static func attemptTranslate(
@@ -324,9 +469,10 @@ final class IssueListViewModel {
         text: String,
         from: String,
         to: String
-    ) async -> String? {
-        do { return try await provider.translate(text: text, from: from, to: to) }
-        catch { return nil }
+    ) async -> TranslateAttempt {
+        do { return .translated(try await provider.translate(text: text, from: from, to: to)) }
+        catch IntelligenceError.unsupportedLanguage { return .unsupportedLanguage }
+        catch { return .failed }
     }
 
     private func markTranslationAttempt(
@@ -360,8 +506,8 @@ final class IssueListViewModel {
         })
         if let existing = try? context.fetch(descriptor).first {
             existing.detectedLanguageCode = detected
-            existing.translatedTitle = title
-            existing.translatedBody = body
+            if let title { existing.translatedTitle = title }
+            if let body { existing.translatedBody = body }
             existing.translationTargetLanguage = target
             try? context.save()
         }
@@ -394,8 +540,10 @@ final class IssueListViewModel {
         })
         if let row = (try? context.fetch(descriptor))?.first {
             row.detectedLanguageCode = detected
-            row.translatedTitle = title
-            row.translatedBody = body
+            // Same merge semantics as `commitTranslation`: don't clobber a previously
+            // good translation with nil when the current pass only filled one side.
+            if let title { row.translatedTitle = title }
+            if let body { row.translatedBody = body }
             row.updatedAt = Date()
         } else {
             context.insert(IssueTranslation(

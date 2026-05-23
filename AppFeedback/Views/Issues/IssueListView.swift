@@ -66,6 +66,7 @@ struct IssueListView: View {
                 }
             }
         }
+        .background(TranslationFallbackHost(viewModel: viewModel))
         .searchable(text: $viewModel.searchQuery, prompt: "Search issues, apps, emails…")
         #if os(macOS)
         .background(Color(NSColor.controlBackgroundColor))
@@ -213,6 +214,10 @@ struct IssueListView: View {
             targetLanguageCode: targetLanguageCode,
             isTranslating: viewModel.isTranslating(issue),
             isHighlighted: viewModel.highlightedIssueNumber == issue.number,
+            translationUnsupported: {
+                guard let detected = issue.detectedLanguageCode, !detected.isEmpty else { return false }
+                return viewModel.unsupportedSourceLanguages.contains(detected)
+            }(),
             onRetranslate: { viewModel.forceRetranslate(issueNumber: issue.number) }
         )
     }
