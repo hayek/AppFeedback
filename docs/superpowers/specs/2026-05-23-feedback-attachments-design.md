@@ -179,8 +179,9 @@ body: {
 }
 ```
 
-- Path scheme: `attachments/{submissionID}/{sanitizedFilename}`. Submission ID is fresh per submission; never includes the issue number (we don't know it yet). Filename collisions within a submission are resolved by appending ` (n)` before the extension.
+- Path scheme: `attachments/{submissionID}/{sanitizedFilename}`. Submission ID is fresh per submission; never includes the issue number (we don't know it yet).
 - Filename sanitization: strip path separators (`/`, `\`), control characters, NUL. Trim leading/trailing whitespace and dots. If empty after sanitization, fall back to `file.bin`. Percent-encode the URL path segment.
+- Same-submission filename collisions are deduplicated **client-side before the upload loop**: a `(2)`, `(3)`, … suffix is appended before the extension. The Contents API itself would reject the second PUT with 422 ("sha must be supplied for an update") — we avoid that case entirely by uniquifying first.
 - Response payload: GitHub returns `{"content": {"download_url": "..."}}`. We trust `download_url` as the canonical raw URL to embed in the body.
 
 ### Partial-failure semantics
@@ -197,7 +198,26 @@ The PAT must already have `repo` (private) or `public_repo` (public) — the sam
 
 ### Producer (`IssueBodyFormatter`)
 
-After the existing body content, the formatter appends a marker-bounded section when attachments exist:
+The current formatter emits, in order:
+
+```
+{description}
+
+---
+**Device Information:**
+{deviceInfo}
+
+**Contact Email:**
+{email}                      // when present
+
+**{extraKey}:**
+{extraValue}                 // for each, sorted
+
+---
+👍 Votes: 0                  // position-anchored: parsers depend on it being last
+```
+
+The attachments block is inserted **between the extras block and the votes footer** so the votes footer remains the last thing in the body (the inbox reads it positionally). When `attachments` is empty, no markers are emitted at all.
 
 ```markdown
 <!-- attachments-v1 -->
@@ -320,9 +340,13 @@ actor FeedbackAttachmentDownloader {
 Behavior:
 
 1. Check `FeedbackAttachmentLocalStore` for `url`. If present and file exists, return cached path.
-2. Otherwise `GET url` with `Authorization: Bearer <token>` (private repos need the session-equivalent header; PAT works for raw.githubusercontent.com when the repo is private and the token has access).
+2. Resolve the fetch endpoint:
+   - For URLs not under `raw.githubusercontent.com` (e.g. a future external store) — `GET url` directly.
+   - For `raw.githubusercontent.com/<owner>/<repo>/<branch>/<path>` URLs — fetch via the Contents API: `GET /repos/<owner>/<repo>/contents/<path>?ref=<branch>` with `Accept: application/vnd.github.raw` and `Authorization: Bearer <PAT>`. This works uniformly for public and private repos. Direct `raw.githubusercontent.com` bearer-PAT fetches are unreliable since GitHub's "More Secure Private Attachments" GA.
 3. Write atomically into the `FeedbackAttachments/` directory inside Application Support, under `{url-sha256}/{sanitizedFilename}` to avoid name collisions between issues.
 4. Insert `FeedbackAttachmentLocal` row, return URL.
+
+The `url` stored in `FeedbackAttachmentLocal` and embedded in the body is always the canonical `raw.githubusercontent.com` URL (it's the stable identity). The Contents API call is an implementation detail of the downloader.
 
 A `@MainActor`-wrapped `FeedbackAttachmentLocalStore` owns the SwiftData reads/writes; same pattern as `MailAttachmentLocalStore`.
 
@@ -352,6 +376,7 @@ Below the body, before the meta column, a new `AttachmentStripView` component:
 - Non-images second: `AttachmentChipView` reused (extended; see §7 below).
 - Strip wraps to a second line on narrow widths.
 - A long-press / right-click context menu on each item: "Quick Look", "Save As…", "Reveal in Finder" (macOS only), "Copy Link".
+- Tapping any item presents Quick Look with the **full set of issue attachments**, `startingAt:` the tapped index. This gives the user the standard QL gallery — arrow keys / swipe to flip through screenshots in sequence without dismissing. Behind the scenes the presenter awaits the downloader for any URLs that haven't been fetched yet (showing a spinner state on the tapped item until the first URL resolves).
 
 ### `QuickLookPresenter` — shared service
 
@@ -418,7 +443,7 @@ Three affordances, matching the SDK feedback sheet:
 
 Attachments display as the same horizontal strip as in the SDK sheet (thumbnails + chips, each with a remove `x`).
 
-Validation: same SDK limits (3 / 5 MB / 10 MB total). Send is disabled while violated; an inline red banner explains.
+Validation: outbound mail reuses the **same allowlist and the same limits** as the SDK (3 / 5 MB / 10 MB total). Send is disabled while violated; an inline red banner explains. Reuse rationale: a single mental model for "what can I attach" across both surfaces. Image preprocessing is **also applied** on the outbound path — EXIF/GPS stripping is a privacy improvement when replying to a user with an attached screenshot. (Future relaxation: outbound mail could accept a wider allowlist since it doesn't go through GitHub, but defer until there's a concrete reason.)
 
 ### `MailComposer` change
 
@@ -464,6 +489,8 @@ Attachments:
 
 The placeholder expands to empty string when the issue has no attachments.
 
+All inserted values are HTML-entity-encoded before substitution (`&` → `&amp;`, `<` → `&lt;`, `"` → `&quot;`) — filenames and URLs commonly contain ampersands and would otherwise corrupt the HTML structure. The plain-text branch needs no encoding.
+
 ### `PlaceholderContext` change
 
 ```swift
@@ -493,7 +520,7 @@ Phases ordered by side-effect commitment:
 | --- | --- | --- |
 | Sync validation | `attachmentValidation(.tooMany / .fileTooLarge / .totalSizeTooLarge / .unsupportedMimeType)` | None — caller fixes inputs and retries. |
 | Image preprocessing | `attachmentValidation(.imageProcessingFailed(filename))` | None. |
-| Branch ensure | `attachmentUpload(filename: "", underlying:)` | Possibly a created (empty) branch on partial branch-create. Idempotent — next submission's `ensure` succeeds. |
+| Branch ensure | `attachmentUpload(filename: "", underlying:)` | None observable — ref creation is atomic. If the branch was created by a previous submission that later failed, the next submission's ensure no-ops. |
 | Per-file upload (file N of M) | `attachmentUpload(filename, underlying)` | Files 1..N-1 already committed as orphan blobs. No issue created. |
 | Issue create | `transport / httpStatus / decoding` (existing cases) | All M files committed as orphan blobs. No issue created. |
 
