@@ -25,6 +25,7 @@ actor MailSyncCoordinator {
 
     private struct LocalStateSnapshot: Sendable {
         let inboxLastUID: UInt32
+        let inboxUIDValidity: UInt32
         let consecutiveFailures: Int
     }
 
@@ -92,7 +93,7 @@ actor MailSyncCoordinator {
                 let accountID = self.accountID
                 let snapshot = await MainActor.run { () -> (intervalSeconds: Int, pollingEnabled: Bool, consecutiveFailures: Int) in
                     let account = self.accountStore.account(id: accountID)
-                    let failures = self.localState.state?.consecutiveFailures ?? 0
+                    let failures = self.localState.state(accountID: accountID)?.consecutiveFailures ?? 0
                     return (
                         self.settingsStore.settings.pollIntervalSeconds,
                         account?.pollingEnabled ?? true,
@@ -160,6 +161,7 @@ actor MailSyncCoordinator {
             let ls = self.localState.ensure(accountID: accountSnapshot.id)
             return LocalStateSnapshot(
                 inboxLastUID: ls.inboxLastUID,
+                inboxUIDValidity: ls.inboxUIDValidity,
                 consecutiveFailures: ls.consecutiveFailures
             )
         }
@@ -179,10 +181,14 @@ actor MailSyncCoordinator {
 
         let fromAddresses = await MainActor.run { self.threadStore.outboundRecipients() }
         do {
-            let messages = try await client.listInbox(
+            let pollResult = try await client.listInbox(
                 sinceUID: localSnapshot.inboxLastUID,
+                expectedUIDValidity: localSnapshot.inboxUIDValidity,
                 fromAddresses: fromAddresses
             )
+            let messages = pollResult.messages
+            let observedUIDValidity = pollResult.uidValidity
+            let validityChanged = observedUIDValidity != 0 && observedUIDValidity != localSnapshot.inboxUIDValidity
 
             let accountID = self.accountID
             let inserted: [NotificationService.InboundReply] = await MainActor.run {
@@ -209,13 +215,29 @@ actor MailSyncCoordinator {
                 await notificationService.notifyInboundReplies(inserted)
             }
 
-            let maxUID = messages.map(\.uid).max() ?? localSnapshot.inboxLastUID
+            // After a UIDVALIDITY reset, listInbox already searched from UID 0 — so
+            // `messages.map(\.uid).max()` is the new high-water mark. Otherwise the previous
+            // value carries forward when no messages were returned.
+            let baselineUID: UInt32 = validityChanged ? 0 : localSnapshot.inboxLastUID
+            let maxUID = messages.map(\.uid).max() ?? baselineUID
             let now = clock()
 
             await MainActor.run {
-                self.localState.update { ls in
-                    if maxUID > ls.inboxLastUID {
+                self.localState.update(accountID: accountID) { ls in
+                    if validityChanged {
+                        // Hard-reset both fields together — `inboxLastUID` from the old UID
+                        // space is meaningless against the new one.
                         ls.inboxLastUID = maxUID
+                        ls.inboxUIDValidity = observedUIDValidity
+                    } else {
+                        if maxUID > ls.inboxLastUID {
+                            ls.inboxLastUID = maxUID
+                        }
+                        if observedUIDValidity != 0 && ls.inboxUIDValidity != observedUIDValidity {
+                            // First successful poll after install (or after the shared-state
+                            // bug left validity at 0). Record it so future drift can be detected.
+                            ls.inboxUIDValidity = observedUIDValidity
+                        }
                     }
                     ls.lastSuccessfulPollAt = now
                     if ls.consecutiveFailures != 0 { ls.consecutiveFailures = 0 }
@@ -247,7 +269,7 @@ actor MailSyncCoordinator {
             let errorMessage = error.localizedDescription
             status = .transient(error: errorMessage)
             await MainActor.run {
-                self.localState.update { ls in
+                self.localState.update(accountID: accountID) { ls in
                     ls.consecutiveFailures += 1
                 }
                 self.activityLog.finish(logID, status: .failure, detail: errorMessage)
@@ -260,7 +282,7 @@ actor MailSyncCoordinator {
         // Cap backfill attempts to avoid endless retries on persistent failures.
         let maxBackfillFailures = 3
         let currentFailureCount = await MainActor.run {
-            self.localState.state?.backfillFailureCount ?? 0
+            self.localState.state(accountID: accountID)?.backfillFailureCount ?? 0
         }
         if currentFailureCount >= maxBackfillFailures {
             // Already exceeded cap — skip silently (backfillCompleted was flipped on the third failure).
@@ -322,7 +344,7 @@ actor MailSyncCoordinator {
                 self.accountStore.update(id: accountID) { acc in
                     acc.backfillCompleted = true
                 }
-                self.localState.update { ls in
+                self.localState.update(accountID: accountID) { ls in
                     if ls.backfillFailureCount != 0 { ls.backfillFailureCount = 0 }
                 }
                 self.activityLog.finish(
@@ -337,8 +359,8 @@ actor MailSyncCoordinator {
             await MainActor.run {
                 // Increment failure count; after max failures, flip backfillCompleted
                 // so the polling loop stops retrying indefinitely.
-                let newCount = (self.localState.state?.backfillFailureCount ?? 0) + 1
-                self.localState.update { ls in ls.backfillFailureCount = newCount }
+                let newCount = (self.localState.state(accountID: accountID)?.backfillFailureCount ?? 0) + 1
+                self.localState.update(accountID: accountID) { ls in ls.backfillFailureCount = newCount }
 
                 let hitCap = newCount >= maxBackfillFailures
                 if hitCap {

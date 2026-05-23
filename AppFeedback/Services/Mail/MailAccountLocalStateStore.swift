@@ -2,10 +2,13 @@ import Foundation
 import SwiftData
 import Observation
 
+/// Per-account read/write access to `MailAccountLocalState` rows. Every method is keyed by
+/// `accountID` because UID space is per-IMAP-mailbox: caching a single "current" row would
+/// let one account's MailSyncCoordinator stomp on another's `inboxLastUID` between an
+/// `ensure` and a later `update`.
 @MainActor
 @Observable
 final class MailAccountLocalStateStore {
-    private(set) var state: MailAccountLocalState?
     private let context: ModelContext
 
     init(context: ModelContext) {
@@ -15,16 +18,7 @@ final class MailAccountLocalStateStore {
     /// Returns the existing `MailAccountLocalState` row for `accountID`, or inserts a new one.
     @discardableResult
     func ensure(accountID: UUID) -> MailAccountLocalState {
-        // Try to fetch existing
-        var descriptor = FetchDescriptor<MailAccountLocalState>(
-            predicate: #Predicate { $0.accountID == accountID }
-        )
-        descriptor.fetchLimit = 1
-        if let existing = (try? context.fetch(descriptor))?.first {
-            state = existing
-            return existing
-        }
-        // Insert new
+        if let existing = state(accountID: accountID) { return existing }
         let new = MailAccountLocalState(accountID: accountID)
         context.insert(new)
         do {
@@ -32,22 +26,29 @@ final class MailAccountLocalStateStore {
         } catch {
             assertionFailure("MailAccountLocalStateStore save failed: \(error)")
         }
-        state = new
         return new
     }
 
-    /// Wipes all rows and clears in-memory state. Used by Settings → Reset.
+    /// Returns the row for `accountID` without inserting.
+    func state(accountID: UUID) -> MailAccountLocalState? {
+        var descriptor = FetchDescriptor<MailAccountLocalState>(
+            predicate: #Predicate { $0.accountID == accountID }
+        )
+        descriptor.fetchLimit = 1
+        return (try? context.fetch(descriptor))?.first
+    }
+
+    /// Wipes all rows. Used by Settings → Reset.
     func deleteAll() {
         let rows = (try? context.fetch(FetchDescriptor<MailAccountLocalState>())) ?? []
         for r in rows { context.delete(r) }
         try? context.save()
-        state = nil
     }
 
-    /// Mutates the current state (if any) and saves.
-    func update(_ mutate: (MailAccountLocalState) -> Void) {
-        guard let s = state else { return }
-        mutate(s)
+    /// Mutates the row for `accountID` and saves. No-op if no row exists.
+    func update(accountID: UUID, _ mutate: (MailAccountLocalState) -> Void) {
+        guard let row = state(accountID: accountID) else { return }
+        mutate(row)
         do {
             try context.save()
         } catch {

@@ -12,9 +12,9 @@ actor IMAPClientProvider: IMAPClientProtocol {
         self.accountID = accountID
     }
 
-    func listInbox(sinceUID: UInt32, fromAddresses: [String]) async throws -> [ParsedInboundMessage] {
+    func listInbox(sinceUID: UInt32, expectedUIDValidity: UInt32, fromAddresses: [String]) async throws -> InboxPollResult {
         let client = try await makeClient()
-        return try await client.listInbox(sinceUID: sinceUID, fromAddresses: fromAddresses)
+        return try await client.listInbox(sinceUID: sinceUID, expectedUIDValidity: expectedUIDValidity, fromAddresses: fromAddresses)
     }
 
     func listSent(sinceDate: Date) async throws -> [ParsedInboundMessage] {

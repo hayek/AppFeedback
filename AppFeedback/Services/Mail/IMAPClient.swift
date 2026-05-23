@@ -61,9 +61,15 @@ actor IMAPClient: IMAPClientProtocol {
 
     // MARK: - IMAPClientProtocol
 
-    func listInbox(sinceUID: UInt32, fromAddresses: [String]) async throws -> [ParsedInboundMessage] {
+    func listInbox(sinceUID: UInt32, expectedUIDValidity: UInt32, fromAddresses: [String]) async throws -> InboxPollResult {
+        let tag = "[IMAPClient \(username)]"
         // No recipients yet → no replies to look for. Skip the IMAP round-trip entirely.
-        if fromAddresses.isEmpty { return [] }
+        // uidValidity=0 means "unknown" — the caller's next poll will discover the real
+        // value once it has recipients to search for.
+        if fromAddresses.isEmpty {
+            print("\(tag) listInbox: skipped — fromAddresses empty (sinceUID=\(sinceUID))")
+            return InboxPollResult(messages: [], uidValidity: 0)
+        }
 
         let server = IMAPServer(host: host, port: port)
         try await connectAndLogin(server)
@@ -73,34 +79,61 @@ actor IMAPClient: IMAPClientProtocol {
         let folder = imapInboxName
         let uidValidity = selection.uidValidity.value
 
+        // Decide whether the stored `sinceUID` is trustworthy. Two cases force a reset:
+        //   1. expectedUIDValidity != 0 and != observed → server reassigned UID space
+        //      (mailbox recreated, restored from backup).
+        //   2. expectedUIDValidity == 0 but sinceUID > 0 → we have a watermark with no
+        //      validity anchor, so we can't tell which UID space it came from. This is
+        //      the contamination case left by the old shared-`state` bug. Healing in one
+        //      poll (instead of two) avoids a follow-up cycle of redundant SEARCHes.
+        let effectiveSinceUID: UInt32
+        if expectedUIDValidity != 0 && expectedUIDValidity != uidValidity {
+            print("\(tag) listInbox: UIDVALIDITY changed \(expectedUIDValidity) → \(uidValidity), resetting sinceUID from \(sinceUID) to 0")
+            effectiveSinceUID = 0
+        } else if expectedUIDValidity == 0 && sinceUID > 0 {
+            print("\(tag) listInbox: no stored UIDVALIDITY but sinceUID=\(sinceUID); resetting to 0 to anchor against observed UIDVALIDITY=\(uidValidity)")
+            effectiveSinceUID = 0
+        } else {
+            effectiveSinceUID = sinceUID
+        }
+
         // Server-side filter: replies come from people we wrote to. Gmail indexes FROM
         // efficiently. Run one SEARCH per recipient and union locally — chained ORs and
         // non-ASCII quoted strings both produce `BAD Could not parse command` on Gmail,
         // so we avoid both: bare ASCII addr@domain, one SEARCH per recipient.
         let cleanedAddresses = Array(Set(fromAddresses.compactMap(MailAddress.bare)))
-        if cleanedAddresses.isEmpty { return [] }
+        print("\(tag) listInbox: INBOX selected uidValidity=\(uidValidity), effectiveSinceUID=\(effectiveSinceUID), fromAddresses=\(fromAddresses.count), cleaned=\(cleanedAddresses)")
+        // Mirror the `fromAddresses.isEmpty` branch: we did no real search, so leave
+        // `uidValidity=0` to avoid committing a watermark we never anchored.
+        if cleanedAddresses.isEmpty { return InboxPollResult(messages: [], uidValidity: 0) }
         let infos: [MessageInfo] = try await mapped {
             // SwiftMail serializes commands per IMAPServer connection, so issuing the
             // SEARCHes in parallel from a task group still walks the wire one-at-a-time
             // — but it overlaps SwiftMail's per-command processing with the next
             // network round-trip and removes the await-chain stalls between them.
             let unionUIDs: Set<UInt32> = try await withThrowingTaskGroup(
-                of: [UInt32].self,
+                of: (String, [UInt32]).self,
                 returning: Set<UInt32>.self
             ) { group in
                 for addr in cleanedAddresses {
                     group.addTask {
                         let hits: MessageIdentifierSet<UID> = try await server.search(criteria: [.from(addr)])
-                        return hits.toArray().map(\.value)
+                        return (addr, hits.toArray().map(\.value))
                     }
                 }
                 var union: Set<UInt32> = []
-                for try await batch in group { union.formUnion(batch) }
+                for try await (addr, batch) in group {
+                    print("\(tag)   SEARCH FROM \(addr) → \(batch.count) UID(s): \(batch.sorted())")
+                    union.formUnion(batch)
+                }
                 return union
             }
-            let unseen = unionUIDs.filter { $0 > sinceUID }
+            let unseen = unionUIDs.filter { $0 > effectiveSinceUID }
+            print("\(tag) listInbox: union=\(unionUIDs.count), unseen(>\(effectiveSinceUID))=\(unseen.count): \(unseen.sorted())")
             if unseen.isEmpty { return [] }
-            return try await server.fetchMessageInfosBulk(using: MessageIdentifierSet(unseen.map { UID($0) }))
+            let fetched = try await server.fetchMessageInfosBulk(using: MessageIdentifierSet(unseen.map { UID($0) }))
+            print("\(tag) listInbox: fetchMessageInfosBulk returned \(fetched.count) info(s)")
+            return fetched
         }
 
         var results: [ParsedInboundMessage] = []
@@ -111,10 +144,11 @@ actor IMAPClient: IMAPClientProtocol {
             } catch is CancellationError {
                 throw IMAPClientError.cancelled
             } catch {
-                print("[IMAPClient] Skipping message uid=\(info.uid?.value ?? 0): \(error)")
+                print("\(tag) Skipping message uid=\(info.uid?.value ?? 0): \(error)")
             }
         }
-        return results
+        print("\(tag) listInbox: returning \(results.count) parsed message(s), uidValidity=\(uidValidity)")
+        return InboxPollResult(messages: results, uidValidity: uidValidity)
     }
 
     func listSent(sinceDate: Date) async throws -> [ParsedInboundMessage] {

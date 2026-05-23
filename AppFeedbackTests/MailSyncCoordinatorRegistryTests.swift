@@ -65,7 +65,7 @@ final class MailSyncCoordinatorRegistryTests: XCTestCase {
 }
 
 fileprivate struct NoopIMAPClient: IMAPClientProtocol {
-    func listInbox(sinceUID: UInt32, fromAddresses: [String]) async throws -> [ParsedInboundMessage] { [] }
+    func listInbox(sinceUID: UInt32, expectedUIDValidity: UInt32, fromAddresses: [String]) async throws -> InboxPollResult { InboxPollResult(messages: [], uidValidity: 0) }
     func listSent(sinceDate: Date) async throws -> [ParsedInboundMessage] { [] }
     func fetchAttachmentBytes(uid: UInt32, folder: String, partID: String) async throws -> Data { Data() }
     func testConnection() async throws {}

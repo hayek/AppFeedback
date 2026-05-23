@@ -10,12 +10,12 @@ final class MockIMAPClient: IMAPClientProtocol, @unchecked Sendable {
     var inboxCallCount = 0
     var sentCallCount = 0
 
-    func listInbox(sinceUID: UInt32, fromAddresses: [String]) async throws -> [ParsedInboundMessage] {
+    func listInbox(sinceUID: UInt32, expectedUIDValidity: UInt32, fromAddresses: [String]) async throws -> InboxPollResult {
         inboxCallCount += 1
-        guard !inboxResponses.isEmpty else { return [] }
+        guard !inboxResponses.isEmpty else { return InboxPollResult(messages: [], uidValidity: 0) }
         let result = inboxResponses.removeFirst()
         switch result {
-        case .success(let msgs): return msgs
+        case .success(let msgs): return InboxPollResult(messages: msgs, uidValidity: 0)
         case .failure(let err): throw err
         }
     }
@@ -163,7 +163,7 @@ final class MailSyncCoordinatorTests: XCTestCase {
         XCTAssertEqual(status, .authFailed(message: "IMAP login failed — re-enter password"))
 
         // consecutiveFailures should NOT be incremented by auth failures
-        let failures = localStateStore.state?.consecutiveFailures ?? 0
+        let failures = localStateStore.state(accountID: accountID)?.consecutiveFailures ?? 0
         XCTAssertEqual(failures, 0, "Auth failure should not increment consecutiveFailures")
     }
 
@@ -291,7 +291,7 @@ final class MailSyncCoordinatorTests: XCTestCase {
             XCTFail("Expected .transient status, got \(status)")
         }
 
-        let failures = localStateStore.state?.consecutiveFailures ?? 0
+        let failures = localStateStore.state(accountID: accountID)?.consecutiveFailures ?? 0
         XCTAssertEqual(failures, 1, "consecutiveFailures should be 1 after first transient error")
     }
 
@@ -334,12 +334,12 @@ actor SlowMockIMAPClient: IMAPClientProtocol {
         gate = nil
     }
 
-    func listInbox(sinceUID: UInt32, fromAddresses: [String]) async throws -> [ParsedInboundMessage] {
+    func listInbox(sinceUID: UInt32, expectedUIDValidity: UInt32, fromAddresses: [String]) async throws -> InboxPollResult {
         inboxCallCount += 1
         entered?.resume()
         entered = nil
         await withCheckedContinuation { cont in self.gate = cont }
-        return []
+        return InboxPollResult(messages: [], uidValidity: 0)
     }
 
     func listSent(sinceDate: Date) async throws -> [ParsedInboundMessage] { [] }
