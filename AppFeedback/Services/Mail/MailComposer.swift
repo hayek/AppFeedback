@@ -30,7 +30,8 @@ struct MailComposer {
         context: PlaceholderContext,
         template: MailTemplate,
         messageID: String? = nil,
-        replyHeaders: ReplyHeaderBuilder.Output? = nil
+        replyHeaders: ReplyHeaderBuilder.Output? = nil,
+        attachments: [PendingAttachment] = []
     ) -> SwiftMail.Email {
         let bodyHTML = htmlForBody(draft.body)
         let bodyText = draft.body.string
@@ -76,6 +77,11 @@ struct MailComposer {
                 headers["References"] = reply.references.joined(separator: " ")
             }
             email.additionalHeaders = headers
+        }
+        if !attachments.isEmpty {
+            email.attachments = attachments.map { p in
+                SwiftMail.Attachment(filename: p.filename, mimeType: p.mimeType, data: p.data)
+            }
         }
         return email
     }

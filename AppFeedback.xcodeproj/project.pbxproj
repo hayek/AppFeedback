@@ -283,6 +283,7 @@
 		CFB7DFF1613F2110DBC69959 /* AppFeedbackCore in Frameworks */ = {isa = PBXBuildFile; productRef = D03D6AD2C9193D81AD3AE68C /* AppFeedbackCore */; };
 		D104F981DAC28D4538ED955C /* MailTypes.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0D96B99A93590344411F42CD /* MailTypes.swift */; };
 		D11BAB9700062D5C711C2F8F /* FeedbackAttachmentDownloaderTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5A1D13BE3354A212421BD0EA /* FeedbackAttachmentDownloaderTests.swift */; };
+		D21C6687459573203D428F72 /* MailComposerAttachmentsTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0CAF8EE65467794F8593A379 /* MailComposerAttachmentsTests.swift */; };
 		D2AAD0F221FFFD10CE096AFC /* FeedbackAttachmentDownloaderTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5A1D13BE3354A212421BD0EA /* FeedbackAttachmentDownloaderTests.swift */; };
 		D38AA4167A78B8BD640F5F0C /* ActivityWindow.swift in Sources */ = {isa = PBXBuildFile; fileRef = A3CCABE70C4F9C2F242C34A3 /* ActivityWindow.swift */; };
 		D3990F861F37DD8DF2097FDF /* IssueSummaryCache.swift in Sources */ = {isa = PBXBuildFile; fileRef = 08B2F8AEAB3D04A844839223 /* IssueSummaryCache.swift */; };
@@ -336,6 +337,7 @@
 		F3CE932101925DBF69422ACE /* MailAccountLocalStateStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 93B756CB500E6F04BB86F616 /* MailAccountLocalStateStore.swift */; };
 		F3FAF87B2312BC3503812AA9 /* IssueBodyParserShimAttachmentsTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = F03BE01A331F874716EF460F /* IssueBodyParserShimAttachmentsTests.swift */; };
 		F40035D3B5FB88C445388ECA /* IMAPClientProtocol.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6C5847A18DBDA3AD4EF3EEFD /* IMAPClientProtocol.swift */; };
+		F492AA8667DB0AA797D221A3 /* MailComposerAttachmentsTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0CAF8EE65467794F8593A379 /* MailComposerAttachmentsTests.swift */; };
 		F4A10388C761178F5BBDD845 /* CloudSyncStatus.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4EADC7EBFDDAE8FAAA839A09 /* CloudSyncStatus.swift */; };
 		F5B2D0B5A9FE2FB3A5B87A8C /* MailSyncCoordinatorRegistryTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 971BB832E0B807BC061049FB /* MailSyncCoordinatorRegistryTests.swift */; };
 		F5E83CB89F5F135F10AD6A47 /* IntelligenceSettingsSection.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6C81A296860E49F3AC70386D /* IntelligenceSettingsSection.swift */; };
@@ -380,6 +382,7 @@
 		07F4F74C21ED56A576353D2B /* iOSBackgroundRefreshDriver.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = iOSBackgroundRefreshDriver.swift; sourceTree = "<group>"; };
 		08B2F8AEAB3D04A844839223 /* IssueSummaryCache.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = IssueSummaryCache.swift; sourceTree = "<group>"; };
 		099FDFBBED4F15803BBAC851 /* IssueTranslation.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = IssueTranslation.swift; sourceTree = "<group>"; };
+		0CAF8EE65467794F8593A379 /* MailComposerAttachmentsTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MailComposerAttachmentsTests.swift; sourceTree = "<group>"; };
 		0D96B99A93590344411F42CD /* MailTypes.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MailTypes.swift; sourceTree = "<group>"; };
 		0DD82DEA5ABC2097581AEBB9 /* MailMessageRowView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MailMessageRowView.swift; sourceTree = "<group>"; };
 		0FC01BF334B5D65CF0147005 /* MailComposer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MailComposer.swift; sourceTree = "<group>"; };
@@ -828,6 +831,7 @@
 				C820036DA685AB28006B7941 /* LanguageDetectorTests.swift */,
 				78B64902EBFA643CA5B6BB2B /* MailAccountMigrationTests.swift */,
 				D8AAA23A1C319EADB6C477E9 /* MailAccountStoreTests.swift */,
+				0CAF8EE65467794F8593A379 /* MailComposerAttachmentsTests.swift */,
 				23A9BA2E68773A9401ABCE89 /* MailComposerTests.swift */,
 				E5C6263279C20E2145346F0B /* MailDraftStoreTests.swift */,
 				41A259F8580D4738755D4CC2 /* MailSettingsStoreTests.swift */,
@@ -1202,6 +1206,7 @@
 				13FBCDDC9A5DD54B6DA3002B /* LanguageDetectorTests.swift in Sources */,
 				C1F0221E07C29AE50FB4D45F /* MailAccountMigrationTests.swift in Sources */,
 				8192DDA72C5F679CEE06DCE8 /* MailAccountStoreTests.swift in Sources */,
+				D21C6687459573203D428F72 /* MailComposerAttachmentsTests.swift in Sources */,
 				DECF813444D0EBF84A396179 /* MailComposerTests.swift in Sources */,
 				4AD2B7B5703446AAF0697B2C /* MailDraftStoreTests.swift in Sources */,
 				24E40F9E59AB220C2739FF57 /* MailSettingsStoreTests.swift in Sources */,
@@ -1384,6 +1389,7 @@
 				DAE3BF47B7041F2C51C9D009 /* LanguageDetectorTests.swift in Sources */,
 				DC5344E897AE43C37E2DA4EB /* MailAccountMigrationTests.swift in Sources */,
 				CF3B46C5D3FAF8C7978DA90A /* MailAccountStoreTests.swift in Sources */,
+				F492AA8667DB0AA797D221A3 /* MailComposerAttachmentsTests.swift in Sources */,
 				8252793B884DF31E2DEBA41E /* MailComposerTests.swift in Sources */,
 				327F963289185B4696956AC7 /* MailDraftStoreTests.swift in Sources */,
 				6604F5C9B9D507FABADF9B32 /* MailSettingsStoreTests.swift in Sources */,
