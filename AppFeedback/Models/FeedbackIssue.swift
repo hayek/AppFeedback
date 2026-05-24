@@ -60,8 +60,49 @@ struct FeedbackIssue: Identifiable, Codable, Sendable {
     var translatedTitle: String?
     var translatedBody: String?
     var translationTargetLanguage: String?
+    var attachments: [FeedbackAttachmentRef] = []
 
     var id: Int { number }
+
+    init(
+        number: Int,
+        title: String,
+        createdAt: Date,
+        rawBody: String,
+        appName: String?,
+        appVersion: String?,
+        device: String?,
+        osVersion: String?,
+        email: String?,
+        description: String,
+        labels: [IssueLabel],
+        updatedAt: Date? = nil,
+        state: IssueState? = nil,
+        detectedLanguageCode: String? = nil,
+        translatedTitle: String? = nil,
+        translatedBody: String? = nil,
+        translationTargetLanguage: String? = nil,
+        attachments: [FeedbackAttachmentRef] = []
+    ) {
+        self.number = number
+        self.title = title
+        self.createdAt = createdAt
+        self.rawBody = rawBody
+        self.appName = appName
+        self.appVersion = appVersion
+        self.device = device
+        self.osVersion = osVersion
+        self.email = email
+        self.description = description
+        self.labels = labels
+        self.updatedAt = updatedAt
+        self.state = state
+        self.detectedLanguageCode = detectedLanguageCode
+        self.translatedTitle = translatedTitle
+        self.translatedBody = translatedBody
+        self.translationTargetLanguage = translationTargetLanguage
+        self.attachments = attachments
+    }
 
     func displayedTitle(translated: Bool) -> String {
         translated ? (translatedTitle ?? title) : title

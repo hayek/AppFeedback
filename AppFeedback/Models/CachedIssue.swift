@@ -24,6 +24,7 @@ final class CachedIssue {
     var translatedTitle: String?
     var translatedBody: String?
     var translationTargetLanguage: String?
+    var attachmentsJSON: String?
 
     init(
         repoOwner: String,
@@ -75,12 +76,13 @@ final class CachedIssue {
             detectedLanguageCode: detectedLanguageCode,
             translatedTitle: translatedTitle,
             translatedBody: translatedBody,
-            translationTargetLanguage: translationTargetLanguage
+            translationTargetLanguage: translationTargetLanguage,
+            attachments: Self.decodeAttachments(attachmentsJSON)
         )
     }
 
     static func from(_ issue: FeedbackIssue, repoOwner: String, repoName: String) -> CachedIssue {
-        CachedIssue(
+        let cached = CachedIssue(
             repoOwner: repoOwner,
             repoName: repoName,
             number: issue.number,
@@ -97,6 +99,8 @@ final class CachedIssue {
             issueDescription: issue.description,
             labels: issue.labels
         )
+        cached.attachmentsJSON = Self.encodeAttachments(issue.attachments)
+        return cached
     }
 
     /// Updates GitHub-side fields in place. Translation fields are intentionally untouched
@@ -114,6 +118,7 @@ final class CachedIssue {
         self.email = issue.email
         self.issueDescription = issue.description
         self.labelsJSON = Self.encodeLabels(issue.labels)
+        self.attachmentsJSON = Self.encodeAttachments(issue.attachments)
     }
 
     static func encodeLabels(_ labels: [IssueLabel]) -> String? {
@@ -124,5 +129,15 @@ final class CachedIssue {
     static func decodeLabels(_ json: String?) -> [IssueLabel] {
         guard let json, let data = json.data(using: .utf8) else { return [] }
         return (try? JSONDecoder().decode([IssueLabel].self, from: data)) ?? []
+    }
+
+    static func encodeAttachments(_ refs: [FeedbackAttachmentRef]) -> String? {
+        guard !refs.isEmpty, let data = try? JSONEncoder().encode(refs) else { return nil }
+        return String(data: data, encoding: .utf8)
+    }
+
+    static func decodeAttachments(_ json: String?) -> [FeedbackAttachmentRef] {
+        guard let json, let data = json.data(using: .utf8) else { return [] }
+        return (try? JSONDecoder().decode([FeedbackAttachmentRef].self, from: data)) ?? []
     }
 }
