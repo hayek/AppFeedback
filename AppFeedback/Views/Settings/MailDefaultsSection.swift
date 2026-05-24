@@ -320,6 +320,7 @@ struct MailPlaceholdersList: View {
         .init(token: "{{issue_title}}",     descriptionText: "Title of the issue"),
         .init(token: "{{issue_url}}",       descriptionText: "Link to the issue"),
         .init(token: "{{feedback_body}}",   descriptionText: "Original feedback description"),
+        .init(token: "{{feedback_attachments}}", descriptionText: "Feedback attachments (images and files)"),
         .init(token: "{{date}}",            descriptionText: "Current date and time")
     ]
 }

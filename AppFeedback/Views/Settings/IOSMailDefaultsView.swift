@@ -160,6 +160,7 @@ struct IOSMailDefaultsView: View {
         .init(token: "{{issue_title}}", descriptionText: "Issue title"),
         .init(token: "{{issue_url}}", descriptionText: "Issue URL"),
         .init(token: "{{feedback_body}}", descriptionText: "Original feedback description"),
+        .init(token: "{{feedback_attachments}}", descriptionText: "Attachments (images and files)"),
         .init(token: "{{date}}", descriptionText: "Current date and time")
     ]
 }
