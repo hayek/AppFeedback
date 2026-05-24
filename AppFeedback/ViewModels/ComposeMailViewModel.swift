@@ -195,10 +195,19 @@ final class ComposeMailViewModel {
             defer { url.stopAccessingSecurityScopedResource() }
             guard let data = try? Data(contentsOf: url) else { continue }
             let mime = mimeType(for: url)
+            // Preprocess images (EXIF/GPS strip, HEIC→JPEG) before pinning to PendingAttachment.
+            let modeled = FeedbackAttachment(filename: url.lastPathComponent, mimeType: mime, data: data)
+            let processed: FeedbackAttachment
+            do {
+                processed = try ImagePreprocessor.process(modeled)
+            } catch {
+                // Skip files that fail preprocessing — they would be rejected on submit anyway.
+                continue
+            }
             pendingAttachments.append(PendingAttachment(
-                filename: url.lastPathComponent,
-                mimeType: mime,
-                data: data
+                filename: processed.filename,
+                mimeType: processed.mimeType,
+                data: processed.data
             ))
         }
         revalidateAttachments()
@@ -250,21 +259,38 @@ final class ComposeMailViewModel {
 
     #if os(macOS)
     func handleDrop(providers: [NSItemProvider]) {
-        var urls: [URL] = []
+        let collector = URLCollector()
         let group = DispatchGroup()
         for p in providers {
             group.enter()
             p.loadItem(forTypeIdentifier: UTType.fileURL.identifier, options: nil) { item, _ in
                 if let data = item as? Data, let url = URL(dataRepresentation: data, relativeTo: nil) {
-                    urls.append(url)
+                    collector.append(url)
                 } else if let url = item as? URL {
-                    urls.append(url)
+                    collector.append(url)
                 }
                 group.leave()
             }
         }
-        group.notify(queue: .main) { self.ingestURLs(urls) }
+        group.notify(queue: .main) { [collector] in
+            self.ingestURLs(collector.urls)
+        }
     }
     #endif
+
+    // MARK: -
+
+    private final class URLCollector: @unchecked Sendable {
+        private let lock = NSLock()
+        private var _urls: [URL] = []
+        var urls: [URL] {
+            lock.lock(); defer { lock.unlock() }
+            return _urls
+        }
+        func append(_ url: URL) {
+            lock.lock(); defer { lock.unlock() }
+            _urls.append(url)
+        }
+    }
 }
 #endif
