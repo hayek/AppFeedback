@@ -87,6 +87,7 @@
 		3D2D22659A73D049363DE6D9 /* IssueCardView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7B47F8578C6AACFA2B16D08C /* IssueCardView.swift */; };
 		3DEEB676E7D13F5AA313F97C /* HTMLSanitizer.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1F35CF9445124909B460DEC /* HTMLSanitizer.swift */; };
 		3E0DE421ADF58833B980B8EA /* IMAPClientProtocol.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6C5847A18DBDA3AD4EF3EEFD /* IMAPClientProtocol.swift */; };
+		3F0525D8ECA63561C71AE327 /* FeedbackAttachmentLocal.swift in Sources */ = {isa = PBXBuildFile; fileRef = F0D9732025539091DDA60796 /* FeedbackAttachmentLocal.swift */; };
 		3F5B521DE12C89725A89F562 /* RepoSectionView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 246E5DA82B7EDBD9337F68E9 /* RepoSectionView.swift */; };
 		417E51CB3895A64418FC3CD0 /* IntelligenceSettingsTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 99AFF17F125B757AF2DDA56C /* IntelligenceSettingsTests.swift */; };
 		41B72E1D883407E28AC5E6CB /* MailAccountStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 86D913610C499CDB7C15463E /* MailAccountStore.swift */; };
@@ -94,6 +95,7 @@
 		435936822AEB08C20B9BB40E /* SettingsTabBar.swift in Sources */ = {isa = PBXBuildFile; fileRef = F6CC5C4D19E1784830D4E8FF /* SettingsTabBar.swift */; };
 		43C5D32D5EC056549E7A602F /* MailDraftStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8DD092EC30F14CBD7F2EDD0B /* MailDraftStore.swift */; };
 		4630F99F04FA2ACAC0C122FF /* AppRowView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 74EC251FE14CC5A2EFB9BB14 /* AppRowView.swift */; };
+		4683C6E5086D509090B2CAFC /* FeedbackAttachmentLocal.swift in Sources */ = {isa = PBXBuildFile; fileRef = F0D9732025539091DDA60796 /* FeedbackAttachmentLocal.swift */; };
 		46AB43CBAC5B913E326CFDF3 /* HTMLSanitizerTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = AE7215BA1A0BAA6222B021CC /* HTMLSanitizerTests.swift */; };
 		46BEFF35C8798704AD389CE8 /* IMAPSyntheticIDTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 067DE9EAC993F3796314B998 /* IMAPSyntheticIDTests.swift */; };
 		498F0869FEC01004955BBB8D /* AddEditRepoView.swift in Sources */ = {isa = PBXBuildFile; fileRef = DA2585A8442E3BBFF49D6958 /* AddEditRepoView.swift */; };
@@ -515,6 +517,7 @@
 		ED152BDBBB643F768E8F162F /* CachedIssue.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CachedIssue.swift; sourceTree = "<group>"; };
 		ED45644F876811CA79E17198 /* IMAPClientError.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = IMAPClientError.swift; sourceTree = "<group>"; };
 		F03BE01A331F874716EF460F /* IssueBodyParserShimAttachmentsTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = IssueBodyParserShimAttachmentsTests.swift; sourceTree = "<group>"; };
+		F0D9732025539091DDA60796 /* FeedbackAttachmentLocal.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FeedbackAttachmentLocal.swift; sourceTree = "<group>"; };
 		F21997922568B439D705E5DA /* UnreadSummaryViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UnreadSummaryViewModel.swift; sourceTree = "<group>"; };
 		F3AC2A1A49FFA4A03F179B09 /* MessageIDGeneratorTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MessageIDGeneratorTests.swift; sourceTree = "<group>"; };
 		F4CA31D8EBA15B135854E873 /* FeedbackIssue.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FeedbackIssue.swift; sourceTree = "<group>"; };
@@ -719,6 +722,7 @@
 			isa = PBXGroup;
 			children = (
 				ED152BDBBB643F768E8F162F /* CachedIssue.swift */,
+				F0D9732025539091DDA60796 /* FeedbackAttachmentLocal.swift */,
 				E83E9C9CBD8ED97EDC04C8AD /* FeedbackAttachmentRef.swift */,
 				F4CA31D8EBA15B135854E873 /* FeedbackIssue.swift */,
 				DD959DEDBC95A458BAD75F14 /* GitHubAuthModels.swift */,
@@ -1045,6 +1049,7 @@
 				CD0C5889E2228FFF84AD45DE /* EmailAccountEditorSheet.swift in Sources */,
 				EE4C68C70F3FDD4D04ADD1E1 /* EmailAccountList.swift in Sources */,
 				8FBD0F509C7C35FC4F31F0EF /* EmailSettingsView.swift in Sources */,
+				3F0525D8ECA63561C71AE327 /* FeedbackAttachmentLocal.swift in Sources */,
 				F69F60E4390A03A588C79CF3 /* FeedbackAttachmentRef.swift in Sources */,
 				C9CAB46A8636312907588E63 /* FeedbackIssue.swift in Sources */,
 				79081346B12D94B6E60A2D42 /* FilterBarView.swift in Sources */,
@@ -1220,6 +1225,7 @@
 				CE96DAAED58582F1388358FE /* EmailAccountEditorSheet.swift in Sources */,
 				B6FCA0A038E78F1D56018AC9 /* EmailAccountList.swift in Sources */,
 				7ED89EB752383D353A3734D7 /* EmailSettingsView.swift in Sources */,
+				4683C6E5086D509090B2CAFC /* FeedbackAttachmentLocal.swift in Sources */,
 				97ECB19D9BC43B646D2D2AC1 /* FeedbackAttachmentRef.swift in Sources */,
 				E3611B8BC7E8C7EE99D7407D /* FeedbackIssue.swift in Sources */,
 				6F4322ADD276DC8E84E3ACEF /* FilterBarView.swift in Sources */,
