@@ -19,6 +19,7 @@ struct PlaceholderContext: Sendable {
     var issueTitle: String?
     var issueURL: URL?
     var feedbackBody: String?
+    var feedbackAttachments: [FeedbackAttachmentRef] = []
     var date: Date
 }
 
