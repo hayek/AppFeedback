@@ -352,6 +352,7 @@ final class MailThreadStore {
                 filename: meta.filename,
                 mimeType: meta.mimeType,
                 sizeBytes: meta.sizeBytes,
+                contentID: meta.contentID,
                 message: msg
             )
             context.insert(attachment)

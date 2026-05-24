@@ -325,23 +325,7 @@ actor IMAPClient: IMAPClientProtocol {
         }
 
         // 5. Build attachment metadata from the structure (no bytes).
-        let attachments: [ParsedAttachmentMeta] = structure.compactMap { part -> ParsedAttachmentMeta? in
-            let ct = part.contentType.lowercased()
-            let disp = part.disposition?.lowercased()
-            let hasFilename = !(part.filename?.isEmpty ?? true)
-            let isExplicitAttachment = disp == "attachment"
-            let hasFileNotInline = hasFilename && disp != "inline"
-            let isCalendar = ct.hasPrefix("text/calendar")
-            guard isExplicitAttachment || hasFileNotInline || isCalendar else { return nil }
-            return ParsedAttachmentMeta(
-                partID: part.section.description,
-                filename: part.suggestedFilename,
-                mimeType: String(part.contentType.split(separator: ";").first ?? "application/octet-stream"),
-                // data is nil here (structure-only); sizeBytes will be 0 until we add
-                // BODYSTRUCTURE octet-count exposure in SwiftMail.
-                sizeBytes: part.data?.count ?? 0
-            )
-        }
+        let attachments = Self.classifyAttachments(in: structure)
 
         return Self.parse(
             info: info,
@@ -351,6 +335,44 @@ actor IMAPClient: IMAPClientProtocol {
             bodyHTML: bodyHTML,
             attachments: attachments
         )
+    }
+
+    // MARK: - Static attachment classifier
+    //
+    // Promoted to a named static function so it can be exercised directly in unit tests
+    // without a live IMAP connection.  Four predicates are evaluated per part:
+    //   1. isExplicitAttachment — Content-Disposition: attachment
+    //   2. hasFileNotInline     — has a filename and disposition != inline
+    //   3. isCalendar           — text/calendar (Outlook invites often lack a filename)
+    //   4. isInlineImage        — Content-Disposition: inline (or absent) + Content-ID + image/* MIME
+    //
+    // The fourth predicate is new (Task 2 of the inline-mail-images plan).
+
+    static func classifyAttachments(in structure: [MessagePart]) -> [ParsedAttachmentMeta] {
+        structure.compactMap { part -> ParsedAttachmentMeta? in
+            let ct = part.contentType.lowercased()
+            let disp = part.disposition?.lowercased()
+            let hasFilename = !(part.filename?.isEmpty ?? true)
+            let isExplicitAttachment = disp == "attachment"
+            let hasFileNotInline = hasFilename && disp != "inline"
+            let isCalendar = ct.hasPrefix("text/calendar")
+            // Treat empty string as nil for defensive symmetry (SwiftMail strips angle brackets
+            // but may still produce an empty string for malformed Content-ID headers).
+            let contentID = part.contentId.flatMap { $0.isEmpty ? nil : $0 }
+            let isInlineImage = (disp == "inline" || disp == nil)
+                && contentID != nil
+                && ct.hasPrefix("image/")
+            guard isExplicitAttachment || hasFileNotInline || isCalendar || isInlineImage else { return nil }
+            return ParsedAttachmentMeta(
+                partID: part.section.description,
+                filename: part.suggestedFilename,
+                mimeType: String(part.contentType.split(separator: ";").first ?? "application/octet-stream"),
+                // data is nil here (structure-only); sizeBytes will be 0 until we add
+                // BODYSTRUCTURE octet-count exposure in SwiftMail.
+                sizeBytes: part.data?.count ?? 0,
+                contentID: contentID
+            )
+        }
     }
 
     // MARK: - Static parsing helper

@@ -23,4 +23,13 @@ struct ParsedAttachmentMeta: Sendable, Equatable {
     let filename: String
     let mimeType: String
     let sizeBytes: Int
+    let contentID: String?
+
+    init(partID: String, filename: String, mimeType: String, sizeBytes: Int, contentID: String? = nil) {
+        self.partID = partID
+        self.filename = filename
+        self.mimeType = mimeType
+        self.sizeBytes = sizeBytes
+        self.contentID = contentID
+    }
 }
