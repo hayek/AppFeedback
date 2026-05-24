@@ -110,6 +110,9 @@ struct MailComposer {
         guard !attachments.isEmpty else { return "" }
         var html = "<div class=\"feedback-attachments\">"
         for a in attachments {
+            // Only emit http/https URLs into the email body.
+            guard let scheme = a.url.scheme?.lowercased(),
+                  scheme == "https" || scheme == "http" else { continue }
             let encodedURL = htmlEncode(a.url.absoluteString)
             let encodedName = htmlEncode(a.filename)
             if a.isImage {
@@ -131,6 +134,7 @@ struct MailComposer {
          .replacingOccurrences(of: "<", with: "&lt;")
          .replacingOccurrences(of: ">", with: "&gt;")
          .replacingOccurrences(of: "\"", with: "&quot;")
+         .replacingOccurrences(of: "'", with: "&#39;")
     }
 
     // MARK: - Body conversion

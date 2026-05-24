@@ -10,7 +10,6 @@ struct AttachmentChipView: View {
     let downloader: AttachmentDownloader?
     let folderBookmark: Data?
 
-    let feedbackAttachment: FeedbackAttachmentRef?
     let feedbackDownloader: FeedbackAttachmentDownloader?
     let feedbackOnTap: (() -> Void)?
 
@@ -34,7 +33,6 @@ struct AttachmentChipView: View {
         self.folder = folder
         self.downloader = downloader
         self.folderBookmark = folderBookmark
-        self.feedbackAttachment = nil
         self.feedbackDownloader = nil
         self.feedbackOnTap = nil
     }
@@ -51,7 +49,6 @@ struct AttachmentChipView: View {
         self.folder = ""
         self.downloader = nil
         self.folderBookmark = nil
-        self.feedbackAttachment = feedbackAttachment
         self.feedbackDownloader = downloader
         self.feedbackOnTap = onTap
     }

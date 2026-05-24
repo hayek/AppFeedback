@@ -43,4 +43,21 @@ final class AttachmentMirrorTests: XCTestCase {
         XCTAssertTrue(out.hasPrefix("X"))
         XCTAssertTrue(out.hasSuffix("Y"))
     }
+
+    func test_placeholder_drops_non_http_urls() {
+        let atts = [
+            FeedbackAttachmentRef(
+                filename: "evil.png", mimeType: "image/png",
+                url: URL(string: "javascript:alert(1)")!, sizeBytes: 1
+            ),
+            FeedbackAttachmentRef(
+                filename: "ok.png", mimeType: "image/png",
+                url: URL(string: "https://example.com/ok.png")!, sizeBytes: 1
+            ),
+        ]
+        let composer = MailComposer()
+        let out = composer.applyPlaceholders("{{feedback_attachments}}", context: context(with: atts))
+        XCTAssertFalse(out.contains("javascript:"), "javascript: URLs must be dropped")
+        XCTAssertTrue(out.contains("https://example.com/ok.png"), "https URLs must pass through")
+    }
 }

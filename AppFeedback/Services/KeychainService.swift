@@ -26,18 +26,7 @@ enum KeychainService {
     }
 
     static func load(for repo: RepoConfig) async -> String? {
-        let query: [String: Any] = [
-            kSecClass as String:              kSecClassGenericPassword,
-            kSecAttrService as String:        service,
-            kSecAttrAccount as String:        accountKey(for: repo),
-            kSecAttrSynchronizable as String: kCFBooleanTrue!,
-            kSecReturnData as String:         true,
-            kSecMatchLimit as String:         kSecMatchLimitOne,
-        ]
-        var result: AnyObject?
-        guard SecItemCopyMatching(query as CFDictionary, &result) == errSecSuccess,
-              let data = result as? Data else { return nil }
-        return String(data: data, encoding: .utf8)
+        loadSync(for: repo)
     }
 
     /// Synchronous variant — calls SecItemCopyMatching directly so it can be
