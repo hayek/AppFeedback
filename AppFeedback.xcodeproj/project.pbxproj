@@ -287,6 +287,7 @@
 		D38AA4167A78B8BD640F5F0C /* ActivityWindow.swift in Sources */ = {isa = PBXBuildFile; fileRef = A3CCABE70C4F9C2F242C34A3 /* ActivityWindow.swift */; };
 		D3990F861F37DD8DF2097FDF /* IssueSummaryCache.swift in Sources */ = {isa = PBXBuildFile; fileRef = 08B2F8AEAB3D04A844839223 /* IssueSummaryCache.swift */; };
 		D3BD63EE5460B9281A1E20A1 /* MailProviderBadge.swift in Sources */ = {isa = PBXBuildFile; fileRef = 173F40704108E1C47B7B46E1 /* MailProviderBadge.swift */; };
+		D3E03D33FBA557A289AD93DB /* AttachmentStripView.swift in Sources */ = {isa = PBXBuildFile; fileRef = D4D8B5D6C14372521D654949 /* AttachmentStripView.swift */; };
 		D46E62043B3D0B92986143BC /* RichTextEditor.swift in Sources */ = {isa = PBXBuildFile; fileRef = 362D146D3701EC3653723E8F /* RichTextEditor.swift */; };
 		D50E43F6E98F365C6012D934 /* SettingsTabBar.swift in Sources */ = {isa = PBXBuildFile; fileRef = F6CC5C4D19E1784830D4E8FF /* SettingsTabBar.swift */; };
 		D522E73475746CCDF99A3394 /* ComposeMailViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 45BB9433B8ED3CFAB64EB7B0 /* ComposeMailViewModel.swift */; };
@@ -329,6 +330,7 @@
 		F13DB2F749781777309599FE /* MacBackgroundRefreshDriver.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8B91F454579F86D9B14B7FD4 /* MacBackgroundRefreshDriver.swift */; };
 		F17717FE03E3326169322D19 /* SeenIssueStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7C2C5DAC5F75353FC55ACF04 /* SeenIssueStore.swift */; };
 		F1B6AC532ABA0EB668646805 /* UnreadSummaryViewModelTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 00F960BE036D65B0E276B47E /* UnreadSummaryViewModelTests.swift */; };
+		F2462693C37E138F3293FBAD /* AttachmentStripView.swift in Sources */ = {isa = PBXBuildFile; fileRef = D4D8B5D6C14372521D654949 /* AttachmentStripView.swift */; };
 		F24C440E562554222C114F9B /* OutboundSendTracker.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9099DC69CD4AC2F3EE540A9C /* OutboundSendTracker.swift */; };
 		F3AD0B937BC2C7295D0B4EFD /* MailComposer.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0FC01BF334B5D65CF0147005 /* MailComposer.swift */; };
 		F3CE932101925DBF69422ACE /* MailAccountLocalStateStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 93B756CB500E6F04BB86F616 /* MailAccountLocalStateStore.swift */; };
@@ -513,6 +515,7 @@
 		C897756C0C9A16325888F788 /* HiddenAppStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HiddenAppStore.swift; sourceTree = "<group>"; };
 		CB4F1AB8C4EA41A8708C1EA3 /* RepoConfig.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RepoConfig.swift; sourceTree = "<group>"; };
 		D35D37984A2CF87D2C03479A /* IssueListView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = IssueListView.swift; sourceTree = "<group>"; };
+		D4D8B5D6C14372521D654949 /* AttachmentStripView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AttachmentStripView.swift; sourceTree = "<group>"; };
 		D52AEB04216AE069C6C81348 /* MailAttachmentLocal.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MailAttachmentLocal.swift; sourceTree = "<group>"; };
 		D6103AF9E531E723A81DA281 /* AppFeedback.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = AppFeedback.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		D8AAA23A1C319EADB6C477E9 /* MailAccountStoreTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MailAccountStoreTests.swift; sourceTree = "<group>"; };
@@ -700,6 +703,7 @@
 		5F5949CE390C8FC11AA2B232 /* Issues */ = {
 			isa = PBXGroup;
 			children = (
+				D4D8B5D6C14372521D654949 /* AttachmentStripView.swift */,
 				5269B3B68A422A3B7F0CBC56 /* AttachmentThumbnailView.swift */,
 				A5A00E7444118AEC76580EAB /* FilterBarView.swift */,
 				7B47F8578C6AACFA2B16D08C /* IssueCardView.swift */,
@@ -1057,6 +1061,7 @@
 				3900CA9F3989EDABB59EA5DA /* AttachmentChipView.swift in Sources */,
 				72BAF747427FA6651F1E79C8 /* AttachmentDownloader.swift in Sources */,
 				FE1D6FDE9C801DEF496C5F64 /* AttachmentFolder.swift in Sources */,
+				D3E03D33FBA557A289AD93DB /* AttachmentStripView.swift in Sources */,
 				75F187F6C2E0C8A1E79C37DD /* AttachmentThumbnailView.swift in Sources */,
 				1A4519EDB28C074C99F76742 /* CachedIssue.swift in Sources */,
 				302B3F175D4ECEA78AD65FBE /* CloudSyncStatus.swift in Sources */,
@@ -1238,6 +1243,7 @@
 				7350D336542599B742BF0C96 /* AttachmentChipView.swift in Sources */,
 				3912E8FE388B025E32A21DC0 /* AttachmentDownloader.swift in Sources */,
 				6E98FA8BDA2A1FCEADD219F7 /* AttachmentFolder.swift in Sources */,
+				F2462693C37E138F3293FBAD /* AttachmentStripView.swift in Sources */,
 				BE01A377B5C8D19212041655 /* AttachmentThumbnailView.swift in Sources */,
 				C40C31553933350C02218269 /* CachedIssue.swift in Sources */,
 				F4A10388C761178F5BBDD845 /* CloudSyncStatus.swift in Sources */,

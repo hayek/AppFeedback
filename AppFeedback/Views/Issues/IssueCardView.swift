@@ -225,6 +225,10 @@ struct IssueCardView: View {
                         IssueBodyText(body: bodyText)
                     }
 
+                    if !issue.attachments.isEmpty {
+                        AttachmentStripView(attachments: issue.attachments)
+                    }
+
                     if isTranslating {
                         ShimmeringText("Translating…")
                             .font(.system(size: 11, weight: .medium))
