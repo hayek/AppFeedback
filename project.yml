@@ -3,7 +3,7 @@ options:
   bundleIdPrefix: com.amirhayek
   deploymentTarget:
     iOS: "17.0"
-    macOS: "14.0"
+    macOS: "15.0"
   defaultConfig: Debug
 configs:
   Debug: debug
@@ -22,7 +22,7 @@ targets:
     platform: [iOS, macOS]
     deploymentTarget:
       iOS: "17.0"
-      macOS: "14.0"
+      macOS: "15.0"
     sources:
       - path: AppFeedback
         createIntermediateGroups: true
@@ -48,7 +48,7 @@ targets:
     platform: [iOS, macOS]
     deploymentTarget:
       iOS: "17.0"
-      macOS: "14.0"
+      macOS: "15.0"
     sources:
       - path: AppFeedbackTests
         createIntermediateGroups: true
