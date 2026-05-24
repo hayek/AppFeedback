@@ -39,9 +39,9 @@ actor FeedbackAttachmentDownloader {
 
     private let session: URLSession
     private let localStore: FeedbackAttachmentLocalStore
-    private let tokenProvider: @Sendable () -> String?
+    private let tokenProvider: @Sendable (URL) -> String?
 
-    init(session: URLSession, localStore: FeedbackAttachmentLocalStore, tokenProvider: @escaping @Sendable () -> String?) {
+    init(session: URLSession, localStore: FeedbackAttachmentLocalStore, tokenProvider: @escaping @Sendable (URL) -> String?) {
         self.session = session
         self.localStore = localStore
         self.tokenProvider = tokenProvider
@@ -78,7 +78,8 @@ actor FeedbackAttachmentDownloader {
 
         // 4. Write to cache dir under url-sha256/filename
         let dir = try resolveCacheDir(for: url)
-        let dest = dir.appendingPathComponent(filename)
+        let safeName = Self.sanitize(filename)
+        let dest = dir.appendingPathComponent(safeName)
         do {
             try data.write(to: dest, options: .atomic)
         } catch {
@@ -100,7 +101,7 @@ actor FeedbackAttachmentDownloader {
             var req = URLRequest(url: apiURL)
             req.httpMethod = "GET"
             req.setValue("application/vnd.github.raw", forHTTPHeaderField: "Accept")
-            if let token = tokenProvider() {
+            if let token = tokenProvider(url) {
                 req.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
             }
             return req
@@ -122,6 +123,17 @@ actor FeedbackAttachmentDownloader {
             branch: String(parts[2]),
             path: String(parts[3])
         )
+    }
+
+    private static func sanitize(_ raw: String) -> String {
+        let basename = (raw as NSString).lastPathComponent
+        var cleaned = basename
+            .replacingOccurrences(of: "\\", with: "")
+            .components(separatedBy: .controlCharacters).joined()
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+            .trimmingCharacters(in: CharacterSet(charactersIn: "."))
+        if cleaned.isEmpty { cleaned = "file.bin" }
+        return cleaned
     }
 
     private func resolveCacheDir(for url: URL) throws -> URL {

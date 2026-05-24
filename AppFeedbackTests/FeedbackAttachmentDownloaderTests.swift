@@ -37,13 +37,32 @@ final class FeedbackAttachmentDownloaderTests: XCTestCase {
         let downloader = FeedbackAttachmentDownloader(
             session: makeSession(),
             localStore: store,
-            tokenProvider: { "test-token" }
+            tokenProvider: { _ in "test-token" }
         )
         let raw = URL(string: "https://raw.githubusercontent.com/o/r/feedback-attachments/attachments/abc/shot.png")!
         let path = try await downloader.download(url: raw, filename: "shot.png")
         XCTAssertTrue(FileManager.default.fileExists(atPath: path.path))
         XCTAssertEqual(try Data(contentsOf: path), bytes)
         XCTAssertNotNil(store.fetchLocalPath(url: raw.absoluteString))
+    }
+
+    @MainActor
+    func test_filename_traversal_attempts_are_sanitized() async throws {
+        let bytes = Data("content".utf8)
+        FeedbackURLProtocolStub.respond { req in
+            (HTTPURLResponse(url: req.url!, statusCode: 200, httpVersion: nil, headerFields: nil)!, bytes)
+        }
+        let store = makeStore()
+        let downloader = FeedbackAttachmentDownloader(
+            session: makeSession(),
+            localStore: store,
+            tokenProvider: { _ in "test-token" }
+        )
+        let raw = URL(string: "https://raw.githubusercontent.com/o/r/feedback-attachments/attachments/abc/evil.png")!
+        let path = try await downloader.download(url: raw, filename: "../../legit")
+        // The written path must not escape the per-URL cache subdirectory.
+        XCTAssertFalse(path.path.contains(".."), "Path must not contain .. traversal components")
+        XCTAssertTrue(FileManager.default.fileExists(atPath: path.path))
     }
 
     @MainActor
@@ -59,7 +78,7 @@ final class FeedbackAttachmentDownloaderTests: XCTestCase {
         let downloader = FeedbackAttachmentDownloader(
             session: makeSession(),
             localStore: store,
-            tokenProvider: { "t" }
+            tokenProvider: { _ in "t" }
         )
         let raw = URL(string: "https://raw.githubusercontent.com/o/r/feedback-attachments/attachments/abc/shot.png")!
         _ = try await downloader.download(url: raw, filename: "shot.png")
