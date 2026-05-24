@@ -12,4 +12,19 @@ struct ComposeRequest: Identifiable {
     let inReplyTo: MailMessageHeaders?
     let subjectOverride: String?
     let senderAccountID: UUID?
+    var attachments: [PendingAttachment] = []
+}
+
+struct PendingAttachment: Identifiable, Sendable, Equatable {
+    let id: UUID
+    let filename: String
+    let mimeType: String
+    let data: Data
+
+    init(id: UUID = UUID(), filename: String, mimeType: String, data: Data) {
+        self.id = id
+        self.filename = filename
+        self.mimeType = mimeType
+        self.data = data
+    }
 }
