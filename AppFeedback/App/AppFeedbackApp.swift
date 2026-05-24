@@ -28,6 +28,7 @@ struct AppFeedbackApp: App {
     @State private var mirrorHolder: MailToGitHubMirrorHolder
     @State private var mailLocalStateStore: MailAccountLocalStateStore
     @State private var mailDraftStore = MailDraftStore()
+    @State private var quickLook = QuickLookPresenter()
     #if os(iOS)
     @State private var iosRefreshDriver: iOSBackgroundRefreshDriver
     #elseif os(macOS)
@@ -224,6 +225,10 @@ struct AppFeedbackApp: App {
                 .environment(mirrorHolder)
                 .environment(mailLocalStateStore)
                 .environment(mailDraftStore)
+                .environment(quickLook)
+                #if !os(macOS)
+                .overlay(QuickLookHost())
+                #endif
                 .environment(\.notificationService, notificationService)
                 .task { await notificationService.requestAuthorizationIfNeeded() }
                 .onAppear {
