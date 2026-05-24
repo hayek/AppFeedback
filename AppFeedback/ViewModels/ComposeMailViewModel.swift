@@ -8,6 +8,8 @@ import SwiftMail
 final class ComposeMailViewModel {
     var subject: String = ""
     var body: NSAttributedString = NSAttributedString(string: "")
+    var pendingAttachments: [PendingAttachment] = []
+    var attachmentError: String? = nil
 
     let recipient: String
     let issue: FeedbackIssue
@@ -74,6 +76,7 @@ final class ComposeMailViewModel {
         currentCredentials() != nil
             && !subject.trimmingCharacters(in: .whitespaces).isEmpty
             && body.length > 0
+            && attachmentError == nil
     }
 
     var template: MailTemplate {
@@ -157,7 +160,8 @@ final class ComposeMailViewModel {
             context: context,
             template: template,
             messageID: messageID,
-            replyHeaders: replyHeaders
+            replyHeaders: replyHeaders,
+            attachments: pendingAttachments
         )
 
         do {
