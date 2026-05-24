@@ -1,5 +1,6 @@
 #if canImport(SwiftMail)
 import SwiftUI
+import UniformTypeIdentifiers
 #if os(macOS)
 import AppKit
 #endif
@@ -22,6 +23,8 @@ struct ComposeFormCore: View {
     #if os(macOS)
     @Environment(\.openWindow) private var openWindow
     #endif
+
+    @State private var showFileImporter = false
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
@@ -55,6 +58,20 @@ struct ComposeFormCore: View {
             templateRow(label: "Footer", text: footerPreview)
             Divider()
             footerButtons
+            attachmentStrip
+        }
+        #if os(macOS)
+        .onDrop(of: [.fileURL], isTargeted: nil) { providers in
+            vm.handleDrop(providers: providers)
+            return true
+        }
+        #endif
+        .fileImporter(
+            isPresented: $showFileImporter,
+            allowedContentTypes: [.png, .jpeg, .heic, .gif, .plainText, .json, .pdf],
+            allowsMultipleSelection: true
+        ) { result in
+            if case .success(let urls) = result { vm.ingestURLs(urls) }
         }
     }
 
@@ -121,6 +138,14 @@ struct ComposeFormCore: View {
 
     private var footerButtons: some View {
         HStack {
+            Button {
+                showFileImporter = true
+            } label: {
+                Image(systemName: "paperclip")
+            }
+            .buttonStyle(.plain)
+            .disabled(vm.pendingAttachments.count >= 3)
+
             Spacer()
             if let onDiscard {
                 Button(discardLabel) { onDiscard() }
@@ -132,5 +157,43 @@ struct ComposeFormCore: View {
         }
         .padding(12)
     }
+
+    @ViewBuilder
+    private var attachmentStrip: some View {
+        if !vm.pendingAttachments.isEmpty || vm.attachmentError != nil {
+            VStack(alignment: .leading, spacing: 0) {
+                if !vm.pendingAttachments.isEmpty {
+                    ScrollView(.horizontal, showsIndicators: false) {
+                        HStack(spacing: 8) {
+                            ForEach(vm.pendingAttachments) { att in
+                                HStack(spacing: 6) {
+                                    Image(systemName: att.mimeType.hasPrefix("image/") ? "photo" : "doc.text")
+                                        .foregroundStyle(.secondary)
+                                    Text(att.filename).font(.caption).lineLimit(1)
+                                    Button {
+                                        vm.removeAttachment(id: att.id)
+                                    } label: {
+                                        Image(systemName: "xmark.circle.fill").foregroundStyle(.secondary)
+                                    }
+                                    .buttonStyle(.plain)
+                                }
+                                .padding(.horizontal, 8).padding(.vertical, 4)
+                                .background(Color.secondary.opacity(0.12))
+                                .clipShape(Capsule())
+                            }
+                        }
+                        .padding(.vertical, 4)
+                    }
+                    .padding(.horizontal, 12)
+                }
+
+                if let err = vm.attachmentError {
+                    Text(err).font(.caption).foregroundStyle(.red)
+                        .padding(.horizontal, 12).padding(.bottom, 6)
+                }
+            }
+        }
+    }
 }
+
 #endif

@@ -1,7 +1,12 @@
 import Foundation
 import Observation
+import UniformTypeIdentifiers
 #if canImport(SwiftMail)
 import SwiftMail
+import AppFeedbackCore
+#if os(macOS)
+import AppKit
+#endif
 
 @MainActor
 @Observable
@@ -179,5 +184,86 @@ final class ComposeMailViewModel {
             tracker?.clear(messageID)
         }
     }
+
+    // MARK: - Attachment ingestion + validation
+
+    func ingestURLs(_ urls: [URL]) {
+        for url in urls {
+            guard pendingAttachments.count < 3 else { break }
+            guard url.startAccessingSecurityScopedResource() else { continue }
+            defer { url.stopAccessingSecurityScopedResource() }
+            guard let data = try? Data(contentsOf: url) else { continue }
+            let mime = mimeType(for: url)
+            pendingAttachments.append(PendingAttachment(
+                filename: url.lastPathComponent,
+                mimeType: mime,
+                data: data
+            ))
+        }
+        revalidateAttachments()
+    }
+
+    func removeAttachment(id: UUID) {
+        pendingAttachments.removeAll { $0.id == id }
+        revalidateAttachments()
+    }
+
+    func revalidateAttachments() {
+        let modeled = pendingAttachments.map {
+            FeedbackAttachment(filename: $0.filename, mimeType: $0.mimeType, data: $0.data)
+        }
+        do {
+            try FeedbackAttachmentValidator.validate(modeled)
+            attachmentError = nil
+        } catch let err as FeedbackAttachmentError {
+            attachmentError = attachmentErrorMessage(for: err)
+        } catch {
+            attachmentError = "Attachment error: \(error.localizedDescription)"
+        }
+    }
+
+    private func mimeType(for url: URL) -> String {
+        if let type = UTType(filenameExtension: url.pathExtension.lowercased()),
+           let mime = type.preferredMIMEType {
+            return mime
+        }
+        return "application/octet-stream"
+    }
+
+    private func attachmentErrorMessage(for error: FeedbackAttachmentError) -> String {
+        switch error {
+        case .tooManyAttachments(let limit, _):
+            return "At most \(limit) attachments."
+        case .fileTooLarge(let name, _, let limit):
+            return "\(name) exceeds \(ByteCountFormatter.string(fromByteCount: Int64(limit), countStyle: .file))."
+        case .totalSizeTooLarge(_, let limit):
+            return "Total exceeds \(ByteCountFormatter.string(fromByteCount: Int64(limit), countStyle: .file))."
+        case .unsupportedMimeType(let name, _):
+            return "\(name): unsupported type."
+        case .imageProcessingFailed(let name):
+            return "\(name) could not be processed."
+        }
+    }
+
+    // MARK: - Drop (macOS only)
+
+    #if os(macOS)
+    func handleDrop(providers: [NSItemProvider]) {
+        var urls: [URL] = []
+        let group = DispatchGroup()
+        for p in providers {
+            group.enter()
+            p.loadItem(forTypeIdentifier: UTType.fileURL.identifier, options: nil) { item, _ in
+                if let data = item as? Data, let url = URL(dataRepresentation: data, relativeTo: nil) {
+                    urls.append(url)
+                } else if let url = item as? URL {
+                    urls.append(url)
+                }
+                group.leave()
+            }
+        }
+        group.notify(queue: .main) { self.ingestURLs(urls) }
+    }
+    #endif
 }
 #endif
