@@ -9,7 +9,12 @@ final class MailAttachment {
     var filename: String = ""
     var mimeType: String = ""
     var sizeBytes: Int = 0
+    var contentID: String? = nil
     var message: MailMessage? = nil
+
+    var isInlineImage: Bool {
+        contentID != nil && mimeType.lowercased().hasPrefix("image/")
+    }
 
     init(
         id: UUID = UUID(),
@@ -18,6 +23,7 @@ final class MailAttachment {
         filename: String = "",
         mimeType: String = "",
         sizeBytes: Int = 0,
+        contentID: String? = nil,
         message: MailMessage? = nil
     ) {
         self.id = id
@@ -26,6 +32,7 @@ final class MailAttachment {
         self.filename = filename
         self.mimeType = mimeType
         self.sizeBytes = sizeBytes
+        self.contentID = contentID
         self.message = message
     }
 }
