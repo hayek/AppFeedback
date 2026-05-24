@@ -102,7 +102,35 @@ struct MailComposer {
         s = s.replacingOccurrences(of: "{{issue_title}}",     with: context.issueTitle ?? "")
         s = s.replacingOccurrences(of: "{{issue_url}}",       with: context.issueURL?.absoluteString ?? "")
         s = s.replacingOccurrences(of: "{{feedback_body}}",   with: context.feedbackBody ?? "")
+        s = s.replacingOccurrences(of: "{{feedback_attachments}}", with: renderAttachmentsHTML(context.feedbackAttachments))
         return s
+    }
+
+    func renderAttachmentsHTML(_ attachments: [FeedbackAttachmentRef]) -> String {
+        guard !attachments.isEmpty else { return "" }
+        var html = "<div class=\"feedback-attachments\">"
+        for a in attachments {
+            let encodedURL = htmlEncode(a.url.absoluteString)
+            let encodedName = htmlEncode(a.filename)
+            if a.isImage {
+                html += "<div><a href=\"\(encodedURL)\"><img src=\"\(encodedURL)\" alt=\"\(encodedName)\" style=\"max-width:240px;border-radius:6px\"/></a></div>"
+            } else {
+                let sizeText: String
+                if let b = a.sizeBytes {
+                    sizeText = " (\(ByteCountFormatter.string(fromByteCount: Int64(b), countStyle: .file)))"
+                } else { sizeText = "" }
+                html += "<div><a href=\"\(encodedURL)\">\(encodedName)</a>\(sizeText)</div>"
+            }
+        }
+        html += "</div>"
+        return html
+    }
+
+    private func htmlEncode(_ s: String) -> String {
+        s.replacingOccurrences(of: "&", with: "&amp;")
+         .replacingOccurrences(of: "<", with: "&lt;")
+         .replacingOccurrences(of: ">", with: "&gt;")
+         .replacingOccurrences(of: "\"", with: "&quot;")
     }
 
     // MARK: - Body conversion
