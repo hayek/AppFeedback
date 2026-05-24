@@ -22,13 +22,12 @@ struct AttachmentStripView: View {
                         onTap: { presentAll(startingAt: att) }
                     )
                 }
-                // H3 will replace this placeholder with AttachmentChipView(feedbackAttachment:downloader:onTap:)
                 ForEach(files) { att in
-                    Text(att.filename)
-                        .font(.caption)
-                        .padding(.horizontal, 8).padding(.vertical, 4)
-                        .background(Color.secondary.opacity(0.15))
-                        .clipShape(Capsule())
+                    AttachmentChipView(
+                        feedbackAttachment: att,
+                        downloader: downloaderHolder.downloader,
+                        onTap: { presentAll(startingAt: att) }
+                    )
                 }
             }
             .padding(.vertical, 4)

@@ -10,8 +10,14 @@ struct AttachmentChipView: View {
     let downloader: AttachmentDownloader?
     let folderBookmark: Data?
 
+    let feedbackAttachment: FeedbackAttachmentRef?
+    let feedbackDownloader: FeedbackAttachmentDownloader?
+    let feedbackOnTap: (() -> Void)?
+
     @State private var state: ChipState = .idle
     @State private var resolvedURL: URL? = nil
+
+    @Environment(QuickLookPresenter.self) private var quickLook
 
     enum ChipState: Equatable {
         case idle
@@ -19,6 +25,38 @@ struct AttachmentChipView: View {
         case ready
         case failed(message: String)
     }
+
+    // MARK: - Inits
+
+    init(attachment: MailAttachment, uid: UInt32, folder: String, downloader: AttachmentDownloader?, folderBookmark: Data?) {
+        self.attachment = attachment
+        self.uid = uid
+        self.folder = folder
+        self.downloader = downloader
+        self.folderBookmark = folderBookmark
+        self.feedbackAttachment = nil
+        self.feedbackDownloader = nil
+        self.feedbackOnTap = nil
+    }
+
+    init(feedbackAttachment: FeedbackAttachmentRef, downloader: FeedbackAttachmentDownloader?, onTap: @escaping () -> Void) {
+        self.attachment = MailAttachment(
+            messageID: "",
+            partID: "",
+            filename: feedbackAttachment.filename,
+            mimeType: feedbackAttachment.mimeType,
+            sizeBytes: feedbackAttachment.sizeBytes ?? 0
+        )
+        self.uid = 0
+        self.folder = ""
+        self.downloader = nil
+        self.folderBookmark = nil
+        self.feedbackAttachment = feedbackAttachment
+        self.feedbackDownloader = downloader
+        self.feedbackOnTap = onTap
+    }
+
+    // MARK: - Body
 
     var body: some View {
         Button(action: tap) {
@@ -34,7 +72,7 @@ struct AttachmentChipView: View {
             .clipShape(Capsule())
         }
         .buttonStyle(.plain)
-        .disabled(downloader == nil || uid == 0)
+        .disabled(feedbackOnTap == nil && (downloader == nil || uid == 0))
     }
 
     @ViewBuilder
@@ -55,10 +93,16 @@ struct AttachmentChipView: View {
         ByteCountFormatter.string(fromByteCount: Int64(attachment.sizeBytes), countStyle: .file)
     }
 
+    // MARK: - Tap
+
     private func tap() {
+        if let onTap = feedbackOnTap {
+            onTap()
+            return
+        }
         guard let downloader else { return }
         if let url = resolvedURL, FileManager.default.fileExists(atPath: url.path) {
-            openFile(url)
+            quickLook.present(urls: [url])
             return
         }
         state = .downloading
@@ -74,20 +118,10 @@ struct AttachmentChipView: View {
                 )
                 resolvedURL = url
                 state = .ready
-                openFile(url)
+                quickLook.present(urls: [url])
             } catch {
                 state = .failed(message: error.localizedDescription)
             }
         }
-    }
-
-    private func openFile(_ url: URL) {
-        #if os(macOS)
-        NSWorkspace.shared.open(url)
-        #else
-        // iOS: for v1 the URL is stored in state; richer share-sheet presentation
-        // arrives with the iOS settings tasks (Task 11 / Task 12).
-        _ = url
-        #endif
     }
 }
