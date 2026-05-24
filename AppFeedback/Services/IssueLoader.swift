@@ -277,7 +277,8 @@ final class IssueLoader {
                 description: parsed.description,
                 labels: labels,
                 updatedAt: node.updatedAt,
-                state: IssueState(rawValue: node.state.lowercased())
+                state: IssueState(rawValue: node.state.lowercased()),
+                attachments: parsed.attachments
             )
         }
         return PageResult(

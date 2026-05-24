@@ -8,6 +8,7 @@ struct ParsedBody: Sendable {
     var device: String?
     var osVersion: String?
     var email: String?
+    var attachments: [FeedbackAttachmentRef] = []
 }
 
 /// Thin shim over `AppFeedbackCore.IssueBodyParser`. Adapts the SDK's field
@@ -23,7 +24,8 @@ enum IssueBodyParser {
             appVersion: p.appVersion,
             device: p.device,
             osVersion: p.osVersion,
-            email: p.email
+            email: p.email,
+            attachments: p.attachments.map(FeedbackAttachmentRef.init)
         )
     }
 }
