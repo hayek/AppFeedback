@@ -102,6 +102,7 @@ final class ComposeMailViewModel {
             issueTitle: issue.title,
             issueURL: issueURL,
             feedbackBody: body.isEmpty ? nil : body,
+            feedbackAttachments: issue.attachments,
             date: date
         )
     }
