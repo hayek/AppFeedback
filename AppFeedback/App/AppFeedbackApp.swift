@@ -1,11 +1,31 @@
 import SwiftUI
 import SwiftData
 import UserNotifications
+import os
+
+// Thread-safe snapshot of repo configs used by the FeedbackAttachmentDownloader
+// tokenProvider closure, which must be @Sendable and synchronous.
+private final class RepoConfigSnapshot: @unchecked Sendable {
+    private let lock = OSAllocatedUnfairLock<[RepoConfig]>(initialState: [])
+
+    func update(_ repos: [RepoConfig]) {
+        lock.withLock { $0 = repos }
+    }
+
+    func firstToken() -> String? {
+        let repos = lock.withLock { $0 }
+        for repo in repos {
+            if let token = KeychainService.loadSync(for: repo) { return token }
+        }
+        return nil
+    }
+}
 
 @main
 struct AppFeedbackApp: App {
     @Environment(\.scenePhase) private var scenePhase
     private let container: ModelContainer
+    private let repoConfigSnapshot = RepoConfigSnapshot()
     @State private var store: RepoStore
     @State private var syncStatus: CloudSyncStatus
     @State private var activityLog: ActivityLog
@@ -29,6 +49,8 @@ struct AppFeedbackApp: App {
     @State private var mailLocalStateStore: MailAccountLocalStateStore
     @State private var mailDraftStore = MailDraftStore()
     @State private var quickLook = QuickLookPresenter()
+    @State private var thumbnailCache = ThumbnailCache()
+    @State private var feedbackAttachmentDownloaderHolder: FeedbackAttachmentDownloaderHolder
     #if os(iOS)
     @State private var iosRefreshDriver: iOSBackgroundRefreshDriver
     #elseif os(macOS)
@@ -96,6 +118,8 @@ struct AppFeedbackApp: App {
         _store = State(initialValue: RepoStore(context: ModelContext(container), hiddenAppStore: hiddenAppStoreLocal))
         _cacheContext = State(initialValue: ModelContext(container))
         _syncStatus = State(initialValue: CloudSyncStatus())
+        // Seed the snapshot so tokenProvider works even before the first repos observation.
+        repoConfigSnapshot.update(_store.wrappedValue.repos)
         let activityLogURL: URL? = isTesting ? nil : {
             let supportDir = FileManager.default
                 .urls(for: .applicationSupportDirectory, in: .userDomainMask).first!
@@ -137,6 +161,16 @@ struct AppFeedbackApp: App {
             poster: GitHubCommentPoster()
         )
         _mirrorHolder = State(initialValue: MailToGitHubMirrorHolder(mirrorLocal))
+
+        // Feedback-attachment downloader (GitHub issue attachments).
+        let feedbackLocalStore = FeedbackAttachmentLocalStore(context: ModelContext(container))
+        let snapshot = repoConfigSnapshot
+        let feedbackDownloader = FeedbackAttachmentDownloader(
+            session: .shared,
+            localStore: feedbackLocalStore,
+            tokenProvider: { snapshot.firstToken() }
+        )
+        _feedbackAttachmentDownloaderHolder = State(initialValue: FeedbackAttachmentDownloaderHolder(feedbackDownloader))
 
         #if canImport(SwiftMail)
         let titlesContainer = container
@@ -226,11 +260,16 @@ struct AppFeedbackApp: App {
                 .environment(mailLocalStateStore)
                 .environment(mailDraftStore)
                 .environment(quickLook)
+                .environment(thumbnailCache)
+                .environment(feedbackAttachmentDownloaderHolder)
                 #if !os(macOS)
                 .overlay(QuickLookHost())
                 #endif
                 .environment(\.notificationService, notificationService)
                 .task { await notificationService.requestAuthorizationIfNeeded() }
+                .task(id: store.repos.map(\.id)) {
+                    repoConfigSnapshot.update(store.repos)
+                }
                 .onAppear {
                     #if canImport(SwiftMail)
                     coordinatorRegistry?.start()

@@ -40,6 +40,23 @@ enum KeychainService {
         return String(data: data, encoding: .utf8)
     }
 
+    /// Synchronous variant — calls SecItemCopyMatching directly so it can be
+    /// used inside a `@Sendable () -> String?` closure without `await`.
+    static func loadSync(for repo: RepoConfig) -> String? {
+        let query: [String: Any] = [
+            kSecClass as String:              kSecClassGenericPassword,
+            kSecAttrService as String:        service,
+            kSecAttrAccount as String:        accountKey(for: repo),
+            kSecAttrSynchronizable as String: kCFBooleanTrue!,
+            kSecReturnData as String:         true,
+            kSecMatchLimit as String:         kSecMatchLimitOne,
+        ]
+        var result: AnyObject?
+        guard SecItemCopyMatching(query as CFDictionary, &result) == errSecSuccess,
+              let data = result as? Data else { return nil }
+        return String(data: data, encoding: .utf8)
+    }
+
     static func delete(for repo: RepoConfig) async {
         let query: [String: Any] = [
             kSecClass as String:              kSecClassGenericPassword,
