@@ -19,6 +19,14 @@ private final class RepoConfigSnapshot: @unchecked Sendable {
         }
         return nil
     }
+
+    func token(forOwner owner: String, repo: String) -> String? {
+        let repos = lock.withLock { $0 }
+        for config in repos where config.owner == owner && config.repo == repo {
+            if let token = KeychainService.loadSync(for: config) { return token }
+        }
+        return nil
+    }
 }
 
 @main
@@ -168,7 +176,15 @@ struct AppFeedbackApp: App {
         let feedbackDownloader = FeedbackAttachmentDownloader(
             session: .shared,
             localStore: feedbackLocalStore,
-            tokenProvider: { snapshot.firstToken() }
+            tokenProvider: { url in
+                // Route token lookup by owner/repo parsed from raw.githubusercontent.com URLs.
+                guard url.host == "raw.githubusercontent.com" else { return nil }
+                let parts = url.path.split(separator: "/", omittingEmptySubsequences: true)
+                guard parts.count >= 2 else { return nil }
+                let owner = String(parts[0])
+                let repo = String(parts[1])
+                return snapshot.token(forOwner: owner, repo: repo)
+            }
         )
         _feedbackAttachmentDownloaderHolder = State(initialValue: FeedbackAttachmentDownloaderHolder(feedbackDownloader))
 
