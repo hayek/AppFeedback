@@ -13,6 +13,8 @@ struct MailMessageRowView: View {
     @Environment(OutboundSendTracker.self) private var outboundTracker
     @Environment(OutboundFailureStore.self) private var outboundFailures
     @Environment(AttachmentDownloaderHolder.self) private var downloaderHolder: AttachmentDownloaderHolder?
+    @Environment(QuickLookPresenter.self) private var quickLook
+    @Environment(ThumbnailCache.self) private var thumbnailCache
 
     private var isUnread: Bool { threadStore.isUnread(message) }
 
@@ -29,6 +31,8 @@ struct MailMessageRowView: View {
     @State private var stripped: HTMLSanitizer.StrippedBody = .init(cleaned: "", full: "")
 
     private var attachments: [MailAttachment] { message.attachments ?? [] }
+    private var inlineImages: [MailAttachment] { attachments.filter(\.isInlineImage) }
+    private var regularAttachments: [MailAttachment] { attachments.filter { !$0.isInlineImage } }
 
     private var unreadDot: some View {
         Circle()
@@ -120,16 +124,63 @@ struct MailMessageRowView: View {
         #endif
     }
 
+    @ViewBuilder
     private var attachmentsRow: some View {
-        HStack(spacing: 6) {
-            ForEach(attachments) { attachment in
-                AttachmentChipView(
-                    attachment: attachment,
-                    uid: UInt32(max(0, message.uid)),
-                    folder: message.folder,
-                    downloader: downloaderHolder?.downloader,
-                    folderBookmark: settingsStore.settings.attachmentFolderBookmark
-                )
+        if !inlineImages.isEmpty {
+            ScrollView(.horizontal, showsIndicators: false) {
+                HStack(spacing: 8) {
+                    ForEach(inlineImages) { att in
+                        MailAttachmentThumbnailView(
+                            attachment: att,
+                            uid: UInt32(max(0, message.uid)),
+                            folder: message.folder,
+                            folderBookmark: settingsStore.settings.attachmentFolderBookmark,
+                            downloader: downloaderHolder?.downloader,
+                            thumbnailCache: thumbnailCache,
+                            onTap: { presentInlineGallery(startingAt: att) }
+                        )
+                    }
+                }
+            }
+        }
+        if !regularAttachments.isEmpty {
+            HStack(spacing: 6) {
+                ForEach(regularAttachments) { attachment in
+                    AttachmentChipView(
+                        attachment: attachment,
+                        uid: UInt32(max(0, message.uid)),
+                        folder: message.folder,
+                        downloader: downloaderHolder?.downloader,
+                        folderBookmark: settingsStore.settings.attachmentFolderBookmark
+                    )
+                }
+            }
+        }
+    }
+
+    private func presentInlineGallery(startingAt target: MailAttachment) {
+        guard let downloader = downloaderHolder?.downloader else { return }
+        Task {
+            var localURLs: [URL] = []
+            var startIdx = 0
+            for (i, att) in inlineImages.enumerated() {
+                do {
+                    let url = try await downloader.download(
+                        messageID: att.messageID,
+                        uid: UInt32(max(0, message.uid)),
+                        folder: message.folder,
+                        partID: att.partID,
+                        filename: att.filename.isEmpty ? "inline-\(att.partID).img" : att.filename,
+                        folderBookmark: settingsStore.settings.attachmentFolderBookmark
+                    )
+                    localURLs.append(url)
+                    if att.id == target.id { startIdx = i }
+                } catch {
+                    // Skip failures; keep gallery intact for the rest.
+                }
+            }
+            await MainActor.run {
+                quickLook.present(urls: localURLs, startingAt: startIdx)
             }
         }
     }
