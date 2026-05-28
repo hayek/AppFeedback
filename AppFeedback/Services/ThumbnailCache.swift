@@ -50,8 +50,8 @@ final class ThumbnailCache {
         // wrong no matter what aspectRatio mode the display view uses.
         let src = img.size
         guard src.width > 0, src.height > 0 else { return img }
-        let scale = min(dim / src.width, dim / src.height, 1)
-        let newSize = CGSize(width: src.width * scale, height: src.height * scale)
+        let factor = min(dim / src.width, dim / src.height, 1)
+        let newSize = CGSize(width: src.width * factor, height: src.height * factor)
 
         #if os(macOS)
         let out = NSImage(size: newSize)

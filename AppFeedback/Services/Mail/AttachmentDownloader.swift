@@ -77,22 +77,29 @@ actor AttachmentDownloader {
 
     /// Returns the URL to the downloaded file. Idempotent — repeat calls with the same
     /// (messageID, partID) return the existing local path if the file still exists on disk.
+    /// Pass `forceRedownload: true` to bypass the cached file (e.g. when the caller has
+    /// detected on-disk corruption from a prior buggy fetch).
     func download(
         messageID: String,
         uid: UInt32,
         folder: String,
         partID: String,
         filename: String,
-        folderBookmark: Data?
+        folderBookmark: Data?,
+        forceRedownload: Bool = false
     ) async throws -> URL {
-        // 1. Check for an existing local record.
+        // 1. Check for an existing local record (skip when force-redownloading).
         let existingPath = await MainActor.run { localStore.fetchLocalPath(messageID: messageID, partID: partID) }
-        if let path = existingPath {
+        if !forceRedownload, let path = existingPath {
             let url = URL(fileURLWithPath: path)
             if FileManager.default.fileExists(atPath: url.path) {
                 return url
             }
             // File gone from disk — fall through to re-download.
+        }
+        // Force path: delete the stale file so uniqueURL writes to the same name.
+        if forceRedownload, let path = existingPath {
+            try? FileManager.default.removeItem(at: URL(fileURLWithPath: path))
         }
 
         // 2. Resolve destination directory.

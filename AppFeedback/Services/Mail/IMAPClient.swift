@@ -210,11 +210,11 @@ actor IMAPClient: IMAPClientProtocol {
         // post-transfer-encoding bytes; the decode step is `.decoded(for: part)`.
         let section = Section(partID)
         let structure = try await mapped { try await server.fetchStructure(UID(uid)) }
-        let raw = try await mapped { try await server.fetchPart(section: section, of: UID(uid)) }
-        if let part = structure.first(where: { $0.section.description == partID }) {
-            return raw.decoded(for: part)
+        guard let part = structure.first(where: { $0.section.description == partID }) else {
+            throw IMAPClientError.malformed(detail: "part \(partID) not in BODYSTRUCTURE for uid=\(uid)")
         }
-        return raw
+        let raw = try await mapped { try await server.fetchPart(section: section, of: UID(uid)) }
+        return raw.decoded(for: part)
     }
 
     func testConnection() async throws {

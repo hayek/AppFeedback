@@ -48,6 +48,19 @@ struct MailAttachmentThumbnailView: View {
             thumbnail = cached
             return
         }
+        // Try with the cached file first, then force a fresh download. The retry catches
+        // stale corrupt files left by a pre-decode-fix download (raw base64 written as
+        // an image file) — forceRedownload deletes the stale file and refetches.
+        for force in [false, true] {
+            if let thumb = await fetch(downloader: downloader, keyURL: keyURL, force: force) {
+                thumbnail = thumb
+                return
+            }
+        }
+        loadFailed = true
+    }
+
+    private func fetch(downloader: AttachmentDownloader, keyURL: URL, force: Bool) async -> PlatformImage? {
         do {
             let path = try await downloader.download(
                 messageID: attachment.messageID,
@@ -55,15 +68,12 @@ struct MailAttachmentThumbnailView: View {
                 folder: folder,
                 partID: attachment.partID,
                 filename: attachment.filename.isEmpty ? "inline-\(attachment.partID).img" : attachment.filename,
-                folderBookmark: folderBookmark
+                folderBookmark: folderBookmark,
+                forceRedownload: force
             )
-            if let thumb = await thumbnailCache.thumbnail(for: keyURL, localPath: path) {
-                thumbnail = thumb
-            } else {
-                loadFailed = true
-            }
+            return await thumbnailCache.thumbnail(for: keyURL, localPath: path)
         } catch {
-            loadFailed = true
+            return nil
         }
     }
 }
