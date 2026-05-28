@@ -144,7 +144,7 @@ enum HTMLSanitizer {
                 if nextHasOutlookHeader { cutoff = i; break }
             }
         }
-        let trimmedFull = body.trimmingCharacters(in: .whitespacesAndNewlines)
+        let trimmedFull = normalised.trimmingCharacters(in: .whitespacesAndNewlines)
         let cleaned = lines.prefix(cutoff).joined(separator: "\n")
             .trimmingCharacters(in: .whitespacesAndNewlines)
         return StrippedBody(cleaned: cleaned, full: trimmedFull)

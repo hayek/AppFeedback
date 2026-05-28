@@ -83,4 +83,13 @@ final class HTMLSanitizerTests: XCTestCase {
         XCTAssertEqual(stripped.cleaned, "Line one\nLine two")
         XCTAssertTrue(stripped.hasQuoted)
     }
+
+    func test_stripQuotedReply_CRLFNoQuotedReply_hasQuotedIsFalse() {
+        // No quoted reply present: cleaned and full must match so hasQuoted is false,
+        // otherwise the UI shows a "Show full text" toggle that does nothing visible.
+        let body = "Hello\r\nworld\r\n"
+        let stripped = HTMLSanitizer.stripQuotedReply(body)
+        XCTAssertEqual(stripped.cleaned, "Hello\nworld")
+        XCTAssertFalse(stripped.hasQuoted)
+    }
 }
