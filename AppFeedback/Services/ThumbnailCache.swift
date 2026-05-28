@@ -45,20 +45,27 @@ final class ThumbnailCache {
     }
 
     private func scale(_ img: PlatformImage, to dim: CGFloat) -> PlatformImage {
+        // Preserve aspect ratio: `dim` is the max edge, not a forced square. Without
+        // this, portrait images get squashed into a square at cache time and look
+        // wrong no matter what aspectRatio mode the display view uses.
+        let src = img.size
+        guard src.width > 0, src.height > 0 else { return img }
+        let scale = min(dim / src.width, dim / src.height, 1)
+        let newSize = CGSize(width: src.width * scale, height: src.height * scale)
+
         #if os(macOS)
-        let newSize = NSSize(width: dim, height: dim)
         let out = NSImage(size: newSize)
         out.lockFocus()
         img.draw(in: NSRect(origin: .zero, size: newSize),
-                 from: NSRect(origin: .zero, size: img.size),
+                 from: NSRect(origin: .zero, size: src),
                  operation: .copy, fraction: 1.0)
         out.unlockFocus()
         return out
         #else
         let format = UIGraphicsImageRendererFormat.default()
-        let renderer = UIGraphicsImageRenderer(size: CGSize(width: dim, height: dim), format: format)
+        let renderer = UIGraphicsImageRenderer(size: newSize, format: format)
         return renderer.image { _ in
-            img.draw(in: CGRect(origin: .zero, size: CGSize(width: dim, height: dim)))
+            img.draw(in: CGRect(origin: .zero, size: newSize))
         }
         #endif
     }

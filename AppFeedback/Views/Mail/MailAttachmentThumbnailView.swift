@@ -15,22 +15,26 @@ struct MailAttachmentThumbnailView: View {
 
     var body: some View {
         Button(action: onTap) {
-            ZStack {
-                RoundedRectangle(cornerRadius: 8, style: .continuous)
-                    .fill(Color.secondary.opacity(0.15))
+            Group {
                 if let thumb = thumbnail {
                     Image(platformImage: thumb)
                         .resizable()
-                        .aspectRatio(contentMode: .fill)
+                        .aspectRatio(contentMode: .fit)
+                        .frame(maxWidth: 120, maxHeight: 80)
                         .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
-                } else if loadFailed {
-                    Image(systemName: "photo")
-                        .foregroundStyle(.secondary)
                 } else {
-                    ProgressView().controlSize(.small)
+                    ZStack {
+                        RoundedRectangle(cornerRadius: 8, style: .continuous)
+                            .fill(Color.secondary.opacity(0.15))
+                        if loadFailed {
+                            Image(systemName: "photo").foregroundStyle(.secondary)
+                        } else {
+                            ProgressView().controlSize(.small)
+                        }
+                    }
+                    .frame(width: 80, height: 80)
                 }
             }
-            .frame(width: 60, height: 60)
         }
         .buttonStyle(.plain)
         .task(id: attachment.id) { await loadThumbnail() }
@@ -53,7 +57,11 @@ struct MailAttachmentThumbnailView: View {
                 filename: attachment.filename.isEmpty ? "inline-\(attachment.partID).img" : attachment.filename,
                 folderBookmark: folderBookmark
             )
-            thumbnail = await thumbnailCache.thumbnail(for: keyURL, localPath: path)
+            if let thumb = await thumbnailCache.thumbnail(for: keyURL, localPath: path) {
+                thumbnail = thumb
+            } else {
+                loadFailed = true
+            }
         } catch {
             loadFailed = true
         }

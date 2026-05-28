@@ -204,8 +204,17 @@ actor IMAPClient: IMAPClientProtocol {
 
         try await mapped { _ = try await server.selectMailbox(folder) }
 
+        // BODYSTRUCTURE first so we know the part's Content-Transfer-Encoding. Without
+        // this, base64-encoded binary parts (the common case for images) get written to
+        // disk as base64 text and never render. SwiftMail's `fetchPart` returns raw
+        // post-transfer-encoding bytes; the decode step is `.decoded(for: part)`.
         let section = Section(partID)
-        return try await mapped { try await server.fetchPart(section: section, of: UID(uid)) }
+        let structure = try await mapped { try await server.fetchStructure(UID(uid)) }
+        let raw = try await mapped { try await server.fetchPart(section: section, of: UID(uid)) }
+        if let part = structure.first(where: { $0.section.description == partID }) {
+            return raw.decoded(for: part)
+        }
+        return raw
     }
 
     func testConnection() async throws {
