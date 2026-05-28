@@ -67,4 +67,20 @@ final class HTMLSanitizerTests: XCTestCase {
         XCTAssertTrue(out2.contains("href=\"a>b\""))
         XCTAssertTrue(out2.contains(">x</a>"))
     }
+
+    func test_stripQuotedReply_CRLFDoesNotInsertBlankLines() {
+        // IMAP delivers bodies with CRLF endings. Cleaned output must not collapse those
+        // into `\n\n` (which Text renders as paragraph breaks).
+        let body = "Line one\r\nLine two\r\nLine three\r\n\r\nOn Thu, 28 May 2026, X wrote:\r\n> quoted"
+        let stripped = HTMLSanitizer.stripQuotedReply(body)
+        XCTAssertEqual(stripped.cleaned, "Line one\nLine two\nLine three")
+        XCTAssertTrue(stripped.hasQuoted)
+    }
+
+    func test_stripQuotedReply_LFOnlyStillWorks() {
+        let body = "Line one\nLine two\n\nOn Thu, X wrote:\n> quoted"
+        let stripped = HTMLSanitizer.stripQuotedReply(body)
+        XCTAssertEqual(stripped.cleaned, "Line one\nLine two")
+        XCTAssertTrue(stripped.hasQuoted)
+    }
 }

@@ -119,7 +119,13 @@ enum HTMLSanitizer {
     }
 
     static func stripQuotedReply(_ body: String) -> StrippedBody {
-        let lines = body.components(separatedBy: .newlines)
+        // Normalise line endings before splitting. `.newlines` is a CharacterSet, so it would
+        // treat each of \r and \n as a separator and emit an empty string between every CRLF
+        // pair — those empties later rejoin into `\n\n`, which Text renders as paragraph breaks.
+        let normalised = body
+            .replacingOccurrences(of: "\r\n", with: "\n")
+            .replacingOccurrences(of: "\r", with: "\n")
+        let lines = normalised.components(separatedBy: "\n")
         var cutoff = lines.count
         for (i, line) in lines.enumerated() {
             let trimmed = line.trimmingCharacters(in: .whitespaces)
