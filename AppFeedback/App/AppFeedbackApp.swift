@@ -258,6 +258,9 @@ struct AppFeedbackApp: App {
     var body: some Scene {
         WindowGroup {
             RootView(store: store, seenStore: seenStore, cacheContext: cacheContext)
+                #if !os(macOS)
+                .overlay(QuickLookHost())
+                #endif
                 .environment(syncStatus)
                 .environment(activityLog)
                 .environment(mailAccountStore)
@@ -278,9 +281,6 @@ struct AppFeedbackApp: App {
                 .environment(quickLook)
                 .environment(thumbnailCache)
                 .environment(feedbackAttachmentDownloaderHolder)
-                #if !os(macOS)
-                .overlay(QuickLookHost())
-                #endif
                 .environment(\.notificationService, notificationService)
                 .task { await notificationService.requestAuthorizationIfNeeded() }
                 .task(id: store.repos.map(\.id)) {
