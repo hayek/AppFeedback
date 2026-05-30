@@ -79,6 +79,21 @@ actor MailSyncCoordinator {
 
     // MARK: - Public API
 
+    /// Seconds to wait before the next poll. On transient failure we retry *sooner* than the
+    /// normal interval (starting at 30s) and ramp back up exponentially, capped at `baseSeconds`
+    /// so we never wait longer than the configured poll cadence.
+    static func backoffSeconds(baseSeconds: Int, consecutiveFailures: Int) -> Int {
+        guard consecutiveFailures > 0 else { return baseSeconds }
+        // Clamp in Double space *before* converting to Int. At ~60+ failures,
+        // 30 · 2^(failures-1) exceeds Int.max and `Int(_:)` traps on the out-of-range
+        // Double — which crashed the app a few seconds after launch. Taking the min
+        // against Double(baseSeconds) keeps the value small and finite (even against
+        // +inf), so the conversion is always safe. Result is identical to
+        // min(baseSeconds, Int(backoff)) for every non-overflowing input.
+        let backoff = 30.0 * pow(2.0, Double(consecutiveFailures - 1))
+        return Int(min(Double(baseSeconds), backoff))
+    }
+
     /// Starts the polling loop. Cancels any prior loop first.
     func start() {
         loopTask?.cancel()
@@ -105,12 +120,10 @@ actor MailSyncCoordinator {
                 let baseSeconds = snapshot.pollingEnabled ? snapshot.intervalSeconds : 60
 
                 // Apply exponential backoff for transient failures
-                let sleepSeconds: Int
-                if snapshot.consecutiveFailures > 0 {
-                    sleepSeconds = min(baseSeconds, Int(30.0 * pow(2.0, Double(snapshot.consecutiveFailures - 1))))
-                } else {
-                    sleepSeconds = baseSeconds
-                }
+                let sleepSeconds = Self.backoffSeconds(
+                    baseSeconds: baseSeconds,
+                    consecutiveFailures: snapshot.consecutiveFailures
+                )
 
                 let ns = UInt64(sleepSeconds) * 1_000_000_000
                 try? await Task.sleep(nanoseconds: ns)

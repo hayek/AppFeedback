@@ -295,6 +295,30 @@ final class MailSyncCoordinatorTests: XCTestCase {
         XCTAssertEqual(failures, 1, "consecutiveFailures should be 1 after first transient error")
     }
 
+    // MARK: - Test 8: backoff is clamped and never overflows Int
+
+    /// Regression: `backoffSeconds` computed `Int(30.0 * pow(2.0, failures - 1))` *before*
+    /// clamping with `min(baseSeconds, …)`, so once an account reached ~60 consecutive
+    /// failures the Double exceeded `Int.max` and the conversion trapped, crashing the app a
+    /// few seconds after launch (during the first post-poll backoff calculation).
+    func test_backoffSeconds_clampsToBase_andDoesNotOverflowAtHighFailureCounts() {
+        // failures == 0 → no backoff, use the base interval
+        XCTAssertEqual(MailSyncCoordinator.backoffSeconds(baseSeconds: 300, consecutiveFailures: 0), 300)
+
+        // Early failures retry sooner than base, ramping up exponentially…
+        XCTAssertEqual(MailSyncCoordinator.backoffSeconds(baseSeconds: 300, consecutiveFailures: 1), 30)
+        XCTAssertEqual(MailSyncCoordinator.backoffSeconds(baseSeconds: 300, consecutiveFailures: 2), 60)
+        XCTAssertEqual(MailSyncCoordinator.backoffSeconds(baseSeconds: 300, consecutiveFailures: 3), 120)
+
+        // …but never longer than the configured base interval.
+        XCTAssertEqual(MailSyncCoordinator.backoffSeconds(baseSeconds: 300, consecutiveFailures: 5), 300)
+        XCTAssertEqual(MailSyncCoordinator.backoffSeconds(baseSeconds: 60, consecutiveFailures: 4), 60)
+
+        // The crash case: a huge exponent overflows Int.max. Must clamp to base, not trap.
+        XCTAssertEqual(MailSyncCoordinator.backoffSeconds(baseSeconds: 300, consecutiveFailures: 70), 300)
+        XCTAssertEqual(MailSyncCoordinator.backoffSeconds(baseSeconds: 300, consecutiveFailures: 1000), 300)
+    }
+
     // MARK: - Helpers
 
     private func accountStore(in context: ModelContext) -> MailAccount? {
