@@ -7,6 +7,8 @@ struct RepoConfig: Identifiable, Codable, Hashable, Sendable {
     var repo: String
     var mirrorEmailsToGitHub: Bool
     var redactEmailAddresses: Bool
+    var connectedRepoOwner: String?
+    var connectedRepoName: String?
 
     init(
         id: UUID = UUID(),
@@ -14,7 +16,9 @@ struct RepoConfig: Identifiable, Codable, Hashable, Sendable {
         owner: String,
         repo: String,
         mirrorEmailsToGitHub: Bool = true,
-        redactEmailAddresses: Bool = true
+        redactEmailAddresses: Bool = true,
+        connectedRepoOwner: String? = nil,
+        connectedRepoName: String? = nil
     ) {
         self.id = id
         self.displayName = displayName
@@ -22,5 +26,7 @@ struct RepoConfig: Identifiable, Codable, Hashable, Sendable {
         self.repo = repo
         self.mirrorEmailsToGitHub = mirrorEmailsToGitHub
         self.redactEmailAddresses = redactEmailAddresses
+        self.connectedRepoOwner = connectedRepoOwner
+        self.connectedRepoName = connectedRepoName
     }
 }

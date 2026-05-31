@@ -56,6 +56,7 @@ struct FeedbackIssue: Identifiable, Codable, Sendable {
     let labels: [IssueLabel]
     var updatedAt: Date?
     var state: IssueState?
+    var milestoneTitle: String?
     var detectedLanguageCode: String?
     var translatedTitle: String?
     var translatedBody: String?
@@ -78,6 +79,7 @@ struct FeedbackIssue: Identifiable, Codable, Sendable {
         labels: [IssueLabel],
         updatedAt: Date? = nil,
         state: IssueState? = nil,
+        milestoneTitle: String? = nil,
         detectedLanguageCode: String? = nil,
         translatedTitle: String? = nil,
         translatedBody: String? = nil,
@@ -97,6 +99,7 @@ struct FeedbackIssue: Identifiable, Codable, Sendable {
         self.labels = labels
         self.updatedAt = updatedAt
         self.state = state
+        self.milestoneTitle = milestoneTitle
         self.detectedLanguageCode = detectedLanguageCode
         self.translatedTitle = translatedTitle
         self.translatedBody = translatedBody

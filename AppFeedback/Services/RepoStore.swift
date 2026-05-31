@@ -65,7 +65,9 @@ final class RepoStore {
             owner: repo.owner,
             repo: repo.repo,
             mirrorEmailsToGitHub: repo.mirrorEmailsToGitHub,
-            redactEmailAddresses: repo.redactEmailAddresses
+            redactEmailAddresses: repo.redactEmailAddresses,
+            connectedRepoOwner: repo.connectedRepoOwner,
+            connectedRepoName: repo.connectedRepoName
         )
         context.insert(model)
         save()
@@ -79,6 +81,8 @@ final class RepoStore {
         model.repo = repo.repo
         model.mirrorEmailsToGitHub = repo.mirrorEmailsToGitHub
         model.redactEmailAddresses = repo.redactEmailAddresses
+        model.connectedRepoOwner = repo.connectedRepoOwner
+        model.connectedRepoName = repo.connectedRepoName
         save()
         reload()
     }
@@ -91,7 +95,9 @@ final class RepoStore {
             owner: model.owner,
             repo: model.repo,
             mirrorEmailsToGitHub: model.mirrorEmailsToGitHub,
-            redactEmailAddresses: model.redactEmailAddresses
+            redactEmailAddresses: model.redactEmailAddresses,
+            connectedRepoOwner: model.connectedRepoOwner,
+            connectedRepoName: model.connectedRepoName
         )
         await KeychainService.delete(for: config)
         context.delete(model)
@@ -153,7 +159,9 @@ final class RepoStore {
                 owner: $0.owner,
                 repo: $0.repo,
                 mirrorEmailsToGitHub: $0.mirrorEmailsToGitHub,
-                redactEmailAddresses: $0.redactEmailAddresses
+                redactEmailAddresses: $0.redactEmailAddresses,
+                connectedRepoOwner: $0.connectedRepoOwner,
+                connectedRepoName: $0.connectedRepoName
             )
         }
         // Build hidden-app map from HiddenAppStore (CloudKit-synced) with one-time

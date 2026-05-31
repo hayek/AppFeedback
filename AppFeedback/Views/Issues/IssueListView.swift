@@ -95,6 +95,21 @@ struct IssueListView: View {
             }
         }
         #endif
+        .toolbar {
+            ToolbarItem(placement: .automatic) {
+                if viewModel.isSelecting {
+                    HStack(spacing: 12) {
+                        Button("Cancel") { viewModel.clearSelection() }
+                        Button("Create Task (\(viewModel.selectedFeedbackNumbers.count))") {
+                            viewModel.requestCreateTask = true
+                        }
+                        .disabled(viewModel.selectedFeedbackNumbers.isEmpty)
+                    }
+                } else {
+                    Button("Select") { viewModel.isSelecting = true }
+                }
+            }
+        }
     }
 
     @ViewBuilder
@@ -134,8 +149,22 @@ struct IssueListView: View {
                         .padding(.horizontal, 2)
 
                         ForEach(visible) { issue in
-                            issueCard(for: issue)
-                                .id(issue.number)
+                            HStack(spacing: 8) {
+                                if viewModel.isSelecting {
+                                    Image(systemName: viewModel.selectedFeedbackNumbers.contains(issue.number) ? "checkmark.circle.fill" : "circle")
+                                        .imageScale(.large)
+                                        .foregroundStyle(viewModel.selectedFeedbackNumbers.contains(issue.number) ? Color.accentColor : .secondary)
+                                }
+                                issueCard(for: issue)
+                                    // While selecting, intercept the tap so the row toggles
+                                    // selection instead of the card opening / marking seen.
+                                    .allowsHitTesting(!viewModel.isSelecting)
+                            }
+                            .contentShape(Rectangle())
+                            .onTapGesture {
+                                if viewModel.isSelecting { viewModel.toggleSelection(issue.number) }
+                            }
+                            .id(issue.number)
                         }
                     }
                 }

@@ -17,6 +17,8 @@ final class Repo {
     /// Defaulted to `true` for public repos and `false` for private at the moment the
     /// repo is added; user-editable thereafter.
     var redactEmailAddresses: Bool = true
+    var connectedRepoOwner: String? = nil
+    var connectedRepoName: String? = nil
 
     init(
         id: UUID = UUID(),
@@ -27,7 +29,9 @@ final class Repo {
         appColors: [String: String] = [:],
         createdAt: Date = Date(),
         mirrorEmailsToGitHub: Bool = true,
-        redactEmailAddresses: Bool = true
+        redactEmailAddresses: Bool = true,
+        connectedRepoOwner: String? = nil,
+        connectedRepoName: String? = nil
     ) {
         self.id = id
         self.displayName = displayName
@@ -38,5 +42,7 @@ final class Repo {
         self.createdAt = createdAt
         self.mirrorEmailsToGitHub = mirrorEmailsToGitHub
         self.redactEmailAddresses = redactEmailAddresses
+        self.connectedRepoOwner = connectedRepoOwner
+        self.connectedRepoName = connectedRepoName
     }
 }

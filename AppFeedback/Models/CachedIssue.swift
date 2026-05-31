@@ -20,6 +20,7 @@ final class CachedIssue {
     var email: String?
     var issueDescription: String = ""
     var labelsJSON: String?
+    var milestoneTitle: String?
     var detectedLanguageCode: String?
     var translatedTitle: String?
     var translatedBody: String?
@@ -73,6 +74,7 @@ final class CachedIssue {
             email: email,
             description: issueDescription,
             labels: Self.decodeLabels(labelsJSON),
+            milestoneTitle: milestoneTitle,
             detectedLanguageCode: detectedLanguageCode,
             translatedTitle: translatedTitle,
             translatedBody: translatedBody,
@@ -99,6 +101,7 @@ final class CachedIssue {
             issueDescription: issue.description,
             labels: issue.labels
         )
+        cached.milestoneTitle = issue.milestoneTitle
         cached.attachmentsJSON = Self.encodeAttachments(issue.attachments)
         return cached
     }
@@ -117,6 +120,7 @@ final class CachedIssue {
         self.osVersion = issue.osVersion
         self.email = issue.email
         self.issueDescription = issue.description
+        self.milestoneTitle = issue.milestoneTitle
         self.labelsJSON = Self.encodeLabels(issue.labels)
         self.attachmentsJSON = Self.encodeAttachments(issue.attachments)
     }

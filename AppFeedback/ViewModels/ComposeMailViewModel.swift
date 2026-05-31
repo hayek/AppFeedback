@@ -118,8 +118,9 @@ final class ComposeMailViewModel {
         )
     }
 
-    func send() async {
-        guard let credentials = currentCredentials() else { return }
+    @discardableResult
+    func send() async -> Bool {
+        guard let credentials = currentCredentials() else { return false }
 
         let messageID = MessageIDGenerator.generate(
             repoOwner: repoOwner,
@@ -156,7 +157,7 @@ final class ComposeMailViewModel {
             activityLog.finish(id, status: .failure, detail: detail)
             failureStore?.record(messageID, reason: detail)
             tracker?.clear(messageID)
-            return
+            return false
         }
 
         let context = placeholderContext()
@@ -179,10 +180,12 @@ final class ComposeMailViewModel {
             if let mirror {
                 Task { await mirror.mirrorOutbound(messageID: messageID) }
             }
+            return true
         } catch {
             activityLog.finish(id, status: .failure, detail: error.localizedDescription)
             failureStore?.record(messageID, reason: error.localizedDescription)
             tracker?.clear(messageID)
+            return false
         }
     }
 

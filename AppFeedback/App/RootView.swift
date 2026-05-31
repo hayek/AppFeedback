@@ -6,15 +6,29 @@ struct RootView: View {
     var store: RepoStore
     var seenStore: SeenIssueStore
     var cacheContext: ModelContext
+    var versionStore: VersionStore
     @State private var loaders: [UUID: IssueLoader] = [:]
     @State private var selection: SidebarSelection?
     @State private var viewModel = IssueListViewModel()
     @State private var summaryVM: UnreadSummaryViewModel?
     @State private var showSettings = false
     @State private var showAddRepo = false
+    @State private var showInspector = true
+    @State private var inspector = ProjectInspectorModel()
+    @State private var versionToOpen: ProjectVersion?
+    @State private var versionToRelease: ProjectVersion?
+    @State private var pendingReleaseAfterDetail: ProjectVersion?
+    @State private var showCreateVersion = false
+    @State private var showCreateTask = false
     @State private var columnVisibility: NavigationSplitViewVisibility = .automatic
     @Environment(\.scenePhase) private var scenePhase
     @Environment(ActivityLog.self) private var activityLog
+    @Environment(MailAccountStore.self) private var mailAccountStore
+    @Environment(MailSettingsStore.self) private var mailSettingsStore
+    @Environment(MailThreadStore.self) private var mailThreadStore
+    @Environment(OutboundSendTracker.self) private var outboundTracker
+    @Environment(OutboundFailureStore.self) private var outboundFailures
+    @Environment(MailToGitHubMirrorHolder.self) private var mirrorHolder: MailToGitHubMirrorHolder?
     @Environment(IntelligenceSettings.self) private var intelligenceSettings
     @Environment(IntelligenceService.self) private var intelligenceService
     @Environment(NotificationSettings.self) private var notificationSettings
@@ -73,6 +87,22 @@ struct RootView: View {
                     .navigationTitle(navigationTitle(for: selection))
                     .navigationBarTitleDisplayMode(.inline)
                     #endif
+                    .toolbar {
+                        ToolbarItem(placement: .primaryAction) {
+                            Button { showInspector.toggle() } label: { Image(systemName: "sidebar.trailing") }
+                                .help("Toggle Tasks & Versions")
+                        }
+                    }
+                    .inspector(isPresented: $showInspector) {
+                        ProjectInspectorPanel(
+                            repo: store.repos.first(where: { $0.id == selection.repoId }),
+                            inspector: inspector,
+                            versionStore: versionStore,
+                            onCreateVersion: { showCreateVersion = true },
+                            onOpenVersion: { versionToOpen = $0 }
+                        )
+                        .inspectorColumnWidth(min: 260, ideal: 320, max: 480)
+                    }
                 } else {
                     ProgressView()
                 }
@@ -92,6 +122,59 @@ struct RootView: View {
         }
         .sheet(isPresented: $showAddRepo) {
             AddEditRepoView(store: store)
+        }
+        .onChange(of: viewModel.requestCreateTask) { _, want in
+            guard want else { return }
+            viewModel.requestCreateTask = false
+            showCreateTask = true
+        }
+        .sheet(isPresented: $showCreateTask) {
+            if let repo = store.repos.first(where: { $0.id == selection?.repoId }) {
+                CreateTaskSheet(repo: repo,
+                    feedbackNumbers: Array(viewModel.selectedFeedbackNumbers).sorted(),
+                    versions: versionStore.versions(owner: repo.owner, repo: repo.repo),
+                    onCreated: {
+                        viewModel.clearSelection()
+                        Task { await refreshSelectedRepo() }
+                    })
+            }
+        }
+        .sheet(isPresented: $showCreateVersion) {
+            if let repo = store.repos.first(where: { $0.id == selection?.repoId }) {
+                NewVersionSheet(repo: repo, versionStore: versionStore, onCreated: {})
+            }
+        }
+        .sheet(item: $versionToOpen, onDismiss: {
+            if let v = pendingReleaseAfterDetail {
+                pendingReleaseAfterDetail = nil
+                versionToRelease = v
+            }
+        }) { version in
+            if let repo = store.repos.first(where: { $0.id == selection?.repoId }) {
+                NavigationStack {
+                    VersionDetailView(repo: repo, version: version, inspector: inspector,
+                        versionStore: versionStore, onRelease: { pendingReleaseAfterDetail = version; versionToOpen = nil },
+                        canEmail: mailAccountStore.defaultSender != nil)
+                }
+            }
+        }
+        .sheet(item: $versionToRelease) { version in
+            if let repo = store.repos.first(where: { $0.id == selection?.repoId }) {
+                let recipients = ReleaseRecipientCalculator.recipients(
+                    versionNamed: version.name, tasks: viewModel.tasks, feedback: viewModel.allIssues)
+                ReleaseRecipientsSheet(
+                    repo: repo, version: version, recipients: recipients,
+                    alreadySent: versionStore.alreadyNotifiedEmails(owner: repo.owner, repo: repo.repo, versionName: version.name),
+                    appName: repo.displayName,
+                    makeService: { ReleaseNotificationService(versionStore: versionStore, deps: releaseDeps()) },
+                    feedback: viewModel.allIssues,
+                    onPublish: {
+                        let service = VersionService(store: versionStore)
+                        let tag = version.releaseTag ?? "v\(version.name)"
+                        _ = try? await service.release(repo: repo, version: version, tag: tag, target: nil,
+                            publishRelease: true, now: Date())
+                    })
+            }
         }
         .onChange(of: selection) { _, newValue in
             guard let newValue else { return }
@@ -161,12 +244,7 @@ struct RootView: View {
 
     #if os(iOS)
     private func navigationTitle(for selection: SidebarSelection) -> String {
-        switch selection {
-        case .allIssues:
-            return "All Apps"
-        case .app(_, let appName):
-            return appName
-        }
+        store.repos.first(where: { $0.id == selection.repoId })?.displayName ?? "Feedback"
     }
     #endif
 
@@ -184,15 +262,10 @@ struct RootView: View {
         viewModel.hiddenApps = store.hiddenAppsFor(selection.repoId)
         viewModel.attachSeenStore(seenStore, owner: owner, repo: repoName)
         viewModel.applyLoaded(issues)
+        inspector.setTasks(viewModel.tasks)
         viewModel.clearFilters()
-        switch selection {
-        case .allIssues:
-            viewModel.appFilter = []
-            viewModel.allowsAppFilter = true
-        case .app(_, let name):
-            viewModel.appFilter = [name]
-            viewModel.allowsAppFilter = false
-        }
+        viewModel.appFilter = []
+        viewModel.allowsAppFilter = true
     }
 
     private var selectedLoadedSignature: String {
@@ -229,8 +302,30 @@ struct RootView: View {
         }
     }
 
+    private func releaseDeps() -> ReleaseNotificationService.Dependencies {
+        ReleaseNotificationService.Dependencies(
+            accountStore: mailAccountStore,
+            settingsStore: mailSettingsStore,
+            threadStore: mailThreadStore,
+            outboundTracker: outboundTracker,
+            outboundFailures: outboundFailures,
+            sender: MailSender(),
+            activityLog: activityLog,
+            mirror: mirrorHolder?.mirror
+        )
+    }
+
     private func loadAllRepos() async {
         await loadRepos(store.repos)
+    }
+
+    /// Reloads the currently-selected repo so a freshly-created task issue appears.
+    /// Mirrors the `IssueListView(onRefresh:)` closure: load the token, then `load`.
+    private func refreshSelectedRepo() async {
+        guard let selection,
+              let repo = store.repos.first(where: { $0.id == selection.repoId }),
+              let token = await KeychainService.load(for: repo) else { return }
+        await loaders[selection.repoId]?.load(token: token)
     }
 
     private func loadRepos(_ repos: [RepoConfig]) async {

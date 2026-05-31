@@ -103,4 +103,13 @@ final class RepoStoreTests: XCTestCase {
         XCTAssertEqual(rows.first?.repoOwner, "o")
         XCTAssertEqual(rows.first?.repoName, "r")
     }
+
+    func testConnectedRepoRoundTrips() throws {
+        var cfg = RepoConfig(displayName: "P", owner: "o", repo: "r")
+        cfg.connectedRepoOwner = "o2"; cfg.connectedRepoName = "code"
+        store.add(cfg)
+        let reloaded = store.repos.first { $0.owner == "o" }
+        XCTAssertEqual(reloaded?.connectedRepoOwner, "o2")
+        XCTAssertEqual(reloaded?.connectedRepoName, "code")
+    }
 }

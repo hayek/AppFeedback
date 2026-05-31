@@ -35,6 +35,7 @@ struct AppFeedbackApp: App {
     private let container: ModelContainer
     private let repoConfigSnapshot = RepoConfigSnapshot()
     @State private var store: RepoStore
+    @State private var versionStore: VersionStore
     @State private var syncStatus: CloudSyncStatus
     @State private var activityLog: ActivityLog
     @State private var mailAccountStore: MailAccountStore
@@ -76,12 +77,13 @@ struct AppFeedbackApp: App {
                         MailSettings.self,
                         MailThread.self, MailMessage.self, MailAttachment.self,
                         IssueTranslation.self, IssueSummaryCache.self,
+                        ProjectVersion.self, SentReleaseNotification.self,
                         CachedIssue.self, MailAttachmentLocal.self, MailAccountLocalState.self,
                         RepoFetchState.self, FeedbackAttachmentLocal.self,
                     configurations: testConfig
                 )
             } else {
-                let cloudSchema = Schema([Repo.self, SeenIssue.self, HiddenApp.self, MailAccount.self, MailSettings.self, MailThread.self, MailMessage.self, MailAttachment.self, IssueTranslation.self, IssueSummaryCache.self])
+                let cloudSchema = Schema([Repo.self, SeenIssue.self, HiddenApp.self, MailAccount.self, MailSettings.self, MailThread.self, MailMessage.self, MailAttachment.self, IssueTranslation.self, IssueSummaryCache.self, ProjectVersion.self, SentReleaseNotification.self])
                 let localSchema = Schema([CachedIssue.self, MailAttachmentLocal.self, MailAccountLocalState.self, RepoFetchState.self, FeedbackAttachmentLocal.self])
                 let cloudConfig = ModelConfiguration(
                     "cloud",
@@ -94,6 +96,7 @@ struct AppFeedbackApp: App {
                         MailSettings.self,
                         MailThread.self, MailMessage.self, MailAttachment.self,
                         IssueTranslation.self, IssueSummaryCache.self,
+                        ProjectVersion.self, SentReleaseNotification.self,
                         CachedIssue.self, MailAttachmentLocal.self, MailAccountLocalState.self,
                         RepoFetchState.self, FeedbackAttachmentLocal.self,
                     configurations: cloudConfig, localConfig
@@ -124,6 +127,7 @@ struct AppFeedbackApp: App {
         _seenStore = State(initialValue: SeenIssueStore(context: cloudContext))
         _hiddenAppStore = State(initialValue: hiddenAppStoreLocal)
         _store = State(initialValue: RepoStore(context: ModelContext(container), hiddenAppStore: hiddenAppStoreLocal))
+        _versionStore = State(initialValue: VersionStore(context: ModelContext(container)))
         _cacheContext = State(initialValue: ModelContext(container))
         _syncStatus = State(initialValue: CloudSyncStatus())
         // Seed the snapshot so tokenProvider works even before the first repos observation.
@@ -257,7 +261,7 @@ struct AppFeedbackApp: App {
 
     var body: some Scene {
         WindowGroup {
-            RootView(store: store, seenStore: seenStore, cacheContext: cacheContext)
+            RootView(store: store, seenStore: seenStore, cacheContext: cacheContext, versionStore: versionStore)
                 #if !os(macOS)
                 .overlay(QuickLookHost())
                 #endif

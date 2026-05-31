@@ -16,7 +16,13 @@ final class ModelsTests: XCTestCase {
     func test_sidebarSelection_equality() {
         let id = UUID()
         XCTAssertEqual(SidebarSelection.allIssues(repoId: id), SidebarSelection.allIssues(repoId: id))
-        XCTAssertNotEqual(SidebarSelection.allIssues(repoId: id), SidebarSelection.app(repoId: id, appName: "X"))
+        XCTAssertNotEqual(SidebarSelection.allIssues(repoId: id), SidebarSelection.allIssues(repoId: UUID()))
+    }
+
+    func testSidebarSelectionExposesRepoID() {
+        let id = UUID()
+        let sel = SidebarSelection.allIssues(repoId: id)
+        XCTAssertEqual(sel.repoId, id)
     }
 
     func test_feedbackIssue_id_equalsNumber() {
@@ -26,5 +32,15 @@ final class ModelsTests: XCTestCase {
             email: nil, description: "", labels: []
         )
         XCTAssertEqual(issue.id, 42)
+    }
+
+    func testProjectVersionDefaultsAndDerivedState() {
+        let v = ProjectVersion(repoOwner: "o", repoName: "r", name: "1.2.0", changelog: "notes")
+        XCTAssertFalse(v.releasePublished)
+        XCTAssertNil(v.milestoneNumber)
+        XCTAssertEqual(v.derivedState(anyTaskStarted: false), .new)
+        XCTAssertEqual(v.derivedState(anyTaskStarted: true), .wip)
+        v.releasePublished = true
+        XCTAssertEqual(v.derivedState(anyTaskStarted: true), .released)
     }
 }
