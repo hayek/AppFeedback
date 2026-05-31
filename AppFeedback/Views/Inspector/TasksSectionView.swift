@@ -4,7 +4,6 @@ struct TasksSectionView: View {
     let repo: RepoConfig
     var inspector: ProjectInspectorModel
     var onCreateTask: () -> Void
-    @State private var working = false
     @State private var errorMessage: String?
     private let service = TaskService()
 
@@ -18,8 +17,14 @@ struct TasksSectionView: View {
                 ForEach(inspector.filteredTasks) { task in
                     TaskCard(
                         task: task,
-                        onStatus: { newStatus in update { try await service.setStatus(repo: repo, task: task, status: newStatus) } },
-                        onPriority: { newPriority in update { try await service.setPriority(repo: repo, task: task, priority: newPriority) } }
+                        onStatus: { newStatus in
+                            let previous = inspector.applyOptimistic(number: task.number, status: newStatus)
+                            commit(revert: previous) { try await service.setStatus(repo: repo, task: task, status: newStatus) }
+                        },
+                        onPriority: { newPriority in
+                            let previous = inspector.applyOptimistic(number: task.number, priority: newPriority)
+                            commit(revert: previous) { try await service.setPriority(repo: repo, task: task, priority: newPriority) }
+                        }
                     )
                 }
             }
@@ -33,12 +38,17 @@ struct TasksSectionView: View {
         }
     }
 
-    private func update(_ work: @escaping () async throws -> Void) {
-        guard !working else { return }
-        working = true; errorMessage = nil
+    /// Runs the GitHub write that backs an already-applied optimistic change. On failure, rolls the
+    /// UI back to `previous` and surfaces the error so the change never silently disappears.
+    private func commit(revert previous: TaskItem?, _ work: @escaping () async throws -> Void) {
+        errorMessage = nil
         Task {
-            do { try await work() } catch { errorMessage = error.localizedDescription }
-            working = false
+            do {
+                try await work()
+            } catch {
+                if let previous { inspector.restore(previous) }
+                errorMessage = error.localizedDescription
+            }
         }
     }
 }

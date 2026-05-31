@@ -29,6 +29,28 @@ struct TaskItem: Identifiable, Sendable, Hashable {
         self.isClosed = (issue.state == .closed)
     }
 
+    init(number: Int, title: String, body: String, feedbackRefs: [Int],
+         status: TaskStatus, priority: TaskPriority, milestoneTitle: String?, isClosed: Bool) {
+        self.number = number
+        self.title = title
+        self.body = body
+        self.feedbackRefs = feedbackRefs
+        self.status = status
+        self.priority = priority
+        self.milestoneTitle = milestoneTitle
+        self.isClosed = isClosed
+    }
+
+    /// A copy with the status and/or priority changed. Setting status to `.done` also marks the
+    /// task closed (matching `TaskService.setStatus`, which closes the issue when done).
+    func with(status newStatus: TaskStatus? = nil, priority newPriority: TaskPriority? = nil) -> TaskItem {
+        let resolvedStatus = newStatus ?? status
+        let resolvedClosed = newStatus.map { $0 == .done } ?? isClosed
+        return TaskItem(number: number, title: title, body: body, feedbackRefs: feedbackRefs,
+                        status: resolvedStatus, priority: newPriority ?? priority,
+                        milestoneTitle: milestoneTitle, isClosed: resolvedClosed)
+    }
+
     /// True when a loaded issue should be treated as a task rather than feedback.
     static func isTask(_ issue: FeedbackIssue) -> Bool {
         issue.labels.contains { $0.name == AppFeedbackLabels.task }
