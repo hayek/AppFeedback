@@ -16,6 +16,7 @@ struct RootView: View {
     @State private var showInspector = true
     @State private var inspector = ProjectInspectorModel()
     @State private var versionToRelease: ProjectVersion?
+    @State private var taskFromFeedback: TaskItem?
     @State private var showCreateVersion = false
     @State private var showCreateTask = false
     @State private var columnVisibility: NavigationSplitViewVisibility = .automatic
@@ -77,6 +78,8 @@ struct RootView: View {
                             await mailPoll
                         },
                         onDropTask: { attachTask(taskNumber: $0, toFeedback: $1) },
+                        attachedTasksByFeedback: attachedTasksByFeedback,
+                        onOpenTask: { taskFromFeedback = $0 },
                         repoOwner: owner,
                         repoName: name,
                         appColorOverrides: store.appColors[selection.repoId] ?? [:],
@@ -144,6 +147,11 @@ struct RootView: View {
         .sheet(isPresented: $showCreateVersion) {
             if let repo = store.repos.first(where: { $0.id == selection?.repoId }) {
                 NewVersionSheet(repo: repo, versionStore: versionStore, onCreated: {})
+            }
+        }
+        .sheet(item: $taskFromFeedback) { task in
+            if let repo = store.repos.first(where: { $0.id == selection?.repoId }) {
+                TaskDetailView(repo: repo, task: task, inspector: inspector, versionStore: versionStore)
             }
         }
         .sheet(item: $versionToRelease) { version in
@@ -314,6 +322,15 @@ struct RootView: View {
         showInspector = false
         #endif
         versionToRelease = version
+    }
+
+    /// Tasks attached to each feedback (by feedback number) — drives the clickable task tags.
+    private var attachedTasksByFeedback: [Int: [TaskItem]] {
+        var map: [Int: [TaskItem]] = [:]
+        for task in inspector.tasks {
+            for ref in task.feedbackRefs { map[ref, default: []].append(task) }
+        }
+        return map
     }
 
     /// Attaches a task to a feedback (drag a task card onto a feedback row): adds the feedback's

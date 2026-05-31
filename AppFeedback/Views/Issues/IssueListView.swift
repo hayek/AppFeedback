@@ -10,6 +10,9 @@ struct IssueListView: View {
     /// Attach a task to a feedback by dragging a task card onto a feedback row: (taskNumber, feedbackNumber).
     var onDropTask: ((Int, Int) -> Void)? = nil
     @State private var dropTargetNumber: Int?
+    /// Tasks attached to each feedback (by feedback number), shown as clickable tags.
+    var attachedTasksByFeedback: [Int: [TaskItem]] = [:]
+    var onOpenTask: ((TaskItem) -> Void)? = nil
     var repoOwner: String = ""
     var repoName: String = ""
     var appColorOverrides: [String: String] = [:]
@@ -28,6 +31,8 @@ struct IssueListView: View {
         allApps: [String],
         onRefresh: (() async -> Void)? = nil,
         onDropTask: ((Int, Int) -> Void)? = nil,
+        attachedTasksByFeedback: [Int: [TaskItem]] = [:],
+        onOpenTask: ((TaskItem) -> Void)? = nil,
         repoOwner: String = "",
         repoName: String = "",
         appColorOverrides: [String: String] = [:],
@@ -39,6 +44,8 @@ struct IssueListView: View {
         self.allApps = allApps
         self.onRefresh = onRefresh
         self.onDropTask = onDropTask
+        self.attachedTasksByFeedback = attachedTasksByFeedback
+        self.onOpenTask = onOpenTask
         self.repoOwner = repoOwner
         self.repoName = repoName
         self.appColorOverrides = appColorOverrides
@@ -272,7 +279,9 @@ struct IssueListView: View {
                 guard let detected = issue.detectedLanguageCode, !detected.isEmpty else { return false }
                 return viewModel.unsupportedSourceLanguages.contains(detected)
             }(),
-            onRetranslate: { viewModel.forceRetranslate(issueNumber: issue.number) }
+            onRetranslate: { viewModel.forceRetranslate(issueNumber: issue.number) },
+            attachedTasks: attachedTasksByFeedback[issue.number] ?? [],
+            onOpenTask: onOpenTask
         )
     }
 

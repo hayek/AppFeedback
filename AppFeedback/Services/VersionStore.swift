@@ -60,8 +60,8 @@ final class VersionStore {
     // MARK: Mutations
 
     @discardableResult
-    func create(repoOwner: String, repoName: String, name: String, changelog: String) -> ProjectVersion {
-        let v = ProjectVersion(repoOwner: repoOwner, repoName: repoName, name: name, changelog: changelog)
+    func create(repoOwner: String, repoName: String, name: String, releaseTitle: String = "", changelog: String) -> ProjectVersion {
+        let v = ProjectVersion(repoOwner: repoOwner, repoName: repoName, name: name, releaseTitle: releaseTitle, changelog: changelog)
         context.insert(v); save(); reload(); return v
     }
 

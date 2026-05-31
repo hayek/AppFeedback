@@ -7,6 +7,7 @@ struct NewVersionSheet: View {
 
     @Environment(\.dismiss) private var dismiss
     @State private var name = ""
+    @State private var title = ""
     @State private var changelog = ""
     @State private var working = false
     @State private var errorMessage: String?
@@ -25,6 +26,15 @@ struct NewVersionSheet: View {
                                 .font(.title2.weight(.semibold))
                         }
                         Rectangle().fill(Color.primary.opacity(0.08)).frame(height: 1)
+                    }
+
+                    field("Release title") {
+                        TextField("e.g. Performance & polish", text: $title)
+                            .textFieldStyle(.plain)
+                            .font(.body)
+                            .padding(11)
+                            .background(RoundedRectangle(cornerRadius: 10, style: .continuous).fill(Color.primary.opacity(0.045)))
+                            .overlay(RoundedRectangle(cornerRadius: 10, style: .continuous).strokeBorder(Color.primary.opacity(0.06), lineWidth: 1))
                     }
 
                     field("What's new") {
@@ -76,7 +86,7 @@ struct NewVersionSheet: View {
     private func create() {
         // Create the local version immediately (it appears in the panel at once), close, then
         // provision the GitHub milestone in the background; roll back if that fails.
-        let version = versionStore.create(repoOwner: repo.owner, repoName: repo.repo, name: name, changelog: changelog)
+        let version = versionStore.create(repoOwner: repo.owner, repoName: repo.repo, name: name, releaseTitle: title, changelog: changelog)
         onCreated()
         dismiss()
         let service = VersionService(store: versionStore)

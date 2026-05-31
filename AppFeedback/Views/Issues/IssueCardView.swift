@@ -71,6 +71,9 @@ struct IssueCardView: View {
     var isHighlighted: Bool = false
     var translationUnsupported: Bool = false
     var onRetranslate: (() -> Void)? = nil
+    /// Tasks that address this feedback, shown as clickable tags that open the task detail.
+    var attachedTasks: [TaskItem] = []
+    var onOpenTask: ((TaskItem) -> Void)? = nil
 
     @Environment(MailThreadStore.self) private var threadStore
     #if canImport(SwiftMail)
@@ -268,6 +271,12 @@ struct IssueCardView: View {
                     HStack(spacing: 8) {
                         ScrollView(.horizontal, showsIndicators: false) {
                             HStack(spacing: 6) {
+                                ForEach(attachedTasks) { task in
+                                    Button { onInteract?(); onOpenTask?(task) } label: {
+                                        TaskTagView(number: task.number, title: task.title)
+                                    }
+                                    .buttonStyle(.plain)
+                                }
                                 ForEach(issue.labels.withoutTypeAndUserSubmitted, id: \.name) { label in
                                     LabelChipView(label: label)
                                 }
@@ -518,6 +527,26 @@ private struct IssueTypeIconButton: View {
         } else {
             icon
         }
+    }
+}
+
+private struct TaskTagView: View {
+    let number: Int
+    let title: String
+
+    var body: some View {
+        HStack(spacing: 4) {
+            Image(systemName: "checklist").font(.system(size: 9, weight: .bold))
+            Text(title).font(.system(size: 11, weight: .semibold)).lineLimit(1)
+        }
+        .foregroundStyle(Color.accentColor)
+        .frame(maxWidth: 160, alignment: .leading)
+        .fixedSize(horizontal: true, vertical: false)
+        .padding(.horizontal, 8)
+        .padding(.vertical, 3)
+        .background(Color.accentColor.opacity(0.14), in: RoundedRectangle(cornerRadius: 6))
+        .overlay(RoundedRectangle(cornerRadius: 6).stroke(Color.accentColor.opacity(0.4), lineWidth: 1))
+        .help("Open task #\(number)")
     }
 }
 

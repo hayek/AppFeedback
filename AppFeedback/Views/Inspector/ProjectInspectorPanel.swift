@@ -29,6 +29,9 @@ struct ProjectInspectorPanel: View {
                 .environment(\.defaultMinListRowHeight, 0)
                 .scrollContentBackground(.hidden)
                 .scrollIndicators(.hidden)
+                #if os(iOS)
+                .contentMargins(.top, 16, for: .scrollContent)
+                #endif
                 .background(atmosphere)
                 .sheet(item: $taskToOpen) { task in
                     TaskDetailView(repo: repo, task: task, inspector: inspector, versionStore: versionStore)
