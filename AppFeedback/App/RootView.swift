@@ -15,10 +15,7 @@ struct RootView: View {
     @State private var showAddRepo = false
     @State private var showInspector = true
     @State private var inspector = ProjectInspectorModel()
-    @State private var versionToOpen: ProjectVersion?
     @State private var versionToRelease: ProjectVersion?
-    @State private var taskToOpen: TaskItem?
-    @State private var pendingReleaseAfterDetail: ProjectVersion?
     @State private var showCreateVersion = false
     @State private var showCreateTask = false
     @State private var columnVisibility: NavigationSplitViewVisibility = .automatic
@@ -78,6 +75,7 @@ struct RootView: View {
                             }
                             await mailPoll
                         },
+                        onDropTask: { attachTask(taskNumber: $0, toFeedback: $1) },
                         repoOwner: owner,
                         repoName: name,
                         appColorOverrides: store.appColors[selection.repoId] ?? [:],
@@ -99,10 +97,10 @@ struct RootView: View {
                             repo: store.repos.first(where: { $0.id == selection.repoId }),
                             inspector: inspector,
                             versionStore: versionStore,
+                            canEmail: mailAccountStore.defaultSender != nil,
                             onCreateTask: { viewModel.clearSelection(); showCreateTask = true },
-                            onOpenTask: { taskToOpen = $0 },
                             onCreateVersion: { showCreateVersion = true },
-                            onOpenVersion: { versionToOpen = $0 }
+                            onRelease: { startRelease($0) }
                         )
                         .inspectorColumnWidth(min: 260, ideal: 320, max: 480)
                     }
@@ -145,25 +143,6 @@ struct RootView: View {
         .sheet(isPresented: $showCreateVersion) {
             if let repo = store.repos.first(where: { $0.id == selection?.repoId }) {
                 NewVersionSheet(repo: repo, versionStore: versionStore, onCreated: {})
-            }
-        }
-        .sheet(item: $taskToOpen) { task in
-            if let repo = store.repos.first(where: { $0.id == selection?.repoId }) {
-                TaskDetailView(repo: repo, task: task, inspector: inspector, versionStore: versionStore)
-            }
-        }
-        .sheet(item: $versionToOpen, onDismiss: {
-            if let v = pendingReleaseAfterDetail {
-                pendingReleaseAfterDetail = nil
-                versionToRelease = v
-            }
-        }) { version in
-            if let repo = store.repos.first(where: { $0.id == selection?.repoId }) {
-                NavigationStack {
-                    VersionDetailView(repo: repo, version: version, inspector: inspector,
-                        versionStore: versionStore, onRelease: { pendingReleaseAfterDetail = version; versionToOpen = nil },
-                        canEmail: mailAccountStore.defaultSender != nil)
-                }
             }
         }
         .sheet(item: $versionToRelease) { version in
@@ -325,6 +304,30 @@ struct RootView: View {
 
     private func loadAllRepos() async {
         await loadRepos(store.repos)
+    }
+
+    /// Opens the release recipients flow for a version. On iOS the inspector is presented as a
+    /// sheet, so it's dismissed first to let the recipients sheet present cleanly.
+    private func startRelease(_ version: ProjectVersion) {
+        #if os(iOS)
+        showInspector = false
+        #endif
+        versionToRelease = version
+    }
+
+    /// Attaches a task to a feedback (drag a task card onto a feedback row): adds the feedback's
+    /// number to the task's refs, optimistically, then writes to GitHub.
+    private func attachTask(taskNumber: Int, toFeedback feedbackNumber: Int) {
+        guard let repo = store.repos.first(where: { $0.id == selection?.repoId }),
+              let task = inspector.task(number: taskNumber),
+              !task.feedbackRefs.contains(feedbackNumber) else { return }
+        let refs = (task.feedbackRefs + [feedbackNumber]).sorted()
+        let newBody = FeedbackTaskRefParser.upsert(into: FeedbackTaskRefParser.prose(of: task.body), refs: refs)
+        let previous = inspector.applyOptimistic(number: taskNumber, body: newBody)
+        Task {
+            do { try await TaskService().setFeedbackRefs(repo: repo, task: task, refs: refs) }
+            catch { if let previous { inspector.restore(previous) } }
+        }
     }
 
     /// Reloads the currently-selected repo so a freshly-created task issue appears.

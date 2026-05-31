@@ -4,11 +4,13 @@ struct ProjectInspectorPanel: View {
     let repo: RepoConfig?
     var inspector: ProjectInspectorModel
     var versionStore: VersionStore
+    var canEmail: Bool
     var onCreateTask: () -> Void
-    var onOpenTask: (TaskItem) -> Void
     var onCreateVersion: () -> Void
-    var onOpenVersion: (ProjectVersion) -> Void
+    var onRelease: (ProjectVersion) -> Void
 
+    @State private var taskToOpen: TaskItem?
+    @State private var versionToOpen: ProjectVersion?
     private let taskService = TaskService()
 
     var body: some View {
@@ -19,9 +21,21 @@ struct ProjectInspectorPanel: View {
                     versionsSection(repo: repo)
                 }
                 .listStyle(.plain)
+                .listSectionSeparator(.hidden)
                 .scrollContentBackground(.hidden)
                 .scrollIndicators(.hidden)
                 .background(atmosphere)
+                .sheet(item: $taskToOpen) { task in
+                    TaskDetailView(repo: repo, task: task, inspector: inspector, versionStore: versionStore)
+                }
+                .sheet(item: $versionToOpen) { version in
+                    NavigationStack {
+                        VersionDetailView(repo: repo, version: version, inspector: inspector,
+                                          versionStore: versionStore,
+                                          onRelease: { versionToOpen = nil; onRelease(version) },
+                                          canEmail: canEmail)
+                    }
+                }
             } else {
                 ContentUnavailableView {
                     Label("No project selected", systemImage: "sidebar.right")
@@ -31,7 +45,6 @@ struct ProjectInspectorPanel: View {
                 .background(atmosphere)
             }
         }
-        .navigationTitle("Tasks & Versions")
     }
 
     // MARK: Sections
@@ -47,7 +60,7 @@ struct ProjectInspectorPanel: View {
                         task: task,
                         onStatus: { changeStatus(repo: repo, task: task, status: $0) },
                         onPriority: { changePriority(repo: repo, task: task, priority: $0) },
-                        onOpen: { onOpenTask(task) }
+                        onOpen: { taskToOpen = task }
                     )
                     .panelRow()
                     .swipeActions(edge: .trailing, allowsFullSwipe: true) {
@@ -59,6 +72,7 @@ struct ProjectInspectorPanel: View {
             }
         } header: {
             PanelSectionHeader(title: "Tasks", count: tasks.count, addLabel: "New Task", add: onCreateTask)
+                .listRowSeparator(.hidden)
         }
     }
 
@@ -73,7 +87,7 @@ struct ProjectInspectorPanel: View {
                         name: version.name,
                         state: version.derivedState(anyTaskStarted: inspector.anyTaskStarted(versionNamed: version.name)),
                         taskCount: inspector.tasks(forVersionNamed: version.name).count,
-                        action: { onOpenVersion(version) }
+                        action: { versionToOpen = version }
                     )
                     .panelRow()
                     .swipeActions(edge: .trailing, allowsFullSwipe: true) {
@@ -85,6 +99,7 @@ struct ProjectInspectorPanel: View {
             }
         } header: {
             PanelSectionHeader(title: "Versions", count: versions.count, addLabel: "New Version", add: onCreateVersion)
+                .listRowSeparator(.hidden)
         }
     }
 
@@ -128,6 +143,6 @@ private extension View {
         self
             .listRowSeparator(.hidden)
             .listRowBackground(Color.clear)
-            .listRowInsets(EdgeInsets(top: 5, leading: 16, bottom: 5, trailing: 16))
+            .listRowInsets(EdgeInsets(top: 5, leading: 12, bottom: 5, trailing: 12))
     }
 }

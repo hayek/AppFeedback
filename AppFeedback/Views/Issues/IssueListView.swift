@@ -6,6 +6,9 @@ struct IssueListView: View {
     let loader: IssueLoader?
     let allApps: [String]
     var onRefresh: (() async -> Void)?
+    /// Attach a task to a feedback by dragging a task card onto a feedback row: (taskNumber, feedbackNumber).
+    var onDropTask: ((Int, Int) -> Void)? = nil
+    @State private var dropTargetNumber: Int?
     var repoOwner: String = ""
     var repoName: String = ""
     var appColorOverrides: [String: String] = [:]
@@ -23,6 +26,7 @@ struct IssueListView: View {
         loader: IssueLoader?,
         allApps: [String],
         onRefresh: (() async -> Void)? = nil,
+        onDropTask: ((Int, Int) -> Void)? = nil,
         repoOwner: String = "",
         repoName: String = "",
         appColorOverrides: [String: String] = [:],
@@ -33,6 +37,7 @@ struct IssueListView: View {
         self.loader = loader
         self.allApps = allApps
         self.onRefresh = onRefresh
+        self.onDropTask = onDropTask
         self.repoOwner = repoOwner
         self.repoName = repoName
         self.appColorOverrides = appColorOverrides
@@ -164,6 +169,17 @@ struct IssueListView: View {
                             .onTapGesture {
                                 if viewModel.isSelecting { viewModel.toggleSelection(issue.number) }
                             }
+                            .overlay {
+                                if dropTargetNumber == issue.number {
+                                    RoundedRectangle(cornerRadius: 16, style: .continuous)
+                                        .strokeBorder(Color.accentColor, lineWidth: 2)
+                                }
+                            }
+                            .dropDestination(for: TaskDragItem.self) { items, _ in
+                                guard let onDropTask, let first = items.first else { return false }
+                                onDropTask(first.number, issue.number)
+                                return true
+                            } isTargeted: { dropTargetNumber = ($0 && onDropTask != nil) ? issue.number : nil }
                             .id(issue.number)
                         }
                     }

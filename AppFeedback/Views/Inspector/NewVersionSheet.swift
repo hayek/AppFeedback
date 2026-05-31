@@ -74,15 +74,15 @@ struct NewVersionSheet: View {
     }
 
     private func create() {
-        working = true; errorMessage = nil
+        // Create the local version immediately (it appears in the panel at once), close, then
+        // provision the GitHub milestone in the background; roll back if that fails.
         let version = versionStore.create(repoOwner: repo.owner, repoName: repo.repo, name: name, changelog: changelog)
+        onCreated()
+        dismiss()
         let service = VersionService(store: versionStore)
         Task {
-            do { try await service.provisionMilestone(repo: repo, version: version); onCreated(); dismiss() }
-            catch {
-                versionStore.delete(version)   // roll back local row if milestone creation failed
-                errorMessage = error.localizedDescription; working = false
-            }
+            do { try await service.provisionMilestone(repo: repo, version: version) }
+            catch { versionStore.delete(version) }
         }
     }
 }

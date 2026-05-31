@@ -219,6 +219,13 @@ struct TaskCard: View {
                 ChipMenu(label: task.priority.displayName, dot: task.priority.accent,
                          options: TaskPriority.allCases, title: { $0.displayName }, onSelect: onPriority)
                 Spacer(minLength: 0)
+                if let version = task.milestoneTitle, !version.isEmpty {
+                    HStack(spacing: 3) {
+                        Image(systemName: "shippingbox").font(.system(size: 9))
+                        Text(version).font(.caption2.weight(.medium))
+                    }
+                    .foregroundStyle(.secondary)
+                }
                 if !task.feedbackRefs.isEmpty {
                     HStack(spacing: 3) {
                         Image(systemName: "link").font(.system(size: 9, weight: .semibold))
@@ -228,9 +235,9 @@ struct TaskCard: View {
                 }
             }
         }
+        .frame(maxWidth: .infinity, alignment: .leading)
         .padding(.vertical, 11)
-        .padding(.leading, 14)
-        .padding(.trailing, 12)
+        .padding(.horizontal, 13)
         .background(
             RoundedRectangle(cornerRadius: Surface.cardRadius, style: .continuous)
                 .fill(Surface.cardFill(hovering))
@@ -239,16 +246,10 @@ struct TaskCard: View {
             RoundedRectangle(cornerRadius: Surface.cardRadius, style: .continuous)
                 .strokeBorder(Surface.hairline, lineWidth: 1)
         )
-        .overlay(alignment: .leading) {
-            Capsule()
-                .fill(task.status.accent)
-                .frame(width: 3)
-                .padding(.vertical, 11)
-                .padding(.leading, 1)
-        }
         .clipShape(RoundedRectangle(cornerRadius: Surface.cardRadius, style: .continuous))
         .contentShape(RoundedRectangle(cornerRadius: Surface.cardRadius, style: .continuous))
         .onTapGesture { onOpen() }
+        .draggable(TaskDragItem(number: task.number))
         .onHover { hovering = $0 }
         .animation(.easeOut(duration: 0.14), value: hovering)
     }

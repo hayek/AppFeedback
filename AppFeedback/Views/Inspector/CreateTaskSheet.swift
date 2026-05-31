@@ -145,14 +145,13 @@ struct CreateTaskSheet: View {
     }
 
     private func create() {
-        working = true; errorMessage = nil
         let milestone = versions.first { $0.id == selectedVersionID }?.milestoneNumber
+        let t = title, p = prose, s = status, pr = priority, refs = feedbackNumbers
+        dismiss()
         Task {
-            do {
-                _ = try await service.createTask(repo: repo, title: title, prose: prose,
-                    feedbackRefs: feedbackNumbers, status: status, priority: priority, milestoneNumber: milestone)
-                onCreated(); dismiss()
-            } catch { errorMessage = error.localizedDescription; working = false }
+            _ = try? await service.createTask(repo: repo, title: t, prose: p,
+                feedbackRefs: refs, status: s, priority: pr, milestoneNumber: milestone)
+            onCreated()   // refresh so the new task issue appears
         }
     }
 }
