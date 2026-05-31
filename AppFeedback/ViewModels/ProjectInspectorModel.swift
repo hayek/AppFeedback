@@ -25,6 +25,12 @@ final class ProjectInspectorModel {
         tasks[index] = task
     }
 
+    /// Optimistically remove a task (used when deleting). A later refresh restores it if the
+    /// GitHub delete failed.
+    func removeTask(number: Int) {
+        tasks.removeAll { $0.number == number }
+    }
+
     var filteredTasks: [TaskItem] {
         guard let statusFilter else { return tasks }
         return tasks.filter { ($0.status == statusFilter && !$0.isClosed) || (statusFilter == .done && $0.isCompleted) }

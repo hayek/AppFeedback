@@ -14,8 +14,7 @@ struct TaskDetailView: View {
     @State private var title = ""
     @State private var notes = ""
     @State private var seeded = false
-    @State private var working = false
-    @State private var errorMessage: String?
+    @State private var showDeleteConfirm = false
     private let service = TaskService()
 
     private var versions: [ProjectVersion] { versionStore.versions(owner: repo.owner, repo: repo.repo) }
@@ -40,20 +39,22 @@ struct TaskDetailView: View {
                         DetailSection(title: "Addresses feedback", systemImage: "link") { feedbackChips }
                     }
                     githubButton
-                    if let errorMessage {
-                        Label(errorMessage, systemImage: "exclamationmark.triangle.fill")
-                            .font(.footnote).foregroundStyle(.red)
-                    }
+                    deleteButton
                 }
                 .padding(20)
             }
             .scrollIndicators(.hidden)
             .background(LinearGradient(colors: [Color.primary.opacity(0.04), .clear], startPoint: .top, endPoint: .center).ignoresSafeArea())
             .toolbar {
-                ToolbarItem(placement: .cancellationAction) { Button("Cancel") { dismiss() }.disabled(working) }
+                ToolbarItem(placement: .cancellationAction) { Button("Cancel") { dismiss() } }
                 ToolbarItem(placement: .confirmationAction) {
-                    Button("Apply") { apply() }.fontWeight(.semibold).disabled(!dirty || working)
+                    Button("Apply") { apply() }.fontWeight(.semibold).disabled(!dirty)
                 }
+            }
+            .confirmationDialog("Delete task #\(task.number)?", isPresented: $showDeleteConfirm, titleVisibility: .visible) {
+                Button("Delete Task", role: .destructive) { deleteTask() }
+            } message: {
+                Text("This permanently deletes the issue on GitHub.")
             }
             .onAppear {
                 guard !seeded else { return }
@@ -66,7 +67,7 @@ struct TaskDetailView: View {
             }
         }
         #if os(macOS)
-        .frame(width: 460, height: 620)
+        .frame(width: 460, height: 640)
         #endif
     }
 
@@ -93,7 +94,7 @@ struct TaskDetailView: View {
         }
     }
 
-    // MARK: Editors (all local — committed on Apply)
+    // MARK: Editors (local — committed on Apply)
 
     private var statusChips: some View {
         HStack(spacing: 8) {
@@ -119,7 +120,6 @@ struct TaskDetailView: View {
             ForEach(versions) { v in Button(v.name) { versionName = v.name } }
         } label: {
             HStack(spacing: 8) {
-                Image(systemName: "shippingbox").font(.system(size: 12)).foregroundStyle(.secondary)
                 Text(versionName ?? "None")
                     .font(.subheadline.weight(.medium)).foregroundStyle(.primary)
                 Spacer(minLength: 0)
@@ -168,24 +168,42 @@ struct TaskDetailView: View {
         .buttonStyle(.plain)
     }
 
-    // MARK: Apply
+    private var deleteButton: some View {
+        Button(role: .destructive) { showDeleteConfirm = true } label: {
+            HStack(spacing: 10) {
+                Image(systemName: "trash").font(.system(size: 14))
+                Text("Delete Task").font(.subheadline.weight(.medium))
+                Spacer()
+            }
+            .foregroundStyle(.red)
+            .padding(14)
+            .background(RoundedRectangle(cornerRadius: 14, style: .continuous).fill(Color.red.opacity(0.10)))
+            .overlay(RoundedRectangle(cornerRadius: 14, style: .continuous).strokeBorder(Color.red.opacity(0.20), lineWidth: 1))
+        }
+        .buttonStyle(.plain)
+    }
+
+    // MARK: Actions (dismiss immediately, write in the background)
 
     private func apply() {
-        working = true; errorMessage = nil
         let milestoneNumber = versions.first { $0.name == versionName }?.milestoneNumber
         let newBody = FeedbackTaskRefParser.upsert(into: notes, refs: task.feedbackRefs)
         let previous = inspector.applyOptimistic(number: task.number, status: status, priority: priority,
                                                  title: title, body: newBody, milestone: .some(versionName))
+        dismiss()
         Task {
             do {
                 try await service.applyEdits(repo: repo, task: task, title: title, prose: notes,
                                              status: status, priority: priority, milestoneNumber: milestoneNumber)
-                dismiss()
             } catch {
-                if let previous { inspector.restore(previous) }
-                errorMessage = error.localizedDescription
-                working = false
+                if let previous { inspector.restore(previous) }   // revert on failure (panel flips back)
             }
         }
+    }
+
+    private func deleteTask() {
+        inspector.removeTask(number: task.number)
+        dismiss()
+        Task { try? await service.deleteTask(repo: repo, task: task) }
     }
 }

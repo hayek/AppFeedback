@@ -47,6 +47,36 @@ actor GitHubIssueWriter {
             method: "PATCH", json: payload, token: token)
     }
 
+    /// Permanently deletes the issue via GraphQL (REST has no delete). Requires the caller to have
+    /// admin/maintain on the repo (or be its owner).
+    func deleteIssue(owner: String, repo: String, number: Int, token: String) async throws {
+        let idResponse = try await graphQL(
+            query: "query($o:String!,$n:String!,$num:Int!){repository(owner:$o,name:$n){issue(number:$num){id}}}",
+            variables: ["o": owner, "n": repo, "num": number], token: token)
+        guard let id = (((idResponse["data"] as? [String: Any])?["repository"] as? [String: Any])?["issue"] as? [String: Any])?["id"] as? String else {
+            throw WriteError.apiError(0, message: "Issue not found")
+        }
+        let delResponse = try await graphQL(
+            query: "mutation($id:ID!){deleteIssue(input:{issueId:$id}){clientMutationId}}",
+            variables: ["id": id], token: token)
+        if let errors = delResponse["errors"] as? [[String: Any]], let message = errors.first?["message"] as? String {
+            throw WriteError.apiError(0, message: message)
+        }
+    }
+
+    private func graphQL(query: String, variables: [String: Any], token: String) async throws -> [String: Any] {
+        var request = URLRequest(url: URL(string: "https://api.github.com/graphql")!)
+        request.httpMethod = "POST"
+        request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        request.httpBody = try JSONSerialization.data(withJSONObject: ["query": query, "variables": variables])
+        let (data, response) = try await session.data(for: request)
+        guard let http = response as? HTTPURLResponse, (200...299).contains(http.statusCode) else {
+            throw WriteError.apiError((response as? HTTPURLResponse)?.statusCode ?? 0, message: nil)
+        }
+        return (try JSONSerialization.jsonObject(with: data) as? [String: Any]) ?? [:]
+    }
+
     // MARK: - Shared request
 
     @discardableResult

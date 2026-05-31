@@ -60,6 +60,8 @@ private enum Surface {
 struct PanelSectionHeader: View {
     let title: String
     var count: Int = 0
+    var addLabel: String? = nil
+    var add: (() -> Void)? = nil
 
     var body: some View {
         HStack(spacing: 7) {
@@ -76,6 +78,19 @@ struct PanelSectionHeader: View {
                     .background(Capsule().fill(Color.primary.opacity(0.08)))
             }
             Spacer(minLength: 0)
+            if let addLabel, let add {
+                Button(action: add) {
+                    HStack(spacing: 4) {
+                        Image(systemName: "plus").font(.system(size: 10, weight: .bold))
+                        Text(addLabel).font(.caption2.weight(.semibold))
+                    }
+                    .foregroundStyle(Color.accentColor)
+                    .padding(.horizontal, 9).padding(.vertical, 4)
+                    .background(Capsule().fill(Color.accentColor.opacity(0.13)))
+                    .contentShape(Capsule())
+                }
+                .buttonStyle(.plain)
+            }
         }
     }
 }
@@ -198,8 +213,6 @@ struct TaskCard: View {
                     .font(.system(size: 10, weight: .semibold))
                     .foregroundStyle(hovering ? .secondary : .tertiary)
             }
-            .contentShape(Rectangle())
-            .onTapGesture { onOpen() }
             HStack(spacing: 6) {
                 ChipMenu(label: task.status.displayName, dot: task.status.accent,
                          options: TaskStatus.allCases, title: { $0.displayName }, onSelect: onStatus)
@@ -234,6 +247,8 @@ struct TaskCard: View {
                 .padding(.leading, 1)
         }
         .clipShape(RoundedRectangle(cornerRadius: Surface.cardRadius, style: .continuous))
+        .contentShape(RoundedRectangle(cornerRadius: Surface.cardRadius, style: .continuous))
+        .onTapGesture { onOpen() }
         .onHover { hovering = $0 }
         .animation(.easeOut(duration: 0.14), value: hovering)
     }

@@ -53,6 +53,11 @@ actor GitHubMilestoneReleaseClient {
         return Self.milestone(from: (try JSONSerialization.jsonObject(with: data) as? [String: Any]) ?? [:])
     }
 
+    func deleteMilestone(owner: String, repo: String, number: Int, token: String) async throws {
+        _ = try await send("https://api.github.com/repos/\(owner)/\(repo)/milestones/\(number)",
+                           method: "DELETE", json: nil, token: token)
+    }
+
     // MARK: Releases
 
     func createRelease(owner: String, repo: String, tag: String, name: String, body: String,

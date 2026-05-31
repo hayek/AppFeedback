@@ -9,10 +9,12 @@ struct VersionDetailView: View {
     let canEmail: Bool
 
     @Environment(\.dismiss) private var dismiss
+    @State private var title: String = ""          // release title
     @State private var changelog: String = ""
     @State private var working = false
     @State private var errorMessage: String?
     @State private var taskToOpen: TaskItem?
+    @State private var showDeleteConfirm = false
 
     private var tasks: [TaskItem] { inspector.tasks(forVersionNamed: version.name) }
     private var doneCount: Int { tasks.filter(\.isCompleted).count }
@@ -20,15 +22,18 @@ struct VersionDetailView: View {
     private var sent: [SentReleaseNotification] {
         versionStore.sentNotifications(owner: repo.owner, repo: repo.repo, versionName: version.name)
     }
+    private var dirty: Bool { title != version.releaseTitle || changelog != version.changelog }
 
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 24) {
                 header
+                titleSection
                 changelogSection
                 tasksSection
                 releaseSection
                 sentSection
+                deleteButton
                 if let errorMessage {
                     Label(errorMessage, systemImage: "exclamationmark.triangle.fill")
                         .font(.footnote).foregroundStyle(.red)
@@ -42,14 +47,17 @@ struct VersionDetailView: View {
         .navigationBarTitleDisplayMode(.inline)
         #endif
         .toolbar {
-            ToolbarItem(placement: .cancellationAction) { Button("Cancel") { dismiss() }.disabled(working) }
+            ToolbarItem(placement: .cancellationAction) { Button("Cancel") { dismiss() } }
             ToolbarItem(placement: .confirmationAction) {
-                Button("Apply") { applyChangelog() }
-                    .fontWeight(.semibold)
-                    .disabled(changelog == version.changelog || working)
+                Button("Apply") { applyDetails() }.fontWeight(.semibold).disabled(!dirty)
             }
         }
-        .onAppear { changelog = version.changelog }
+        .confirmationDialog("Delete version \(version.name)?", isPresented: $showDeleteConfirm, titleVisibility: .visible) {
+            Button("Delete Version", role: .destructive) { deleteVersion() }
+        } message: {
+            Text("This removes the milestone on GitHub and the version here. Tasks are not deleted.")
+        }
+        .onAppear { changelog = version.changelog; title = version.releaseTitle }
         .sheet(item: $taskToOpen) { task in
             TaskDetailView(repo: repo, task: task, inspector: inspector, versionStore: versionStore)
         }
@@ -60,8 +68,7 @@ struct VersionDetailView: View {
     private var header: some View {
         VStack(alignment: .leading, spacing: 12) {
             HStack(alignment: .firstTextBaseline, spacing: 10) {
-                Text(version.name)
-                    .font(.largeTitle.weight(.bold))
+                Text(version.name).font(.largeTitle.weight(.bold))
                 VersionStatePill(state: state)
                 Spacer(minLength: 0)
             }
@@ -72,14 +79,22 @@ struct VersionDetailView: View {
                             .font(.caption.weight(.medium)).foregroundStyle(.secondary)
                         Spacer()
                     }
-                    ThinProgressBar(fraction: tasks.isEmpty ? 0 : Double(doneCount) / Double(tasks.count),
-                                    tint: state.accent)
+                    ThinProgressBar(fraction: Double(doneCount) / Double(tasks.count), tint: state.accent)
                 }
             }
         }
     }
 
-    // MARK: Changelog
+    private var titleSection: some View {
+        DetailSection(title: "Release title", systemImage: "tag") {
+            TextField("e.g. Performance & polish", text: $title)
+                .textFieldStyle(.plain)
+                .font(.body)
+                .padding(11)
+                .background(RoundedRectangle(cornerRadius: 10, style: .continuous).fill(Color.primary.opacity(0.045)))
+                .overlay(RoundedRectangle(cornerRadius: 10, style: .continuous).strokeBorder(Color.primary.opacity(0.06), lineWidth: 1))
+        }
+    }
 
     private var changelogSection: some View {
         DetailSection(title: "What's new", systemImage: "sparkles") {
@@ -89,14 +104,11 @@ struct VersionDetailView: View {
         }
     }
 
-    // MARK: Tasks
-
     private var tasksSection: some View {
         DetailSection(title: "Tasks in this version", systemImage: "checklist") {
             DetailCard(padding: 6) {
                 if tasks.isEmpty {
-                    PanelEmptyState(icon: "tray", message: "No tasks assigned yet.")
-                        .padding(8)
+                    PanelEmptyState(icon: "tray", message: "No tasks assigned yet.").padding(8)
                 } else {
                     VStack(spacing: 2) {
                         ForEach(tasks) { task in
@@ -108,14 +120,11 @@ struct VersionDetailView: View {
         }
     }
 
-    // MARK: Release
-
     @ViewBuilder private var releaseSection: some View {
         if version.releasePublished {
             DetailCard {
                 HStack(spacing: 12) {
-                    Image(systemName: "checkmark.seal.fill")
-                        .font(.title2).foregroundStyle(VersionState.released.accent)
+                    Image(systemName: "checkmark.seal.fill").font(.title2).foregroundStyle(VersionState.released.accent)
                     VStack(alignment: .leading, spacing: 2) {
                         Text("Released").font(.subheadline.weight(.semibold))
                         Text(releasedSubtitle).font(.caption).foregroundStyle(.secondary)
@@ -139,8 +148,6 @@ struct VersionDetailView: View {
         }
     }
 
-    // MARK: Sent emails
-
     private var sentSection: some View {
         DetailSection(title: "Sent release emails", systemImage: "envelope") {
             DetailCard(padding: sent.isEmpty ? 14 : 6) {
@@ -155,6 +162,21 @@ struct VersionDetailView: View {
         }
     }
 
+    private var deleteButton: some View {
+        Button(role: .destructive) { showDeleteConfirm = true } label: {
+            HStack(spacing: 10) {
+                Image(systemName: "trash").font(.system(size: 14))
+                Text("Delete Version").font(.subheadline.weight(.medium))
+                Spacer()
+            }
+            .foregroundStyle(.red)
+            .padding(14)
+            .background(RoundedRectangle(cornerRadius: 14, style: .continuous).fill(Color.red.opacity(0.10)))
+            .overlay(RoundedRectangle(cornerRadius: 14, style: .continuous).strokeBorder(Color.red.opacity(0.20), lineWidth: 1))
+        }
+        .buttonStyle(.plain)
+    }
+
     private var releasedSubtitle: String {
         var parts: [String] = []
         if let date = version.releasedAt { parts.append(date.formatted(date: .abbreviated, time: .shortened)) }
@@ -162,23 +184,22 @@ struct VersionDetailView: View {
         return parts.isEmpty ? "Milestone closed" : parts.joined(separator: " · ")
     }
 
-    private func applyChangelog() {
-        working = true; errorMessage = nil
+    // MARK: Actions
+
+    private func applyDetails() {
         let service = VersionService(store: versionStore)
-        Task {
-            do {
-                try await service.updateChangelog(repo: repo, version: version, changelog: changelog)
-                dismiss()
-            } catch { errorMessage = error.localizedDescription; working = false }
-        }
+        let t = title, c = changelog
+        dismiss()
+        Task { try? await service.updateDetails(repo: repo, version: version, title: t, changelog: c) }
     }
 
-    /// Persist the edited changelog (best-effort) before opening the release recipients flow,
-    /// so the release uses the latest "what's new".
+    /// Persist the edited title/changelog before opening the release flow, so the release uses them.
     private func releaseFlow() {
+        let service = VersionService(store: versionStore)
+        let t = title, c = changelog
         Task {
-            if changelog != version.changelog {
-                try? await VersionService(store: versionStore).updateChangelog(repo: repo, version: version, changelog: changelog)
+            if t != version.releaseTitle || c != version.changelog {
+                try? await service.updateDetails(repo: repo, version: version, title: t, changelog: c)
             }
             onRelease()
         }
@@ -193,6 +214,12 @@ struct VersionDetailView: View {
             catch { errorMessage = error.localizedDescription }
             working = false
         }
+    }
+
+    private func deleteVersion() {
+        let service = VersionService(store: versionStore)
+        dismiss()
+        Task { try? await service.deleteVersion(repo: repo, version: version) }
     }
 }
 

@@ -9,25 +9,17 @@ struct ProjectInspectorPanel: View {
     var onCreateVersion: () -> Void
     var onOpenVersion: (ProjectVersion) -> Void
 
+    private let taskService = TaskService()
+
     var body: some View {
         Group {
             if let repo {
-                ScrollView {
-                    VStack(alignment: .leading, spacing: 28) {
-                        section(title: "Tasks", count: inspector.filteredTasks.count) {
-                            TasksSectionView(repo: repo, inspector: inspector, onCreateTask: onCreateTask, onOpenTask: onOpenTask)
-                        }
-                        section(title: "Versions",
-                                count: versionStore.versions(owner: repo.owner, repo: repo.repo).count) {
-                            VersionsSectionView(
-                                repo: repo, inspector: inspector, versionStore: versionStore,
-                                onCreateVersion: onCreateVersion, onOpenVersion: onOpenVersion)
-                        }
-                    }
-                    .padding(.horizontal, 16)
-                    .padding(.top, 16)
-                    .padding(.bottom, 28)
+                List {
+                    tasksSection(repo: repo)
+                    versionsSection(repo: repo)
                 }
+                .listStyle(.plain)
+                .scrollContentBackground(.hidden)
                 .scrollIndicators(.hidden)
                 .background(atmosphere)
             } else {
@@ -42,21 +34,100 @@ struct ProjectInspectorPanel: View {
         .navigationTitle("Tasks & Versions")
     }
 
-    @ViewBuilder
-    private func section<Content: View>(title: String, count: Int,
-                                        @ViewBuilder content: () -> Content) -> some View {
-        VStack(alignment: .leading, spacing: 12) {
-            PanelSectionHeader(title: title, count: count)
-            content()
+    // MARK: Sections
+
+    @ViewBuilder private func tasksSection(repo: RepoConfig) -> some View {
+        let tasks = inspector.filteredTasks
+        Section {
+            if tasks.isEmpty {
+                PanelEmptyState(icon: "checklist", message: "No tasks yet.").panelRow()
+            } else {
+                ForEach(tasks) { task in
+                    TaskCard(
+                        task: task,
+                        onStatus: { changeStatus(repo: repo, task: task, status: $0) },
+                        onPriority: { changePriority(repo: repo, task: task, priority: $0) },
+                        onOpen: { onOpenTask(task) }
+                    )
+                    .panelRow()
+                    .swipeActions(edge: .trailing, allowsFullSwipe: true) {
+                        Button(role: .destructive) { deleteTask(repo: repo, task: task) } label: {
+                            Label("Delete", systemImage: "trash")
+                        }
+                    }
+                }
+            }
+        } header: {
+            PanelSectionHeader(title: "Tasks", count: tasks.count, addLabel: "New Task", add: onCreateTask)
         }
     }
 
-    /// A whisper-soft top gradient gives the panel depth without competing with the cards.
+    @ViewBuilder private func versionsSection(repo: RepoConfig) -> some View {
+        let versions = versionStore.versions(owner: repo.owner, repo: repo.repo)
+        Section {
+            if versions.isEmpty {
+                PanelEmptyState(icon: "shippingbox", message: "No versions yet.").panelRow()
+            } else {
+                ForEach(versions) { version in
+                    VersionCard(
+                        name: version.name,
+                        state: version.derivedState(anyTaskStarted: inspector.anyTaskStarted(versionNamed: version.name)),
+                        taskCount: inspector.tasks(forVersionNamed: version.name).count,
+                        action: { onOpenVersion(version) }
+                    )
+                    .panelRow()
+                    .swipeActions(edge: .trailing, allowsFullSwipe: true) {
+                        Button(role: .destructive) { deleteVersion(repo: repo, version: version) } label: {
+                            Label("Delete", systemImage: "trash")
+                        }
+                    }
+                }
+            }
+        } header: {
+            PanelSectionHeader(title: "Versions", count: versions.count, addLabel: "New Version", add: onCreateVersion)
+        }
+    }
+
     private var atmosphere: some View {
-        LinearGradient(
-            colors: [Color.primary.opacity(0.04), Color.clear],
-            startPoint: .top, endPoint: .center
-        )
-        .ignoresSafeArea()
+        LinearGradient(colors: [Color.primary.opacity(0.04), .clear], startPoint: .top, endPoint: .center)
+            .ignoresSafeArea()
+    }
+
+    // MARK: Mutations (optimistic + background write)
+
+    private func changeStatus(repo: RepoConfig, task: TaskItem, status: TaskStatus) {
+        let previous = inspector.applyOptimistic(number: task.number, status: status)
+        Task {
+            do { try await taskService.setStatus(repo: repo, task: task, status: status) }
+            catch { if let previous { inspector.restore(previous) } }
+        }
+    }
+
+    private func changePriority(repo: RepoConfig, task: TaskItem, priority: TaskPriority) {
+        let previous = inspector.applyOptimistic(number: task.number, priority: priority)
+        Task {
+            do { try await taskService.setPriority(repo: repo, task: task, priority: priority) }
+            catch { if let previous { inspector.restore(previous) } }
+        }
+    }
+
+    private func deleteTask(repo: RepoConfig, task: TaskItem) {
+        inspector.removeTask(number: task.number)
+        Task { try? await taskService.deleteTask(repo: repo, task: task) }
+    }
+
+    private func deleteVersion(repo: RepoConfig, version: ProjectVersion) {
+        let service = VersionService(store: versionStore)
+        Task { try? await service.deleteVersion(repo: repo, version: version) }
+    }
+}
+
+private extension View {
+    /// Styles a List row so the card "floats": no separators, clear background, tight insets.
+    func panelRow() -> some View {
+        self
+            .listRowSeparator(.hidden)
+            .listRowBackground(Color.clear)
+            .listRowInsets(EdgeInsets(top: 5, leading: 16, bottom: 5, trailing: 16))
     }
 }

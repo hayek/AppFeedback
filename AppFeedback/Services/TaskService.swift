@@ -85,6 +85,12 @@ final class TaskService {
             milestoneNumber: .some(milestoneNumber), state: state, token: token)
     }
 
+    /// Permanently deletes the task's GitHub issue.
+    func deleteTask(repo: RepoConfig, task: TaskItem) async throws {
+        guard let token = KeychainService.loadSync(for: repo) else { throw ServiceError.noToken }
+        try await writer.deleteIssue(owner: repo.owner, repo: repo.repo, number: task.number, token: token)
+    }
+
     private func ensureLabels(repo: RepoConfig, token: String) async throws {
         for label in AppFeedbackLabels.managed {
             try await labelClient.ensureLabel(owner: repo.owner, repo: repo.repo, name: label.name, color: label.color, token: token)

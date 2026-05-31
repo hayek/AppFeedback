@@ -33,14 +33,26 @@ final class VersionService {
         store.saveAndReload()
     }
 
-    func updateChangelog(repo: RepoConfig, version: ProjectVersion, changelog: String) async throws {
+    /// Updates the release title and changelog. The milestone description mirrors the changelog;
+    /// the release title is local until the version is published (it becomes the GitHub Release name).
+    func updateDetails(repo: RepoConfig, version: ProjectVersion, title: String, changelog: String) async throws {
         guard let token = KeychainService.loadSync(for: repo) else { throw ServiceError.noToken }
+        version.releaseTitle = title
         version.changelog = changelog
         store.saveAndReload()
         if let number = version.milestoneNumber {
             _ = try await client.updateMilestone(owner: repo.owner, repo: repo.repo, number: number,
                 description: changelog, token: token)
         }
+    }
+
+    /// Deletes the version: removes the GitHub milestone (if any) and the local record.
+    func deleteVersion(repo: RepoConfig, version: ProjectVersion) async throws {
+        guard let token = KeychainService.loadSync(for: repo) else { throw ServiceError.noToken }
+        if let number = version.milestoneNumber {
+            try await client.deleteMilestone(owner: repo.owner, repo: repo.repo, number: number, token: token)
+        }
+        store.delete(version)
     }
 
     /// Closes the milestone and (best-effort) publishes a GitHub Release. Marks the local version
@@ -56,8 +68,9 @@ final class VersionService {
         if publishRelease {
             let owner = version.connectedRepoOwner ?? repo.connectedRepoOwner ?? repo.owner
             let name = version.connectedRepoName ?? repo.connectedRepoName ?? repo.repo
+            let releaseName = version.releaseTitle.isEmpty ? version.name : version.releaseTitle
             do {
-                _ = try await client.createRelease(owner: owner, repo: name, tag: tag, name: version.name,
+                _ = try await client.createRelease(owner: owner, repo: name, tag: tag, name: releaseName,
                     body: version.changelog, draft: false, target: target, token: token)
                 version.releaseTag = tag
                 createdRelease = true
