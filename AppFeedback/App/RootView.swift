@@ -161,12 +161,7 @@ struct RootView: View {
 
     #if os(iOS)
     private func navigationTitle(for selection: SidebarSelection) -> String {
-        switch selection {
-        case .allIssues:
-            return "All Apps"
-        case .app(_, let appName):
-            return appName
-        }
+        store.repos.first(where: { $0.id == selection.repoId })?.displayName ?? "Feedback"
     }
     #endif
 
@@ -185,14 +180,8 @@ struct RootView: View {
         viewModel.attachSeenStore(seenStore, owner: owner, repo: repoName)
         viewModel.applyLoaded(issues)
         viewModel.clearFilters()
-        switch selection {
-        case .allIssues:
-            viewModel.appFilter = []
-            viewModel.allowsAppFilter = true
-        case .app(_, let name):
-            viewModel.appFilter = [name]
-            viewModel.allowsAppFilter = false
-        }
+        viewModel.appFilter = []
+        viewModel.allowsAppFilter = true
     }
 
     private var selectedLoadedSignature: String {

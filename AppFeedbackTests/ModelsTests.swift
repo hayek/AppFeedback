@@ -16,7 +16,13 @@ final class ModelsTests: XCTestCase {
     func test_sidebarSelection_equality() {
         let id = UUID()
         XCTAssertEqual(SidebarSelection.allIssues(repoId: id), SidebarSelection.allIssues(repoId: id))
-        XCTAssertNotEqual(SidebarSelection.allIssues(repoId: id), SidebarSelection.app(repoId: id, appName: "X"))
+        XCTAssertNotEqual(SidebarSelection.allIssues(repoId: id), SidebarSelection.allIssues(repoId: UUID()))
+    }
+
+    func testSidebarSelectionExposesRepoID() {
+        let id = UUID()
+        let sel = SidebarSelection.allIssues(repoId: id)
+        XCTAssertEqual(sel.repoId, id)
     }
 
     func test_feedbackIssue_id_equalsNumber() {
