@@ -17,6 +17,7 @@ struct RootView: View {
     @State private var inspector = ProjectInspectorModel()
     @State private var versionToOpen: ProjectVersion?
     @State private var versionToRelease: ProjectVersion?
+    @State private var pendingReleaseAfterDetail: ProjectVersion?
     @State private var showCreateVersion = false
     @State private var showCreateTask = false
     @State private var columnVisibility: NavigationSplitViewVisibility = .automatic
@@ -143,11 +144,16 @@ struct RootView: View {
                 NewVersionSheet(repo: repo, versionStore: versionStore, onCreated: {})
             }
         }
-        .sheet(item: $versionToOpen) { version in
+        .sheet(item: $versionToOpen, onDismiss: {
+            if let v = pendingReleaseAfterDetail {
+                pendingReleaseAfterDetail = nil
+                versionToRelease = v
+            }
+        }) { version in
             if let repo = store.repos.first(where: { $0.id == selection?.repoId }) {
                 NavigationStack {
                     VersionDetailView(repo: repo, version: version, inspector: inspector,
-                        versionStore: versionStore, onRelease: { versionToRelease = version },
+                        versionStore: versionStore, onRelease: { pendingReleaseAfterDetail = version; versionToOpen = nil },
                         canEmail: mailAccountStore.defaultSender != nil)
                 }
             }

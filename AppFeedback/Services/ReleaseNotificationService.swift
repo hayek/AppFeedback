@@ -113,11 +113,12 @@ final class ReleaseNotificationService {
                 passwordLoader: deps.passwordLoader)
             vm.subject = rendered.subject
             vm.body = NSAttributedString(string: rendered.body)
-            await vm.send()
+            let didSend = await vm.send()
 
             versionStore.recordSent(repoOwner: repo.owner, repoName: repo.repo, versionName: version.name,
                 recipientEmail: recipient.email, feedbackNumbers: recipient.feedbackNumbers,
-                threadIssueNumber: chosen, status: .sent)
+                threadIssueNumber: chosen, status: didSend ? .sent : .failed,
+                errorDetail: didSend ? nil : "Email send failed")
         }
     }
 

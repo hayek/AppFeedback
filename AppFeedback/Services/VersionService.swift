@@ -54,8 +54,8 @@ final class VersionService {
         }
         var createdRelease = false
         if publishRelease {
-            let owner = version.connectedRepoOwner ?? repo.owner
-            let name = version.connectedRepoName ?? repo.repo
+            let owner = version.connectedRepoOwner ?? repo.connectedRepoOwner ?? repo.owner
+            let name = version.connectedRepoName ?? repo.connectedRepoName ?? repo.repo
             do {
                 _ = try await client.createRelease(owner: owner, repo: name, tag: tag, name: version.name,
                     body: version.changelog, draft: false, target: target, token: token)
