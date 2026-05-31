@@ -3,13 +3,15 @@ import SwiftUI
 struct TasksSectionView: View {
     let repo: RepoConfig
     var inspector: ProjectInspectorModel
+    var onCreateTask: () -> Void
     @State private var working = false
     @State private var errorMessage: String?
     private let service = TaskService()
 
     var body: some View {
+        Button { onCreateTask() } label: { Label("New Task", systemImage: "plus") }
         if inspector.filteredTasks.isEmpty {
-            Text("No tasks yet. Select feedbacks and choose \u{201C}Create Task.\u{201D}")
+            Text("No tasks yet. Add one here, or select feedbacks and choose \u{201C}Create Task.\u{201D}")
                 .font(.callout).foregroundStyle(.secondary)
         } else {
             ForEach(inspector.filteredTasks) { task in

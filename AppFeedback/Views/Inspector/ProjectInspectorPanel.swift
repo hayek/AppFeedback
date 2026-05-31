@@ -4,6 +4,7 @@ struct ProjectInspectorPanel: View {
     let repo: RepoConfig?
     var inspector: ProjectInspectorModel
     var versionStore: VersionStore
+    var onCreateTask: () -> Void
     var onCreateVersion: () -> Void
     var onOpenVersion: (ProjectVersion) -> Void
 
@@ -12,7 +13,7 @@ struct ProjectInspectorPanel: View {
             if let repo {
                 List {
                     Section("Tasks") {
-                        TasksSectionView(repo: repo, inspector: inspector)
+                        TasksSectionView(repo: repo, inspector: inspector, onCreateTask: onCreateTask)
                     }
                     Section("Versions") {
                         VersionsSectionView(

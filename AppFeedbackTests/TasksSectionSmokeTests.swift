@@ -28,7 +28,8 @@ final class TasksSectionSmokeTests: XCTestCase {
         ])
         let view = TasksSectionView(
             repo: RepoConfig(displayName: "P", owner: "o", repo: "r"),
-            inspector: inspector
+            inspector: inspector,
+            onCreateTask: {}
         )
         #if os(macOS)
         let host = NSHostingView(rootView: view)

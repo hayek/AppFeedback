@@ -31,9 +31,11 @@ struct CreateTaskSheet: View {
                         ForEach(versions) { v in Text(v.name).tag(Optional(v.id)) }
                     }
                 }
-                Section("Addresses feedback") {
-                    Text(feedbackNumbers.map { "#\($0)" }.joined(separator: ", "))
-                        .foregroundStyle(.secondary)
+                if !feedbackNumbers.isEmpty {
+                    Section("Addresses feedback") {
+                        Text(feedbackNumbers.map { "#\($0)" }.joined(separator: ", "))
+                            .foregroundStyle(.secondary)
+                    }
                 }
                 if let errorMessage { Text(errorMessage).foregroundStyle(.red) }
             }

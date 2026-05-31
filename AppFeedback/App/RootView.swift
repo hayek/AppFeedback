@@ -98,6 +98,7 @@ struct RootView: View {
                             repo: store.repos.first(where: { $0.id == selection.repoId }),
                             inspector: inspector,
                             versionStore: versionStore,
+                            onCreateTask: { viewModel.clearSelection(); showCreateTask = true },
                             onCreateVersion: { showCreateVersion = true },
                             onOpenVersion: { versionToOpen = $0 }
                         )
