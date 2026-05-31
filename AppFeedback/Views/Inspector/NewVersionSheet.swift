@@ -13,21 +13,63 @@ struct NewVersionSheet: View {
 
     var body: some View {
         NavigationStack {
-            Form {
-                Section("Version") { TextField("Name (e.g. 1.2.0)", text: $name) }
-                Section("What's new") { TextField("Changelog", text: $changelog, axis: .vertical).lineLimit(4...12) }
-                if let errorMessage { Text(errorMessage).foregroundStyle(.red) }
+            ScrollView {
+                VStack(alignment: .leading, spacing: 24) {
+                    VStack(alignment: .leading, spacing: 6) {
+                        HStack(spacing: 8) {
+                            Image(systemName: "number")
+                                .font(.system(size: 15, weight: .semibold))
+                                .foregroundStyle(.tertiary)
+                            TextField("1.2.0", text: $name)
+                                .textFieldStyle(.plain)
+                                .font(.title2.weight(.semibold))
+                        }
+                        Rectangle().fill(Color.primary.opacity(0.08)).frame(height: 1)
+                    }
+
+                    field("What's new") {
+                        TextField("What changed in this version…", text: $changelog, axis: .vertical)
+                            .textFieldStyle(.plain)
+                            .font(.body)
+                            .lineLimit(5...14)
+                            .padding(11)
+                            .background(RoundedRectangle(cornerRadius: 10, style: .continuous).fill(Color.primary.opacity(0.045)))
+                            .overlay(RoundedRectangle(cornerRadius: 10, style: .continuous).strokeBorder(Color.primary.opacity(0.06), lineWidth: 1))
+                    }
+
+                    if let errorMessage {
+                        Label(errorMessage, systemImage: "exclamationmark.triangle.fill")
+                            .font(.footnote).foregroundStyle(.red)
+                    }
+                }
+                .padding(20)
             }
-            #if os(macOS)
-            .formStyle(.grouped)
-            #endif
             .navigationTitle("New Version")
+            #if os(iOS)
+            .navigationBarTitleDisplayMode(.inline)
+            #endif
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) { Button("Cancel") { dismiss() } }
                 ToolbarItem(placement: .confirmationAction) {
-                    Button("Create") { create() }.disabled(name.isEmpty || working)
+                    Button("Create") { create() }
+                        .fontWeight(.semibold)
+                        .disabled(name.trimmingCharacters(in: .whitespaces).isEmpty || working)
                 }
             }
+        }
+        #if os(macOS)
+        .frame(width: 440, height: 480)
+        #endif
+    }
+
+    @ViewBuilder
+    private func field<Content: View>(_ label: String, @ViewBuilder content: () -> Content) -> some View {
+        VStack(alignment: .leading, spacing: 9) {
+            Text(label.uppercased())
+                .font(.caption2.weight(.semibold))
+                .tracking(1.0)
+                .foregroundStyle(.secondary)
+            content()
         }
     }
 

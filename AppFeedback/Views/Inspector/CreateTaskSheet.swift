@@ -18,35 +18,129 @@ struct CreateTaskSheet: View {
 
     var body: some View {
         NavigationStack {
-            Form {
-                Section("Task") {
-                    TextField("Title", text: $title)
-                    TextField("Notes", text: $prose, axis: .vertical).lineLimit(3...8)
-                }
-                Section("Metadata") {
-                    Picker("Status", selection: $status) { ForEach(TaskStatus.allCases, id: \.self) { Text($0.displayName).tag($0) } }
-                    Picker("Priority", selection: $priority) { ForEach(TaskPriority.allCases, id: \.self) { Text($0.displayName).tag($0) } }
-                    Picker("Version", selection: $selectedVersionID) {
-                        Text("None").tag(UUID?.none)
-                        ForEach(versions) { v in Text(v.name).tag(Optional(v.id)) }
+            ScrollView {
+                VStack(alignment: .leading, spacing: 24) {
+                    // Hero title field
+                    VStack(alignment: .leading, spacing: 6) {
+                        TextField("Task title", text: $title)
+                            .textFieldStyle(.plain)
+                            .font(.title2.weight(.semibold))
+                        Rectangle()
+                            .fill(Color.primary.opacity(0.08))
+                            .frame(height: 1)
+                    }
+
+                    field("Notes") {
+                        TextField("Add details…", text: $prose, axis: .vertical)
+                            .textFieldStyle(.plain)
+                            .font(.body)
+                            .lineLimit(3...8)
+                            .padding(11)
+                            .background(
+                                RoundedRectangle(cornerRadius: 10, style: .continuous)
+                                    .fill(Color.primary.opacity(0.045))
+                            )
+                            .overlay(
+                                RoundedRectangle(cornerRadius: 10, style: .continuous)
+                                    .strokeBorder(Color.primary.opacity(0.06), lineWidth: 1)
+                            )
+                    }
+
+                    field("Status") {
+                        HStack(spacing: 8) {
+                            ForEach(TaskStatus.allCases, id: \.self) { s in
+                                SelectChip(title: s.displayName, tint: s.accent, selected: status == s) { status = s }
+                            }
+                        }
+                    }
+
+                    field("Priority") {
+                        HStack(spacing: 8) {
+                            ForEach(TaskPriority.allCases, id: \.self) { p in
+                                SelectChip(title: p.displayName, tint: p.accent, selected: priority == p) { priority = p }
+                            }
+                        }
+                    }
+
+                    field("Version") {
+                        Menu {
+                            Button("None") { selectedVersionID = nil }
+                            ForEach(versions) { v in Button(v.name) { selectedVersionID = v.id } }
+                        } label: {
+                            HStack(spacing: 8) {
+                                Image(systemName: "shippingbox")
+                                    .font(.system(size: 12))
+                                    .foregroundStyle(.secondary)
+                                Text(versions.first { $0.id == selectedVersionID }?.name ?? "None")
+                                    .font(.subheadline.weight(.medium))
+                                    .foregroundStyle(.primary)
+                                Spacer(minLength: 0)
+                                Image(systemName: "chevron.up.chevron.down")
+                                    .font(.system(size: 10, weight: .semibold))
+                                    .foregroundStyle(.tertiary)
+                            }
+                            .padding(.horizontal, 12)
+                            .padding(.vertical, 9)
+                            .background(
+                                RoundedRectangle(cornerRadius: 10, style: .continuous)
+                                    .fill(Color.primary.opacity(0.045))
+                            )
+                            .overlay(
+                                RoundedRectangle(cornerRadius: 10, style: .continuous)
+                                    .strokeBorder(Color.primary.opacity(0.06), lineWidth: 1)
+                            )
+                            .contentShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
+                        }
+                        .buttonStyle(.plain)
+                        .menuIndicator(.hidden)
+                    }
+
+                    if !feedbackNumbers.isEmpty {
+                        field("Addresses feedback") {
+                            HStack(spacing: 6) {
+                                Image(systemName: "link").font(.system(size: 11, weight: .semibold))
+                                    .foregroundStyle(.tertiary)
+                                Text(feedbackNumbers.map { "#\($0)" }.joined(separator: ", "))
+                                    .font(.subheadline)
+                                    .foregroundStyle(.secondary)
+                            }
+                        }
+                    }
+
+                    if let errorMessage {
+                        Label(errorMessage, systemImage: "exclamationmark.triangle.fill")
+                            .font(.footnote)
+                            .foregroundStyle(.red)
                     }
                 }
-                if !feedbackNumbers.isEmpty {
-                    Section("Addresses feedback") {
-                        Text(feedbackNumbers.map { "#\($0)" }.joined(separator: ", "))
-                            .foregroundStyle(.secondary)
-                    }
-                }
-                if let errorMessage { Text(errorMessage).foregroundStyle(.red) }
+                .padding(20)
             }
-            .formStyle(.grouped)
             .navigationTitle("New Task")
+            #if os(iOS)
+            .navigationBarTitleDisplayMode(.inline)
+            #endif
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) { Button("Cancel") { dismiss() } }
                 ToolbarItem(placement: .confirmationAction) {
-                    Button("Create") { create() }.disabled(title.isEmpty || working)
+                    Button("Create") { create() }
+                        .fontWeight(.semibold)
+                        .disabled(title.trimmingCharacters(in: .whitespaces).isEmpty || working)
                 }
             }
+        }
+        #if os(macOS)
+        .frame(width: 440, height: 560)
+        #endif
+    }
+
+    @ViewBuilder
+    private func field<Content: View>(_ label: String, @ViewBuilder content: () -> Content) -> some View {
+        VStack(alignment: .leading, spacing: 9) {
+            Text(label.uppercased())
+                .font(.caption2.weight(.semibold))
+                .tracking(1.0)
+                .foregroundStyle(.secondary)
+            content()
         }
     }
 
