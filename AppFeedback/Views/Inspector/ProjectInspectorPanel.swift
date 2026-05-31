@@ -17,11 +17,16 @@ struct ProjectInspectorPanel: View {
         Group {
             if let repo {
                 List {
-                    tasksSection(repo: repo)
-                    versionsSection(repo: repo)
+                    header(title: "Tasks", count: inspector.filteredTasks.count,
+                           addLabel: "New Task", add: onCreateTask, topPad: 4)
+                    taskRows(repo: repo)
+
+                    header(title: "Versions", count: versionStore.versions(owner: repo.owner, repo: repo.repo).count,
+                           addLabel: "New Version", add: onCreateVersion, topPad: 22)
+                    versionRows(repo: repo)
                 }
                 .listStyle(.plain)
-                .listSectionSeparator(.hidden)
+                .environment(\.defaultMinListRowHeight, 0)
                 .scrollContentBackground(.hidden)
                 .scrollIndicators(.hidden)
                 .background(atmosphere)
@@ -47,59 +52,56 @@ struct ProjectInspectorPanel: View {
         }
     }
 
-    // MARK: Sections
+    // MARK: Rows
 
-    @ViewBuilder private func tasksSection(repo: RepoConfig) -> some View {
+    private func header(title: String, count: Int, addLabel: String, add: @escaping () -> Void, topPad: CGFloat) -> some View {
+        PanelSectionHeader(title: title, count: count, addLabel: addLabel, add: add)
+            .listRowSeparator(.hidden)
+            .listRowBackground(Color.clear)
+            .listRowInsets(EdgeInsets(top: topPad, leading: 12, bottom: 8, trailing: 12))
+    }
+
+    @ViewBuilder private func taskRows(repo: RepoConfig) -> some View {
         let tasks = inspector.filteredTasks
-        Section {
-            if tasks.isEmpty {
-                PanelEmptyState(icon: "checklist", message: "No tasks yet.").panelRow()
-            } else {
-                ForEach(tasks) { task in
-                    TaskCard(
-                        task: task,
-                        onStatus: { changeStatus(repo: repo, task: task, status: $0) },
-                        onPriority: { changePriority(repo: repo, task: task, priority: $0) },
-                        onOpen: { taskToOpen = task }
-                    )
-                    .panelRow()
-                    .swipeActions(edge: .trailing, allowsFullSwipe: true) {
-                        Button(role: .destructive) { deleteTask(repo: repo, task: task) } label: {
-                            Label("Delete", systemImage: "trash")
-                        }
+        if tasks.isEmpty {
+            PanelEmptyState(icon: "checklist", message: "No tasks yet.").cardRow()
+        } else {
+            ForEach(tasks) { task in
+                TaskCard(
+                    task: task,
+                    onStatus: { changeStatus(repo: repo, task: task, status: $0) },
+                    onPriority: { changePriority(repo: repo, task: task, priority: $0) },
+                    onOpen: { taskToOpen = task }
+                )
+                .cardRow()
+                .swipeActions(edge: .trailing, allowsFullSwipe: true) {
+                    Button(role: .destructive) { deleteTask(repo: repo, task: task) } label: {
+                        Label("Delete", systemImage: "trash")
                     }
                 }
             }
-        } header: {
-            PanelSectionHeader(title: "Tasks", count: tasks.count, addLabel: "New Task", add: onCreateTask)
-                .listRowSeparator(.hidden)
         }
     }
 
-    @ViewBuilder private func versionsSection(repo: RepoConfig) -> some View {
+    @ViewBuilder private func versionRows(repo: RepoConfig) -> some View {
         let versions = versionStore.versions(owner: repo.owner, repo: repo.repo)
-        Section {
-            if versions.isEmpty {
-                PanelEmptyState(icon: "shippingbox", message: "No versions yet.").panelRow()
-            } else {
-                ForEach(versions) { version in
-                    VersionCard(
-                        name: version.name,
-                        state: version.derivedState(anyTaskStarted: inspector.anyTaskStarted(versionNamed: version.name)),
-                        taskCount: inspector.tasks(forVersionNamed: version.name).count,
-                        action: { versionToOpen = version }
-                    )
-                    .panelRow()
-                    .swipeActions(edge: .trailing, allowsFullSwipe: true) {
-                        Button(role: .destructive) { deleteVersion(repo: repo, version: version) } label: {
-                            Label("Delete", systemImage: "trash")
-                        }
+        if versions.isEmpty {
+            PanelEmptyState(icon: "shippingbox", message: "No versions yet.").cardRow()
+        } else {
+            ForEach(versions) { version in
+                VersionCard(
+                    name: version.name,
+                    state: version.derivedState(anyTaskStarted: inspector.anyTaskStarted(versionNamed: version.name)),
+                    taskCount: inspector.tasks(forVersionNamed: version.name).count,
+                    action: { versionToOpen = version }
+                )
+                .cardRow()
+                .swipeActions(edge: .trailing, allowsFullSwipe: true) {
+                    Button(role: .destructive) { deleteVersion(repo: repo, version: version) } label: {
+                        Label("Delete", systemImage: "trash")
                     }
                 }
             }
-        } header: {
-            PanelSectionHeader(title: "Versions", count: versions.count, addLabel: "New Version", add: onCreateVersion)
-                .listRowSeparator(.hidden)
         }
     }
 
@@ -138,8 +140,8 @@ struct ProjectInspectorPanel: View {
 }
 
 private extension View {
-    /// Styles a List row so the card "floats": no separators, clear background, tight insets.
-    func panelRow() -> some View {
+    /// A card row: full width, no separators, clear background, tight side margins.
+    func cardRow() -> some View {
         self
             .listRowSeparator(.hidden)
             .listRowBackground(Color.clear)

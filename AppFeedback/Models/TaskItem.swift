@@ -1,14 +1,4 @@
 import Foundation
-import CoreTransferable
-import UniformTypeIdentifiers
-
-/// Drag payload for attaching a task to a feedback by dragging its card onto a feedback row.
-struct TaskDragItem: Codable, Transferable {
-    let number: Int
-    static var transferRepresentation: some TransferRepresentation {
-        CodableRepresentation(contentType: .json)
-    }
-}
 
 /// In-memory projection of a GitHub issue that carries the `appfeedback:task` label.
 /// Not persisted — derived from a loaded `FeedbackIssue` on every fetch.

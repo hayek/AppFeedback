@@ -1,5 +1,6 @@
 import SwiftUI
 import SwiftData
+import UniformTypeIdentifiers
 
 struct IssueListView: View {
     @Bindable var viewModel: IssueListViewModel
@@ -175,11 +176,19 @@ struct IssueListView: View {
                                         .strokeBorder(Color.accentColor, lineWidth: 2)
                                 }
                             }
-                            .dropDestination(for: TaskDragItem.self) { items, _ in
-                                guard let onDropTask, let first = items.first else { return false }
-                                onDropTask(first.number, issue.number)
+                            .onDrop(of: [.text], isTargeted: Binding(
+                                get: { dropTargetNumber == issue.number },
+                                set: { dropTargetNumber = ($0 && onDropTask != nil) ? issue.number : nil }
+                            )) { providers in
+                                guard onDropTask != nil, let provider = providers.first else { return false }
+                                let feedbackNumber = issue.number
+                                _ = provider.loadObject(ofClass: NSString.self) { object, _ in
+                                    if let string = object as? String, let taskNumber = Int(string) {
+                                        Task { @MainActor in onDropTask?(taskNumber, feedbackNumber) }
+                                    }
+                                }
                                 return true
-                            } isTargeted: { dropTargetNumber = ($0 && onDropTask != nil) ? issue.number : nil }
+                            }
                             .id(issue.number)
                         }
                     }

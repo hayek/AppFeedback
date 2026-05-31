@@ -249,7 +249,7 @@ struct TaskCard: View {
         .clipShape(RoundedRectangle(cornerRadius: Surface.cardRadius, style: .continuous))
         .contentShape(RoundedRectangle(cornerRadius: Surface.cardRadius, style: .continuous))
         .onTapGesture { onOpen() }
-        .draggable(TaskDragItem(number: task.number))
+        .onDrag { NSItemProvider(object: "\(task.number)" as NSString) }
         .onHover { hovering = $0 }
         .animation(.easeOut(duration: 0.14), value: hovering)
     }
@@ -280,12 +280,6 @@ struct VersionCard: View {
     var body: some View {
         Button(action: action) {
             HStack(spacing: 12) {
-                ZStack {
-                    Circle().fill(state.accent.opacity(0.15)).frame(width: 30, height: 30)
-                    Image(systemName: state.symbol)
-                        .font(.system(size: 12, weight: .semibold))
-                        .foregroundStyle(state.accent)
-                }
                 VStack(alignment: .leading, spacing: 2) {
                     Text(name)
                         .font(.subheadline.weight(.semibold))

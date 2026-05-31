@@ -19,6 +19,7 @@ struct RootView: View {
     @State private var showCreateVersion = false
     @State private var showCreateTask = false
     @State private var columnVisibility: NavigationSplitViewVisibility = .automatic
+    @State private var preferredColumn: NavigationSplitViewColumn = .detail
     @Environment(\.scenePhase) private var scenePhase
     @Environment(ActivityLog.self) private var activityLog
     @Environment(MailAccountStore.self) private var mailAccountStore
@@ -43,7 +44,7 @@ struct RootView: View {
     private static let snapshottedReposKey = "appfeedback.notifications.snapshottedRepos"
 
     var body: some View {
-        NavigationSplitView(columnVisibility: $columnVisibility) {
+        NavigationSplitView(columnVisibility: $columnVisibility, preferredCompactColumn: $preferredColumn) {
             SidebarView(store: store, loaders: loaders, selection: $selection, onAddRepo: { showAddRepo = true })
                 .toolbar {
                     ToolbarItem(placement: .primaryAction) {
