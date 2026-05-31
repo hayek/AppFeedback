@@ -46,6 +46,21 @@ final class IssueListViewModel {
     /// Set by deep-link notification tap to highlight a specific issue.
     var highlightedIssueNumber: Int? = nil
 
+    // MARK: - Multi-selection (Create Task)
+    /// Feedback issue numbers selected for "Create Task". Only meaningful while `isSelecting`.
+    var selectedFeedbackNumbers: Set<Int> = []
+    /// When true, rows show a selection toggle instead of opening on tap.
+    var isSelecting: Bool = false
+    /// Set by the toolbar action; observed by RootView to present the Create Task sheet.
+    var requestCreateTask: Bool = false
+
+    func toggleSelection(_ number: Int) {
+        if selectedFeedbackNumbers.contains(number) { selectedFeedbackNumbers.remove(number) }
+        else { selectedFeedbackNumbers.insert(number) }
+    }
+
+    func clearSelection() { selectedFeedbackNumbers = []; isSelecting = false }
+
     var uniqueAppNames: [String] {
         Array(Set(allIssues.compactMap(\.appName).filter { !hiddenApps.contains($0) })).sorted()
     }

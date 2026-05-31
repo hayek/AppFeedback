@@ -17,6 +17,7 @@ struct RootView: View {
     @State private var inspector = ProjectInspectorModel()
     @State private var versionToOpen: ProjectVersion?
     @State private var showCreateVersion = false
+    @State private var showCreateTask = false
     @State private var columnVisibility: NavigationSplitViewVisibility = .automatic
     @Environment(\.scenePhase) private var scenePhase
     @Environment(ActivityLog.self) private var activityLog
@@ -113,6 +114,22 @@ struct RootView: View {
         }
         .sheet(isPresented: $showAddRepo) {
             AddEditRepoView(store: store)
+        }
+        .onChange(of: viewModel.requestCreateTask) { _, want in
+            guard want else { return }
+            viewModel.requestCreateTask = false
+            showCreateTask = true
+        }
+        .sheet(isPresented: $showCreateTask) {
+            if let repo = store.repos.first(where: { $0.id == selection?.repoId }) {
+                CreateTaskSheet(repo: repo,
+                    feedbackNumbers: Array(viewModel.selectedFeedbackNumbers).sorted(),
+                    versions: versionStore.versions(owner: repo.owner, repo: repo.repo),
+                    onCreated: {
+                        viewModel.clearSelection()
+                        Task { await refreshSelectedRepo() }
+                    })
+            }
         }
         .onChange(of: selection) { _, newValue in
             guard let newValue else { return }
@@ -242,6 +259,15 @@ struct RootView: View {
 
     private func loadAllRepos() async {
         await loadRepos(store.repos)
+    }
+
+    /// Reloads the currently-selected repo so a freshly-created task issue appears.
+    /// Mirrors the `IssueListView(onRefresh:)` closure: load the token, then `load`.
+    private func refreshSelectedRepo() async {
+        guard let selection,
+              let repo = store.repos.first(where: { $0.id == selection.repoId }),
+              let token = await KeychainService.load(for: repo) else { return }
+        await loaders[selection.repoId]?.load(token: token)
     }
 
     private func loadRepos(_ repos: [RepoConfig]) async {

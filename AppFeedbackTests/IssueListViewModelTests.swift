@@ -480,6 +480,12 @@ extension IssueListViewModelTests {
         XCTAssertEqual(vm.tasks.map(\.number), [2])
     }
 
+    func testToggleSelection() {
+        let vm = IssueListViewModel()
+        vm.toggleSelection(5); vm.toggleSelection(7); vm.toggleSelection(5)
+        XCTAssertEqual(vm.selectedFeedbackNumbers, [7])
+    }
+
     func test_unsupportedLanguageFallbackUnavailable_blacklistsLanguage() async {
         // Contrast with the guardrail case: a genuine on-device-unsupported language that
         // the framework also can't translate SHOULD blacklist the language for the session.

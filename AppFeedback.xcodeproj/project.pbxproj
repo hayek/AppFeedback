@@ -155,6 +155,7 @@
 		6604F5C9B9D507FABADF9B32 /* MailSettingsStoreTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 41A259F8580D4738755D4CC2 /* MailSettingsStoreTests.swift */; };
 		6645EA25CABF717B2D1B6E09 /* IssueCardView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7B47F8578C6AACFA2B16D08C /* IssueCardView.swift */; };
 		671859F39DD0985A8C4ABC7C /* ProjectInspectorModelTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 787DB55D32DE6798C2427FE6 /* ProjectInspectorModelTests.swift */; };
+		67421A19C6A62694ECF0B115 /* CreateTaskSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = F6C7BCC2911F1E0A091D27A5 /* CreateTaskSheet.swift */; };
 		677FA0A37ED1C2356AEE47E1 /* AppFeedbackTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 98F8C9ECF3F6884F65EFEE8D /* AppFeedbackTests.swift */; };
 		67939D6324738336AED94180 /* ProjectInspectorPanel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6375A1FFE5DE68A18FFE315A /* ProjectInspectorPanel.swift */; };
 		693106396CA492E1BDDEB4E0 /* ProjectInspectorModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = C53D93297603F805F2A146B4 /* ProjectInspectorModel.swift */; };
@@ -282,6 +283,7 @@
 		B2337CDD01B9CB3D797B8B81 /* GitHubMilestoneReleaseClient.swift in Sources */ = {isa = PBXBuildFile; fileRef = DFBF90E755958089C20AE4E9 /* GitHubMilestoneReleaseClient.swift */; };
 		B6FCA0A038E78F1D56018AC9 /* EmailAccountList.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1C5E4AF7386763AADC7864DE /* EmailAccountList.swift */; };
 		B7321051B9ED29545BDABC88 /* ReplyHeaderBuilderTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = F712D1EF260B1A506C404047 /* ReplyHeaderBuilderTests.swift */; };
+		B92755918F67A98AB489F9EB /* CreateTaskSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = F6C7BCC2911F1E0A091D27A5 /* CreateTaskSheet.swift */; };
 		B9689C8F511CEFFC7154AE31 /* CloudSyncStatusTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1A5E9D6EA54332099D0A0E76 /* CloudSyncStatusTests.swift */; };
 		BA21E125A4A0FB9B55E7CA3A /* AttachmentDownloaderTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = F7AF27A3A83BA9E18C42D607 /* AttachmentDownloaderTests.swift */; };
 		BB64F1D9A7D592A904333F47 /* MailProviderBadge.swift in Sources */ = {isa = PBXBuildFile; fileRef = 173F40704108E1C47B7B46E1 /* MailProviderBadge.swift */; };
@@ -623,6 +625,7 @@
 		F21997922568B439D705E5DA /* UnreadSummaryViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UnreadSummaryViewModel.swift; sourceTree = "<group>"; };
 		F3AC2A1A49FFA4A03F179B09 /* MessageIDGeneratorTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MessageIDGeneratorTests.swift; sourceTree = "<group>"; };
 		F4CA31D8EBA15B135854E873 /* FeedbackIssue.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FeedbackIssue.swift; sourceTree = "<group>"; };
+		F6C7BCC2911F1E0A091D27A5 /* CreateTaskSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CreateTaskSheet.swift; sourceTree = "<group>"; };
 		F6CC5C4D19E1784830D4E8FF /* SettingsTabBar.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsTabBar.swift; sourceTree = "<group>"; };
 		F6DC132CC8D99D5C09380980 /* AppFeedbackSDK */ = {isa = PBXFileReference; lastKnownFileType = folder; name = AppFeedbackSDK; path = ../AppFeedbackSDK; sourceTree = SOURCE_ROOT; };
 		F712D1EF260B1A506C404047 /* ReplyHeaderBuilderTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ReplyHeaderBuilderTests.swift; sourceTree = "<group>"; };
@@ -994,6 +997,7 @@
 		F02DDE0E192197BC882505FA /* Inspector */ = {
 			isa = PBXGroup;
 			children = (
+				F6C7BCC2911F1E0A091D27A5 /* CreateTaskSheet.swift */,
 				6375A1FFE5DE68A18FFE315A /* ProjectInspectorPanel.swift */,
 				C7A4D23CBEBA63C43F59807C /* TasksSectionView.swift */,
 				27029D3AE0F8255A051EAC37 /* VersionsSectionView.swift */,
@@ -1190,6 +1194,7 @@
 				1E75E737BDA0F692D6B65D87 /* ComposeFormCore.swift in Sources */,
 				9ABAD1F98FAA0295F43C1FEA /* ComposeMailViewModel.swift in Sources */,
 				870CA587DBF278843C825F00 /* ComposeRequest.swift in Sources */,
+				67421A19C6A62694ECF0B115 /* CreateTaskSheet.swift in Sources */,
 				9C849E6C1803FFA445354CA5 /* DeviceName.swift in Sources */,
 				1C2A06781DADA637D0F86EBA /* EmailAccountEditor.swift in Sources */,
 				CD0C5889E2228FFF84AD45DE /* EmailAccountEditorSheet.swift in Sources */,
@@ -1400,6 +1405,7 @@
 				5D3A2624E1192784D3AB6067 /* ComposeFormCore.swift in Sources */,
 				D522E73475746CCDF99A3394 /* ComposeMailViewModel.swift in Sources */,
 				B11A7240644288E2844720B6 /* ComposeRequest.swift in Sources */,
+				B92755918F67A98AB489F9EB /* CreateTaskSheet.swift in Sources */,
 				9BDD7E145C60D5DD6FE85E09 /* DeviceName.swift in Sources */,
 				A60C3D764DC66781247CC401 /* EmailAccountEditor.swift in Sources */,
 				CE96DAAED58582F1388358FE /* EmailAccountEditorSheet.swift in Sources */,
