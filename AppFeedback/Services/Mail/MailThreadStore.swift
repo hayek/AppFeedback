@@ -1,5 +1,6 @@
 import Foundation
 import SwiftData
+import CoreData
 import Observation
 
 @MainActor
@@ -16,8 +17,40 @@ final class MailThreadStore {
     /// inbox isn't flagged as new on first display.
     private(set) var sessionUnreadMessageIDs: Set<String> = []
 
+    private var remoteChangeTask: Task<Void, Never>?
+    private var cloudKitImportTask: Task<Void, Never>?
+
     init(context: ModelContext) {
         self.context = context
+
+        // CloudKit pulls a MailMessage written by another device into the persistent store,
+        // but no local code path calls commitChange() — so without this `version` would
+        // never tick and IssueCardView's onChange(threadStore.version) refresh wouldn't fire,
+        // leaving replies sent on another device invisible until app relaunch.
+        remoteChangeTask = Task { @MainActor [weak self] in
+            for await _ in NotificationCenter.default.notifications(named: .NSPersistentStoreRemoteChange) {
+                self?.notifyRemoteChange()
+            }
+        }
+
+        // Belt-and-suspenders alongside NSPersistentStoreRemoteChange: that notification can
+        // be missed or arrive before imported rows are visible to fetches on a fresh install.
+        cloudKitImportTask = Task { @MainActor [weak self] in
+            for await _ in NotificationCenter.cloudKitImportSucceeded {
+                self?.notifyRemoteChange()
+            }
+        }
+    }
+
+    isolated deinit {
+        remoteChangeTask?.cancel()
+        cloudKitImportTask?.cancel()
+    }
+
+    private func notifyRemoteChange() {
+        cachedCandidates = nil
+        invalidateOrphanCache()
+        version &+= 1
     }
 
     func isUnread(_ message: MailMessage) -> Bool {

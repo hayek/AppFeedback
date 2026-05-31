@@ -1,5 +1,6 @@
 import XCTest
 import SwiftData
+import CoreData
 @testable import AppFeedback
 
 @MainActor
@@ -357,5 +358,36 @@ final class MailThreadStoreTests: XCTestCase {
         // MailAttachment rows should be gone (cascade from MailMessage → MailAttachment)
         let attachAfter = try context.fetch(FetchDescriptor<MailAttachment>())
         XCTAssertEqual(attachAfter.count, 0, "MailAttachment rows should be cascade-deleted with the message")
+    }
+
+    // MARK: - Test 14: NSPersistentStoreRemoteChange bumps version
+
+    /// Regression: replies sent on another device (synced via CloudKit) used to stay invisible
+    /// on this device until app relaunch because `version` only ticked on local writes.
+    /// `MailThreadStore` now listens for `.NSPersistentStoreRemoteChange` so SwiftUI observers
+    /// re-fetch when CloudKit merges rows into the local store.
+    func test_remoteStoreChange_bumpsVersion() async throws {
+        let context = try makeContext()
+        let store = MailThreadStore(context: context)
+        let baseline = store.version
+
+        // Give the listener Task a chance to start its `for await` loop and register the
+        // underlying notification observer — otherwise the notification we post below would
+        // fire before the observer exists and be missed.
+        try await Task.sleep(for: .milliseconds(50))
+
+        // Post repeatedly with yields so we don't depend on a single observer-registration
+        // timing window. The store coalesces multiple posts into multiple version ticks,
+        // so as long as one is observed the test passes.
+        for _ in 0..<5 {
+            NotificationCenter.default.post(
+                name: .NSPersistentStoreRemoteChange,
+                object: nil
+            )
+            try await Task.sleep(for: .milliseconds(20))
+        }
+
+        XCTAssertGreaterThan(store.version, baseline,
+            "Remote store change should bump version so observers re-fetch")
     }
 }
