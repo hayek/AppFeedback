@@ -7,6 +7,16 @@ struct RootView: View {
     var seenStore: SeenIssueStore
     var cacheContext: ModelContext
     var versionStore: VersionStore
+
+    init(store: RepoStore, seenStore: SeenIssueStore, cacheContext: ModelContext, versionStore: VersionStore) {
+        self.store = store
+        self.seenStore = seenStore
+        self.cacheContext = cacheContext
+        self.versionStore = versionStore
+        // Seed the selection so the iPhone opens to the detail (feedback) rather than the sidebar.
+        _selection = State(initialValue: store.repos.first.map { SidebarSelection.allIssues(repoId: $0.id) })
+    }
+
     @State private var loaders: [UUID: IssueLoader] = [:]
     @State private var selection: SidebarSelection?
     @State private var viewModel = IssueListViewModel()
