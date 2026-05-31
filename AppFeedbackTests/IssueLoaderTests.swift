@@ -291,4 +291,19 @@ final class IssueLoaderTests: XCTestCase {
         }
         XCTAssertEqual(issues.count, 2)
     }
+
+    func testDecodesMilestoneTitle() throws {
+        let json = """
+        {"data":{"repository":{"issues":{
+          "pageInfo":{"hasNextPage":false,"endCursor":null},
+          "nodes":[{"number":7,"title":"X","body":"b","createdAt":"2024-01-01T00:00:00Z",
+            "updatedAt":"2024-01-01T00:00:00Z","state":"OPEN",
+            "milestone":{"title":"1.2.0"},
+            "labels":{"nodes":[{"name":"appfeedback:task","color":"5319e7"}]}}]
+        }}}}
+        """.data(using: .utf8)!
+        let result = try IssueLoader.decodePageForTesting(data: json, owner: "o", repo: "r")
+        XCTAssertEqual(result.first?.milestoneTitle, "1.2.0")
+        XCTAssertTrue(result.first.map(TaskItem.isTask) ?? false)
+    }
 }

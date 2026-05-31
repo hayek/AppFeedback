@@ -196,6 +196,7 @@ final class IssueLoader {
             createdAt
             updatedAt
             state
+            milestone { title }
             labels(first: 30) { nodes { name color } }
           }
         }
@@ -278,6 +279,7 @@ final class IssueLoader {
                 labels: labels,
                 updatedAt: node.updatedAt,
                 state: IssueState(rawValue: node.state.lowercased()),
+                milestoneTitle: node.milestone?.title,
                 attachments: parsed.attachments
             )
         }
@@ -311,6 +313,9 @@ final class IssueLoader {
         let hasNextPage: Bool
         let endCursor: String?
     }
+    private struct Milestone: Decodable {
+        let title: String
+    }
     private struct Node: Decodable {
         let number: Int
         let title: String
@@ -318,6 +323,7 @@ final class IssueLoader {
         let createdAt: Date
         let updatedAt: Date
         let state: String
+        let milestone: Milestone?
         let labels: LabelConnection?
     }
     private struct LabelConnection: Decodable {
@@ -392,6 +398,14 @@ final class IssueLoader {
 
         try? context.save()
     }
+
+    // MARK: - Debug helpers
+
+    #if DEBUG
+    static func decodePageForTesting(data: Data, owner: String, repo: String) throws -> [FeedbackIssue] {
+        try decodePage(data: data, owner: owner, repo: repo).nodes
+    }
+    #endif
 
     // MARK: - Fetch state persistence
 
