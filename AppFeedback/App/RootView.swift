@@ -16,6 +16,7 @@ struct RootView: View {
     @State private var showInspector = true
     @State private var inspector = ProjectInspectorModel()
     @State private var versionToOpen: ProjectVersion?
+    @State private var versionToRelease: ProjectVersion?
     @State private var showCreateVersion = false
     @State private var showCreateTask = false
     @State private var columnVisibility: NavigationSplitViewVisibility = .automatic
@@ -134,6 +135,14 @@ struct RootView: View {
         .sheet(isPresented: $showCreateVersion) {
             if let repo = store.repos.first(where: { $0.id == selection?.repoId }) {
                 NewVersionSheet(repo: repo, versionStore: versionStore, onCreated: {})
+            }
+        }
+        .sheet(item: $versionToOpen) { version in
+            if let repo = store.repos.first(where: { $0.id == selection?.repoId }) {
+                NavigationStack {
+                    VersionDetailView(repo: repo, version: version, inspector: inspector,
+                        versionStore: versionStore, onRelease: { versionToRelease = version })
+                }
             }
         }
         .onChange(of: selection) { _, newValue in
