@@ -72,6 +72,19 @@ final class TaskService {
             title: title, body: body, token: token)
     }
 
+    /// Applies a full set of edits (title, notes, status, priority, version) in a single PATCH.
+    /// Used by the task detail's Apply action so everything commits atomically.
+    func applyEdits(repo: RepoConfig, task: TaskItem, title: String, prose: String,
+                    status: TaskStatus, priority: TaskPriority, milestoneNumber: Int?) async throws {
+        guard let token = KeychainService.loadSync(for: repo) else { throw ServiceError.noToken }
+        try await ensureLabels(repo: repo, token: token)
+        let body = FeedbackTaskRefParser.upsert(into: prose, refs: task.feedbackRefs)
+        let state = (status == .done) ? "closed" : "open"
+        try await writer.updateIssue(owner: repo.owner, repo: repo.repo, number: task.number,
+            title: title, body: body, labels: Self.labels(status: status, priority: priority),
+            milestoneNumber: .some(milestoneNumber), state: state, token: token)
+    }
+
     private func ensureLabels(repo: RepoConfig, token: String) async throws {
         for label in AppFeedbackLabels.managed {
             try await labelClient.ensureLabel(owner: repo.owner, repo: repo.repo, name: label.name, color: label.color, token: token)

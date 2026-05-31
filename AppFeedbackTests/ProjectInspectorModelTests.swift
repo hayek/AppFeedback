@@ -52,4 +52,21 @@ final class ProjectInspectorModelTests: XCTestCase {
         XCTAssertNil(model.applyOptimistic(number: 999, status: .done))
         XCTAssertEqual(model.tasks.first?.status, .todo)
     }
+
+    func testApplyOptimisticMovesVersionAndCanClearIt() {
+        let model = ProjectInspectorModel()
+        model.setTasks([todoTask(1, milestone: "1.0")])
+        model.applyOptimistic(number: 1, milestone: .some("2.0"))
+        XCTAssertEqual(model.tasks.first?.milestoneTitle, "2.0")
+        model.applyOptimistic(number: 1, milestone: .some(nil))   // .some(nil) clears the version
+        XCTAssertNil(model.tasks.first?.milestoneTitle)
+    }
+
+    func testApplyOptimisticTitleAndNotesUpdate() {
+        let model = ProjectInspectorModel()
+        model.setTasks([todoTask(1)])
+        model.applyOptimistic(number: 1, title: "Renamed", body: "new notes")
+        XCTAssertEqual(model.tasks.first?.title, "Renamed")
+        XCTAssertEqual(model.tasks.first?.body, "new notes")
+    }
 }

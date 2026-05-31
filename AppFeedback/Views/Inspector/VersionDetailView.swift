@@ -38,11 +38,17 @@ struct VersionDetailView: View {
         }
         .scrollIndicators(.hidden)
         .background(LinearGradient(colors: [Color.primary.opacity(0.04), .clear], startPoint: .top, endPoint: .center).ignoresSafeArea())
-        .navigationTitle(version.name)
         #if os(iOS)
         .navigationBarTitleDisplayMode(.inline)
         #endif
-        .toolbar { ToolbarItem(placement: .confirmationAction) { Button("Done") { dismiss() } } }
+        .toolbar {
+            ToolbarItem(placement: .cancellationAction) { Button("Cancel") { dismiss() }.disabled(working) }
+            ToolbarItem(placement: .confirmationAction) {
+                Button("Apply") { applyChangelog() }
+                    .fontWeight(.semibold)
+                    .disabled(changelog == version.changelog || working)
+            }
+        }
         .onAppear { changelog = version.changelog }
         .sheet(item: $taskToOpen) { task in
             TaskDetailView(repo: repo, task: task, inspector: inspector, versionStore: versionStore)
@@ -78,15 +84,7 @@ struct VersionDetailView: View {
     private var changelogSection: some View {
         DetailSection(title: "What's new", systemImage: "sparkles") {
             DetailCard {
-                VStack(alignment: .leading, spacing: 12) {
-                    DetailTextEditor(placeholder: "What changed in this version…", text: $changelog)
-                    HStack {
-                        Spacer()
-                        SubtleButton(title: "Save", systemImage: "checkmark", enabled: changelog != version.changelog && !working) {
-                            saveChangelog()
-                        }
-                    }
-                }
+                DetailTextEditor(placeholder: "What changed in this version…", text: $changelog)
             }
         }
     }
@@ -126,7 +124,7 @@ struct VersionDetailView: View {
                 }
             }
         } else if canEmail {
-            PrimaryActionButton(title: "Release…", systemImage: "paperplane.fill") { onRelease() }
+            PrimaryActionButton(title: "Release…", systemImage: "paperplane.fill") { releaseFlow() }
                 .disabled(working)
         } else {
             DetailCard {
@@ -164,13 +162,25 @@ struct VersionDetailView: View {
         return parts.isEmpty ? "Milestone closed" : parts.joined(separator: " · ")
     }
 
-    private func saveChangelog() {
+    private func applyChangelog() {
         working = true; errorMessage = nil
         let service = VersionService(store: versionStore)
         Task {
-            do { try await service.updateChangelog(repo: repo, version: version, changelog: changelog) }
-            catch { errorMessage = error.localizedDescription }
-            working = false
+            do {
+                try await service.updateChangelog(repo: repo, version: version, changelog: changelog)
+                dismiss()
+            } catch { errorMessage = error.localizedDescription; working = false }
+        }
+    }
+
+    /// Persist the edited changelog (best-effort) before opening the release recipients flow,
+    /// so the release uses the latest "what's new".
+    private func releaseFlow() {
+        Task {
+            if changelog != version.changelog {
+                try? await VersionService(store: versionStore).updateChangelog(repo: repo, version: version, changelog: changelog)
+            }
+            onRelease()
         }
     }
 

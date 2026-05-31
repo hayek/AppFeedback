@@ -8,25 +8,27 @@ struct TaskDetailView: View {
 
     @Environment(\.dismiss) private var dismiss
     @Environment(\.openURL) private var openURL
+    @State private var status: TaskStatus = .todo
+    @State private var priority: TaskPriority = .med
+    @State private var versionName: String?
     @State private var title = ""
     @State private var notes = ""
-    @State private var assignedVersion: String?
     @State private var seeded = false
     @State private var working = false
     @State private var errorMessage: String?
     private let service = TaskService()
 
-    /// The live task from the inspector (reflects optimistic status/priority changes), or the
-    /// snapshot we were opened with if it has since been removed from the list.
-    private var live: TaskItem { inspector.task(number: task.number) ?? task }
     private var versions: [ProjectVersion] { versionStore.versions(owner: repo.owner, repo: repo.repo) }
     private var issueURL: URL? { URL(string: "https://github.com/\(repo.owner)/\(repo.repo)/issues/\(task.number)") }
-    private var dirty: Bool { title != live.title || notes != FeedbackTaskRefParser.prose(of: live.body) }
+    private var dirty: Bool {
+        status != task.status || priority != task.priority || versionName != task.milestoneTitle
+            || title != task.title || notes != FeedbackTaskRefParser.prose(of: task.body)
+    }
 
     var body: some View {
         NavigationStack {
             ScrollView {
-                VStack(alignment: .leading, spacing: 24) {
+                VStack(alignment: .leading, spacing: 22) {
                     header
                     DetailSection(title: "Status", systemImage: "circle.lefthalf.filled") { statusChips }
                     DetailSection(title: "Priority", systemImage: "flag") { priorityChips }
@@ -34,7 +36,7 @@ struct TaskDetailView: View {
                     DetailSection(title: "Notes", systemImage: "text.alignleft") {
                         DetailTextEditor(placeholder: "Add details…", text: $notes)
                     }
-                    if !live.feedbackRefs.isEmpty {
+                    if !task.feedbackRefs.isEmpty {
                         DetailSection(title: "Addresses feedback", systemImage: "link") { feedbackChips }
                     }
                     githubButton
@@ -47,21 +49,19 @@ struct TaskDetailView: View {
             }
             .scrollIndicators(.hidden)
             .background(LinearGradient(colors: [Color.primary.opacity(0.04), .clear], startPoint: .top, endPoint: .center).ignoresSafeArea())
-            .navigationTitle("Task #\(task.number)")
-            #if os(iOS)
-            .navigationBarTitleDisplayMode(.inline)
-            #endif
             .toolbar {
-                ToolbarItem(placement: .cancellationAction) { Button("Done") { dismiss() } }
+                ToolbarItem(placement: .cancellationAction) { Button("Cancel") { dismiss() }.disabled(working) }
                 ToolbarItem(placement: .confirmationAction) {
-                    Button("Save") { saveContent() }.fontWeight(.semibold).disabled(!dirty || working)
+                    Button("Apply") { apply() }.fontWeight(.semibold).disabled(!dirty || working)
                 }
             }
             .onAppear {
                 guard !seeded else { return }
-                title = live.title
-                notes = FeedbackTaskRefParser.prose(of: live.body)
-                assignedVersion = live.milestoneTitle
+                status = task.status
+                priority = task.priority
+                versionName = task.milestoneTitle
+                title = task.title
+                notes = FeedbackTaskRefParser.prose(of: task.body)
                 seeded = true
             }
         }
@@ -78,14 +78,12 @@ struct TaskDetailView: View {
                 Text("#\(task.number)")
                     .font(.callout.monospaced().weight(.medium))
                     .foregroundStyle(.tertiary)
-                if live.isCompleted {
-                    HStack(spacing: 4) {
-                        Image(systemName: "checkmark.circle.fill")
-                        Text("Done")
-                    }
-                    .font(.caption.weight(.semibold))
-                    .foregroundStyle(TaskStatus.done.accent)
+                HStack(spacing: 4) {
+                    Circle().fill(status.accent).frame(width: 7, height: 7)
+                    Text(status.displayName)
                 }
+                .font(.caption.weight(.semibold))
+                .foregroundStyle(status.accent)
                 Spacer()
             }
             TextField("Task title", text: $title)
@@ -95,15 +93,12 @@ struct TaskDetailView: View {
         }
     }
 
-    // MARK: Editors
+    // MARK: Editors (all local — committed on Apply)
 
     private var statusChips: some View {
         HStack(spacing: 8) {
             ForEach(TaskStatus.allCases, id: \.self) { s in
-                SelectChip(title: s.displayName, tint: s.accent, selected: live.status == s) {
-                    let previous = inspector.applyOptimistic(number: task.number, status: s)
-                    commit(revert: previous) { try await service.setStatus(repo: repo, task: live, status: s) }
-                }
+                SelectChip(title: s.displayName, tint: s.accent, selected: status == s) { status = s }
             }
             Spacer(minLength: 0)
         }
@@ -112,10 +107,7 @@ struct TaskDetailView: View {
     private var priorityChips: some View {
         HStack(spacing: 8) {
             ForEach(TaskPriority.allCases, id: \.self) { p in
-                SelectChip(title: p.displayName, tint: p.accent, selected: live.priority == p) {
-                    let previous = inspector.applyOptimistic(number: task.number, priority: p)
-                    commit(revert: previous) { try await service.setPriority(repo: repo, task: live, priority: p) }
-                }
+                SelectChip(title: p.displayName, tint: p.accent, selected: priority == p) { priority = p }
             }
             Spacer(minLength: 0)
         }
@@ -123,12 +115,12 @@ struct TaskDetailView: View {
 
     private var versionMenu: some View {
         Menu {
-            Button("None") { assign(version: nil) }
-            ForEach(versions) { v in Button(v.name) { assign(version: v.name) } }
+            Button("None") { versionName = nil }
+            ForEach(versions) { v in Button(v.name) { versionName = v.name } }
         } label: {
             HStack(spacing: 8) {
                 Image(systemName: "shippingbox").font(.system(size: 12)).foregroundStyle(.secondary)
-                Text(assignedVersion ?? "None")
+                Text(versionName ?? "None")
                     .font(.subheadline.weight(.medium)).foregroundStyle(.primary)
                 Spacer(minLength: 0)
                 Image(systemName: "chevron.up.chevron.down").font(.system(size: 10, weight: .semibold)).foregroundStyle(.tertiary)
@@ -144,7 +136,7 @@ struct TaskDetailView: View {
 
     private var feedbackChips: some View {
         LazyVGrid(columns: [GridItem(.adaptive(minimum: 64), spacing: 8)], alignment: .leading, spacing: 8) {
-            ForEach(live.feedbackRefs, id: \.self) { n in
+            ForEach(task.feedbackRefs, id: \.self) { n in
                 Button {
                     if let url = URL(string: "https://github.com/\(repo.owner)/\(repo.repo)/issues/\(n)") { openURL(url) }
                 } label: {
@@ -176,41 +168,23 @@ struct TaskDetailView: View {
         .buttonStyle(.plain)
     }
 
-    // MARK: Actions
+    // MARK: Apply
 
-    private func assign(version name: String?) {
-        assignedVersion = name
-        let milestone = versions.first { $0.name == name }?.milestoneNumber
-        let current = live
-        errorMessage = nil
-        Task {
-            do { try await service.assignVersion(repo: repo, task: current, milestoneNumber: milestone) }
-            catch { errorMessage = error.localizedDescription }
-        }
-    }
-
-    private func saveContent() {
+    private func apply() {
         working = true; errorMessage = nil
-        let newBody = FeedbackTaskRefParser.upsert(into: notes, refs: live.feedbackRefs)
-        let previous = inspector.applyOptimistic(number: task.number, title: title, body: newBody)
-        let current = live
+        let milestoneNumber = versions.first { $0.name == versionName }?.milestoneNumber
+        let newBody = FeedbackTaskRefParser.upsert(into: notes, refs: task.feedbackRefs)
+        let previous = inspector.applyOptimistic(number: task.number, status: status, priority: priority,
+                                                 title: title, body: newBody, milestone: .some(versionName))
         Task {
-            do { try await service.updateContent(repo: repo, task: current, title: title, prose: notes) }
-            catch {
+            do {
+                try await service.applyEdits(repo: repo, task: task, title: title, prose: notes,
+                                             status: status, priority: priority, milestoneNumber: milestoneNumber)
+                dismiss()
+            } catch {
                 if let previous { inspector.restore(previous) }
                 errorMessage = error.localizedDescription
-            }
-            working = false
-        }
-    }
-
-    private func commit(revert previous: TaskItem?, _ work: @escaping () async throws -> Void) {
-        errorMessage = nil
-        Task {
-            do { try await work() }
-            catch {
-                if let previous { inspector.restore(previous) }
-                errorMessage = error.localizedDescription
+                working = false
             }
         }
     }

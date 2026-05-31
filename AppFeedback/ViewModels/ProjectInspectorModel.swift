@@ -12,10 +12,10 @@ final class ProjectInspectorModel {
     /// Returns the previous `TaskItem` (for `restore` on failure), or nil if the task isn't loaded.
     @discardableResult
     func applyOptimistic(number: Int, status: TaskStatus? = nil, priority: TaskPriority? = nil,
-                         title: String? = nil, body: String? = nil) -> TaskItem? {
+                         title: String? = nil, body: String? = nil, milestone: String?? = nil) -> TaskItem? {
         guard let index = tasks.firstIndex(where: { $0.number == number }) else { return nil }
         let previous = tasks[index]
-        tasks[index] = previous.with(status: status, priority: priority, title: title, body: body)
+        tasks[index] = previous.with(status: status, priority: priority, title: title, body: body, milestone: milestone)
         return previous
     }
 

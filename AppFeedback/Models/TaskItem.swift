@@ -44,14 +44,16 @@ struct TaskItem: Identifiable, Sendable, Hashable {
     /// A copy with selected fields changed. Setting status to `.done` also marks the task closed
     /// (matching `TaskService.setStatus`). Changing `body` re-derives the feedback refs.
     func with(status newStatus: TaskStatus? = nil, priority newPriority: TaskPriority? = nil,
-              title newTitle: String? = nil, body newBody: String? = nil) -> TaskItem {
+              title newTitle: String? = nil, body newBody: String? = nil,
+              milestone newMilestone: String?? = nil) -> TaskItem {
         let resolvedBody = newBody ?? body
         let resolvedRefs = newBody != nil ? FeedbackTaskRefParser.parse(resolvedBody) : feedbackRefs
         let resolvedStatus = newStatus ?? status
         let resolvedClosed = newStatus.map { $0 == .done } ?? isClosed
+        let resolvedMilestone: String? = newMilestone ?? milestoneTitle    // .some(nil) clears it
         return TaskItem(number: number, title: newTitle ?? title, body: resolvedBody, feedbackRefs: resolvedRefs,
                         status: resolvedStatus, priority: newPriority ?? priority,
-                        milestoneTitle: milestoneTitle, isClosed: resolvedClosed)
+                        milestoneTitle: resolvedMilestone, isClosed: resolvedClosed)
     }
 
     /// True when a loaded issue should be treated as a task rather than feedback.
