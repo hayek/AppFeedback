@@ -131,6 +131,11 @@ struct RootView: View {
                     })
             }
         }
+        .sheet(isPresented: $showCreateVersion) {
+            if let repo = store.repos.first(where: { $0.id == selection?.repoId }) {
+                NewVersionSheet(repo: repo, versionStore: versionStore, onCreated: {})
+            }
+        }
         .onChange(of: selection) { _, newValue in
             guard let newValue else { return }
             updateViewModel(for: newValue)
