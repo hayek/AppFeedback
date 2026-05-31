@@ -22,9 +22,10 @@
   ```bash
   cd /Users/amir/Developer/AppFeedback && xcodegen generate && \
   xcodebuild test -scheme AppFeedback_macOS -destination 'platform=macOS' \
-    -only-testing:AppFeedbackTests/<TestClass> 2>&1 | tail -40
+    -only-testing:AppFeedbackTests_macOS/<TestClass> 2>&1 | tail -40
   ```
   Replace `<TestClass>` (and optionally `/<testMethod>`) per step. Drop `-only-testing:` to run the whole suite.
+  > **NOTE:** xcodegen splits the `AppFeedbackTests` target per-platform, so the runtime test target is **`AppFeedbackTests_macOS`** (and `AppFeedbackTests_iOS`) — *not* `AppFeedbackTests`. Every `-only-testing:` argument below should read `AppFeedbackTests_macOS/<TestClass>`. `xcodegen` (2.45.4) is installed via brew; after adding a new file, `xcodegen generate` and **commit the regenerated `AppFeedback.xcodeproj/project.pbxproj` together with the source file.**
 - **New source files** go under `AppFeedback/...` (auto-included by folder); **new tests** under `AppFeedbackTests/` (flat folder).
 - **Network tests** inject `URLSession.mock` and set `MockURLProtocol.requestHandler` (see `AppFeedbackTests/MockURLProtocol.swift`).
 - **Commit after every task.** Branch is `feature/tasks-and-versions` (already created).
