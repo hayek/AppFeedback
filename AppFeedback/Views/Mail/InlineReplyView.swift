@@ -160,11 +160,13 @@ struct InlineReplyView: View {
     }
 
     private func send(vm: ComposeMailViewModel) {
-        Task {
-            await vm.send()
-            drafts.clear(key)
-            onClose()
-        }
+        // Dismiss the composer immediately on Send. vm.send() records the outbound
+        // message (shown in the thread with a "sending…" badge) and tracks success/
+        // failure in the thread store + tracker, so the SMTP round-trip can finish in
+        // the background after this view is gone. The Task retains vm until it returns.
+        drafts.clear(key)
+        onClose()
+        Task { await vm.send() }
     }
 
     private func setupViewModel() {
