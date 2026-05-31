@@ -1,7 +1,7 @@
 # Tasks & Versions — Design Spec
 
 **Date:** 2026-05-31
-**Status:** Approved (design); pending implementation plan
+**Status:** Implemented (feature/tasks-and-versions)
 **Author:** Amir Hayek (with Claude)
 
 ## 1. Goal
