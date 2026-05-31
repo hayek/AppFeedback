@@ -68,6 +68,7 @@
 		256C8FFEEE2A0A85EDF4E911 /* RepoFetchState.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8817C9FD52303F29DDC181C1 /* RepoFetchState.swift */; };
 		25866AE52D41DF210553EC0C /* HiddenAppStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = C897756C0C9A16325888F788 /* HiddenAppStore.swift */; };
 		25F7B59FEC7FE618A2DDE973 /* IssueBodyParser.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2EA9ED253AAB1648CE69C3C8 /* IssueBodyParser.swift */; };
+		260A8D224023E848EC49E5CF /* TaskServiceTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = E1E35810A479EEB454382191 /* TaskServiceTests.swift */; };
 		2691E53189E014D7B36A236C /* ColorPalette.swift in Sources */ = {isa = PBXBuildFile; fileRef = A2F615F5DA761C32F8566101 /* ColorPalette.swift */; };
 		271EBD521A91D7A3BD23AD58 /* UnreadSummaryViewModelTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 00F960BE036D65B0E276B47E /* UnreadSummaryViewModelTests.swift */; };
 		2A3564632F92A68E7E179684 /* TaskItem.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9EFA523FFA32DE561302FB08 /* TaskItem.swift */; };
@@ -178,15 +179,18 @@
 		77DBB28FD76501D3A2ECC9D3 /* NotificationSettingsTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 222848512444018A588E6833 /* NotificationSettingsTests.swift */; };
 		782DFA0D5F5B0CB20163FCBA /* GitHubLoginView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8179D7E75894D24AAF1B685B /* GitHubLoginView.swift */; };
 		79081346B12D94B6E60A2D42 /* FilterBarView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A5A00E7444118AEC76580EAB /* FilterBarView.swift */; };
+		791E846B8373C93B660F1B98 /* TaskServiceTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = E1E35810A479EEB454382191 /* TaskServiceTests.swift */; };
 		79A65545F063297C0A62B4B2 /* RichTextEditor.swift in Sources */ = {isa = PBXBuildFile; fileRef = 362D146D3701EC3653723E8F /* RichTextEditor.swift */; };
 		7A2403C90C2120458BEDA8B7 /* GitHubAuthModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = DD959DEDBC95A458BAD75F14 /* GitHubAuthModels.swift */; };
 		7AC7F360012A4B35403E994F /* OutboundFailureStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7649359ACE6D9839D8FE7625 /* OutboundFailureStore.swift */; };
+		7AE7C8DE3C0E33A729BAC885 /* TaskService.swift in Sources */ = {isa = PBXBuildFile; fileRef = D9950CEFC0333AAF63363C39 /* TaskService.swift */; };
 		7B8BCFC7FC5636D0038B7FF3 /* Repo.swift in Sources */ = {isa = PBXBuildFile; fileRef = 21BC609BC2D10473659865E1 /* Repo.swift */; };
 		7C3FFC73A66C01909CC6288E /* TaskItemTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = DC5896A20C92E40B2B0DDC2D /* TaskItemTests.swift */; };
 		7ED89EB752383D353A3734D7 /* EmailSettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 997018B54F967FD27571808D /* EmailSettingsView.swift */; };
 		7FC0BCE358415049FE8CB1CF /* UserNotificationCenterProtocol.swift in Sources */ = {isa = PBXBuildFile; fileRef = 67B5227A28CB676D6CEB0F98 /* UserNotificationCenterProtocol.swift */; };
 		7FFFB0770659A4F9F59648F9 /* CloudSyncStatusRow.swift in Sources */ = {isa = PBXBuildFile; fileRef = 49269C3629BF0756B51F7C1D /* CloudSyncStatusRow.swift */; };
 		814A6DF2C8BCA28C3F26FD7B /* VersionStoreTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 263CFDB800B58C8D00270036 /* VersionStoreTests.swift */; };
+		8183329592C114BFFB6B4463 /* TaskService.swift in Sources */ = {isa = PBXBuildFile; fileRef = D9950CEFC0333AAF63363C39 /* TaskService.swift */; };
 		8191F62D572CF5DF2DAC9803 /* GitHubCommentPoster.swift in Sources */ = {isa = PBXBuildFile; fileRef = AF75A654FEE2CE5226468F3D /* GitHubCommentPoster.swift */; };
 		8192DDA72C5F679CEE06DCE8 /* MailAccountStoreTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = D8AAA23A1C319EADB6C477E9 /* MailAccountStoreTests.swift */; };
 		81AA43B073F9B9EAA2F0AA05 /* MailErrorTranslator.swift in Sources */ = {isa = PBXBuildFile; fileRef = 596FF8BD5419FCD1F64EB1E0 /* MailErrorTranslator.swift */; };
@@ -245,8 +249,10 @@
 		A277AB50575F0C39FA6891E1 /* NotificationsSettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 76F517911AEFC8F2CB8939A1 /* NotificationsSettingsView.swift */; };
 		A39AE526357FEEAFB785BCA5 /* MockURLProtocol.swift in Sources */ = {isa = PBXBuildFile; fileRef = 862BA4BF33A265329E335DDE /* MockURLProtocol.swift */; };
 		A3EA78F78185D7E79418463D /* MailThreadView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 96E4496353959C8AB67C52AA /* MailThreadView.swift */; };
+		A538E18965A452EBE730AB86 /* VersionService.swift in Sources */ = {isa = PBXBuildFile; fileRef = B22269BD22A9566A5BBC7578 /* VersionService.swift */; };
 		A5E4894A6D7EF95BFC260B9A /* CloudSyncStatusTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1A5E9D6EA54332099D0A0E76 /* CloudSyncStatusTests.swift */; };
 		A60C3D764DC66781247CC401 /* EmailAccountEditor.swift in Sources */ = {isa = PBXBuildFile; fileRef = 475CBB84AE981B4DEB210FB6 /* EmailAccountEditor.swift */; };
+		A677C4D32D8F19C03E0AFBDE /* VersionService.swift in Sources */ = {isa = PBXBuildFile; fileRef = B22269BD22A9566A5BBC7578 /* VersionService.swift */; };
 		A6E7C025885D4D8E82BC66D5 /* UnreadSummaryView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2146AEEE96ACCB5EB3265B3E /* UnreadSummaryView.swift */; };
 		A7E7D1F467C7C3110AE5BC29 /* RepoStoreTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 362B178DE65AC41CBE9665EC /* RepoStoreTests.swift */; };
 		A8B16CEE4E7B8CA4CCB0124E /* MailProviderHintCard.swift in Sources */ = {isa = PBXBuildFile; fileRef = 133B28DAE09BA529EE08E468 /* MailProviderHintCard.swift */; };
@@ -545,6 +551,7 @@
 		AF75A654FEE2CE5226468F3D /* GitHubCommentPoster.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GitHubCommentPoster.swift; sourceTree = "<group>"; };
 		B01371BB929AA76F679A4403 /* MailSubjectTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MailSubjectTests.swift; sourceTree = "<group>"; };
 		B102D34C478EAD59E5CF51CF /* TranslationFallbackHost.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TranslationFallbackHost.swift; sourceTree = "<group>"; };
+		B22269BD22A9566A5BBC7578 /* VersionService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VersionService.swift; sourceTree = "<group>"; };
 		B42F073AA6CCE864BC9DB6BB /* ThreadMatcher.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ThreadMatcher.swift; sourceTree = "<group>"; };
 		B49C106EF363AA5CED311E65 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = Info.plist; sourceTree = "<group>"; };
 		B53090386CCBA9942B8F73DC /* ParsedInboundMessage.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ParsedInboundMessage.swift; sourceTree = "<group>"; };
@@ -572,6 +579,7 @@
 		D52AEB04216AE069C6C81348 /* MailAttachmentLocal.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MailAttachmentLocal.swift; sourceTree = "<group>"; };
 		D6103AF9E531E723A81DA281 /* AppFeedback.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = AppFeedback.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		D8AAA23A1C319EADB6C477E9 /* MailAccountStoreTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MailAccountStoreTests.swift; sourceTree = "<group>"; };
+		D9950CEFC0333AAF63363C39 /* TaskService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TaskService.swift; sourceTree = "<group>"; };
 		DA0B480EF5BCDAC2E1187B39 /* FeedbackAttachmentDownloader.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FeedbackAttachmentDownloader.swift; sourceTree = "<group>"; };
 		DA2585A8442E3BBFF49D6958 /* AddEditRepoView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AddEditRepoView.swift; sourceTree = "<group>"; };
 		DACBECD4E33FD29586CF8142 /* GitHubMilestoneReleaseClientTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GitHubMilestoneReleaseClientTests.swift; sourceTree = "<group>"; };
@@ -582,6 +590,7 @@
 		DF888428018779D447A80538 /* DeviceNameTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DeviceNameTests.swift; sourceTree = "<group>"; };
 		DFBF90E755958089C20AE4E9 /* GitHubMilestoneReleaseClient.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GitHubMilestoneReleaseClient.swift; sourceTree = "<group>"; };
 		E03BB1B8AFFBECF24C7950C8 /* IssueLoader.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = IssueLoader.swift; sourceTree = "<group>"; };
+		E1E35810A479EEB454382191 /* TaskServiceTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TaskServiceTests.swift; sourceTree = "<group>"; };
 		E5C6263279C20E2145346F0B /* MailDraftStoreTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MailDraftStoreTests.swift; sourceTree = "<group>"; };
 		E669A5A9DB267448EDE24CA7 /* AttachmentDownloader.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AttachmentDownloader.swift; sourceTree = "<group>"; };
 		E7E1CD7C8E8BF3B31A2C6E80 /* NotificationSettings.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NotificationSettings.swift; sourceTree = "<group>"; };
@@ -718,7 +727,9 @@
 				AF5877FF67B938450612AFB8 /* QuickLookPresenter.swift */,
 				C4E685E33A4C31C05457EAC3 /* RepoStore.swift */,
 				7C2C5DAC5F75353FC55ACF04 /* SeenIssueStore.swift */,
+				D9950CEFC0333AAF63363C39 /* TaskService.swift */,
 				9B1D056814058B6F13C1468B /* ThumbnailCache.swift */,
+				B22269BD22A9566A5BBC7578 /* VersionService.swift */,
 				C1FE6931BF5BEDAA397B354D /* VersionStore.swift */,
 				C44C1CC40BE05A3CBAFC67F0 /* Intelligence */,
 				154D33A2A9F298ABBC3EFCF1 /* Mail */,
@@ -924,6 +935,7 @@
 				62DC52276485A5BFAF893961 /* SummaryPromptBuilderTests.swift */,
 				DC5896A20C92E40B2B0DDC2D /* TaskItemTests.swift */,
 				EA7637C6767CDB442F67C814 /* TaskMetadataTests.swift */,
+				E1E35810A479EEB454382191 /* TaskServiceTests.swift */,
 				3E56A2C1F952B2C77D48F835 /* ThreadMatcherTests.swift */,
 				00F960BE036D65B0E276B47E /* UnreadSummaryViewModelTests.swift */,
 				263CFDB800B58C8D00270036 /* VersionStoreTests.swift */,
@@ -1250,12 +1262,14 @@
 				E4DEE5AFC2FF2F643F556BF6 /* SummaryPromptBuilder.swift in Sources */,
 				86308661A3DCA4C153E29ACE /* TaskItem.swift in Sources */,
 				949A6A5EDA4C7E352AEC3E35 /* TaskMetadata.swift in Sources */,
+				8183329592C114BFFB6B4463 /* TaskService.swift in Sources */,
 				0A0DAD8BE3B1BC1215AC6A60 /* ThreadMatcher.swift in Sources */,
 				C9C252A6DD0C9B2DB66506D8 /* ThumbnailCache.swift in Sources */,
 				09599FD536721F4ED86058CD /* TranslationFallbackHost.swift in Sources */,
 				A6E7C025885D4D8E82BC66D5 /* UnreadSummaryView.swift in Sources */,
 				562460209F2D73146B278AD2 /* UnreadSummaryViewModel.swift in Sources */,
 				BE5B39F753FB4061CE567678 /* UserNotificationCenterProtocol.swift in Sources */,
+				A677C4D32D8F19C03E0AFBDE /* VersionService.swift in Sources */,
 				01BCDBCA68EDCD15D430CDC8 /* VersionStore.swift in Sources */,
 				616AAE2479CF4436F4CF1741 /* iOSBackgroundRefreshDriver.swift in Sources */,
 			);
@@ -1318,6 +1332,7 @@
 				C56D8EA8057DECBBE89E57B6 /* SummaryPromptBuilderTests.swift in Sources */,
 				7C3FFC73A66C01909CC6288E /* TaskItemTests.swift in Sources */,
 				14B548FCB14EDA394CF8BD76 /* TaskMetadataTests.swift in Sources */,
+				791E846B8373C93B660F1B98 /* TaskServiceTests.swift in Sources */,
 				D6EAE984B424A7CA175C7BB6 /* ThreadMatcherTests.swift in Sources */,
 				271EBD521A91D7A3BD23AD58 /* UnreadSummaryViewModelTests.swift in Sources */,
 				814A6DF2C8BCA28C3F26FD7B /* VersionStoreTests.swift in Sources */,
@@ -1451,12 +1466,14 @@
 				97AD207D583CC4107CD4E2B9 /* SummaryPromptBuilder.swift in Sources */,
 				2A3564632F92A68E7E179684 /* TaskItem.swift in Sources */,
 				16F8B224BEAD80A4D6C24C6C /* TaskMetadata.swift in Sources */,
+				7AE7C8DE3C0E33A729BAC885 /* TaskService.swift in Sources */,
 				5AD46DE7709F362CFC646B88 /* ThreadMatcher.swift in Sources */,
 				08CD239BC4F0BBCAC87C7EAB /* ThumbnailCache.swift in Sources */,
 				20C3F9DD259DBA1B07F2E312 /* TranslationFallbackHost.swift in Sources */,
 				2EF4C6D6EF0267D67B94195C /* UnreadSummaryView.swift in Sources */,
 				C199B80C174E5C3EB1790074 /* UnreadSummaryViewModel.swift in Sources */,
 				7FC0BCE358415049FE8CB1CF /* UserNotificationCenterProtocol.swift in Sources */,
+				A538E18965A452EBE730AB86 /* VersionService.swift in Sources */,
 				33951CE526607CA3B7FE2C14 /* VersionStore.swift in Sources */,
 				71E67446718F7936816084F5 /* iOSBackgroundRefreshDriver.swift in Sources */,
 			);
@@ -1519,6 +1536,7 @@
 				F863D4FFED4F52066E8991F9 /* SummaryPromptBuilderTests.swift in Sources */,
 				FEFF060F73B4792622D66800 /* TaskItemTests.swift in Sources */,
 				8B408BE8901ADF9567D7CA56 /* TaskMetadataTests.swift in Sources */,
+				260A8D224023E848EC49E5CF /* TaskServiceTests.swift in Sources */,
 				C825F03F97CD650744494EE6 /* ThreadMatcherTests.swift in Sources */,
 				F1B6AC532ABA0EB668646805 /* UnreadSummaryViewModelTests.swift in Sources */,
 				24AD44CE537D37FB36C82A3A /* VersionStoreTests.swift in Sources */,

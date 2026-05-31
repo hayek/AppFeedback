@@ -1,0 +1,72 @@
+import Foundation
+
+/// Orchestrates task-issue writes: resolves the GitHub token for a repo, ensures labels exist,
+/// and delegates to `GitHubIssueWriter`. @MainActor because it reads `RepoConfig` from the UI layer.
+@MainActor
+final class TaskService {
+    enum ServiceError: LocalizedError {
+        case noToken
+        var errorDescription: String? { "No GitHub token for this repo. Re-authenticate in Settings." }
+    }
+
+    private let writer: GitHubIssueWriter
+    private let labelClient: GitHubMilestoneReleaseClient
+
+    init(writer: GitHubIssueWriter = GitHubIssueWriter(),
+         labelClient: GitHubMilestoneReleaseClient = GitHubMilestoneReleaseClient()) {
+        self.writer = writer
+        self.labelClient = labelClient
+    }
+
+    nonisolated static func labels(status: TaskStatus, priority: TaskPriority) -> [String] {
+        [AppFeedbackLabels.task, status.label, priority.label]
+    }
+    nonisolated static func body(prose: String, feedbackRefs: [Int]) -> String {
+        FeedbackTaskRefParser.upsert(into: prose, refs: feedbackRefs)
+    }
+
+    /// Creates a task issue. Returns its number. Requires online.
+    func createTask(repo: RepoConfig, title: String, prose: String, feedbackRefs: [Int],
+                    status: TaskStatus, priority: TaskPriority, milestoneNumber: Int?) async throws -> Int {
+        guard let token = KeychainService.loadSync(for: repo) else { throw ServiceError.noToken }
+        try await ensureLabels(repo: repo, token: token)
+        return try await writer.createIssue(
+            owner: repo.owner, repo: repo.repo, title: title,
+            body: Self.body(prose: prose, feedbackRefs: feedbackRefs),
+            labels: Self.labels(status: status, priority: priority),
+            milestoneNumber: milestoneNumber, token: token)
+    }
+
+    func setStatus(repo: RepoConfig, task: TaskItem, status: TaskStatus) async throws {
+        guard let token = KeychainService.loadSync(for: repo) else { throw ServiceError.noToken }
+        let labels = [AppFeedbackLabels.task, status.label, task.priority.label]
+        // status:done also closes the issue; reopening on any other status.
+        let state = (status == .done) ? "closed" : "open"
+        try await writer.updateIssue(owner: repo.owner, repo: repo.repo, number: task.number,
+            labels: labels, state: state, token: token)
+    }
+
+    func setPriority(repo: RepoConfig, task: TaskItem, priority: TaskPriority) async throws {
+        guard let token = KeychainService.loadSync(for: repo) else { throw ServiceError.noToken }
+        try await writer.updateIssue(owner: repo.owner, repo: repo.repo, number: task.number,
+            labels: [AppFeedbackLabels.task, task.status.label, priority.label], token: token)
+    }
+
+    func setFeedbackRefs(repo: RepoConfig, task: TaskItem, refs: [Int]) async throws {
+        guard let token = KeychainService.loadSync(for: repo) else { throw ServiceError.noToken }
+        let newBody = FeedbackTaskRefParser.upsert(into: task.body, refs: refs)
+        try await writer.updateIssue(owner: repo.owner, repo: repo.repo, number: task.number, body: newBody, token: token)
+    }
+
+    func assignVersion(repo: RepoConfig, task: TaskItem, milestoneNumber: Int?) async throws {
+        guard let token = KeychainService.loadSync(for: repo) else { throw ServiceError.noToken }
+        try await writer.updateIssue(owner: repo.owner, repo: repo.repo, number: task.number,
+            milestoneNumber: .some(milestoneNumber), token: token)
+    }
+
+    private func ensureLabels(repo: RepoConfig, token: String) async throws {
+        for label in AppFeedbackLabels.managed {
+            try await labelClient.ensureLabel(owner: repo.owner, repo: repo.repo, name: label.name, color: label.color, token: token)
+        }
+    }
+}
