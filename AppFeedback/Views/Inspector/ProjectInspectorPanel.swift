@@ -5,6 +5,7 @@ struct ProjectInspectorPanel: View {
     var inspector: ProjectInspectorModel
     var versionStore: VersionStore
     var onCreateTask: () -> Void
+    var onOpenTask: (TaskItem) -> Void
     var onCreateVersion: () -> Void
     var onOpenVersion: (ProjectVersion) -> Void
 
@@ -14,7 +15,7 @@ struct ProjectInspectorPanel: View {
                 ScrollView {
                     VStack(alignment: .leading, spacing: 28) {
                         section(title: "Tasks", count: inspector.filteredTasks.count) {
-                            TasksSectionView(repo: repo, inspector: inspector, onCreateTask: onCreateTask)
+                            TasksSectionView(repo: repo, inspector: inspector, onCreateTask: onCreateTask, onOpenTask: onOpenTask)
                         }
                         section(title: "Versions",
                                 count: versionStore.versions(owner: repo.owner, repo: repo.repo).count) {

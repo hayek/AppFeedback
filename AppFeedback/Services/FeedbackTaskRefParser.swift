@@ -26,6 +26,11 @@ enum FeedbackTaskRefParser {
         return base.isEmpty ? block : "\(base)\n\n\(block)"
     }
 
+    /// The task's prose with the machine-managed addresses block stripped out (for editing notes).
+    static func prose(of body: String) -> String {
+        upsert(into: body, refs: [])
+    }
+
     // MARK: - Internals
 
     private static func blockRange(in body: String) -> Range<String.Index>? {

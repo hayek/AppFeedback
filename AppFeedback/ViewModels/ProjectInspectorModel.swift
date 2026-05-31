@@ -11,10 +11,11 @@ final class ProjectInspectorModel {
     /// Optimistically reflect a status/priority change in the UI before the GitHub write returns.
     /// Returns the previous `TaskItem` (for `restore` on failure), or nil if the task isn't loaded.
     @discardableResult
-    func applyOptimistic(number: Int, status: TaskStatus? = nil, priority: TaskPriority? = nil) -> TaskItem? {
+    func applyOptimistic(number: Int, status: TaskStatus? = nil, priority: TaskPriority? = nil,
+                         title: String? = nil, body: String? = nil) -> TaskItem? {
         guard let index = tasks.firstIndex(where: { $0.number == number }) else { return nil }
         let previous = tasks[index]
-        tasks[index] = previous.with(status: status, priority: priority)
+        tasks[index] = previous.with(status: status, priority: priority, title: title, body: body)
         return previous
     }
 
@@ -27,6 +28,10 @@ final class ProjectInspectorModel {
     var filteredTasks: [TaskItem] {
         guard let statusFilter else { return tasks }
         return tasks.filter { ($0.status == statusFilter && !$0.isClosed) || (statusFilter == .done && $0.isCompleted) }
+    }
+
+    func task(number: Int) -> TaskItem? {
+        tasks.first { $0.number == number }
     }
 
     func tasks(forVersionNamed name: String) -> [TaskItem] {

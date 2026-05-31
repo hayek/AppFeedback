@@ -41,12 +41,15 @@ struct TaskItem: Identifiable, Sendable, Hashable {
         self.isClosed = isClosed
     }
 
-    /// A copy with the status and/or priority changed. Setting status to `.done` also marks the
-    /// task closed (matching `TaskService.setStatus`, which closes the issue when done).
-    func with(status newStatus: TaskStatus? = nil, priority newPriority: TaskPriority? = nil) -> TaskItem {
+    /// A copy with selected fields changed. Setting status to `.done` also marks the task closed
+    /// (matching `TaskService.setStatus`). Changing `body` re-derives the feedback refs.
+    func with(status newStatus: TaskStatus? = nil, priority newPriority: TaskPriority? = nil,
+              title newTitle: String? = nil, body newBody: String? = nil) -> TaskItem {
+        let resolvedBody = newBody ?? body
+        let resolvedRefs = newBody != nil ? FeedbackTaskRefParser.parse(resolvedBody) : feedbackRefs
         let resolvedStatus = newStatus ?? status
         let resolvedClosed = newStatus.map { $0 == .done } ?? isClosed
-        return TaskItem(number: number, title: title, body: body, feedbackRefs: feedbackRefs,
+        return TaskItem(number: number, title: newTitle ?? title, body: resolvedBody, feedbackRefs: resolvedRefs,
                         status: resolvedStatus, priority: newPriority ?? priority,
                         milestoneTitle: milestoneTitle, isClosed: resolvedClosed)
     }

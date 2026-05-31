@@ -4,6 +4,7 @@ struct TasksSectionView: View {
     let repo: RepoConfig
     var inspector: ProjectInspectorModel
     var onCreateTask: () -> Void
+    var onOpenTask: (TaskItem) -> Void
     @State private var errorMessage: String?
     private let service = TaskService()
 
@@ -24,7 +25,8 @@ struct TasksSectionView: View {
                         onPriority: { newPriority in
                             let previous = inspector.applyOptimistic(number: task.number, priority: newPriority)
                             commit(revert: previous) { try await service.setPriority(repo: repo, task: task, priority: newPriority) }
-                        }
+                        },
+                        onOpen: { onOpenTask(task) }
                     )
                 }
             }

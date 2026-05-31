@@ -32,9 +32,10 @@ actor GitHubIssueWriter {
 
     /// PATCHes any subset of issue fields. Pass `state` as "open"/"closed".
     func updateIssue(owner: String, repo: String, number: Int,
-                     body: String? = nil, labels: [String]? = nil,
+                     title: String? = nil, body: String? = nil, labels: [String]? = nil,
                      milestoneNumber: Int?? = nil, state: String? = nil, token: String) async throws {
         var payload: [String: Any] = [:]
+        if let title { payload["title"] = title }
         if let body { payload["body"] = body }
         if let labels { payload["labels"] = labels }
         if let state { payload["state"] = state }

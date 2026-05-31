@@ -17,6 +17,7 @@ struct RootView: View {
     @State private var inspector = ProjectInspectorModel()
     @State private var versionToOpen: ProjectVersion?
     @State private var versionToRelease: ProjectVersion?
+    @State private var taskToOpen: TaskItem?
     @State private var pendingReleaseAfterDetail: ProjectVersion?
     @State private var showCreateVersion = false
     @State private var showCreateTask = false
@@ -99,6 +100,7 @@ struct RootView: View {
                             inspector: inspector,
                             versionStore: versionStore,
                             onCreateTask: { viewModel.clearSelection(); showCreateTask = true },
+                            onOpenTask: { taskToOpen = $0 },
                             onCreateVersion: { showCreateVersion = true },
                             onOpenVersion: { versionToOpen = $0 }
                         )
@@ -143,6 +145,11 @@ struct RootView: View {
         .sheet(isPresented: $showCreateVersion) {
             if let repo = store.repos.first(where: { $0.id == selection?.repoId }) {
                 NewVersionSheet(repo: repo, versionStore: versionStore, onCreated: {})
+            }
+        }
+        .sheet(item: $taskToOpen) { task in
+            if let repo = store.repos.first(where: { $0.id == selection?.repoId }) {
+                TaskDetailView(repo: repo, task: task, inspector: inspector, versionStore: versionStore)
             }
         }
         .sheet(item: $versionToOpen, onDismiss: {

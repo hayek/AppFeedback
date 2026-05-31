@@ -64,6 +64,14 @@ final class TaskService {
             milestoneNumber: .some(milestoneNumber), token: token)
     }
 
+    /// Updates the task's title and notes, preserving the machine-managed feedback-refs block.
+    func updateContent(repo: RepoConfig, task: TaskItem, title: String, prose: String) async throws {
+        guard let token = KeychainService.loadSync(for: repo) else { throw ServiceError.noToken }
+        let body = FeedbackTaskRefParser.upsert(into: prose, refs: task.feedbackRefs)
+        try await writer.updateIssue(owner: repo.owner, repo: repo.repo, number: task.number,
+            title: title, body: body, token: token)
+    }
+
     private func ensureLabels(repo: RepoConfig, token: String) async throws {
         for label in AppFeedbackLabels.managed {
             try await labelClient.ensureLabel(owner: repo.owner, repo: repo.repo, name: label.name, color: label.color, token: token)

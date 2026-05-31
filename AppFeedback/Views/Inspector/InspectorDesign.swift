@@ -180,6 +180,7 @@ struct TaskCard: View {
     let task: TaskItem
     let onStatus: (TaskStatus) -> Void
     let onPriority: (TaskPriority) -> Void
+    var onOpen: () -> Void = {}
     @State private var hovering = false
 
     var body: some View {
@@ -192,8 +193,13 @@ struct TaskCard: View {
                     .font(.subheadline.weight(.medium))
                     .foregroundStyle(.primary)
                     .lineLimit(2)
-                Spacer(minLength: 0)
+                Spacer(minLength: 4)
+                Image(systemName: "chevron.right")
+                    .font(.system(size: 10, weight: .semibold))
+                    .foregroundStyle(hovering ? .secondary : .tertiary)
             }
+            .contentShape(Rectangle())
+            .onTapGesture { onOpen() }
             HStack(spacing: 6) {
                 ChipMenu(label: task.status.displayName, dot: task.status.accent,
                          options: TaskStatus.allCases, title: { $0.displayName }, onSelect: onStatus)
