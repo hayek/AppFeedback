@@ -6,6 +6,7 @@ struct VersionDetailView: View {
     var inspector: ProjectInspectorModel
     var versionStore: VersionStore
     var onRelease: () -> Void                 // opens the recipients sheet (later unit)
+    let canEmail: Bool
 
     @State private var changelog: String = ""
     @State private var working = false
@@ -32,8 +33,13 @@ struct VersionDetailView: View {
                 if version.releasePublished {
                     let releasedLabel = releasedLabelText
                     Label(releasedLabel, systemImage: "checkmark.seal.fill").foregroundStyle(.green)
-                } else {
+                } else if canEmail {
                     Button { onRelease() } label: { Label("Release…", systemImage: "paperplane.fill") }
+                        .disabled(working)
+                } else {
+                    Label("Add a mail account in Settings to send release emails", systemImage: "envelope.badge")
+                        .font(.footnote).foregroundStyle(.secondary)
+                    Button("Mark released (no email)") { markReleasedNoEmail() }
                         .disabled(working)
                 }
             }
@@ -94,6 +100,18 @@ extension VersionDetailView {
         let service = VersionService(store: versionStore)
         Task {
             do { try await service.updateChangelog(repo: repo, version: version, changelog: changelog) }
+            catch { errorMessage = error.localizedDescription }
+            working = false
+        }
+    }
+
+    private func markReleasedNoEmail() {
+        working = true; errorMessage = nil
+        let service = VersionService(store: versionStore)
+        let tag = version.releaseTag ?? "v\(version.name)"
+        Task {
+            do { _ = try await service.release(repo: repo, version: version, tag: tag, target: nil,
+                publishRelease: false, now: Date()) }
             catch { errorMessage = error.localizedDescription }
             working = false
         }

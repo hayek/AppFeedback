@@ -147,7 +147,8 @@ struct RootView: View {
             if let repo = store.repos.first(where: { $0.id == selection?.repoId }) {
                 NavigationStack {
                     VersionDetailView(repo: repo, version: version, inspector: inspector,
-                        versionStore: versionStore, onRelease: { versionToRelease = version })
+                        versionStore: versionStore, onRelease: { versionToRelease = version },
+                        canEmail: mailAccountStore.defaultSender != nil)
                 }
             }
         }
