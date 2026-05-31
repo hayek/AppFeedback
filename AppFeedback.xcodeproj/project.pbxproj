@@ -83,6 +83,7 @@
 		2C178B6BDA408AF752A96ECA /* GitHubAuthTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7A20FA7E90167D159840CB34 /* GitHubAuthTests.swift */; };
 		2C50640ECD9D8D309CB0975F /* MailToGitHubMirrorTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 23424B12C4346E5BEF5896ED /* MailToGitHubMirrorTests.swift */; };
 		2D9CBD7A7B3A15DE812102A2 /* IntelligenceSettingsTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 99AFF17F125B757AF2DDA56C /* IntelligenceSettingsTests.swift */; };
+		2DC3AFBF514F89B8DC642886 /* ReleaseRecipientsSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = 07E13C25608097892A67A421 /* ReleaseRecipientsSheet.swift */; };
 		2DEE3EBFF9F32F1902A916F8 /* ReleaseNotificationService.swift in Sources */ = {isa = PBXBuildFile; fileRef = BEE0051FB44858FB4A7D54C5 /* ReleaseNotificationService.swift */; };
 		2E844619270EC30B4B8ECDC1 /* FeedbackTaskRefParser.swift in Sources */ = {isa = PBXBuildFile; fileRef = BF1DE3E67BB8BAF898FB3D03 /* FeedbackTaskRefParser.swift */; };
 		2EAC138DDFD25ED8DB286CDA /* LanguageDetector.swift in Sources */ = {isa = PBXBuildFile; fileRef = C08DA18B97C3208E26F81439 /* LanguageDetector.swift */; };
@@ -243,6 +244,7 @@
 		8EAE6CB1F056E10D48CE67C5 /* KeychainServicePerAccountTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7D429A5E8E9CC24262117FF6 /* KeychainServicePerAccountTests.swift */; };
 		8FBD0F509C7C35FC4F31F0EF /* EmailSettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 997018B54F967FD27571808D /* EmailSettingsView.swift */; };
 		904DFD2356B0454FEA1EB789 /* IOSAddEmailAccountSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = 381BF60432757F69368AF849 /* IOSAddEmailAccountSheet.swift */; };
+		9053A969459659F3E57B3CAB /* ReleaseRecipientsSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = 07E13C25608097892A67A421 /* ReleaseRecipientsSheet.swift */; };
 		9154C44BB717B1B2868646D4 /* AddEmailAccountSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = 45A22FEDD87C0455CBDCF0FA /* AddEmailAccountSheet.swift */; };
 		9387D0B34FAAB17E338B6448 /* MessageIDGeneratorTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = F3AC2A1A49FFA4A03F179B09 /* MessageIDGeneratorTests.swift */; };
 		939E9E35143B354C009D56A4 /* IntelligenceAvailability.swift in Sources */ = {isa = PBXBuildFile; fileRef = FE75574D86561E85E76AF1C8 /* IntelligenceAvailability.swift */; };
@@ -453,6 +455,7 @@
 		0376C061DCE08A242E9B349A /* ModelsTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ModelsTests.swift; sourceTree = "<group>"; };
 		067DE9EAC993F3796314B998 /* IMAPSyntheticIDTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = IMAPSyntheticIDTests.swift; sourceTree = "<group>"; };
 		06966BDC1078923389E15249 /* GitHubAuthService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GitHubAuthService.swift; sourceTree = "<group>"; };
+		07E13C25608097892A67A421 /* ReleaseRecipientsSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ReleaseRecipientsSheet.swift; sourceTree = "<group>"; };
 		07F4F74C21ED56A576353D2B /* iOSBackgroundRefreshDriver.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = iOSBackgroundRefreshDriver.swift; sourceTree = "<group>"; };
 		08B2F8AEAB3D04A844839223 /* IssueSummaryCache.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = IssueSummaryCache.swift; sourceTree = "<group>"; };
 		099FDFBBED4F15803BBAC851 /* IssueTranslation.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = IssueTranslation.swift; sourceTree = "<group>"; };
@@ -1034,6 +1037,7 @@
 				F6C7BCC2911F1E0A091D27A5 /* CreateTaskSheet.swift */,
 				B9928198061F3E1C46A15C60 /* NewVersionSheet.swift */,
 				6375A1FFE5DE68A18FFE315A /* ProjectInspectorPanel.swift */,
+				07E13C25608097892A67A421 /* ReleaseRecipientsSheet.swift */,
 				C7A4D23CBEBA63C43F59807C /* TasksSectionView.swift */,
 				CE91F123863A3551D0225870 /* VersionDetailView.swift */,
 				27029D3AE0F8255A051EAC37 /* VersionsSectionView.swift */,
@@ -1323,6 +1327,7 @@
 				5A50865D6290E32A1887CE6C /* ReleaseEmailTemplate.swift in Sources */,
 				21877EF0B91C37B31196277B /* ReleaseNotificationService.swift in Sources */,
 				D5CA2D1A71072B1B357F395F /* ReleaseRecipientCalculator.swift in Sources */,
+				2DC3AFBF514F89B8DC642886 /* ReleaseRecipientsSheet.swift in Sources */,
 				9B5C77B582735942AB8784A1 /* ReplyHeaderBuilder.swift in Sources */,
 				1EC8163F7DEE0525965BFCA1 /* Repo.swift in Sources */,
 				163F9EDEE630D71D09691AE3 /* RepoConfig.swift in Sources */,
@@ -1543,6 +1548,7 @@
 				D546E981628BCA3900439EA5 /* ReleaseEmailTemplate.swift in Sources */,
 				2DEE3EBFF9F32F1902A916F8 /* ReleaseNotificationService.swift in Sources */,
 				30D3F4EF95A7B3F30E6019BF /* ReleaseRecipientCalculator.swift in Sources */,
+				9053A969459659F3E57B3CAB /* ReleaseRecipientsSheet.swift in Sources */,
 				ADE456AA2BBD3F7AE83EB639 /* ReplyHeaderBuilder.swift in Sources */,
 				7B8BCFC7FC5636D0038B7FF3 /* Repo.swift in Sources */,
 				38EC294B4EE9CC45E2839A1D /* RepoConfig.swift in Sources */,

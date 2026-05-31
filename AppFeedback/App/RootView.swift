@@ -22,6 +22,12 @@ struct RootView: View {
     @State private var columnVisibility: NavigationSplitViewVisibility = .automatic
     @Environment(\.scenePhase) private var scenePhase
     @Environment(ActivityLog.self) private var activityLog
+    @Environment(MailAccountStore.self) private var mailAccountStore
+    @Environment(MailSettingsStore.self) private var mailSettingsStore
+    @Environment(MailThreadStore.self) private var mailThreadStore
+    @Environment(OutboundSendTracker.self) private var outboundTracker
+    @Environment(OutboundFailureStore.self) private var outboundFailures
+    @Environment(MailToGitHubMirrorHolder.self) private var mirrorHolder: MailToGitHubMirrorHolder?
     @Environment(IntelligenceSettings.self) private var intelligenceSettings
     @Environment(IntelligenceService.self) private var intelligenceService
     @Environment(NotificationSettings.self) private var notificationSettings
@@ -143,6 +149,24 @@ struct RootView: View {
                     VersionDetailView(repo: repo, version: version, inspector: inspector,
                         versionStore: versionStore, onRelease: { versionToRelease = version })
                 }
+            }
+        }
+        .sheet(item: $versionToRelease) { version in
+            if let repo = store.repos.first(where: { $0.id == selection?.repoId }) {
+                let recipients = ReleaseRecipientCalculator.recipients(
+                    versionNamed: version.name, tasks: viewModel.tasks, feedback: viewModel.allIssues)
+                ReleaseRecipientsSheet(
+                    repo: repo, version: version, recipients: recipients,
+                    alreadySent: versionStore.alreadyNotifiedEmails(owner: repo.owner, repo: repo.repo, versionName: version.name),
+                    appName: repo.displayName,
+                    makeService: { ReleaseNotificationService(versionStore: versionStore, deps: releaseDeps()) },
+                    feedback: viewModel.allIssues,
+                    onPublish: {
+                        let service = VersionService(store: versionStore)
+                        let tag = version.releaseTag ?? "v\(version.name)"
+                        _ = try? await service.release(repo: repo, version: version, tag: tag, target: nil,
+                            publishRelease: true, now: Date())
+                    })
             }
         }
         .onChange(of: selection) { _, newValue in
@@ -269,6 +293,19 @@ struct RootView: View {
         if !newlyAdded.isEmpty {
             Task { await loadRepos(newlyAdded) }
         }
+    }
+
+    private func releaseDeps() -> ReleaseNotificationService.Dependencies {
+        ReleaseNotificationService.Dependencies(
+            accountStore: mailAccountStore,
+            settingsStore: mailSettingsStore,
+            threadStore: mailThreadStore,
+            outboundTracker: outboundTracker,
+            outboundFailures: outboundFailures,
+            sender: MailSender(),
+            activityLog: activityLog,
+            mirror: mirrorHolder?.mirror
+        )
     }
 
     private func loadAllRepos() async {
