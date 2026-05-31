@@ -467,6 +467,19 @@ extension IssueListViewModelTests {
         XCTAssertNil(vm.allIssues[0].translatedBody)
     }
 
+    func testApplyLoadedExcludesTaskIssuesFromFeedback() {
+        let vm = IssueListViewModel()
+        let feedback = FeedbackIssue(number: 1, title: "fb", createdAt: Date(), rawBody: "",
+            appName: nil, appVersion: nil, device: nil, osVersion: nil, email: nil,
+            description: "", labels: [])
+        let task = FeedbackIssue(number: 2, title: "task", createdAt: Date(), rawBody: "",
+            appName: nil, appVersion: nil, device: nil, osVersion: nil, email: nil,
+            description: "", labels: [IssueLabel(name: AppFeedbackLabels.task, colorHex: "5319e7")])
+        vm.applyLoaded([feedback, task])
+        XCTAssertEqual(vm.allIssues.map(\.number), [1])
+        XCTAssertEqual(vm.tasks.map(\.number), [2])
+    }
+
     func test_unsupportedLanguageFallbackUnavailable_blacklistsLanguage() async {
         // Contrast with the guardrail case: a genuine on-device-unsupported language that
         // the framework also can't translate SHOULD blacklist the language for the session.
