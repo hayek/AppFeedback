@@ -6,12 +6,17 @@ struct RootView: View {
     var store: RepoStore
     var seenStore: SeenIssueStore
     var cacheContext: ModelContext
+    var versionStore: VersionStore
     @State private var loaders: [UUID: IssueLoader] = [:]
     @State private var selection: SidebarSelection?
     @State private var viewModel = IssueListViewModel()
     @State private var summaryVM: UnreadSummaryViewModel?
     @State private var showSettings = false
     @State private var showAddRepo = false
+    @State private var showInspector = true
+    @State private var inspector = ProjectInspectorModel()
+    @State private var versionToOpen: ProjectVersion?
+    @State private var showCreateVersion = false
     @State private var columnVisibility: NavigationSplitViewVisibility = .automatic
     @Environment(\.scenePhase) private var scenePhase
     @Environment(ActivityLog.self) private var activityLog
@@ -73,6 +78,22 @@ struct RootView: View {
                     .navigationTitle(navigationTitle(for: selection))
                     .navigationBarTitleDisplayMode(.inline)
                     #endif
+                    .toolbar {
+                        ToolbarItem(placement: .primaryAction) {
+                            Button { showInspector.toggle() } label: { Image(systemName: "sidebar.trailing") }
+                                .help("Toggle Tasks & Versions")
+                        }
+                    }
+                    .inspector(isPresented: $showInspector) {
+                        ProjectInspectorPanel(
+                            repo: store.repos.first(where: { $0.id == selection.repoId }),
+                            inspector: inspector,
+                            versionStore: versionStore,
+                            onCreateVersion: { showCreateVersion = true },
+                            onOpenVersion: { versionToOpen = $0 }
+                        )
+                        .inspectorColumnWidth(min: 260, ideal: 320, max: 480)
+                    }
                 } else {
                     ProgressView()
                 }
@@ -179,6 +200,7 @@ struct RootView: View {
         viewModel.hiddenApps = store.hiddenAppsFor(selection.repoId)
         viewModel.attachSeenStore(seenStore, owner: owner, repo: repoName)
         viewModel.applyLoaded(issues)
+        inspector.setTasks(viewModel.tasks)
         viewModel.clearFilters()
         viewModel.appFilter = []
         viewModel.allowsAppFilter = true
