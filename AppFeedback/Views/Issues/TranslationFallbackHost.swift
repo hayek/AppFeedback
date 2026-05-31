@@ -42,7 +42,10 @@ struct TranslationFallbackHost: View {
             await MainActor.run {
                 isPumping = false
                 if status == .unsupported {
-                    viewModel.markFallbackUnsupported(detectedLanguage: detected)
+                    // Let the view model decide based on WHY this issue was routed here:
+                    // a genuine unsupported language blacklists the language; a guardrail
+                    // false-positive drops just this issue (the language is otherwise fine).
+                    viewModel.handleFallbackUnavailable(next)
                     pumpIfIdle()
                     return
                 }

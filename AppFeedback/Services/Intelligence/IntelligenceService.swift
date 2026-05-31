@@ -102,6 +102,7 @@ enum IntelligenceError: Error {
     case unavailable
     case empty
     case unsupportedLanguage
+    case guardrailBlocked
 }
 
 #if canImport(FoundationModels)
@@ -195,9 +196,12 @@ extension IntelligenceService {
             return translated
         } catch {
             print("[Translate] ✗ error: \(error)")
-            if let gen = error as? LanguageModelSession.GenerationError,
-               case .unsupportedLanguageOrLocale = gen {
-                throw IntelligenceError.unsupportedLanguage
+            if let gen = error as? LanguageModelSession.GenerationError {
+                if case .unsupportedLanguageOrLocale = gen { throw IntelligenceError.unsupportedLanguage }
+                // The on-device safety guardrail false-positives on benign text (e.g. the
+                // German payment complaint in #381). Route to the Translation framework
+                // fallback, whose NMT model has no such classifier, instead of failing.
+                if case .guardrailViolation = gen { throw IntelligenceError.guardrailBlocked }
             }
             throw error
         }

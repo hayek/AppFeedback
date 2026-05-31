@@ -112,7 +112,13 @@ struct FeedbackIssue: Identifiable, Codable, Sendable {
         translated ? (translatedBody ?? description) : description
     }
 
+    /// True only when every non-empty field has a translation. A title-only partial
+    /// (translatedBody nil while the body is non-empty) returns false so the UI never
+    /// labels an issue "translated" while still showing its original-language body.
     var hasTranslation: Bool {
-        translatedTitle != nil || translatedBody != nil
+        let titleResolved = translatedTitle != nil || title.isEmpty
+        let bodyResolved = translatedBody != nil || description.isEmpty
+        let anyTranslated = translatedTitle != nil || translatedBody != nil
+        return anyTranslated && titleResolved && bodyResolved
     }
 }

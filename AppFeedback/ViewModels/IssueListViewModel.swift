@@ -186,6 +186,16 @@ final class IssueListViewModel {
     /// on-device model's verdict on language support isn't worth persisting.
     private(set) var unsupportedSourceLanguages: Set<String> = []
 
+    /// Why an issue was handed to the Translation-framework fallback. Drives what
+    /// happens if the framework also can't translate the pair: a genuine on-device
+    /// `unsupportedOnDevice` blacklists the whole source language (it's truly
+    /// untranslatable here), whereas a `guardrail` false-positive must NOT — the
+    /// on-device model can translate other issues in that language fine.
+    enum FallbackReason: Equatable {
+        case unsupportedOnDevice
+        case guardrail
+    }
+
     struct FallbackRequest: Identifiable, Equatable {
         /// Per-enqueue identity. A second enqueue for the same issue (e.g. after
         /// `forceRetranslate`) produces a distinct `requestID` so a late-arriving result
@@ -196,6 +206,7 @@ final class IssueListViewModel {
         let body: String
         let detected: String
         let target: String
+        let reason: FallbackReason
         var id: UUID { requestID }
     }
 
@@ -332,15 +343,24 @@ final class IssueListViewModel {
         let newTitle: String? = if case .translated(let s) = titleOutcome { s } else { nil }
         let newBody: String? = if case .translated(let s) = bodyOutcome { s } else { nil }
 
-        // If either field comes back .unsupportedLanguage, the on-device model is telling
-        // us this source language isn't in its supported set — the Translation framework
-        // fallback should retry the whole issue. Discarding the partial on-device result
-        // is acceptable: the fallback covers both fields and the fallback's outputs are
-        // committed via the same `commitTranslation` path.
-        let titleUnsupported: Bool = if case .unsupportedLanguage = titleOutcome { true } else { false }
-        let bodyUnsupported: Bool = if case .unsupportedLanguage = bodyOutcome { true } else { false }
-        if titleUnsupported || bodyUnsupported {
-            enqueueFallback(for: issue, detected: detected, target: target)
+        // If either field needs the Translation framework fallback — the on-device model
+        // doesn't support this source language, or the safety guardrail blocked the text —
+        // hand the whole issue off. Discarding any partial on-device result is acceptable:
+        // the fallback covers both fields and commits via the same `commitTranslation` path.
+        // Crucially this avoids freezing the issue as a title-only partial (translationTargetLanguage
+        // stamped → no retry) with the body stranded in its original language under a "translated" label.
+        if titleOutcome.needsFallback || bodyOutcome.needsFallback {
+            // A guardrail block proves the on-device model CAN reach this language (it
+            // tried and was blocked on content); only an `.unsupportedLanguage` outcome
+            // means the language itself is off-device. That distinction decides whether a
+            // later fallback failure may blacklist the whole language (see handleFallbackUnavailable).
+            let anyUnsupported: Bool = {
+                if case .unsupportedLanguage = titleOutcome { return true }
+                if case .unsupportedLanguage = bodyOutcome { return true }
+                return false
+            }()
+            enqueueFallback(for: issue, detected: detected, target: target,
+                            reason: anyUnsupported ? .unsupportedOnDevice : .guardrail)
             return
         }
 
@@ -370,6 +390,22 @@ final class IssueListViewModel {
         )
     }
 
+    /// Called by the fallback host when the Translation framework reports the
+    /// (detected → target) pair unavailable. Branches on why the issue was routed here:
+    /// a genuine on-device-unsupported language is blacklisted for the session (it's
+    /// truly untranslatable on this device); a guardrail false-positive is dropped for
+    /// this one issue only — blacklisting the language would wrongly freeze every other
+    /// issue in it that the on-device model translates fine.
+    @MainActor
+    func handleFallbackUnavailable(_ request: FallbackRequest) {
+        switch request.reason {
+        case .unsupportedOnDevice:
+            markFallbackUnsupported(detectedLanguage: request.detected)
+        case .guardrail:
+            dropPendingFallback(request)
+        }
+    }
+
     /// Removes a single fallback request without blacklisting its language.
     /// Used when the Translation framework threw a transient error (network,
     /// cancellation) so the queue can keep draining without poisoning the
@@ -381,7 +417,10 @@ final class IssueListViewModel {
         // already be in flight.
         guard pendingFallbacks.contains(where: { $0.requestID == request.requestID }) else { return }
         pendingFallbacks.removeAll { $0.requestID == request.requestID }
-        recordAttempted(issueNumber: request.issueNumber, target: request.target)
+        // Stamp in-memory only (persist: false): suppress a tight in-session retry loop,
+        // but leave the SwiftData cache un-stamped so a transient/guardrail failure is
+        // retried on the next launch instead of being permanently frozen.
+        recordAttempted(issueNumber: request.issueNumber, target: request.target, persist: false)
     }
 
     @MainActor
@@ -414,6 +453,11 @@ final class IssueListViewModel {
     /// translation (including one hydrated from CloudKit via `applyLoaded`).
     @MainActor
     private func commitTranslation(issueNumber: Int, detected: String, title: String?, body: String?, target: String) {
+        // An empty/whitespace-only result is not a translation — the fallback's NMT model
+        // can return "" for content it won't translate. Never store it (it would render a
+        // blank field under a "translated" label); fall back to the original instead.
+        let title = title.flatMap { $0.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? nil : $0 }
+        let body = body.flatMap { $0.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? nil : $0 }
         if let idx = allIssues.firstIndex(where: { $0.number == issueNumber }) {
             allIssues[idx].detectedLanguageCode = detected
             if let title { allIssues[idx].translatedTitle = title }
@@ -436,17 +480,17 @@ final class IssueListViewModel {
     /// `startTranslationsIfNeeded` won't retry it. Used when translation
     /// failed but the source language itself isn't being blacklisted.
     @MainActor
-    private func recordAttempted(issueNumber: Int, target: String) {
+    private func recordAttempted(issueNumber: Int, target: String, persist: Bool = true) {
         if let idx = allIssues.firstIndex(where: { $0.number == issueNumber }) {
             allIssues[idx].translationTargetLanguage = target
         }
-        if let context = cacheContext {
+        if persist, let context = cacheContext {
             markTranslationAttempt(issueNumber: issueNumber, target: target, context: context)
         }
     }
 
     @MainActor
-    private func enqueueFallback(for issue: FeedbackIssue, detected: String, target: String) {
+    private func enqueueFallback(for issue: FeedbackIssue, detected: String, target: String, reason: FallbackReason) {
         guard !pendingFallbacks.contains(where: { $0.issueNumber == issue.number }) else { return }
         pendingFallbacks.append(FallbackRequest(
             requestID: UUID(),
@@ -454,14 +498,28 @@ final class IssueListViewModel {
             title: issue.title,
             body: issue.description,
             detected: detected,
-            target: target
+            target: target,
+            reason: reason
         ))
     }
 
     enum TranslateAttempt {
         case translated(String)
         case unsupportedLanguage
+        case guardrail
         case failed
+
+        /// True when the on-device attempt failed in a way the Apple Translation
+        /// framework fallback can recover: an unsupported source language, or a
+        /// safety-guardrail block. The fallback's NMT model has no LLM safety
+        /// classifier, so benign text the guardrail false-positives on (e.g. the
+        /// German payment complaint in #381) still translates there.
+        var needsFallback: Bool {
+            switch self {
+            case .unsupportedLanguage, .guardrail: return true
+            case .translated, .failed: return false
+            }
+        }
     }
 
     nonisolated private static func attemptTranslate(
@@ -472,6 +530,7 @@ final class IssueListViewModel {
     ) async -> TranslateAttempt {
         do { return .translated(try await provider.translate(text: text, from: from, to: to)) }
         catch IntelligenceError.unsupportedLanguage { return .unsupportedLanguage }
+        catch IntelligenceError.guardrailBlocked { return .guardrail }
         catch { return .failed }
     }
 
