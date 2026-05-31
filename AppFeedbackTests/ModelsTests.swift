@@ -33,4 +33,14 @@ final class ModelsTests: XCTestCase {
         )
         XCTAssertEqual(issue.id, 42)
     }
+
+    func testProjectVersionDefaultsAndDerivedState() {
+        let v = ProjectVersion(repoOwner: "o", repoName: "r", name: "1.2.0", changelog: "notes")
+        XCTAssertFalse(v.releasePublished)
+        XCTAssertNil(v.milestoneNumber)
+        XCTAssertEqual(v.derivedState(anyTaskStarted: false), .new)
+        XCTAssertEqual(v.derivedState(anyTaskStarted: true), .wip)
+        v.releasePublished = true
+        XCTAssertEqual(v.derivedState(anyTaskStarted: true), .released)
+    }
 }
