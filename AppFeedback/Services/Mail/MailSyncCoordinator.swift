@@ -354,6 +354,14 @@ actor MailSyncCoordinator {
                 }
                 self.activityLog.finish(logID, status: .success, detail: "\(messages.count) enriched")
             }
+        } catch is CancellationError {
+            // A cancelled poll (stop / account switch / app teardown) is not an enrichment failure —
+            // the reply's Sent copy may well exist. Leave the counters untouched so the next
+            // uninterrupted poll retries normally instead of stranding findable replies after a few
+            // interruptions.
+            return
+        } catch IMAPClientError.cancelled {
+            return
         } catch {
             // Count a failed attempt for every requested id so a persistently-failing pass (e.g. no
             // Sent folder) stops scanning after maxEnrichmentAttempts. Swallow: Sent enrichment must

@@ -450,6 +450,32 @@ final class MailSyncCoordinatorTests: XCTestCase {
         // NSPersistentStoreRemoteChange bumps that a coordinator-level poll would introduce).
     }
 
+    // MARK: - Test 13: cancelled passes must not exhaust the enrichment attempt cap
+
+    func test_sentEnrichment_cancellationDoesNotStrandReply() async throws {
+        let context = try makeContext()
+        let mock = MockIMAPClient()
+        let env = makeCoordinator(mock: mock, context: context)
+        let mid = "<af~o~r~7~cancel@app-feedback.local>"
+        recordReply(env.threadStore, mid, accountID: env.accountStore.accounts.first!.id)
+        let copy = sentCopy(mid, uid: 10, attachments: [
+            ParsedAttachmentMeta(partID: "2", filename: "s.png", mimeType: "image/png", sizeBytes: 1, contentID: "<c@x>")
+        ])
+        // Five cancelled passes (stop / account switch / teardown), then a clean one. Cancellations
+        // must NOT count toward maxEnrichmentAttempts(=5), or the reply would be stranded for the
+        // session and its attachment would never surface.
+        mock.sentEnrichmentResponses = [
+            .failure(IMAPClientError.cancelled), .failure(IMAPClientError.cancelled),
+            .failure(IMAPClientError.cancelled), .failure(IMAPClientError.cancelled),
+            .failure(IMAPClientError.cancelled), .success([copy]),
+        ]
+
+        for _ in 0..<6 { await env.coordinator.pollNow() }
+
+        XCTAssertEqual(mock.sentEnrichmentCallCount, 6, "Cancellations must not exhaust the cap; the reply is still scanned")
+        XCTAssertEqual(try fetch(context, mid)?.uid, 10, "The reply enriches once a poll completes uncancelled")
+    }
+
     // MARK: - Helpers
 
     private func accountStore(in context: ModelContext) -> MailAccount? {
