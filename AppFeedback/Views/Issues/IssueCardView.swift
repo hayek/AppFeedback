@@ -78,6 +78,8 @@ struct IssueCardView: View {
     var onRequestDownload: (() -> Void)? = nil
     /// Tasks that address this feedback, shown as clickable tags that open the task detail.
     var attachedTasks: [TaskItem] = []
+    /// Release state per version name, used to color a task tag's version badge by release status.
+    var versionStates: [String: VersionState] = [:]
     var onOpenTask: ((TaskItem) -> Void)? = nil
     var onRemoveTask: ((TaskItem) -> Void)? = nil
 
@@ -302,6 +304,9 @@ struct IssueCardView: View {
                                     TaskTagView(
                                         number: task.number,
                                         title: task.title,
+                                        status: task.status,
+                                        version: task.milestoneTitle,
+                                        versionStatus: task.milestoneTitle.flatMap { versionStates[$0] },
                                         onOpen: { onInteract?(); onOpenTask?(task) },
                                         onRemove: onRemoveTask.map { remove in { remove(task) } }
                                     )
@@ -562,12 +567,34 @@ private struct IssueTypeIconButton: View {
 private struct TaskTagView: View {
     let number: Int
     let title: String
+    var status: TaskStatus = .todo
+    var version: String? = nil
+    /// Release state of the attached version — colors the version badge. Falls back to the
+    /// task tint when the version isn't resolved yet.
+    var versionStatus: VersionState? = nil
     var onOpen: () -> Void
     var onRemove: (() -> Void)?
 
+    /// Display form of the attached milestone/version, "v"-prefixed unless it already is.
+    private var versionLabel: String? {
+        guard let version = version?.trimmingCharacters(in: .whitespaces), !version.isEmpty else { return nil }
+        return version.lowercased().hasPrefix("v") ? version : "v\(version)"
+    }
+
     var body: some View {
+        let tint = status.accent
         HStack(spacing: 5) {
-            HStack(spacing: 4) {
+            HStack(spacing: 5) {
+                if let versionLabel {
+                    // Inverted pill colored by the release's status (not the task's):
+                    // fill is the version-state color, text is the surrounding background.
+                    Text(versionLabel)
+                        .font(.system(size: 10, weight: .bold))
+                        .foregroundStyle(.background)
+                        .padding(.horizontal, 5)
+                        .padding(.vertical, 1)
+                        .background(versionStatus?.accent ?? tint, in: RoundedRectangle(cornerRadius: 4))
+                }
                 Image(systemName: "checklist").font(.system(size: 9, weight: .bold))
                 Text(title).font(.system(size: 11, weight: .semibold)).lineLimit(1)
             }
@@ -578,7 +605,7 @@ private struct TaskTagView: View {
                 Button(action: onRemove) {
                     Image(systemName: "xmark")
                         .font(.system(size: 8, weight: .bold))
-                        .foregroundStyle(Color.accentColor.opacity(0.85))
+                        .foregroundStyle(tint.opacity(0.85))
                         #if os(iOS)
                         .frame(width: 22, height: 22)   // touch-friendly target on iOS
                         .contentShape(Rectangle())
@@ -590,12 +617,13 @@ private struct TaskTagView: View {
                 .help("Remove task #\(number) from this feedback")
             }
         }
-        .foregroundStyle(Color.accentColor)
+        .foregroundStyle(tint)
         .fixedSize(horizontal: true, vertical: false)
-        .padding(.horizontal, 8)
+        .padding(.leading, 3)
+        .padding(.trailing, 8)
         .padding(.vertical, 3)
-        .background(Color.accentColor.opacity(0.14), in: RoundedRectangle(cornerRadius: 6))
-        .overlay(RoundedRectangle(cornerRadius: 6).stroke(Color.accentColor.opacity(0.4), lineWidth: 1))
+        .background(tint.opacity(0.14), in: RoundedRectangle(cornerRadius: 6))
+        .overlay(RoundedRectangle(cornerRadius: 6).stroke(tint.opacity(0.4), lineWidth: 1))
     }
 }
 

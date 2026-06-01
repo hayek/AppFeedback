@@ -12,6 +12,8 @@ struct IssueListView: View {
     @State private var dropTargetNumber: Int?
     /// Tasks attached to each feedback (by feedback number), shown as clickable tags.
     var attachedTasksByFeedback: [Int: [TaskItem]] = [:]
+    /// Release state per version name, used to color the version badge on task tags.
+    var versionStates: [String: VersionState] = [:]
     var onOpenTask: ((TaskItem) -> Void)? = nil
     /// Detach a task from a feedback (tap the × on a tag): (taskNumber, feedbackNumber).
     var onRemoveTaskFromFeedback: ((Int, Int) -> Void)? = nil
@@ -34,6 +36,7 @@ struct IssueListView: View {
         onRefresh: (() async -> Void)? = nil,
         onDropTask: ((Int, Int) -> Void)? = nil,
         attachedTasksByFeedback: [Int: [TaskItem]] = [:],
+        versionStates: [String: VersionState] = [:],
         onOpenTask: ((TaskItem) -> Void)? = nil,
         onRemoveTaskFromFeedback: ((Int, Int) -> Void)? = nil,
         repoOwner: String = "",
@@ -48,6 +51,7 @@ struct IssueListView: View {
         self.onRefresh = onRefresh
         self.onDropTask = onDropTask
         self.attachedTasksByFeedback = attachedTasksByFeedback
+        self.versionStates = versionStates
         self.onOpenTask = onOpenTask
         self.onRemoveTaskFromFeedback = onRemoveTaskFromFeedback
         self.repoOwner = repoOwner
@@ -258,6 +262,7 @@ struct IssueListView: View {
             needsDownloadLanguage: viewModel.needsLanguageDownload(issue),
             onRequestDownload: { viewModel.approveLanguageDownload(for: issue) },
             attachedTasks: attachedTasksByFeedback[issue.number] ?? [],
+            versionStates: versionStates,
             onOpenTask: onOpenTask,
             onRemoveTask: onRemoveTaskFromFeedback.map { remove in { task in remove(task.number, issue.number) } }
         )

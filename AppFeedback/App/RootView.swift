@@ -96,6 +96,7 @@ struct RootView: View {
                         },
                         onDropTask: { attachTask(taskNumber: $0, toFeedback: $1) },
                         attachedTasksByFeedback: attachedTasksByFeedback,
+                        versionStates: versionStates(owner: owner, repo: name),
                         onOpenTask: { taskFromFeedback = $0 },
                         onRemoveTaskFromFeedback: { detachTask(taskNumber: $0, fromFeedback: $1) },
                         repoOwner: owner,
@@ -355,6 +356,16 @@ struct RootView: View {
         var map: [Int: [TaskItem]] = [:]
         for task in inspector.tasks {
             for ref in task.feedbackRefs { map[ref, default: []].append(task) }
+        }
+        return map
+    }
+
+    /// Release state per version name — colors the version badge on a feedback's task tags
+    /// by the release's status (new/wip/released) rather than the task's own status.
+    private func versionStates(owner: String, repo: String) -> [String: VersionState] {
+        var map: [String: VersionState] = [:]
+        for v in versionStore.versions(owner: owner, repo: repo) {
+            map[v.name] = v.derivedState(anyTaskStarted: inspector.anyTaskStarted(versionNamed: v.name))
         }
         return map
     }
