@@ -549,4 +549,13 @@ extension IssueListViewModelTests {
         vm.approveLanguageDownload(detected: "ar", target: "en")
         XCTAssertEqual(vm.pumpDecision(for: makeFallbackReq(detected: "ar"), state: .supported), .proceed)
     }
+
+    func test_pumpDecision_approvalIsPairSpecific() {
+        let vm = IssueListViewModel()
+        vm.approveLanguageDownload(detected: "ar", target: "en")
+        // A different source language for the same target is still gated.
+        XCTAssertEqual(vm.pumpDecision(for: makeFallbackReq(detected: "fr"), state: .supported), .needsDownload)
+        // The same source language but a different target is still gated.
+        XCTAssertEqual(vm.pumpDecision(for: makeFallbackReq(detected: "ar", target: "de"), state: .supported), .needsDownload)
+    }
 }
