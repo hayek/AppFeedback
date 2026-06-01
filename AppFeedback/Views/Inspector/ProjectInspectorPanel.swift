@@ -9,6 +9,7 @@ struct ProjectInspectorPanel: View {
     var onCreateVersion: () -> Void
     var onRelease: (ProjectVersion) -> Void
     var onDeleteTask: (TaskItem) -> Void
+    var onOpenFeedback: (Int) -> Void
 
     @State private var taskToOpen: TaskItem?
     @State private var versionToOpen: ProjectVersion?
@@ -38,7 +39,8 @@ struct ProjectInspectorPanel: View {
                 .background(atmosphere)
                 .sheet(item: $taskToOpen) { task in
                     TaskDetailView(repo: repo, task: task, inspector: inspector, versionStore: versionStore,
-                                   onDelete: { taskToOpen = nil; onDeleteTask(task) })
+                                   onDelete: { taskToOpen = nil; onDeleteTask(task) },
+                                   onOpenFeedback: onOpenFeedback)
                 }
                 .sheet(item: $versionToOpen) { version in
                     NavigationStack {
@@ -46,6 +48,7 @@ struct ProjectInspectorPanel: View {
                                           versionStore: versionStore,
                                           onRelease: { versionToOpen = nil; onRelease(version) },
                                           onDeleteTask: onDeleteTask,
+                                          onOpenFeedback: onOpenFeedback,
                                           canEmail: canEmail)
                     }
                 }

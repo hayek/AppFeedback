@@ -6,6 +6,7 @@ struct TaskDetailView: View {
     var inspector: ProjectInspectorModel
     var versionStore: VersionStore
     var onDelete: () -> Void
+    var onOpenFeedback: (Int) -> Void
 
     @Environment(\.dismiss) private var dismiss
     @Environment(\.openURL) private var openURL
@@ -139,11 +140,12 @@ struct TaskDetailView: View {
         LazyVGrid(columns: [GridItem(.adaptive(minimum: 64), spacing: 8)], alignment: .leading, spacing: 8) {
             ForEach(task.feedbackRefs, id: \.self) { n in
                 Button {
-                    if let url = URL(string: "https://github.com/\(repo.owner)/\(repo.repo)/issues/\(n)") { openURL(url) }
+                    dismiss()
+                    onOpenFeedback(n)
                 } label: {
                     HStack(spacing: 4) {
                         Text("#\(n)").font(.caption.weight(.semibold).monospacedDigit())
-                        Image(systemName: "arrow.up.forward").font(.system(size: 8, weight: .bold))
+                        Image(systemName: "chevron.right").font(.system(size: 8, weight: .bold))
                     }
                     .foregroundStyle(.secondary)
                     .padding(.horizontal, 10).padding(.vertical, 6)

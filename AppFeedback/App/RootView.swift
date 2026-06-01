@@ -160,7 +160,8 @@ struct RootView: View {
         .sheet(item: $taskFromFeedback) { task in
             if let repo = store.repos.first(where: { $0.id == selection?.repoId }) {
                 TaskDetailView(repo: repo, task: task, inspector: inspector, versionStore: versionStore,
-                               onDelete: { taskFromFeedback = nil; deleteTask(task) })
+                               onDelete: { taskFromFeedback = nil; deleteTask(task) },
+                               onOpenFeedback: { openFeedback($0) })
             }
         }
         .sheet(item: $versionToRelease) { version in
@@ -269,7 +270,8 @@ struct RootView: View {
             onCreateTask: { showCreateTask = true },
             onCreateVersion: { showCreateVersion = true },
             onRelease: { startRelease($0) },
-            onDeleteTask: { deleteTask($0) }
+            onDeleteTask: { deleteTask($0) },
+            onOpenFeedback: { openFeedback($0) }
         )
         .inspectorColumnWidth(min: 260, ideal: 320, max: 480)
     }
@@ -515,6 +517,23 @@ struct RootView: View {
         viewModel.clearFilters()
         viewModel.appFilter = []
         viewModel.highlightedIssueNumber = issue.number
+    }
+
+    /// Opens a feedback in the app (tapping a task's "Addresses feedback" chip): closes the
+    /// detail/inspector sheets, then scrolls to and highlights the feedback in the list.
+    private func openFeedback(_ number: Int) {
+        taskFromFeedback = nil
+        #if os(iOS)
+        showInspector = false
+        #endif
+        guard let selection else { return }
+        if let issue = viewModel.allIssues.first(where: { $0.number == number }) {
+            selectIssue(repoId: selection.repoId, issue: issue)
+        } else {
+            viewModel.clearFilters()
+            viewModel.appFilter = []
+            viewModel.highlightedIssueNumber = number
+        }
     }
 
     // MARK: - First-Load Backlog Snapshot
