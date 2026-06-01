@@ -74,6 +74,7 @@ struct IssueCardView: View {
     /// Tasks that address this feedback, shown as clickable tags that open the task detail.
     var attachedTasks: [TaskItem] = []
     var onOpenTask: ((TaskItem) -> Void)? = nil
+    var onRemoveTask: ((TaskItem) -> Void)? = nil
 
     @Environment(MailThreadStore.self) private var threadStore
     #if canImport(SwiftMail)
@@ -272,10 +273,12 @@ struct IssueCardView: View {
                         ScrollView(.horizontal, showsIndicators: false) {
                             HStack(spacing: 6) {
                                 ForEach(attachedTasks) { task in
-                                    Button { onInteract?(); onOpenTask?(task) } label: {
-                                        TaskTagView(number: task.number, title: task.title)
-                                    }
-                                    .buttonStyle(.plain)
+                                    TaskTagView(
+                                        number: task.number,
+                                        title: task.title,
+                                        onOpen: { onInteract?(); onOpenTask?(task) },
+                                        onRemove: onRemoveTask.map { remove in { remove(task) } }
+                                    )
                                 }
                                 ForEach(issue.labels.withoutTypeAndUserSubmitted, id: \.name) { label in
                                     LabelChipView(label: label)
@@ -533,20 +536,35 @@ private struct IssueTypeIconButton: View {
 private struct TaskTagView: View {
     let number: Int
     let title: String
+    var onOpen: () -> Void
+    var onRemove: (() -> Void)?
 
     var body: some View {
-        HStack(spacing: 4) {
-            Image(systemName: "checklist").font(.system(size: 9, weight: .bold))
-            Text(title).font(.system(size: 11, weight: .semibold)).lineLimit(1)
+        HStack(spacing: 5) {
+            HStack(spacing: 4) {
+                Image(systemName: "checklist").font(.system(size: 9, weight: .bold))
+                Text(title).font(.system(size: 11, weight: .semibold)).lineLimit(1)
+            }
+            .contentShape(Rectangle())
+            .onTapGesture { onOpen() }
+            .help("Open task #\(number)")
+            if let onRemove {
+                Button(action: onRemove) {
+                    Image(systemName: "xmark")
+                        .font(.system(size: 8, weight: .bold))
+                        .foregroundStyle(Color.accentColor.opacity(0.85))
+                        .padding(.leading, 1)
+                }
+                .buttonStyle(.plain)
+                .help("Remove task #\(number) from this feedback")
+            }
         }
         .foregroundStyle(Color.accentColor)
-        .frame(maxWidth: 160, alignment: .leading)
         .fixedSize(horizontal: true, vertical: false)
         .padding(.horizontal, 8)
         .padding(.vertical, 3)
         .background(Color.accentColor.opacity(0.14), in: RoundedRectangle(cornerRadius: 6))
         .overlay(RoundedRectangle(cornerRadius: 6).stroke(Color.accentColor.opacity(0.4), lineWidth: 1))
-        .help("Open task #\(number)")
     }
 }
 

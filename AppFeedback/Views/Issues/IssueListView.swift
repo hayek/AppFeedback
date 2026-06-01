@@ -13,6 +13,8 @@ struct IssueListView: View {
     /// Tasks attached to each feedback (by feedback number), shown as clickable tags.
     var attachedTasksByFeedback: [Int: [TaskItem]] = [:]
     var onOpenTask: ((TaskItem) -> Void)? = nil
+    /// Detach a task from a feedback (tap the × on a tag): (taskNumber, feedbackNumber).
+    var onRemoveTaskFromFeedback: ((Int, Int) -> Void)? = nil
     var repoOwner: String = ""
     var repoName: String = ""
     var appColorOverrides: [String: String] = [:]
@@ -33,6 +35,7 @@ struct IssueListView: View {
         onDropTask: ((Int, Int) -> Void)? = nil,
         attachedTasksByFeedback: [Int: [TaskItem]] = [:],
         onOpenTask: ((TaskItem) -> Void)? = nil,
+        onRemoveTaskFromFeedback: ((Int, Int) -> Void)? = nil,
         repoOwner: String = "",
         repoName: String = "",
         appColorOverrides: [String: String] = [:],
@@ -46,6 +49,7 @@ struct IssueListView: View {
         self.onDropTask = onDropTask
         self.attachedTasksByFeedback = attachedTasksByFeedback
         self.onOpenTask = onOpenTask
+        self.onRemoveTaskFromFeedback = onRemoveTaskFromFeedback
         self.repoOwner = repoOwner
         self.repoName = repoName
         self.appColorOverrides = appColorOverrides
@@ -281,7 +285,8 @@ struct IssueListView: View {
             }(),
             onRetranslate: { viewModel.forceRetranslate(issueNumber: issue.number) },
             attachedTasks: attachedTasksByFeedback[issue.number] ?? [],
-            onOpenTask: onOpenTask
+            onOpenTask: onOpenTask,
+            onRemoveTask: onRemoveTaskFromFeedback.map { remove in { task in remove(task.number, issue.number) } }
         )
     }
 

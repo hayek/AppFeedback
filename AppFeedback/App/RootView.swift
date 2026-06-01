@@ -90,6 +90,7 @@ struct RootView: View {
                         onDropTask: { attachTask(taskNumber: $0, toFeedback: $1) },
                         attachedTasksByFeedback: attachedTasksByFeedback,
                         onOpenTask: { taskFromFeedback = $0 },
+                        onRemoveTaskFromFeedback: { detachTask(taskNumber: $0, fromFeedback: $1) },
                         repoOwner: owner,
                         repoName: name,
                         appColorOverrides: store.appColors[selection.repoId] ?? [:],
@@ -349,12 +350,31 @@ struct RootView: View {
         guard let repo = store.repos.first(where: { $0.id == selection?.repoId }),
               let task = inspector.task(number: taskNumber),
               !task.feedbackRefs.contains(feedbackNumber) else { return }
-        let refs = (task.feedbackRefs + [feedbackNumber]).sorted()
+        setTaskRefs(repo: repo, task: task, refs: (task.feedbackRefs + [feedbackNumber]).sorted())
+    }
+
+    /// Detaches a task from a feedback (tap the × on a task tag): removes the feedback's number
+    /// from the task's refs, optimistically, then writes to GitHub.
+    private func detachTask(taskNumber: Int, fromFeedback feedbackNumber: Int) {
+        guard let repo = store.repos.first(where: { $0.id == selection?.repoId }),
+              let task = inspector.task(number: taskNumber),
+              task.feedbackRefs.contains(feedbackNumber) else { return }
+        setTaskRefs(repo: repo, task: task, refs: task.feedbackRefs.filter { $0 != feedbackNumber })
+    }
+
+    /// Optimistically updates a task's feedback refs, writes to GitHub, then refreshes so the
+    /// persisted refs flow back into `inspector.tasks` — otherwise the next loader reload (which
+    /// calls `inspector.setTasks`) would clobber the optimistic edit with pre-write state.
+    private func setTaskRefs(repo: RepoConfig, task: TaskItem, refs: [Int]) {
         let newBody = FeedbackTaskRefParser.upsert(into: FeedbackTaskRefParser.prose(of: task.body), refs: refs)
-        let previous = inspector.applyOptimistic(number: taskNumber, body: newBody)
+        let previous = inspector.applyOptimistic(number: task.number, body: newBody)
         Task {
-            do { try await TaskService().setFeedbackRefs(repo: repo, task: task, refs: refs) }
-            catch { if let previous { inspector.restore(previous) } }
+            do {
+                try await TaskService().setFeedbackRefs(repo: repo, task: task, refs: refs)
+                await refreshSelectedRepo()
+            } catch {
+                if let previous { inspector.restore(previous) }
+            }
         }
     }
 
