@@ -71,6 +71,11 @@ struct IssueCardView: View {
     var isHighlighted: Bool = false
     var translationUnsupported: Bool = false
     var onRetranslate: (() -> Void)? = nil
+    /// Non-nil source-language display name when this issue is waiting on a
+    /// user-approved language download before it can be translated.
+    var needsDownloadLanguage: String? = nil
+    /// Invoked when the user taps the inline download link; approves the language pair.
+    var onRequestDownload: (() -> Void)? = nil
     /// Tasks that address this feedback, shown as clickable tags that open the task detail.
     var attachedTasks: [TaskItem] = []
     var onOpenTask: ((TaskItem) -> Void)? = nil
@@ -237,6 +242,15 @@ struct IssueCardView: View {
                         ShimmeringText("Translating…")
                             .font(.system(size: 11, weight: .medium))
                             .padding(.top, 4)
+                    } else if let downloadLanguage = needsDownloadLanguage {
+                        Button { onRequestDownload?() } label: {
+                            Label("Translate · download \(downloadLanguage)",
+                                  systemImage: "arrow.down.circle")
+                        }
+                        .buttonStyle(.plain)
+                        .foregroundStyle(.secondary)
+                        .font(.system(size: 11, weight: .medium))
+                        .padding(.top, 4)
                     } else if issue.hasTranslation {
                         HStack(spacing: 4) {
                             Button(showOriginal ? "Show translation" : "Show original") {

@@ -516,4 +516,79 @@ extension IssueListViewModelTests {
         vm.handleFallbackUnavailable(request)
         XCTAssertTrue(vm.unsupportedSourceLanguages.contains("de"))
     }
+
+    // MARK: - Language download gating
+
+    private func makeFallbackReq(
+        detected: String,
+        target: String = "en",
+        reason: IssueListViewModel.FallbackReason = .unsupportedOnDevice
+    ) -> IssueListViewModel.FallbackRequest {
+        IssueListViewModel.FallbackRequest(
+            requestID: UUID(), issueNumber: 1, title: "t", body: "b",
+            detected: detected, target: target, reason: reason)
+    }
+
+    func test_pumpDecision_installed_proceeds() {
+        let vm = IssueListViewModel()
+        XCTAssertEqual(vm.pumpDecision(for: makeFallbackReq(detected: "ar"), state: .installed), .proceed)
+    }
+
+    func test_pumpDecision_unsupported_isUnavailable() {
+        let vm = IssueListViewModel()
+        XCTAssertEqual(vm.pumpDecision(for: makeFallbackReq(detected: "ar"), state: .unsupported), .unavailable)
+    }
+
+    func test_pumpDecision_supportedUnapproved_needsDownload() {
+        let vm = IssueListViewModel()
+        XCTAssertEqual(vm.pumpDecision(for: makeFallbackReq(detected: "ar"), state: .supported), .needsDownload)
+    }
+
+    func test_pumpDecision_supportedApproved_proceeds() {
+        let vm = IssueListViewModel()
+        vm.approveLanguageDownload(detected: "ar", target: "en")
+        XCTAssertEqual(vm.pumpDecision(for: makeFallbackReq(detected: "ar"), state: .supported), .proceed)
+    }
+
+    func test_pumpDecision_approvalIsPairSpecific() {
+        let vm = IssueListViewModel()
+        vm.approveLanguageDownload(detected: "ar", target: "en")
+        // A different source language for the same target is still gated.
+        XCTAssertEqual(vm.pumpDecision(for: makeFallbackReq(detected: "fr"), state: .supported), .needsDownload)
+        // The same source language but a different target is still gated.
+        XCTAssertEqual(vm.pumpDecision(for: makeFallbackReq(detected: "ar", target: "de"), state: .supported), .needsDownload)
+    }
+
+    func test_languageDownloadGate_lifecycle() async {
+        // A real pending fallback request (German guardrail route) to exercise the gate.
+        let germanBody = "Guten Tag, meine Demo ist gerade abgelaufen und ich wollte das Lifetime Produkt kaufen. Leider wird mir bei der Zahlung immer ein 50 Prozent höherer Preis angezeigt als in der App."
+        guard let (vm, _, request) = await makeGuardrailFallbackVM(germanBody: germanBody) else {
+            return XCTFail("guardrail body never routed to fallback")
+        }
+        let issue = vm.allIssues[0]
+
+        // Not gated yet: no prompt, request is pumpable.
+        XCTAssertNil(vm.needsLanguageDownload(issue))
+        XCTAssertEqual(vm.nextPumpableFallback()?.issueNumber, 381)
+
+        // Host gates the pair (simulating a `.supported` status): prompt appears,
+        // and the gated pair is skipped so it can't block a ready pair behind it.
+        vm.markFallbackNeedsDownload(detected: request.detected, target: request.target)
+        XCTAssertNotNil(vm.needsLanguageDownload(issue))
+        XCTAssertNil(vm.nextPumpableFallback())
+
+        // User taps download: prompt clears, request becomes pumpable, a `.supported`
+        // pair now proceeds, and the host is nudged via the tick.
+        let tickBefore = vm.downloadApprovalTick
+        vm.approveLanguageDownload(for: issue)
+        XCTAssertNil(vm.needsLanguageDownload(issue))
+        XCTAssertEqual(vm.nextPumpableFallback()?.issueNumber, 381)
+        XCTAssertEqual(vm.pumpDecision(for: request, state: .supported), .proceed)
+        XCTAssertGreaterThan(vm.downloadApprovalTick, tickBefore)
+
+        // User dismisses the sheet without downloading: re-gate, prompt returns.
+        vm.regateDownload(detected: request.detected, target: request.target)
+        XCTAssertNotNil(vm.needsLanguageDownload(issue))
+        XCTAssertEqual(vm.pumpDecision(for: request, state: .supported), .needsDownload)
+    }
 }

@@ -284,6 +284,8 @@ struct IssueListView: View {
                 return viewModel.unsupportedSourceLanguages.contains(detected)
             }(),
             onRetranslate: { viewModel.forceRetranslate(issueNumber: issue.number) },
+            needsDownloadLanguage: viewModel.needsLanguageDownload(issue),
+            onRequestDownload: { viewModel.approveLanguageDownload(for: issue) },
             attachedTasks: attachedTasksByFeedback[issue.number] ?? [],
             onOpenTask: onOpenTask,
             onRemoveTask: onRemoveTaskFromFeedback.map { remove in { task in remove(task.number, issue.number) } }
