@@ -53,6 +53,9 @@ actor GitHubIssueWriter {
         let idResponse = try await graphQL(
             query: "query($o:String!,$n:String!,$num:Int!){repository(owner:$o,name:$n){issue(number:$num){id}}}",
             variables: ["o": owner, "n": repo, "num": number], token: token)
+        if let errors = idResponse["errors"] as? [[String: Any]], let message = errors.first?["message"] as? String {
+            throw WriteError.apiError(0, message: message)
+        }
         guard let id = (((idResponse["data"] as? [String: Any])?["repository"] as? [String: Any])?["issue"] as? [String: Any])?["id"] as? String else {
             throw WriteError.apiError(0, message: "Issue not found")
         }

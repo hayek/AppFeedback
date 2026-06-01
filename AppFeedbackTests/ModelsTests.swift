@@ -38,9 +38,16 @@ final class ModelsTests: XCTestCase {
         let v = ProjectVersion(repoOwner: "o", repoName: "r", name: "1.2.0", changelog: "notes")
         XCTAssertFalse(v.releasePublished)
         XCTAssertNil(v.milestoneNumber)
+        XCTAssertEqual(v.releaseTitle, "")          // defaults to empty (older records migrate cleanly)
         XCTAssertEqual(v.derivedState(anyTaskStarted: false), .new)
         XCTAssertEqual(v.derivedState(anyTaskStarted: true), .wip)
         v.releasePublished = true
         XCTAssertEqual(v.derivedState(anyTaskStarted: true), .released)
+    }
+
+    func testProjectVersionReleaseTitlePersistsWhenProvided() {
+        let v = ProjectVersion(repoOwner: "o", repoName: "r", name: "1.2.0",
+                               releaseTitle: "Performance & polish", changelog: "notes")
+        XCTAssertEqual(v.releaseTitle, "Performance & polish")
     }
 }

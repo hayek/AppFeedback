@@ -27,6 +27,9 @@ struct RootView: View {
     @State private var inspector = ProjectInspectorModel()
     @State private var versionToRelease: ProjectVersion?
     @State private var taskFromFeedback: TaskItem?
+    /// Serializes feedback-ref writes per task issue so two rapid attach/detach gestures on the
+    /// same task can't race to a PATCH that lands out of order and drops a ref.
+    @State private var refWriteChain: [Int: Task<Void, Never>] = [:]
     @State private var showCreateVersion = false
     @State private var showCreateTask = false
     @State private var columnVisibility: NavigationSplitViewVisibility = .automatic
@@ -369,7 +372,9 @@ struct RootView: View {
     /// would otherwise revert the attach.
     private func setTaskRefs(repo: RepoConfig, task: TaskItem, refs: [Int]) {
         let previous = inspector.setPendingRefs(number: task.number, refs: refs)
-        Task {
+        let prior = refWriteChain[task.number]
+        let job = Task {
+            await prior?.value          // serialize writes to this task issue (avoid out-of-order PATCH)
             do {
                 try await TaskService().setFeedbackRefs(repo: repo, task: task, refs: refs)
                 await refreshSelectedRepo()
@@ -377,6 +382,7 @@ struct RootView: View {
                 if let previous { inspector.revertPending(number: task.number, to: previous) }
             }
         }
+        refWriteChain[task.number] = job
     }
 
     /// Reloads the currently-selected repo so a freshly-created task issue appears.

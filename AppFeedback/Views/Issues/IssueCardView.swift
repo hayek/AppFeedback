@@ -553,7 +553,12 @@ private struct TaskTagView: View {
                     Image(systemName: "xmark")
                         .font(.system(size: 8, weight: .bold))
                         .foregroundStyle(Color.accentColor.opacity(0.85))
+                        #if os(iOS)
+                        .frame(width: 22, height: 22)   // touch-friendly target on iOS
+                        .contentShape(Rectangle())
+                        #else
                         .padding(.leading, 1)
+                        #endif
                 }
                 .buttonStyle(.plain)
                 .help("Remove task #\(number) from this feedback")
