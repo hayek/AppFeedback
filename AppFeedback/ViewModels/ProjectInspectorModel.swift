@@ -6,7 +6,51 @@ final class ProjectInspectorModel {
     private(set) var tasks: [TaskItem] = []
     var statusFilter: TaskStatus? = nil
 
-    func setTasks(_ tasks: [TaskItem]) { self.tasks = tasks }
+    /// Optimistic feedback-ref edits awaiting GitHub confirmation, keyed by task number.
+    /// A reload (`setTasks`) rebuilds `tasks` from GitHub read state, which lags a just-written
+    /// ref change (read-replica / incremental-cache lag). Without this, a reload landing before
+    /// the write propagates would clobber the optimistic attach/detach — so we re-apply pending
+    /// overrides on every reload and self-clear each one only once the reload's refs match.
+    private var pendingRefs: [Int: [Int]] = [:]
+
+    /// Replaces the task list from a reload, re-applying any still-unconfirmed ref overrides on top.
+    func setTasks(_ incoming: [TaskItem]) {
+        guard !pendingRefs.isEmpty else { self.tasks = incoming; return }
+        var result = incoming
+        for (number, refs) in pendingRefs {
+            guard let index = result.firstIndex(where: { $0.number == number }) else {
+                pendingRefs[number] = nil        // task gone upstream (closed/deleted) — drop it
+                continue
+            }
+            if Set(result[index].feedbackRefs) == Set(refs) {
+                pendingRefs[number] = nil         // GitHub caught up — stop overriding
+            } else {
+                result[index] = result[index].withFeedbackRefs(refs)   // keep the optimistic edit visible
+            }
+        }
+        self.tasks = result
+    }
+
+    /// Optimistically set a task's feedback refs and record the override so a stale reload can't
+    /// clobber it. Returns the previous `TaskItem` (for `revertPending` on write failure).
+    @discardableResult
+    func setPendingRefs(number: Int, refs: [Int]) -> TaskItem? {
+        let sorted = refs.sorted()
+        pendingRefs[number] = sorted
+        guard let index = tasks.firstIndex(where: { $0.number == number }) else { return nil }
+        let previous = tasks[index]
+        tasks[index] = previous.withFeedbackRefs(sorted)
+        return previous
+    }
+
+    /// Roll a pending ref override back (used when the GitHub write fails). No-op if a fresh
+    /// reload already resolved the override, so we never clobber newer data.
+    func revertPending(number: Int, to previous: TaskItem) {
+        guard pendingRefs[number] != nil else { return }
+        pendingRefs[number] = nil
+        guard let index = tasks.firstIndex(where: { $0.number == number }) else { return }
+        tasks[index] = previous
+    }
 
     /// Optimistically reflect a status/priority change in the UI before the GitHub write returns.
     /// Returns the previous `TaskItem` (for `restore` on failure), or nil if the task isn't loaded.

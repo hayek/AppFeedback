@@ -56,6 +56,15 @@ struct TaskItem: Identifiable, Sendable, Hashable {
                         milestoneTitle: resolvedMilestone, isClosed: resolvedClosed)
     }
 
+    /// A copy with the feedback refs replaced (and the body's ref block rewritten to match),
+    /// preserving the prose. Used to re-apply optimistic attach/detach edits on top of a reload.
+    func withFeedbackRefs(_ refs: [Int]) -> TaskItem {
+        let sorted = refs.sorted()
+        let newBody = FeedbackTaskRefParser.upsert(into: FeedbackTaskRefParser.prose(of: body), refs: sorted)
+        return TaskItem(number: number, title: title, body: newBody, feedbackRefs: sorted,
+                        status: status, priority: priority, milestoneTitle: milestoneTitle, isClosed: isClosed)
+    }
+
     /// True when a loaded issue should be treated as a task rather than feedback.
     static func isTask(_ issue: FeedbackIssue) -> Bool {
         issue.labels.contains { $0.name == AppFeedbackLabels.task }

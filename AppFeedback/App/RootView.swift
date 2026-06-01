@@ -362,18 +362,19 @@ struct RootView: View {
         setTaskRefs(repo: repo, task: task, refs: task.feedbackRefs.filter { $0 != feedbackNumber })
     }
 
-    /// Optimistically updates a task's feedback refs, writes to GitHub, then refreshes so the
-    /// persisted refs flow back into `inspector.tasks` — otherwise the next loader reload (which
-    /// calls `inspector.setTasks`) would clobber the optimistic edit with pre-write state.
+    /// Optimistically updates a task's feedback refs (recorded as a pending override so a stale
+    /// reload can't clobber it), writes to GitHub, then refreshes so the persisted refs flow back
+    /// in. The override survives reloads and self-clears once GitHub's returned refs match — the
+    /// loader serves cached/incremental state that lags the write, so an immediate reload alone
+    /// would otherwise revert the attach.
     private func setTaskRefs(repo: RepoConfig, task: TaskItem, refs: [Int]) {
-        let newBody = FeedbackTaskRefParser.upsert(into: FeedbackTaskRefParser.prose(of: task.body), refs: refs)
-        let previous = inspector.applyOptimistic(number: task.number, body: newBody)
+        let previous = inspector.setPendingRefs(number: task.number, refs: refs)
         Task {
             do {
                 try await TaskService().setFeedbackRefs(repo: repo, task: task, refs: refs)
                 await refreshSelectedRepo()
             } catch {
-                if let previous { inspector.restore(previous) }
+                if let previous { inspector.revertPending(number: task.number, to: previous) }
             }
         }
     }
