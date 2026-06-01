@@ -12,6 +12,8 @@ struct ProjectInspectorPanel: View {
 
     @State private var taskToOpen: TaskItem?
     @State private var versionToOpen: ProjectVersion?
+    @State private var taskToDelete: TaskItem?
+    @State private var versionToDelete: ProjectVersion?
     private let taskService = TaskService()
 
     var body: some View {
@@ -47,6 +49,26 @@ struct ProjectInspectorPanel: View {
                                           canEmail: canEmail)
                     }
                 }
+                .confirmationDialog(
+                    taskToDelete.map { "Delete task #\($0.number)?" } ?? "Delete task?",
+                    isPresented: Binding(get: { taskToDelete != nil }, set: { if !$0 { taskToDelete = nil } }),
+                    titleVisibility: .visible,
+                    presenting: taskToDelete
+                ) { task in
+                    Button("Delete Task", role: .destructive) { onDeleteTask(task) }
+                } message: { _ in
+                    Text("This permanently deletes the issue on GitHub.")
+                }
+                .confirmationDialog(
+                    versionToDelete.map { "Delete version \($0.name)?" } ?? "Delete version?",
+                    isPresented: Binding(get: { versionToDelete != nil }, set: { if !$0 { versionToDelete = nil } }),
+                    titleVisibility: .visible,
+                    presenting: versionToDelete
+                ) { version in
+                    Button("Delete Version", role: .destructive) { deleteVersion(repo: repo, version: version) }
+                } message: { _ in
+                    Text("This removes the milestone on GitHub and the version here. Tasks are not deleted.")
+                }
             } else {
                 ContentUnavailableView {
                     Label("No project selected", systemImage: "sidebar.right")
@@ -80,8 +102,8 @@ struct ProjectInspectorPanel: View {
                     onOpen: { taskToOpen = task }
                 )
                 .cardRow()
-                .swipeActions(edge: .trailing, allowsFullSwipe: true) {
-                    Button(role: .destructive) { onDeleteTask(task) } label: {
+                .swipeActions(edge: .trailing, allowsFullSwipe: false) {
+                    Button(role: .destructive) { taskToDelete = task } label: {
                         Label("Delete", systemImage: "trash")
                     }
                 }
@@ -102,8 +124,8 @@ struct ProjectInspectorPanel: View {
                     action: { versionToOpen = version }
                 )
                 .cardRow()
-                .swipeActions(edge: .trailing, allowsFullSwipe: true) {
-                    Button(role: .destructive) { deleteVersion(repo: repo, version: version) } label: {
+                .swipeActions(edge: .trailing, allowsFullSwipe: false) {
+                    Button(role: .destructive) { versionToDelete = version } label: {
                         Label("Delete", systemImage: "trash")
                     }
                 }
