@@ -8,6 +8,7 @@ struct ProjectInspectorPanel: View {
     var onCreateTask: () -> Void
     var onCreateVersion: () -> Void
     var onRelease: (ProjectVersion) -> Void
+    var onDeleteTask: (TaskItem) -> Void
 
     @State private var taskToOpen: TaskItem?
     @State private var versionToOpen: ProjectVersion?
@@ -34,13 +35,15 @@ struct ProjectInspectorPanel: View {
                 #endif
                 .background(atmosphere)
                 .sheet(item: $taskToOpen) { task in
-                    TaskDetailView(repo: repo, task: task, inspector: inspector, versionStore: versionStore)
+                    TaskDetailView(repo: repo, task: task, inspector: inspector, versionStore: versionStore,
+                                   onDelete: { taskToOpen = nil; onDeleteTask(task) })
                 }
                 .sheet(item: $versionToOpen) { version in
                     NavigationStack {
                         VersionDetailView(repo: repo, version: version, inspector: inspector,
                                           versionStore: versionStore,
                                           onRelease: { versionToOpen = nil; onRelease(version) },
+                                          onDeleteTask: onDeleteTask,
                                           canEmail: canEmail)
                     }
                 }
@@ -78,7 +81,7 @@ struct ProjectInspectorPanel: View {
                 )
                 .cardRow()
                 .swipeActions(edge: .trailing, allowsFullSwipe: true) {
-                    Button(role: .destructive) { deleteTask(repo: repo, task: task) } label: {
+                    Button(role: .destructive) { onDeleteTask(task) } label: {
                         Label("Delete", systemImage: "trash")
                     }
                 }
@@ -129,11 +132,6 @@ struct ProjectInspectorPanel: View {
             do { try await taskService.setPriority(repo: repo, task: task, priority: priority) }
             catch { if let previous { inspector.restore(previous) } }
         }
-    }
-
-    private func deleteTask(repo: RepoConfig, task: TaskItem) {
-        inspector.removeTask(number: task.number)
-        Task { try? await taskService.deleteTask(repo: repo, task: task) }
     }
 
     private func deleteVersion(repo: RepoConfig, version: ProjectVersion) {

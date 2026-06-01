@@ -5,6 +5,7 @@ struct TaskDetailView: View {
     let task: TaskItem
     var inspector: ProjectInspectorModel
     var versionStore: VersionStore
+    var onDelete: () -> Void
 
     @Environment(\.dismiss) private var dismiss
     @Environment(\.openURL) private var openURL
@@ -202,8 +203,7 @@ struct TaskDetailView: View {
     }
 
     private func deleteTask() {
-        inspector.removeTask(number: task.number)
         dismiss()
-        Task { try? await service.deleteTask(repo: repo, task: task) }
+        onDelete()
     }
 }

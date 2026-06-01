@@ -113,16 +113,7 @@ struct RootView: View {
                         }
                     }
                     .inspector(isPresented: $showInspector) {
-                        ProjectInspectorPanel(
-                            repo: store.repos.first(where: { $0.id == selection.repoId }),
-                            inspector: inspector,
-                            versionStore: versionStore,
-                            canEmail: mailAccountStore.defaultSender != nil,
-                            onCreateTask: { viewModel.clearSelection(); showCreateTask = true },
-                            onCreateVersion: { showCreateVersion = true },
-                            onRelease: { startRelease($0) }
-                        )
-                        .inspectorColumnWidth(min: 260, ideal: 320, max: 480)
+                        inspectorPanel(for: selection)
                     }
                 } else {
                     ProgressView()
@@ -175,7 +166,8 @@ struct RootView: View {
         }
         .sheet(item: $taskFromFeedback) { task in
             if let repo = store.repos.first(where: { $0.id == selection?.repoId }) {
-                TaskDetailView(repo: repo, task: task, inspector: inspector, versionStore: versionStore)
+                TaskDetailView(repo: repo, task: task, inspector: inspector, versionStore: versionStore,
+                               onDelete: { taskFromFeedback = nil; deleteTask(task) })
             }
         }
         .sheet(item: $versionToRelease) { version in
@@ -272,6 +264,21 @@ struct RootView: View {
         guard let loader = loaders[repoId],
               case .loaded(let issues, _) = loader.state else { return [] }
         return Array(Set(issues.compactMap(\.appName))).sorted()
+    }
+
+    @ViewBuilder
+    private func inspectorPanel(for selection: SidebarSelection) -> some View {
+        ProjectInspectorPanel(
+            repo: store.repos.first(where: { $0.id == selection.repoId }),
+            inspector: inspector,
+            versionStore: versionStore,
+            canEmail: mailAccountStore.defaultSender != nil,
+            onCreateTask: { viewModel.clearSelection(); showCreateTask = true },
+            onCreateVersion: { showCreateVersion = true },
+            onRelease: { startRelease($0) },
+            onDeleteTask: { deleteTask($0) }
+        )
+        .inspectorColumnWidth(min: 260, ideal: 320, max: 480)
     }
 
     private func updateViewModel(for selection: SidebarSelection) {
@@ -394,6 +401,23 @@ struct RootView: View {
             }
         }
         refWriteChain[task.number] = job
+    }
+
+    /// Deletes a task issue: optimistic removal, GitHub delete, then purge the cache so it doesn't
+    /// reappear on the next launch (the incremental fetch never reports deletions). On failure,
+    /// surface the error and refresh — it wasn't actually deleted.
+    private func deleteTask(_ task: TaskItem) {
+        guard let repo = store.repos.first(where: { $0.id == selection?.repoId }) else { return }
+        inspector.removeTask(number: task.number)
+        Task {
+            do {
+                try await TaskService().deleteTask(repo: repo, task: task)
+                loaders[repo.id]?.purgeFromCache(number: task.number)
+            } catch {
+                taskWriteError = "Couldn't delete task #\(task.number): \(error.localizedDescription)"
+                await refreshSelectedRepo()
+            }
+        }
     }
 
     /// Reloads the currently-selected repo so a freshly-created task issue appears.

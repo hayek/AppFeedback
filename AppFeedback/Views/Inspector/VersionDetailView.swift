@@ -6,6 +6,7 @@ struct VersionDetailView: View {
     var inspector: ProjectInspectorModel
     var versionStore: VersionStore
     var onRelease: () -> Void
+    var onDeleteTask: (TaskItem) -> Void
     let canEmail: Bool
 
     @Environment(\.dismiss) private var dismiss
@@ -59,7 +60,8 @@ struct VersionDetailView: View {
         }
         .onAppear { changelog = version.changelog; title = version.releaseTitle }
         .sheet(item: $taskToOpen) { task in
-            TaskDetailView(repo: repo, task: task, inspector: inspector, versionStore: versionStore)
+            TaskDetailView(repo: repo, task: task, inspector: inspector, versionStore: versionStore,
+                           onDelete: { taskToOpen = nil; onDeleteTask(task) })
         }
     }
 

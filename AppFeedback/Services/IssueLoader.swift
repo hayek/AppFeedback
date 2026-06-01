@@ -342,6 +342,24 @@ final class IssueLoader {
         state = .loaded(issues, Date(timeIntervalSince1970: 0))
     }
 
+    /// Removes a deleted issue from the cache and the current loaded state. The incremental
+    /// fetch (`since:`) never returns deleted issues, so without this a deleted task lingers in
+    /// the cache and reappears on the next launch (loaded from cache before the first fetch).
+    func purgeFromCache(number: Int) {
+        if let context = cacheContext {
+            let owner = config.owner
+            let name = config.repo
+            let descriptor = FetchDescriptor<CachedIssue>(predicate: #Predicate { cached in
+                cached.repoOwner == owner && cached.repoName == name && cached.number == number
+            })
+            for row in (try? context.fetch(descriptor)) ?? [] { context.delete(row) }
+            try? context.save()
+        }
+        if case .loaded(let issues, let date) = state {
+            state = .loaded(issues.filter { $0.number != number }, date)
+        }
+    }
+
     private func loadOpenIssuesFromCache() -> [FeedbackIssue] {
         guard let context = cacheContext else { return [] }
         let owner = config.owner
