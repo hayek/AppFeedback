@@ -3,8 +3,11 @@ import Translation
 
 /// Invisible host that drives Apple's Translation framework as a fallback for
 /// issues the on-device Foundation Models translator refused with
-/// `unsupportedLanguageOrLocale`. Reads `viewModel.pendingFallbacks`,
-/// processes one source-language pair at a time, and reports results back.
+/// `unsupportedLanguageOrLocale` (or a guardrail false-positive). Reads
+/// `viewModel.pendingFallbacks`, processes one language pair at a time, and reports
+/// results back. Pairs whose languages aren't downloaded are gated in the view model
+/// and surfaced as a per-issue tap target rather than auto-presenting the system
+/// download sheet; the session for such a pair starts only after the user approves.
 struct TranslationFallbackHost: View {
     @Bindable var viewModel: IssueListViewModel
 
@@ -26,35 +29,54 @@ struct TranslationFallbackHost: View {
             }
             .task { pumpIfIdle() }
             .onChange(of: viewModel.pendingFallbacks) { _, _ in pumpIfIdle() }
+            .onChange(of: viewModel.downloadApprovalTick) { _, _ in pumpIfIdle() }
+    }
+
+    /// Maps Apple's availability status into the view-model's framework-agnostic enum.
+    private func currentState(detected: String, target: String) async -> IssueListViewModel.LanguageDownloadState {
+        let status = await LanguageAvailability().status(
+            from: Locale.Language(identifier: detected),
+            to: Locale.Language(identifier: target)
+        )
+        switch status {
+        case .installed: return .installed
+        case .supported: return .supported
+        case .unsupported: return .unsupported
+        @unknown default: return .unsupported
+        }
     }
 
     private func pumpIfIdle() {
         guard activeConfig == nil, !isPumping else { return }
-        guard let next = viewModel.pendingFallbacks.first else { return }
+        // Take the first pending request whose pair isn't gated awaiting a download —
+        // otherwise a gated pair at the head would block a ready pair behind it.
+        guard let next = viewModel.nextPumpableFallback() else { return }
         let detected = next.detected
         let target = next.target
         isPumping = true
         Task {
-            let status = await LanguageAvailability().status(
-                from: Locale.Language(identifier: detected),
-                to: Locale.Language(identifier: target)
-            )
+            let state = await currentState(detected: detected, target: target)
             await MainActor.run {
                 isPumping = false
-                if status == .unsupported {
-                    // Let the view model decide based on WHY this issue was routed here:
-                    // a genuine unsupported language blacklists the language; a guardrail
-                    // false-positive drops just this issue (the language is otherwise fine).
+                switch viewModel.pumpDecision(for: next, state: state) {
+                case .unavailable:
+                    // Genuine unsupported blacklists the language; a guardrail
+                    // false-positive drops just this issue (see handleFallbackUnavailable).
                     viewModel.handleFallbackUnavailable(next)
                     pumpIfIdle()
-                    return
+                case .needsDownload:
+                    // Gate it and surface the inline affordance; try other pairs that
+                    // may already be installed.
+                    viewModel.markFallbackNeedsDownload(detected: detected, target: target)
+                    pumpIfIdle()
+                case .proceed:
+                    activeLanguage = detected
+                    activeTarget = target
+                    activeConfig = TranslationSession.Configuration(
+                        source: Locale.Language(identifier: detected),
+                        target: Locale.Language(identifier: target)
+                    )
                 }
-                activeLanguage = detected
-                activeTarget = target
-                activeConfig = TranslationSession.Configuration(
-                    source: Locale.Language(identifier: detected),
-                    target: Locale.Language(identifier: target)
-                )
             }
         }
     }
@@ -88,8 +110,18 @@ struct TranslationFallbackHost: View {
                     translatedBody = try await session.translate(request.body).targetText
                 }
             } catch {
-                // Could be transient (network, cancellation) — don't blacklist
-                // the whole source language on the strength of one failure.
+                // The user may have dismissed the system download sheet without
+                // downloading. If the pair still only reports `.supported` (not
+                // installed), treat it as a declined download: re-gate so the inline
+                // prompt returns and leave every queued request for this pair pending.
+                if await currentState(detected: detected, target: target) == .supported {
+                    await MainActor.run {
+                        viewModel.regateDownload(detected: detected, target: target)
+                    }
+                    break
+                }
+                // Otherwise a genuine transient error (network, cancellation) — don't
+                // blacklist the whole source language on the strength of one failure.
                 transientError = true
                 print("[FallbackTranslate] error for #\(request.issueNumber): \(error)")
             }
