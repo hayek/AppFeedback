@@ -11,6 +11,16 @@ actor GitHubIssueWriter {
             case let .apiError(code, nil):      return "GitHub API \(code)"
             }
         }
+
+        /// True when the issue no longer exists on GitHub (REST 404, or the GraphQL
+        /// "Could not resolve to an Issue" error). Lets callers purge a stale phantom.
+        var isNotFound: Bool {
+            guard case let .apiError(code, message) = self else { return false }
+            if code == 404 { return true }
+            guard let message else { return false }
+            return message.localizedCaseInsensitiveContains("could not resolve")
+                || message.localizedCaseInsensitiveContains("not found")
+        }
     }
 
     private let session: URLSession

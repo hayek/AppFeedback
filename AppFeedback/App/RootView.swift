@@ -88,7 +88,9 @@ struct RootView: View {
                         onRefresh: {
                             async let mailPoll: Void = coordinatorRegistry?.pollNow() ?? ()
                             if let repo, let token = await KeychainService.load(for: repo) {
-                                await loaders[selection.repoId]?.load(token: token)
+                                // Explicit refresh does a full reconcile so deletions upstream are
+                                // detected and stale phantom issues are pruned from the cache.
+                                await loaders[selection.repoId]?.load(token: token, fullReconcile: true)
                             }
                             await mailPoll
                         },
@@ -397,7 +399,13 @@ struct RootView: View {
                 await refreshSelectedRepo()
             } catch {
                 if let previous { inspector.revertPending(number: task.number, to: previous) }
-                taskWriteError = "Task #\(task.number): \(error.localizedDescription)"
+                if (error as? GitHubIssueWriter.WriteError)?.isNotFound == true {
+                    // The task issue no longer exists on GitHub — drop the phantom from the list/cache.
+                    inspector.removeTask(number: task.number)
+                    loaders[repo.id]?.purgeFromCache(number: task.number)
+                } else {
+                    taskWriteError = "Task #\(task.number): \(error.localizedDescription)"
+                }
             }
         }
         refWriteChain[task.number] = job
@@ -414,8 +422,13 @@ struct RootView: View {
                 try await TaskService().deleteTask(repo: repo, task: task)
                 loaders[repo.id]?.purgeFromCache(number: task.number)
             } catch {
-                taskWriteError = "Couldn't delete task #\(task.number): \(error.localizedDescription)"
-                await refreshSelectedRepo()
+                if (error as? GitHubIssueWriter.WriteError)?.isNotFound == true {
+                    // Already deleted on GitHub (a stale phantom) — purge it so it stops coming back.
+                    loaders[repo.id]?.purgeFromCache(number: task.number)
+                } else {
+                    taskWriteError = "Couldn't delete task #\(task.number): \(error.localizedDescription)"
+                    await refreshSelectedRepo()   // it wasn't deleted — bring it back
+                }
             }
         }
     }

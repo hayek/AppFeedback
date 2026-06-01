@@ -49,14 +49,17 @@ final class IssueLoader {
         self.cacheContext = cacheContext
     }
 
-    func load(token: String) async {
+    /// `fullReconcile` forces a non-incremental fetch (since: nil) so deletions upstream are
+    /// detected — the incremental `since:` query never returns deleted issues, so without an
+    /// occasional full pass a deleted issue lingers in the cache forever (a phantom).
+    func load(token: String, fullReconcile: Bool = false) async {
         let task: Task<Void, Never>
-        if let existing = inFlight, existing.token == token {
+        if !fullReconcile, let existing = inFlight, existing.token == token {
             task = existing.task
         } else {
             inFlight?.task.cancel()
             let newTask = Task { @MainActor [weak self] in
-                await self?.performLoad(token: token)
+                await self?.performLoad(token: token, fullReconcile: fullReconcile)
                 if self?.inFlight?.token == token { self?.inFlight = nil }
             }
             inFlight = (token, newTask)
@@ -65,7 +68,7 @@ final class IssueLoader {
         await task.value
     }
 
-    private func performLoad(token: String) async {
+    private func performLoad(token: String, fullReconcile: Bool = false) async {
         if case .idle = state { loadFromCache() }
         let preLoadState = state
         // Keep showing cached data while fetching; only flip to .loading when we have
@@ -80,13 +83,13 @@ final class IssueLoader {
         // updates that land mid-request.
         let fetchStartedAt = Date()
         let prior = readFetchState()
-        let isIncremental = prior.lastFetchedAt != nil
+        let isIncremental = prior.lastFetchedAt != nil && !fullReconcile
 
         do {
             let outcome = try await fetchAllPages(
                 token: token,
-                since: prior.lastFetchedAt,
-                etag: prior.etag,
+                since: isIncremental ? prior.lastFetchedAt : nil,
+                etag: isIncremental ? prior.etag : nil,
                 includeClosed: isIncremental
             )
             switch outcome {

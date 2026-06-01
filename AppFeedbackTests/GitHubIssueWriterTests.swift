@@ -41,6 +41,17 @@ final class GitHubIssueWriterTests: XCTestCase {
         } catch { /* expected */ }
     }
 
+    func testIsNotFoundDetectsDeletedIssue() {
+        // REST 404
+        XCTAssertTrue(GitHubIssueWriter.WriteError.apiError(404, message: "Not Found").isNotFound)
+        // GraphQL "could not resolve" (deleteIssue id lookup on a deleted issue) — code 0
+        XCTAssertTrue(GitHubIssueWriter.WriteError.apiError(0, message: "Could not resolve to an Issue with the number of 386.").isNotFound)
+        // Unrelated failures are not treated as not-found
+        XCTAssertFalse(GitHubIssueWriter.WriteError.apiError(422, message: "Validation failed").isNotFound)
+        XCTAssertFalse(GitHubIssueWriter.WriteError.apiError(403, message: "rate limit").isNotFound)
+        XCTAssertFalse(GitHubIssueWriter.WriteError.apiError(500, message: nil).isNotFound)
+    }
+
     private static func readJSON(_ stream: InputStream) -> [String: Any]? {
         stream.open(); defer { stream.close() }
         var data = Data(); let size = 4096; var buf = [UInt8](repeating: 0, count: size)
