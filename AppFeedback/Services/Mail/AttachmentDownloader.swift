@@ -62,11 +62,20 @@ final class AttachmentDownloaderHolder {
 // MARK: - AttachmentDownloader
 
 actor AttachmentDownloader {
-    private let client: IMAPClientProtocol
+    /// Resolves the IMAP client for a given account. A message's bytes live in the Sent/INBOX
+    /// folder of the account that fetched/sent it, so downloads must route to THAT account's IMAP
+    /// connection — not a single fixed (default) one. `nil` resolves to the default account.
+    private let clientForAccount: @Sendable (UUID?) -> IMAPClientProtocol
     private let localStore: MailAttachmentLocalStore
 
+    init(clientForAccount: @escaping @Sendable (UUID?) -> IMAPClientProtocol, localStore: MailAttachmentLocalStore) {
+        self.clientForAccount = clientForAccount
+        self.localStore = localStore
+    }
+
+    /// Convenience for callers/tests with a single fixed client (account-agnostic).
     init(client: IMAPClientProtocol, localStore: MailAttachmentLocalStore) {
-        self.client = client
+        self.clientForAccount = { _ in client }
         self.localStore = localStore
     }
 
@@ -81,7 +90,9 @@ actor AttachmentDownloader {
     /// detected on-disk corruption from a prior buggy fetch).
     func download(
         messageID: String,
+        accountID: UUID?,
         uid: UInt32,
+        uidValidity: UInt32,
         folder: String,
         partID: String,
         filename: String,
@@ -110,8 +121,10 @@ actor AttachmentDownloader {
             throw DownloadError.folderUnavailable
         }
 
-        // 3. Fetch bytes via IMAP.
-        let bytes = try await client.fetchAttachmentBytes(uid: uid, folder: folder, partID: partID)
+        // 3. Fetch bytes via IMAP — routed to the account that owns this message's uid/folder.
+        let bytes = try await clientForAccount(accountID).fetchAttachmentBytes(
+            uid: uid, folder: folder, partID: partID, expectedUIDValidity: uidValidity
+        )
 
         // 4. Write atomically; handle filename collisions.
         let destURL = uniqueURL(in: dir, preferredFilename: filename)

@@ -1,5 +1,6 @@
 #if canImport(SwiftMail)
 import Foundation
+import SwiftMail
 
 /// Builds a fresh IMAPClient per call, reading credentials from MailAccount + Keychain.
 /// Allows MailSyncCoordinator to receive a live IMAPClientProtocol without holding stale credentials.
@@ -22,9 +23,19 @@ actor IMAPClientProvider: IMAPClientProtocol {
         return try await client.listSent(sinceDate: sinceDate)
     }
 
-    func fetchAttachmentBytes(uid: UInt32, folder: String, partID: String) async throws -> Data {
+    func listSentForEnrichment(sinceDate: Date, messageIDs: Set<String>) async throws -> [ParsedInboundMessage] {
         let client = try await makeClient()
-        return try await client.fetchAttachmentBytes(uid: uid, folder: folder, partID: partID)
+        return try await client.listSentForEnrichment(sinceDate: sinceDate, messageIDs: messageIDs)
+    }
+
+    func fetchAttachmentBytes(uid: UInt32, folder: String, partID: String, expectedUIDValidity: UInt32) async throws -> Data {
+        let client = try await makeClient()
+        return try await client.fetchAttachmentBytes(uid: uid, folder: folder, partID: partID, expectedUIDValidity: expectedUIDValidity)
+    }
+
+    func appendToSent(_ email: SwiftMail.Email) async throws {
+        let client = try await makeClient()
+        try await client.appendToSent(email)
     }
 
     func testConnection() async throws {

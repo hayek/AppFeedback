@@ -3,7 +3,9 @@ import SwiftUI
 
 struct MailAttachmentThumbnailView: View {
     let attachment: MailAttachment
+    let accountID: UUID?
     let uid: UInt32
+    let uidValidity: UInt32
     let folder: String
     let folderBookmark: Data?
     let downloader: AttachmentDownloader?
@@ -64,7 +66,9 @@ struct MailAttachmentThumbnailView: View {
         do {
             let path = try await downloader.download(
                 messageID: attachment.messageID,
+                accountID: accountID,
                 uid: uid,
+                uidValidity: uidValidity,
                 folder: folder,
                 partID: attachment.partID,
                 filename: attachment.filename.isEmpty ? "inline-\(attachment.partID).img" : attachment.filename,

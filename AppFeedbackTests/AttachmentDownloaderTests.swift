@@ -10,7 +10,8 @@ final class MockIMAPClientForDownload: IMAPClientProtocol, @unchecked Sendable {
 
     func listInbox(sinceUID: UInt32, expectedUIDValidity: UInt32, fromAddresses: [String]) async throws -> InboxPollResult { InboxPollResult(messages: [], uidValidity: 0) }
     func listSent(sinceDate: Date) async throws -> [ParsedInboundMessage] { [] }
-    func fetchAttachmentBytes(uid: UInt32, folder: String, partID: String) async throws -> Data {
+    func listSentForEnrichment(sinceDate: Date, messageIDs: Set<String>) async throws -> [ParsedInboundMessage] { [] }
+    func fetchAttachmentBytes(uid: UInt32, folder: String, partID: String, expectedUIDValidity: UInt32) async throws -> Data {
         fetchCallCount += 1
         return bytesToReturn
     }
@@ -83,7 +84,9 @@ final class AttachmentDownloaderTests: XCTestCase {
     func test_download_returnsURL_andWritesFile() async throws {
         let url = try await downloader.download(
             messageID: "msg-1",
+            accountID: nil,
             uid: 42,
+            uidValidity: 0,
             folder: "INBOX",
             partID: "1.2",
             filename: "test.pdf",
@@ -101,7 +104,9 @@ final class AttachmentDownloaderTests: XCTestCase {
     func test_download_isIdempotent_returnsExistingPath() async throws {
         let url1 = try await downloader.download(
             messageID: "msg-1",
+            accountID: nil,
             uid: 42,
+            uidValidity: 0,
             folder: "INBOX",
             partID: "1.2",
             filename: "test.pdf",
@@ -109,7 +114,9 @@ final class AttachmentDownloaderTests: XCTestCase {
         )
         let url2 = try await downloader.download(
             messageID: "msg-1",
+            accountID: nil,
             uid: 42,
+            uidValidity: 0,
             folder: "INBOX",
             partID: "1.2",
             filename: "test.pdf",
@@ -123,7 +130,9 @@ final class AttachmentDownloaderTests: XCTestCase {
     func test_download_recordsMailAttachmentLocal() async throws {
         let url = try await downloader.download(
             messageID: "msg-2",
+            accountID: nil,
             uid: 99,
+            uidValidity: 0,
             folder: "INBOX",
             partID: "2.1",
             filename: "photo.png",
@@ -140,7 +149,9 @@ final class AttachmentDownloaderTests: XCTestCase {
         // First download.
         let url1 = try await downloader.download(
             messageID: "msg-3",
+            accountID: nil,
             uid: 7,
+            uidValidity: 0,
             folder: "INBOX",
             partID: "3.1",
             filename: "doc.docx",
@@ -155,7 +166,9 @@ final class AttachmentDownloaderTests: XCTestCase {
         // Second download — should re-fetch from IMAP.
         let url2 = try await downloader.download(
             messageID: "msg-3",
+            accountID: nil,
             uid: 7,
+            uidValidity: 0,
             folder: "INBOX",
             partID: "3.1",
             filename: "doc.docx",

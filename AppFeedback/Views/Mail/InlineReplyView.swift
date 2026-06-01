@@ -170,6 +170,11 @@ struct InlineReplyView: View {
     }
 
     private func setupViewModel() {
+        let senderID = request.senderAccountID ?? store.defaultSender?.id ?? UUID()
+        // Lazily build an IMAP client for the sender account so the VM can save a copy of the sent
+        // reply to the Sent folder (for providers that don't auto-file SMTP sends). The provider is
+        // an actor (Sendable), so it's safe to capture in the @Sendable closure.
+        let appenderProvider = IMAPClientProvider(accountStore: store, accountID: senderID)
         let vm = ComposeMailViewModel(
             recipient: request.recipient,
             issue: request.issue,
@@ -185,7 +190,8 @@ struct InlineReplyView: View {
             mirror: mirrorHolder?.mirror,
             inReplyTo: request.inReplyTo,
             initialSubject: request.subjectOverride,
-            senderAccountID: request.senderAccountID ?? store.defaultSender?.id ?? UUID()
+            senderAccountID: senderID,
+            sentAppender: { @Sendable email in try await appenderProvider.appendToSent(email) }
         )
 
         if let existing = drafts.draft(for: key) {

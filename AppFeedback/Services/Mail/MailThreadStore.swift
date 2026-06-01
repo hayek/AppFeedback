@@ -143,12 +143,20 @@ final class MailThreadStore {
     /// so callers can record many messages at once without thrashing CloudKit or SwiftUI.
     private var batchInProgress: Bool = false
 
+    /// Set by `commitChange` while a batch is active, so a batch that mutated nothing (e.g. a
+    /// Sent-enrichment poll whose replies aren't filed in Sent yet) skips the save/version-bump
+    /// and doesn't force every observer to re-fetch.
+    private var batchDirty: Bool = false
+
     /// Runs `body` with `recordOutbound`/`recordInbound` writes coalesced into a single
     /// save+version-bump at the end. Used by backfill to avoid hundreds of round-trips.
+    /// The flush is skipped entirely when nothing inside requested a commit.
     func withBatch(_ body: () -> Void) {
         batchInProgress = true
+        batchDirty = false
         defer { batchInProgress = false }
         body()
+        guard batchDirty else { return }
         do {
             try context.save()
             version += 1
@@ -160,9 +168,11 @@ final class MailThreadStore {
     }
 
     /// Save + version bump + cache invalidation for a single-message write. No-op while a
-    /// `withBatch { ... }` is active — the batch flushes everything at the end.
+    /// `withBatch { ... }` is active — the batch flushes everything at the end (and only if a
+    /// commit was actually requested).
     private func commitChange(createdNewThread: Bool) {
         if batchInProgress {
+            batchDirty = true
             if createdNewThread { cachedCandidates = nil; invalidateOrphanCache() }
             return
         }
@@ -372,6 +382,7 @@ final class MailThreadStore {
             directionRaw: MailMessage.Direction.inbound.rawValue,
             uid: Int(message.uid),
             folder: message.folder,
+            uidValidity: Int(message.uidValidity),
             thread: thread
         )
         context.insert(msg)
@@ -394,6 +405,114 @@ final class MailThreadStore {
         sessionUnreadMessageIDs.insert(message.messageID)
         commitChange(createdNewThread: createdNewThread)
         return msg
+    }
+
+    // MARK: - Sent enrichment
+
+    /// Records that an outbound message was successfully sent: stamps `sentAt` and persists it
+    /// immediately (with a `version` bump) so the "Sent" badge survives relaunch/CloudKit and the
+    /// enrichment gate — which requires `sentAt != nil` — sees it even if the app terminates before
+    /// the next write. Stamps every outbound row with this Message-Id (CloudKit duplicates) and is
+    /// idempotent: a row already stamped is left untouched, so a resend doesn't move the timestamp.
+    func markSent(messageID: String, at date: Date = Date()) {
+        let outboundRaw = MailMessage.Direction.outbound.rawValue
+        let matches = (try? context.fetch(FetchDescriptor<MailMessage>(
+            predicate: #Predicate { $0.messageID == messageID && $0.directionRaw == outboundRaw }
+        ))) ?? []
+        var changed = false
+        for msg in matches where msg.sentAt == nil {
+            msg.sentAt = date
+            changed = true
+        }
+        if changed { commitChange(createdNewThread: false) }
+    }
+
+    /// Stamps locally-recorded outbound message(s) with the IMAP identity (uid + Sent folder) and
+    /// attachment rows discovered in the Sent folder, matched by Message-Id. This is how attachments
+    /// on replies WE composed become visible: the bytes live on the server, and once the message has
+    /// a real uid/folder + MailAttachment rows the existing downloader fetches them like inbound.
+    ///
+    /// Stamps EVERY outbound row with this Message-Id, not just one: CloudKit can leave duplicate
+    /// rows for the same message (no unique constraint on relationship-bearing models), and the
+    /// deduped thread view may display a different duplicate than an arbitrary single-row lookup
+    /// would stamp — so the attachments must land on all of them.
+    ///
+    /// Idempotent: never downgrades an already-stamped uid/folder, inserts only attachment rows
+    /// whose `partID` isn't already present, and routes through `commitChange` (a no-op on a
+    /// no-change re-poll, so no spurious save/version-bump/CloudKit push). Returns whether anything
+    /// changed. Unlike `recordOutbound`, it does NOT early-return on a known Message-Id — upgrading
+    /// the existing row is the whole point.
+    @discardableResult
+    func upgradeOutbound(
+        messageID: String,
+        uid: UInt32,
+        folder: String,
+        uidValidity: UInt32 = 0,
+        attachments: [ParsedAttachmentMeta],
+        accountID: UUID?
+    ) -> Bool {
+        let outboundRaw = MailMessage.Direction.outbound.rawValue
+        let matches = (try? context.fetch(FetchDescriptor<MailMessage>(
+            predicate: #Predicate { $0.messageID == messageID && $0.directionRaw == outboundRaw }
+        ))) ?? []
+        guard !matches.isEmpty else { return false }
+
+        var changed = false
+        for msg in matches {
+            if msg.uid == 0 && uid > 0 { msg.uid = Int(uid); changed = true }
+            if msg.folder.isEmpty && !folder.isEmpty { msg.folder = folder; changed = true }
+            // Stamp uidValidity alongside uid so the download path can detect a stale uid after a
+            // Sent-folder UIDVALIDITY reset (set together; both come from the same SELECT).
+            if msg.uidValidity == 0 && uidValidity > 0 { msg.uidValidity = Int(uidValidity); changed = true }
+            if msg.accountID == nil, let accountID { msg.accountID = accountID; changed = true }
+
+            let existingPartIDs = Set((msg.attachments ?? []).map(\.partID))
+            for meta in attachments where !existingPartIDs.contains(meta.partID) {
+                let isImage = meta.mimeType.lowercased().hasPrefix("image/")
+                let attachment = MailAttachment(
+                    messageID: msg.messageID,
+                    partID: meta.partID,
+                    filename: meta.filename,
+                    mimeType: meta.mimeType,
+                    sizeBytes: meta.sizeBytes,
+                    // A composed image's Sent copy carries no Content-ID, so synthesize one to route
+                    // it into the inline-thumbnail row (local display only — does not touch the sent
+                    // mail). Non-images stay nil and render as chips.
+                    contentID: meta.contentID ?? (isImage ? "<local-\(meta.partID)@appfeedback>" : nil),
+                    message: msg
+                )
+                context.insert(attachment)
+                changed = true
+            }
+        }
+
+        if changed { commitChange(createdNewThread: false) }
+        return changed
+    }
+
+    /// Message-Ids of outbound messages still awaiting Sent-folder enrichment, used as the gate that
+    /// bounds (and usually skips) the Sent scan. A row qualifies when it is app-composed (carries our
+    /// outbound domain), successfully sent (`sentAt != nil` — a failed send has no Sent copy to find),
+    /// not yet stamped (`uid == 0` is the sole "done" signal, so a reply with no attachments enriches
+    /// once and drops out), and recent (`date >= since` — a reply that never enriched within the
+    /// window must stop forcing a Sent scan forever). When empty the coordinator does zero IMAP work.
+    func outboundNeedingEnrichment(since: Date, accountID: UUID, limit: Int = 50) -> Set<String> {
+        let outboundRaw = MailMessage.Direction.outbound.rawValue
+        let domain = MessageIDGenerator.outboundDomain
+        // Scoped to THIS account (`accountID`): each per-account coordinator must only search its own
+        // Sent folder, or it would burn a login+search every poll chasing another account's replies
+        // it can never find. `fetchLimit` bounds the main-thread materialization.
+        var descriptor = FetchDescriptor<MailMessage>(
+            predicate: #Predicate {
+                $0.directionRaw == outboundRaw && $0.uid == 0 && $0.sentAt != nil
+                    && $0.date >= since && $0.accountID == accountID
+                    && $0.messageID.contains(domain)
+            },
+            sortBy: [SortDescriptor(\.date, order: .reverse)]
+        )
+        descriptor.fetchLimit = limit
+        let messages = (try? context.fetch(descriptor)) ?? []
+        return Set(messages.map(\.messageID))
     }
 
     // MARK: - threads(forIssue:)

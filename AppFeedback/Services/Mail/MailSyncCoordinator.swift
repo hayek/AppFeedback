@@ -29,6 +29,16 @@ actor MailSyncCoordinator {
         let consecutiveFailures: Int
     }
 
+    /// How far back Sent enrichment looks. Bounds both the server-side Message-Id search and the
+    /// gate, so a reply whose Sent copy never appears stops forcing a scan once it ages out.
+    private static let sentEnrichmentWindow: TimeInterval = 30 * 24 * 3600
+
+    /// After this many consecutive failed enrichment attempts for a Message-Id this session, stop
+    /// searching for it — its Sent copy isn't appearing (failed APPEND, no Sent folder, rewritten
+    /// Message-Id). In-memory, so a relaunch retries a bounded number of times. Without this a
+    /// stranded reply would force a Sent scan every poll for the whole 30-day window.
+    private static let maxEnrichmentAttempts = 5
+
     // MARK: - Dependencies
 
     private let client: IMAPClientProtocol
@@ -48,6 +58,9 @@ actor MailSyncCoordinator {
     private(set) var status: Status = .idle
     private var inFlight: Bool = false
     private var loopTask: Task<Void, Never>?
+    /// Per-Message-Id consecutive failed-enrichment counts (in-memory, this session). See
+    /// `maxEnrichmentAttempts`.
+    private var enrichmentAttempts: [String: Int] = [:]
 
     // MARK: - Init
 
@@ -269,6 +282,11 @@ actor MailSyncCoordinator {
                 Task.detached { await mirror.mirrorPendingInbound() }
             }
 
+            // Best-effort: pull attachments for replies WE sent from the Sent folder. Runs after a
+            // healthy inbox poll, self-gates to nothing when no reply awaits enrichment, and is
+            // fully isolated (its own error handling) so it can never disturb the inbox cadence.
+            await runSentEnrichment()
+
         } catch IMAPClientError.authFailed {
             status = .authFailed(message: "IMAP login failed — re-enter password")
             await MainActor.run {
@@ -287,6 +305,61 @@ actor MailSyncCoordinator {
                 }
                 self.activityLog.finish(logID, status: .failure, detail: errorMessage)
             }
+        }
+    }
+
+    /// Pulls attachment structure for app-composed outbound replies from the Sent folder (matched by
+    /// exact Message-Id) and upgrades the matching local rows (uid + folder + MailAttachment
+    /// children). Best-effort and fully isolated: any failure (including a provider with no Sent
+    /// folder) is logged and swallowed so the inbox poll's cadence, backoff, and auth-stop are never
+    /// affected. Self-gates via `outboundNeedingEnrichment`, so once replies are enriched the steady
+    /// state skips the Sent folder entirely (zero IMAP work). There is no UID watermark: a reply not
+    /// yet found is simply retried next pass until it is found or ages out of the gate window.
+    private func runSentEnrichment() async {
+        let accountID = self.accountID
+        let since = clock().addingTimeInterval(-Self.sentEnrichmentWindow)
+        let gateIDs = await MainActor.run { self.threadStore.outboundNeedingEnrichment(since: since, accountID: accountID) }
+        // Forget attempt counts for replies no longer pending (enriched, deleted, or aged out).
+        enrichmentAttempts = enrichmentAttempts.filter { gateIDs.contains($0.key) }
+        // Drop replies we've already tried too many times this session — their Sent copy isn't
+        // turning up, so stop forcing a Sent scan every poll for them.
+        let enrichIDs = gateIDs.filter { (enrichmentAttempts[$0] ?? 0) < Self.maxEnrichmentAttempts }
+        guard !enrichIDs.isEmpty else { return }
+
+        do {
+            let messages = try await client.listSentForEnrichment(sinceDate: since, messageIDs: enrichIDs)
+            let enrichedIDs = Set(messages.map(\.messageID))
+            // Clear the counter for found replies; count a miss for the rest so a perpetually-
+            // unfindable reply eventually drops out (above) instead of scanning forever.
+            for id in enrichIDs {
+                if enrichedIDs.contains(id) { enrichmentAttempts[id] = nil }
+                else { enrichmentAttempts[id, default: 0] += 1 }
+            }
+            // Nothing found this pass → no store write and no activity-log entry (avoids per-poll
+            // "0 enriched" log noise while a reply's Sent copy hasn't been filed yet).
+            guard !messages.isEmpty else { return }
+            await MainActor.run {
+                let logID = self.activityLog.start(kind: .fetchMail, title: "Sync sent attachments")
+                self.threadStore.withBatch {
+                    for m in messages {
+                        self.threadStore.upgradeOutbound(
+                            messageID: m.messageID,
+                            uid: m.uid,
+                            folder: m.folder,
+                            uidValidity: m.uidValidity,
+                            attachments: m.attachments,
+                            accountID: accountID
+                        )
+                    }
+                }
+                self.activityLog.finish(logID, status: .success, detail: "\(messages.count) enriched")
+            }
+        } catch {
+            // Count a failed attempt for every requested id so a persistently-failing pass (e.g. no
+            // Sent folder) stops scanning after maxEnrichmentAttempts. Swallow: Sent enrichment must
+            // never disturb the proven inbox poll cadence/backoff/auth-stop.
+            for id in enrichIDs { enrichmentAttempts[id, default: 0] += 1 }
+            print("[MailSyncCoordinator] sent enrichment failed (non-fatal): \(error)")
         }
     }
 

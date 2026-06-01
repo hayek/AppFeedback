@@ -12,6 +12,17 @@ struct SMTPCredentials: Codable, Equatable, Sendable {
 
         var id: String { rawValue }
 
+        /// Whether the provider's SMTP submission already files a copy in the Sent folder.
+        /// Gmail and Outlook/Office365 do this server-side, so the app must NOT also IMAP-APPEND
+        /// (it would create a duplicate). iCloud and generic/custom IMAP servers do not — the
+        /// sending client is expected to APPEND the sent copy itself.
+        var autosavesSentMail: Bool {
+            switch self {
+            case .gmail, .outlook: return true
+            case .icloud, .custom: return false
+            }
+        }
+
         var displayName: String {
             switch self {
             case .gmail:   return "Gmail"

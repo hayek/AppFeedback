@@ -119,4 +119,45 @@ final class IMAPClientInlineImageTests: XCTestCase {
         let pdfResult = result.first { $0.partID == "3" }
         XCTAssertNil(pdfResult?.contentID)
     }
+
+    // MARK: - 6. Outlook HTML body (Content-ID + name, no inline disposition) is NOT an attachment
+
+    /// Regression: Outlook/Exchange stamps the HTML body part with a Content-ID and a `name` and
+    /// omits an "inline" disposition. That tripped `hasFileNotInline`, so the message body was
+    /// surfaced as a bogus attachment chip labeled with its Content-ID. The body must be excluded.
+    func test_classifyAttachments_outlookHTMLBodyWithNameAndContentID_isExcluded() {
+        let outlookBody = MessagePart(
+            sectionString: "1",
+            contentType: "text/html; charset=utf-8",
+            disposition: nil,
+            filename: "8917BA14ADC8EE4A8D12CCECFC9D43C0@SWEP280.PROD.OUTLOOK.COM",
+            contentId: "8917BA14ADC8EE4A8D12CCECFC9D43C0@SWEP280.PROD.OUTLOOK.COM"
+        )
+        let plainBody = MessagePart(
+            sectionString: "2",
+            contentType: "text/plain; charset=utf-8",
+            disposition: nil,
+            filename: "body.txt",
+            contentId: nil
+        )
+
+        let result = IMAPClient.classifyAttachments(in: [outlookBody, plainBody])
+        XCTAssertTrue(result.isEmpty, "Text body parts must never be classified as attachments")
+    }
+
+    // MARK: - 7. A genuinely attached .html file (disposition: attachment) is still included
+
+    func test_classifyAttachments_explicitHTMLAttachment_isStillIncluded() {
+        let attached = MessagePart(
+            sectionString: "2",
+            contentType: "text/html",
+            disposition: "attachment",
+            filename: "page.html",
+            contentId: nil
+        )
+
+        let result = IMAPClient.classifyAttachments(in: [attached])
+        XCTAssertEqual(result.count, 1, "An explicitly attached .html file is a real attachment")
+        XCTAssertEqual(result[0].filename, "page.html")
+    }
 }

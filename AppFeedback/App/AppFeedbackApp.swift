@@ -225,11 +225,16 @@ struct AppFeedbackApp: App {
         registry.syncWithAccounts()
         _coordinatorRegistry = State(initialValue: registry)
 
-        // The attachment downloader needs ONE IMAPClient; route through the default sender.
+        // The attachment downloader routes each fetch to the IMAP client of the account that owns
+        // the message (its bytes live in THAT account's Sent/INBOX folder); nil → default sender.
         let defaultAccountID = mailAccountStoreLocal.defaultSender?.id ?? UUID()
-        let downloaderProvider = IMAPClientProvider(accountStore: mailAccountStoreLocal, accountID: defaultAccountID)
         let attachmentLocalStore = MailAttachmentLocalStore(context: ModelContext(container))
-        let downloader = AttachmentDownloader(client: downloaderProvider, localStore: attachmentLocalStore)
+        let downloader = AttachmentDownloader(
+            clientForAccount: { accountID in
+                IMAPClientProvider(accountStore: mailAccountStoreLocal, accountID: accountID ?? defaultAccountID)
+            },
+            localStore: attachmentLocalStore
+        )
         _downloaderHolder = State(initialValue: AttachmentDownloaderHolder(downloader))
         #else
         _coordinatorRegistry = State(initialValue: nil)

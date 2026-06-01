@@ -32,6 +32,10 @@ final class ComposeMailViewModel {
     private let activityLog: ActivityLog
     private let mirror: MailToGitHubMirror?
     private let passwordLoader: @Sendable (UUID) async -> String?
+    /// Saves a copy of the sent message to the IMAP Sent folder. Injected so it's mockable in tests
+    /// and absent (nil) when no IMAP context is available. Only invoked for providers that don't
+    /// auto-file SMTP sends (see `SMTPCredentials.Preset.autosavesSentMail`).
+    private let sentAppender: (@Sendable (SwiftMail.Email) async throws -> Void)?
     private let composer = MailComposer()
 
     init(recipient: String,
@@ -49,7 +53,8 @@ final class ComposeMailViewModel {
          inReplyTo: MailMessageHeaders? = nil,
          initialSubject: String? = nil,
          senderAccountID: UUID,
-         passwordLoader: @Sendable @escaping (UUID) async -> String? = { @Sendable id in await KeychainService.loadSMTPPassword(for: id) }) {
+         passwordLoader: @Sendable @escaping (UUID) async -> String? = { @Sendable id in await KeychainService.loadSMTPPassword(for: id) },
+         sentAppender: (@Sendable (SwiftMail.Email) async throws -> Void)? = nil) {
         self.recipient = recipient
         self.issue = issue
         self.repoOwner = repoOwner
@@ -65,6 +70,7 @@ final class ComposeMailViewModel {
         self.mirror = mirror
         self.inReplyTo = inReplyTo
         self.passwordLoader = passwordLoader
+        self.sentAppender = sentAppender
         if inReplyTo != nil {
             self.subject = initialSubject ?? MailSubject.replyPrefixed(issue.title)
         } else if let initialSubject {
@@ -129,7 +135,7 @@ final class ComposeMailViewModel {
         )
         let replyHeaders = ReplyHeaderBuilder.build(parent: inReplyTo, newMessageID: messageID)
 
-        let recordedMessage = threadStore?.recordOutbound(
+        threadStore?.recordOutbound(
             messageID: messageID,
             repoOwner: repoOwner,
             repoName: repoName,
@@ -174,8 +180,12 @@ final class ComposeMailViewModel {
         do {
             try await sender.send(email, using: credentials, password: password)
             activityLog.finish(id, status: .success, detail: nil)
-            recordedMessage?.sentAt = Date()
+            // Persist the send timestamp immediately (not just a transient model mutation): the
+            // enrichment gate requires sentAt != nil, and the "Sent" badge must survive relaunch.
+            threadStore?.markSent(messageID: messageID)
             tracker?.clear(messageID)
+
+            await saveCopyToSentIfNeeded(email, credentials: credentials)
 
             if let mirror {
                 Task { await mirror.mirrorOutbound(messageID: messageID) }
@@ -186,6 +196,20 @@ final class ComposeMailViewModel {
             failureStore?.record(messageID, reason: error.localizedDescription)
             tracker?.clear(messageID)
             return false
+        }
+    }
+
+    /// Saves a copy of the just-sent message to the IMAP Sent folder for providers whose SMTP
+    /// submission doesn't auto-file one (iCloud, custom). Best-effort and non-fatal — the SMTP send
+    /// already succeeded; a failed APPEND only means the reply won't appear in the server Sent folder
+    /// (so Sent-enrichment can't surface its attachments). Skipped for Gmail/Outlook, which auto-save
+    /// (appending there would duplicate the message in the user's Sent mailbox).
+    private func saveCopyToSentIfNeeded(_ email: SwiftMail.Email, credentials: SMTPCredentials) async {
+        guard !credentials.preset.autosavesSentMail, let sentAppender else { return }
+        do {
+            try await sentAppender(email)
+        } catch {
+            print("[ComposeMailViewModel] append-to-Sent failed (non-fatal): \(error)")
         }
     }
 

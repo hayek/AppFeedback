@@ -7,8 +7,13 @@ import SwiftData
 final class MockIMAPClient: IMAPClientProtocol, @unchecked Sendable {
     var inboxResponses: [Result<[ParsedInboundMessage], Error>] = []
     var sentResponses: [Result<[ParsedInboundMessage], Error>] = []
+    var sentEnrichmentResponses: [Result<[ParsedInboundMessage], Error>] = []
     var inboxCallCount = 0
     var sentCallCount = 0
+    var sentEnrichmentCallCount = 0
+    /// Captures the messageIDs gate passed on the most recent enrichment call so tests can
+    /// assert it was driven by `outboundNeedingEnrichment`.
+    var lastEnrichMessageIDs: Set<String> = []
 
     func listInbox(sinceUID: UInt32, expectedUIDValidity: UInt32, fromAddresses: [String]) async throws -> InboxPollResult {
         inboxCallCount += 1
@@ -30,7 +35,18 @@ final class MockIMAPClient: IMAPClientProtocol, @unchecked Sendable {
         }
     }
 
-    func fetchAttachmentBytes(uid: UInt32, folder: String, partID: String) async throws -> Data {
+    func listSentForEnrichment(sinceDate: Date, messageIDs: Set<String>) async throws -> [ParsedInboundMessage] {
+        sentEnrichmentCallCount += 1
+        lastEnrichMessageIDs = messageIDs
+        guard !sentEnrichmentResponses.isEmpty else { return [] }
+        let result = sentEnrichmentResponses.removeFirst()
+        switch result {
+        case .success(let msgs): return msgs
+        case .failure(let err): throw err
+        }
+    }
+
+    func fetchAttachmentBytes(uid: UInt32, folder: String, partID: String, expectedUIDValidity: UInt32) async throws -> Data {
         Data()
     }
 
@@ -319,6 +335,121 @@ final class MailSyncCoordinatorTests: XCTestCase {
         XCTAssertEqual(MailSyncCoordinator.backoffSeconds(baseSeconds: 300, consecutiveFailures: 1000), 300)
     }
 
+    // MARK: - Test 9: Sent enrichment upgrades the matching outbound row by Message-Id
+
+    @discardableResult
+    private func recordReply(_ store: MailThreadStore, _ messageID: String, accountID: UUID) -> MailMessage {
+        let m = store.recordOutbound(
+            messageID: messageID,
+            repoOwner: "o", repoName: "r", issueNumber: 7,
+            from: "me@example.com", fromName: "Me",
+            to: ["user@example.com"], cc: [],
+            subject: "Re: thing", bodyPlain: "see image", bodyHTML: nil,
+            date: Date(),
+            accountID: accountID,   // gate is account-scoped, so the row must carry the poller's account
+            replyHeaders: nil
+        )
+        m.sentAt = Date()   // the real send sets this on success; the gate requires it
+        return m
+    }
+
+    private func sentCopy(_ messageID: String, uid: UInt32, attachments: [ParsedAttachmentMeta]) -> ParsedInboundMessage {
+        ParsedInboundMessage(
+            uid: uid, folder: "[Gmail]/Sent Mail", uidValidity: 100,
+            messageID: messageID, inReplyTo: nil, references: [],
+            fromAddress: "me@example.com", fromName: nil,
+            toAddresses: ["user@example.com"], ccAddresses: [],
+            date: Date(), subject: "Re: thing", bodyPlain: "", bodyHTML: nil,
+            attachments: attachments
+        )
+    }
+
+    private func fetch(_ context: ModelContext, _ messageID: String) throws -> MailMessage? {
+        try context.fetch(FetchDescriptor<MailMessage>(predicate: #Predicate { $0.messageID == messageID })).first
+    }
+
+    func test_sentEnrichment_upgradesOutboundRow() async throws {
+        let context = try makeContext()
+        let mock = MockIMAPClient()
+        let env = makeCoordinator(mock: mock, context: context)
+        let mid = "<af~o~r~7~deadbeef@app-feedback.local>"
+        recordReply(env.threadStore, mid, accountID: env.accountStore.accounts.first!.id)
+        let copy = sentCopy(mid, uid: 10, attachments: [
+            ParsedAttachmentMeta(partID: "2", filename: "shot.png", mimeType: "image/png", sizeBytes: 1024, contentID: "<cid@x>")
+        ])
+        mock.sentEnrichmentResponses = [.success([copy])]
+
+        await env.coordinator.pollNow()
+
+        let msg = try XCTUnwrap(fetch(context, mid))
+        XCTAssertEqual(msg.uid, 10)
+        XCTAssertEqual(msg.folder, "[Gmail]/Sent Mail")
+        XCTAssertEqual(msg.uidValidity, 100, "enrichment stamps the Sent folder's UIDVALIDITY for stale-uid detection")
+        XCTAssertEqual((msg.attachments ?? []).count, 1)
+        XCTAssertTrue(mock.lastEnrichMessageIDs.contains(mid), "enrichment must be gated by outboundNeedingEnrichment")
+    }
+
+    // MARK: - Test 10: steady state skips the Sent folder once nothing needs enriching
+
+    func test_sentEnrichment_skipsSentFolder_onceNothingNeedsEnrichment() async throws {
+        let context = try makeContext()
+        let mock = MockIMAPClient()
+        let env = makeCoordinator(mock: mock, context: context)
+        let mid = "<af~o~r~7~beef@app-feedback.local>"
+        recordReply(env.threadStore, mid, accountID: env.accountStore.accounts.first!.id)
+        let copy = sentCopy(mid, uid: 10, attachments: [
+            ParsedAttachmentMeta(partID: "2", filename: "s.png", mimeType: "image/png", sizeBytes: 1, contentID: "<c@x>")
+        ])
+        mock.sentEnrichmentResponses = [.success([copy])]
+
+        await env.coordinator.pollNow()   // enriches; now nothing needs enrichment
+        await env.coordinator.pollNow()   // must skip the Sent folder entirely
+
+        XCTAssertEqual(mock.sentEnrichmentCallCount, 1, "Once enriched, the Sent folder must not be scanned again")
+        XCTAssertEqual((try fetch(context, mid)?.attachments ?? []).count, 1, "No duplicate attachment rows across polls")
+    }
+
+    // MARK: - Test 11: a Sent-enrichment failure is isolated from the inbox poll
+
+    func test_sentEnrichment_errorIsIsolated_fromInboxPoll() async throws {
+        struct SentError: Error {}
+        let context = try makeContext()
+        let mock = MockIMAPClient()
+        let env = makeCoordinator(mock: mock, context: context)
+        let mid = "<af~o~r~7~err@app-feedback.local>"
+        recordReply(env.threadStore, mid, accountID: env.accountStore.accounts.first!.id)
+        mock.sentEnrichmentResponses = [.failure(SentError())]
+
+        await env.coordinator.pollNow()
+
+        let accountID = env.accountStore.accounts.first!.id
+        let ls = try XCTUnwrap(env.localStateStore.state(accountID: accountID))
+        XCTAssertEqual(ls.consecutiveFailures, 0, "A Sent-enrichment failure must not count against the inbox poll")
+        XCTAssertEqual(try fetch(context, mid)?.uid, 0, "Message must remain un-enriched after a Sent fetch failure")
+        let status = await env.coordinator.status
+        XCTAssertEqual(status, .idle, "Inbox poll succeeded, so the coordinator stays idle despite the Sent error")
+    }
+
+    // MARK: - Test 12: a non-empty gate that finds nothing still does the scan but enriches nothing
+
+    func test_sentEnrichment_unproductivePoll_enrichesNothing() async throws {
+        let context = try makeContext()
+        let mock = MockIMAPClient()
+        let env = makeCoordinator(mock: mock, context: context)
+        let mid = "<af~o~r~7~notfiled@app-feedback.local>"
+        recordReply(env.threadStore, mid, accountID: env.accountStore.accounts.first!.id)
+        // Gate is non-empty (recent, sent, uid==0) but the Sent copy isn't filed yet → no match.
+        mock.sentEnrichmentResponses = [.success([])]
+
+        await env.coordinator.pollNow()
+
+        XCTAssertEqual(mock.sentEnrichmentCallCount, 1, "Gate was non-empty, so the Sent folder was scanned")
+        XCTAssertEqual(try fetch(context, mid)?.uid, 0, "An unfound reply stays un-enriched and is retried next pass")
+        // Version stability across an unproductive batch is asserted deterministically at the store
+        // level in MailThreadStoreTests.test_withBatch_noOpDoesNotBumpVersion (free of the async
+        // NSPersistentStoreRemoteChange bumps that a coordinator-level poll would introduce).
+    }
+
     // MARK: - Helpers
 
     private func accountStore(in context: ModelContext) -> MailAccount? {
@@ -367,6 +498,7 @@ actor SlowMockIMAPClient: IMAPClientProtocol {
     }
 
     func listSent(sinceDate: Date) async throws -> [ParsedInboundMessage] { [] }
-    func fetchAttachmentBytes(uid: UInt32, folder: String, partID: String) async throws -> Data { Data() }
+    func listSentForEnrichment(sinceDate: Date, messageIDs: Set<String>) async throws -> [ParsedInboundMessage] { [] }
+    func fetchAttachmentBytes(uid: UInt32, folder: String, partID: String, expectedUIDValidity: UInt32) async throws -> Data { Data() }
     func testConnection() async throws { }
 }

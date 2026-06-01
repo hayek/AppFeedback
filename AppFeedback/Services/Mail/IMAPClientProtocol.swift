@@ -27,8 +27,19 @@ protocol IMAPClientProtocol: Sendable {
     /// Returns messages from the Sent folder with an internal date on or after `sinceDate`.
     func listSent(sinceDate: Date) async throws -> [ParsedInboundMessage]
 
-    /// Lazily fetches raw bytes for a single attachment part.
-    func fetchAttachmentBytes(uid: UInt32, folder: String, partID: String) async throws -> Data
+    /// Finds each Sent-folder message whose Message-Id is in `messageIDs` (scoped to messages with
+    /// a Date: header on or after `sinceDate` so the server-side search stays cheap) and returns it
+    /// parsed with full attachment structure (no body). Used to enrich locally-composed outbound
+    /// replies with the attachment metadata the recipient received, so the existing downloader can
+    /// fetch the bytes from the Sent folder. Message-Ids with no Sent copy are simply absent from
+    /// the result. Searching by exact Message-Id (not a UID watermark) means there is nothing to
+    /// strand: a still-needed reply is retried every pass until found or it ages out of the gate.
+    func listSentForEnrichment(sinceDate: Date, messageIDs: Set<String>) async throws -> [ParsedInboundMessage]
+
+    /// Lazily fetches raw bytes for a single attachment part. `expectedUIDValidity` (0 = unknown)
+    /// guards against a stale `uid` after the folder's UID space was reassigned; the implementation
+    /// throws rather than return bytes from an unrelated message.
+    func fetchAttachmentBytes(uid: UInt32, folder: String, partID: String, expectedUIDValidity: UInt32) async throws -> Data
 
     /// Opens, authenticates, and immediately disconnects — useful for the "Test Connection" button.
     func testConnection() async throws

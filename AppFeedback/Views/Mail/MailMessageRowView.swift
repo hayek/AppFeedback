@@ -30,7 +30,7 @@ struct MailMessageRowView: View {
     @State private var showFull: Bool = false
     @State private var stripped: HTMLSanitizer.StrippedBody = .init(cleaned: "", full: "")
 
-    private var attachments: [MailAttachment] { message.attachments ?? [] }
+    private var attachments: [MailAttachment] { message.dedupedAttachments }
     private var inlineImages: [MailAttachment] { attachments.filter(\.isInlineImage) }
     private var regularAttachments: [MailAttachment] { attachments.filter { !$0.isInlineImage } }
 
@@ -132,7 +132,9 @@ struct MailMessageRowView: View {
                     ForEach(inlineImages) { att in
                         MailAttachmentThumbnailView(
                             attachment: att,
+                            accountID: message.accountID,
                             uid: UInt32(max(0, message.uid)),
+                            uidValidity: UInt32(max(0, message.uidValidity)),
                             folder: message.folder,
                             folderBookmark: settingsStore.settings.attachmentFolderBookmark,
                             downloader: downloaderHolder?.downloader,
@@ -148,7 +150,9 @@ struct MailMessageRowView: View {
                 ForEach(regularAttachments) { attachment in
                     AttachmentChipView(
                         attachment: attachment,
+                        accountID: message.accountID,
                         uid: UInt32(max(0, message.uid)),
+                        uidValidity: UInt32(max(0, message.uidValidity)),
                         folder: message.folder,
                         downloader: downloaderHolder?.downloader,
                         folderBookmark: settingsStore.settings.attachmentFolderBookmark
@@ -167,7 +171,9 @@ struct MailMessageRowView: View {
                 do {
                     let url = try await downloader.download(
                         messageID: att.messageID,
+                        accountID: message.accountID,
                         uid: UInt32(max(0, message.uid)),
+                        uidValidity: UInt32(max(0, message.uidValidity)),
                         folder: message.folder,
                         partID: att.partID,
                         filename: att.filename.isEmpty ? "inline-\(att.partID).img" : att.filename,

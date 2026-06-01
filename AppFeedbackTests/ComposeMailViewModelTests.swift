@@ -27,13 +27,13 @@ final class ComposeMailViewModelTests: XCTestCase {
         return MailSettingsStore(context: ModelContext(container))
     }
 
-    private func makeStore(configured: Bool = true) throws -> MailAccountStore {
+    private func makeStore(configured: Bool = true, preset: SMTPCredentials.Preset = .gmail) throws -> MailAccountStore {
         let config = ModelConfiguration(isStoredInMemoryOnly: true)
         let container = try ModelContainer(for: MailAccount.self, configurations: config)
         let store = MailAccountStore(context: ModelContext(container))
         if configured {
             _ = store.add { acc in
-                acc.presetRaw = SMTPCredentials.Preset.gmail.rawValue
+                acc.presetRaw = preset.rawValue
                 acc.smtpHost = "smtp.gmail.com"
                 acc.smtpPort = 587
                 acc.smtpUsername = "alice@gmail.com"
@@ -41,6 +41,12 @@ final class ComposeMailViewModelTests: XCTestCase {
             }
         }
         return store
+    }
+
+    /// Records how many times the injected Sent-appender was invoked.
+    actor AppendRecorder {
+        private(set) var count = 0
+        func record() { count += 1 }
     }
 
     private func makeIssue() -> FeedbackIssue {
@@ -81,6 +87,57 @@ final class ComposeMailViewModelTests: XCTestCase {
         XCTAssertEqual(sent[0].2, "test-secret")
         XCTAssertNotNil(sent[0].0.messageID, "outbound mail must have a stamped Message-ID")
         XCTAssertEqual(log.entries.first?.status, .success)
+    }
+
+    // MARK: - Save-to-Sent (IMAP APPEND)
+
+    func test_autosavesSentMail_perPreset() {
+        XCTAssertTrue(SMTPCredentials.Preset.gmail.autosavesSentMail)
+        XCTAssertTrue(SMTPCredentials.Preset.outlook.autosavesSentMail)
+        XCTAssertFalse(SMTPCredentials.Preset.icloud.autosavesSentMail)
+        XCTAssertFalse(SMTPCredentials.Preset.custom.autosavesSentMail)
+    }
+
+    func test_send_appendsToSent_forICloud() async throws {
+        let store = try makeStore(preset: .icloud)
+        let acc = try XCTUnwrap(store.defaultSender)
+        let recorder = AppendRecorder()
+        let vm = ComposeMailViewModel(
+            recipient: "bob@example.com", issue: makeIssue(),
+            repoOwner: "o", repoName: "r",
+            store: store, settingsStore: try makeSettingsStore(),
+            sender: FakeSender(), activityLog: ActivityLog(persistenceURL: nil),
+            senderAccountID: acc.id,
+            passwordLoader: { _ in "secret" },
+            sentAppender: { @Sendable _ in await recorder.record() }
+        )
+        vm.subject = "Hi"; vm.body = NSAttributedString(string: "Body")
+
+        await vm.send()
+
+        let count = await recorder.count
+        XCTAssertEqual(count, 1, "iCloud (no server auto-save) should append a copy to the Sent folder")
+    }
+
+    func test_send_skipsAppendToSent_forGmail() async throws {
+        let store = try makeStore(preset: .gmail)
+        let acc = try XCTUnwrap(store.defaultSender)
+        let recorder = AppendRecorder()
+        let vm = ComposeMailViewModel(
+            recipient: "bob@example.com", issue: makeIssue(),
+            repoOwner: "o", repoName: "r",
+            store: store, settingsStore: try makeSettingsStore(),
+            sender: FakeSender(), activityLog: ActivityLog(persistenceURL: nil),
+            senderAccountID: acc.id,
+            passwordLoader: { _ in "secret" },
+            sentAppender: { @Sendable _ in await recorder.record() }
+        )
+        vm.subject = "Hi"; vm.body = NSAttributedString(string: "Body")
+
+        await vm.send()
+
+        let count = await recorder.count
+        XCTAssertEqual(count, 0, "Gmail auto-saves SMTP sends, so the app must not append (would duplicate)")
     }
 
     func test_send_failureLogsFailureWithDetail() async throws {

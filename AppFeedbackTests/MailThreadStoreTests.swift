@@ -390,4 +390,184 @@ final class MailThreadStoreTests: XCTestCase {
         XCTAssertGreaterThan(store.version, baseline,
             "Remote store change should bump version so observers re-fetch")
     }
+
+    // MARK: - Sent enrichment: upgradeOutbound + outboundNeedingEnrichment
+
+    private func fetchMessage(_ context: ModelContext, _ messageID: String) throws -> MailMessage? {
+        try context.fetch(FetchDescriptor<MailMessage>(
+            predicate: #Predicate { $0.messageID == messageID }
+        )).first
+    }
+
+    @discardableResult
+    private func recordAppOutbound(
+        _ store: MailThreadStore,
+        _ messageID: String,
+        sentAt: Date? = Date(),
+        date: Date = Date(),
+        accountID: UUID? = nil
+    ) -> MailMessage {
+        let m = store.recordOutbound(
+            messageID: messageID,
+            repoOwner: "o", repoName: "r", issueNumber: 7,
+            from: "me@example.com", fromName: "Me",
+            to: ["user@example.com"], cc: [],
+            subject: "Re: thing", bodyPlain: "see image", bodyHTML: nil,
+            date: date,
+            accountID: accountID,
+            replyHeaders: nil
+        )
+        m.sentAt = sentAt   // recordOutbound leaves this nil; the real send sets it on success
+        return m
+    }
+
+    func test_upgradeOutbound_stampsIdentityAndInsertsAttachments() throws {
+        let context = try makeContext()
+        let store = MailThreadStore(context: context)
+        let mid = "<af~o~r~7~abc@app-feedback.local>"
+        recordAppOutbound(store, mid)
+
+        let metas = [
+            ParsedAttachmentMeta(partID: "2", filename: "shot.png", mimeType: "image/png", sizeBytes: 1024, contentID: "<cid@x>"),
+            ParsedAttachmentMeta(partID: "3", filename: "doc.pdf", mimeType: "application/pdf", sizeBytes: 2048)
+        ]
+        let changed = store.upgradeOutbound(messageID: mid, uid: 42, folder: "[Gmail]/Sent Mail", attachments: metas, accountID: nil)
+        XCTAssertTrue(changed)
+
+        let msg = try XCTUnwrap(fetchMessage(context, mid))
+        XCTAssertEqual(msg.uid, 42)
+        XCTAssertEqual(msg.folder, "[Gmail]/Sent Mail")
+        XCTAssertEqual((msg.attachments ?? []).count, 2)
+        let png = try XCTUnwrap((msg.attachments ?? []).first { $0.partID == "2" })
+        XCTAssertTrue(png.isInlineImage, "image with a contentID should render as an inline thumbnail")
+    }
+
+    func test_upgradeOutbound_idempotentReCall_insertsNothing_noVersionBump() throws {
+        let context = try makeContext()
+        let store = MailThreadStore(context: context)
+        let mid = "<af~o~r~7~abc@app-feedback.local>"
+        recordAppOutbound(store, mid)
+        let metas = [ParsedAttachmentMeta(partID: "2", filename: "shot.png", mimeType: "image/png", sizeBytes: 1024, contentID: "<cid@x>")]
+
+        XCTAssertTrue(store.upgradeOutbound(messageID: mid, uid: 42, folder: "Sent", attachments: metas, accountID: nil))
+        let versionAfterFirst = store.version
+
+        let changedAgain = store.upgradeOutbound(messageID: mid, uid: 42, folder: "Sent", attachments: metas, accountID: nil)
+        XCTAssertFalse(changedAgain, "Re-enriching with the same data must be a no-op")
+        XCTAssertEqual(store.version, versionAfterFirst, "A no-op upgrade must not bump version / push to CloudKit")
+        XCTAssertEqual((try fetchMessage(context, mid)?.attachments ?? []).count, 1, "Must not duplicate the attachment row")
+    }
+
+    func test_upgradeOutbound_neverDowngradesStampedIdentity() throws {
+        let context = try makeContext()
+        let store = MailThreadStore(context: context)
+        let mid = "<af~o~r~7~abc@app-feedback.local>"
+        recordAppOutbound(store, mid)
+        _ = store.upgradeOutbound(messageID: mid, uid: 42, folder: "Sent", attachments: [], accountID: nil)
+
+        // A later call with no server identity must not wipe the stamped uid/folder.
+        _ = store.upgradeOutbound(messageID: mid, uid: 0, folder: "", attachments: [], accountID: nil)
+        let msg = try XCTUnwrap(fetchMessage(context, mid))
+        XCTAssertEqual(msg.uid, 42)
+        XCTAssertEqual(msg.folder, "Sent")
+    }
+
+    func test_upgradeOutbound_returnsFalseForInboundAndUnknown() throws {
+        let context = try makeContext()
+        let store = MailThreadStore(context: context)
+        // Unknown messageID
+        XCTAssertFalse(store.upgradeOutbound(messageID: "<nope@x>", uid: 1, folder: "Sent", attachments: [], accountID: nil))
+        // Inbound message must never be treated as outbound
+        _ = store.recordInbound(message: makeParsed(messageID: "<in@example.com>"))
+        XCTAssertFalse(store.upgradeOutbound(messageID: "<in@example.com>", uid: 1, folder: "Sent", attachments: [], accountID: nil))
+    }
+
+    func test_outboundNeedingEnrichment_returnsOnlyUnstampedSentRecentAppOutbound() throws {
+        let context = try makeContext()
+        let store = MailThreadStore(context: context)
+        let since = Date().addingTimeInterval(-3600)   // 1-hour window
+        let acct = UUID()
+        let otherAcct = UUID()
+
+        let unstamped = "<af~o~r~7~unstamped@app-feedback.local>"
+        let stamped = "<af~o~r~7~stamped@app-feedback.local>"
+        let foreign = "<someone@gmail.com>"                          // not app-composed
+        let failed = "<af~o~r~7~failed@app-feedback.local>"          // never sent
+        let aged = "<af~o~r~7~aged@app-feedback.local>"              // older than the window
+        let otherAccount = "<af~o~r~7~other@app-feedback.local>"     // a different account's reply
+        recordAppOutbound(store, unstamped, accountID: acct)
+        recordAppOutbound(store, stamped, accountID: acct)
+        recordAppOutbound(store, foreign, accountID: acct)
+        recordAppOutbound(store, failed, sentAt: nil, accountID: acct)
+        recordAppOutbound(store, aged, date: Date().addingTimeInterval(-7200), accountID: acct)
+        recordAppOutbound(store, otherAccount, accountID: otherAcct)
+        _ = store.upgradeOutbound(messageID: stamped, uid: 5, folder: "Sent", attachments: [], accountID: acct)
+
+        let needing = store.outboundNeedingEnrichment(since: since, accountID: acct)
+        XCTAssertTrue(needing.contains(unstamped), "sent, recent, unstamped app reply needs enrichment")
+        XCTAssertFalse(needing.contains(stamped), "already-stamped (uid>0) reply must drop out")
+        XCTAssertFalse(needing.contains(foreign), "non-app-domain message must be ignored")
+        XCTAssertFalse(needing.contains(failed), "a never-sent (sentAt==nil) row has no Sent copy — must be excluded")
+        XCTAssertFalse(needing.contains(aged), "a reply older than the window must stop forcing a Sent scan")
+        XCTAssertFalse(needing.contains(otherAccount), "another account's reply must not appear in this account's gate")
+    }
+
+    func test_dedupedAttachments_collapsesDuplicatePartIDs() throws {
+        let context = try makeContext()
+        let msg = MailMessage(messageID: "<x@app-feedback.local>", directionRaw: MailMessage.Direction.outbound.rawValue)
+        context.insert(msg)
+        // Simulate a CloudKit cross-device duplicate: two rows, same partID.
+        context.insert(MailAttachment(messageID: msg.messageID, partID: "2", filename: "a.png", mimeType: "image/png", sizeBytes: 1, message: msg))
+        context.insert(MailAttachment(messageID: msg.messageID, partID: "2", filename: "a.png", mimeType: "image/png", sizeBytes: 1, message: msg))
+        XCTAssertEqual((msg.attachments ?? []).count, 2)
+        XCTAssertEqual(msg.dedupedAttachments.count, 1, "duplicate partIDs collapse at read time")
+    }
+
+    func test_markSent_persistsSentAtAndBumpsVersion() throws {
+        let context = try makeContext()
+        let store = MailThreadStore(context: context)
+        let mid = "<af~o~r~7~marksent@app-feedback.local>"
+        _ = store.recordOutbound(
+            messageID: mid, repoOwner: "o", repoName: "r", issueNumber: 7,
+            from: "me@example.com", fromName: "Me", to: ["user@example.com"], cc: [],
+            subject: "Re: thing", bodyPlain: "x", bodyHTML: nil, date: Date(), replyHeaders: nil
+        )
+        XCTAssertNil(try fetchMessage(context, mid)?.sentAt, "recordOutbound leaves sentAt nil")
+        let v = store.version
+
+        store.markSent(messageID: mid)
+        XCTAssertNotNil(try fetchMessage(context, mid)?.sentAt, "markSent must persist sentAt (commitChange → save)")
+        XCTAssertGreaterThan(store.version, v, "markSent must bump version so the Sent badge updates")
+
+        // Idempotent: re-marking leaves the timestamp and version untouched.
+        let firstSentAt = try XCTUnwrap(fetchMessage(context, mid)?.sentAt)
+        let v2 = store.version
+        store.markSent(messageID: mid)
+        XCTAssertEqual(try fetchMessage(context, mid)?.sentAt, firstSentAt, "re-marking must not move the timestamp")
+        XCTAssertEqual(store.version, v2, "idempotent markSent must not bump version")
+    }
+
+    func test_withBatch_noOpDoesNotBumpVersion() throws {
+        let context = try makeContext()
+        let store = MailThreadStore(context: context)
+        let v = store.version
+        // A batch whose body requests no commit (e.g. a Sent-enrichment poll whose replies aren't
+        // filed in Sent yet) must not save / bump version / drop caches — otherwise every poll
+        // forces redundant UI re-fetches while a reply awaits its Sent copy.
+        store.withBatch {
+            _ = store.upgradeOutbound(messageID: "<absent@app-feedback.local>", uid: 9, folder: "Sent", attachments: [], accountID: nil)
+        }
+        XCTAssertEqual(store.version, v, "A no-op batch must not bump version")
+
+        // A productive batch bumps exactly once.
+        let mid = "<af~o~r~7~prod@app-feedback.local>"
+        recordAppOutbound(store, mid)
+        let v2 = store.version
+        store.withBatch {
+            _ = store.upgradeOutbound(messageID: mid, uid: 7, folder: "Sent", attachments: [
+                ParsedAttachmentMeta(partID: "2", filename: "s.png", mimeType: "image/png", sizeBytes: 1)
+            ], accountID: nil)
+        }
+        XCTAssertEqual(store.version, v2 + 1, "A batch that changes a row must bump version exactly once")
+    }
 }

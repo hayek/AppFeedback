@@ -20,6 +20,9 @@ final class MailMessage {
     var uid: Int = 0
     /// IMAP folder name (e.g. "INBOX"). Empty for outbound messages.
     var folder: String = ""
+    /// UIDVALIDITY of the folder `uid` belongs to. 0 when unknown. Guards attachment downloads
+    /// against a stale `uid` after the mailbox's UID space is reassigned (recreated/restored).
+    var uidValidity: Int = 0
     /// Numeric ID of the GitHub issue comment that mirrors this email, if any. Set after
     /// `MailToGitHubMirror` posts the comment; nil means "not mirrored yet" (or feature off
     /// for the repo). Used as the dedupe key so each poll cycle doesn't re-post inbound replies.
@@ -48,6 +51,17 @@ final class MailMessage {
         references.isEmpty ? [] : references.split(separator: "\n").map(String.init)
     }
 
+    /// Attachments with duplicate `partID`s collapsed. CloudKit can sync the same message's
+    /// attachment row from more than one device (no unique constraint on relationship children),
+    /// so the UI dedupes at read time — mirroring `MailThread.sortedDedupedMessages`.
+    var dedupedAttachments: [MailAttachment] {
+        var seen: Set<String> = []
+        return (attachments ?? []).filter { att in
+            guard !att.partID.isEmpty else { return true }
+            return seen.insert(att.partID).inserted
+        }
+    }
+
     var headers: MailMessageHeaders {
         MailMessageHeaders(messageID: messageID, inReplyTo: inReplyTo, references: referencesAsArray)
     }
@@ -68,6 +82,7 @@ final class MailMessage {
         directionRaw: String = Direction.outbound.rawValue,
         uid: Int = 0,
         folder: String = "",
+        uidValidity: Int = 0,
         sentAt: Date? = nil,
         accountID: UUID? = nil,
         thread: MailThread? = nil,
@@ -88,6 +103,7 @@ final class MailMessage {
         self.directionRaw = directionRaw
         self.uid = uid
         self.folder = folder
+        self.uidValidity = uidValidity
         self.sentAt = sentAt
         self.accountID = accountID
         self.thread = thread

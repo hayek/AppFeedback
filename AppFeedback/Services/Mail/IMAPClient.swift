@@ -197,12 +197,85 @@ actor IMAPClient: IMAPClientProtocol {
         }
     }
 
-    func fetchAttachmentBytes(uid: UInt32, folder: String, partID: String) async throws -> Data {
+    func listSentForEnrichment(sinceDate: Date, messageIDs: Set<String>) async throws -> [ParsedInboundMessage] {
+        guard !messageIDs.isEmpty else { return [] }
+        let tag = "[IMAPClient \(username)]"
         let server = IMAPServer(host: host, port: port)
         try await connectAndLogin(server)
         defer { Task.detached { try? await server.disconnect() } }
 
-        try await mapped { _ = try await server.selectMailbox(folder) }
+        // Discover + select the Sent folder (same special-use + name fallback as listSent).
+        let mailboxes = try await mapped { try await server.listMailboxes() }
+        guard let sentMailbox = mailboxes.sent else {
+            throw IMAPClientError.malformed(detail: "No Sent folder found on server")
+        }
+        let folder = sentMailbox.name
+        let selection = try await mapped { try await server.selectMailbox(folder) }
+        let uidValidity = selection.uidValidity.value
+
+        // Find each needed reply by its exact Message-Id. There is no UID watermark to advance and
+        // nothing to strand: a message not yet filed (or transiently failing) is simply retried on
+        // the next pass while it remains in the gate. AND with sentSince so the server scopes the
+        // HEADER search to recent mail instead of the whole Sent folder.
+        var enriched: [ParsedInboundMessage] = []
+        for messageID in messageIDs {
+            // HEADER search is a substring match; the bare addr-spec (no angle brackets) is unique
+            // and sidesteps bracket-encoding quirks across servers.
+            let needle = messageID.trimmingCharacters(in: CharacterSet(charactersIn: "<>"))
+            do {
+                let hits: MessageIdentifierSet<UID> = try await mapped {
+                    try await server.search(criteria: [.sentSince(sinceDate), .header("Message-ID", needle)])
+                }
+                guard let uid = hits.toArray().max(by: { $0.value < $1.value }) else { continue }
+                let infos = try await mapped {
+                    try await server.fetchMessageInfosBulk(using: MessageIdentifierSet<UID>([uid]))
+                }
+                guard let info = infos.first else { continue }
+                enriched.append(try await fetchStructureOnly(server: server, info: info, folder: folder, uidValidity: uidValidity))
+            } catch is CancellationError {
+                throw IMAPClientError.cancelled
+            } catch IMAPClientError.cancelled {
+                // `mapped` converts a CancellationError from search/fetch into this; propagate it so
+                // a cancelled poll stops issuing round-trips for the remaining Message-Ids.
+                throw IMAPClientError.cancelled
+            } catch {
+                print("\(tag) Sent enrich skip \(messageID): \(error)")
+            }
+        }
+        print("\(tag) listSentForEnrichment: requested \(messageIDs.count), enriched \(enriched.count)")
+        return enriched
+    }
+
+    /// Appends an already-sent message to the Sent folder (IMAP APPEND), flagged `\Seen`. Used for
+    /// providers whose SMTP submission does NOT auto-file a copy (iCloud, generic IMAP) so the reply
+    /// appears in the user's real Sent mailbox AND its Message-Id can later be found by Sent
+    /// enrichment to surface attachments.
+    func appendToSent(_ email: SwiftMail.Email) async throws {
+        let server = IMAPServer(host: host, port: port)
+        try await connectAndLogin(server)
+        defer { Task.detached { try? await server.disconnect() } }
+
+        let mailboxes = try await mapped { try await server.listMailboxes() }
+        guard let sentMailbox = mailboxes.sent else {
+            throw IMAPClientError.malformed(detail: "No Sent folder found on server")
+        }
+        _ = try await mapped { try await server.append(email: email, to: sentMailbox.name, flags: [.seen]) }
+    }
+
+    func fetchAttachmentBytes(uid: UInt32, folder: String, partID: String, expectedUIDValidity: UInt32) async throws -> Data {
+        let server = IMAPServer(host: host, port: port)
+        try await connectAndLogin(server)
+        defer { Task.detached { try? await server.disconnect() } }
+
+        let selection = try await mapped { try await server.selectMailbox(folder) }
+        // Reject a stale uid: if the folder's UID space was reassigned since this message was
+        // recorded, `uid` now points at a different (or no) message — fetching would return the
+        // wrong bytes silently. 0 means "unknown", so we skip the check (legacy/local rows).
+        if expectedUIDValidity != 0 && selection.uidValidity.value != expectedUIDValidity {
+            throw IMAPClientError.malformed(
+                detail: "UIDVALIDITY changed for \(folder) (\(expectedUIDValidity) → \(selection.uidValidity.value)); uid \(uid) is stale"
+            )
+        }
 
         // BODYSTRUCTURE first so we know the part's Content-Transfer-Encoding. Without
         // this, base64-encoded binary parts (the common case for images) get written to
@@ -346,6 +419,30 @@ actor IMAPClient: IMAPClientProtocol {
         )
     }
 
+    /// Like `fetchAndParse` but fetches ONLY the BODYSTRUCTURE (no text-body part fetches) — used
+    /// by Sent enrichment, which needs attachment metadata + uid/folder but not the body (the
+    /// locally-composed outbound row already has it). Saves the N per-message text-part round-trips.
+    private func fetchStructureOnly(
+        server: IMAPServer,
+        info: MessageInfo,
+        folder: String,
+        uidValidity: UInt32
+    ) async throws -> ParsedInboundMessage {
+        guard let uid = info.uid else {
+            throw IMAPClientError.malformed(detail: "MessageInfo has no UID")
+        }
+        let structure = try await server.fetchStructure(uid)
+        let attachments = Self.classifyAttachments(in: structure)
+        return Self.parse(
+            info: info,
+            folder: folder,
+            uidValidity: uidValidity,
+            bodyPlain: "",
+            bodyHTML: nil,
+            attachments: attachments
+        )
+    }
+
     // MARK: - Static attachment classifier
     //
     // Promoted to a named static function so it can be exercised directly in unit tests
@@ -361,6 +458,14 @@ actor IMAPClient: IMAPClientProtocol {
         structure.compactMap { part -> ParsedAttachmentMeta? in
             let ct = part.contentType.lowercased()
             let disp = part.disposition?.lowercased()
+            // The message's own text body part(s) are not attachments. Outlook/Exchange stamp the
+            // HTML body with a Content-ID and a `name` and omit an "inline" disposition, which would
+            // otherwise trip `hasFileNotInline` below and surface the body itself as a bogus chip.
+            // Mirror `fetchAndParse`'s body selection: a text/plain or text/html part is the body
+            // unless it is explicitly Content-Disposition: attachment.
+            if (ct.hasPrefix("text/plain") || ct.hasPrefix("text/html")) && disp != "attachment" {
+                return nil
+            }
             let hasFilename = !(part.filename?.isEmpty ?? true)
             let isExplicitAttachment = disp == "attachment"
             let hasFileNotInline = hasFilename && disp != "inline"
@@ -389,6 +494,14 @@ actor IMAPClient: IMAPClientProtocol {
     // Kept `static` so that it CAN be called with synthetic SwiftMail values in future unit tests
     // without needing a live actor / live network connection.
 
+    /// Derives a message's stable Message-ID — server value verbatim, or a synthetic UID-based
+    /// ID when the server omits one. Extracted so callers that match against locally-stored
+    /// Message-IDs (the Sent enrichment gate) use byte-for-byte identical logic to `parse`.
+    static func messageID(for info: MessageInfo, uidValidity: UInt32) -> String {
+        if let mid = info.messageId { return mid.description }
+        return MessageIDGenerator.synthesize(uid: info.uid?.value ?? 0, uidValidity: uidValidity)
+    }
+
     static func parse(
         info: MessageInfo,
         folder: String,
@@ -398,14 +511,7 @@ actor IMAPClient: IMAPClientProtocol {
         attachments: [ParsedAttachmentMeta]
     ) -> ParsedInboundMessage {
         let uid = info.uid?.value ?? 0
-
-        // Synthesise a Message-ID when the server didn't provide one
-        let messageID: String
-        if let mid = info.messageId {
-            messageID = mid.description
-        } else {
-            messageID = MessageIDGenerator.synthesize(uid: uid, uidValidity: uidValidity)
-        }
+        let messageID = Self.messageID(for: info, uidValidity: uidValidity)
 
         let inReplyTo = info.inReplyTo.map { $0.description }
         let references = info.references?.map { $0.description } ?? []

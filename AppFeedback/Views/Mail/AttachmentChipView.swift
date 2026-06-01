@@ -6,7 +6,9 @@ import AppKit
 struct AttachmentChipView: View {
     let attachment: MailAttachment
     let uid: UInt32
+    let uidValidity: UInt32
     let folder: String
+    let accountID: UUID?
     let downloader: AttachmentDownloader?
     let folderBookmark: Data?
 
@@ -27,9 +29,11 @@ struct AttachmentChipView: View {
 
     // MARK: - Inits
 
-    init(attachment: MailAttachment, uid: UInt32, folder: String, downloader: AttachmentDownloader?, folderBookmark: Data?) {
+    init(attachment: MailAttachment, accountID: UUID?, uid: UInt32, uidValidity: UInt32, folder: String, downloader: AttachmentDownloader?, folderBookmark: Data?) {
         self.attachment = attachment
+        self.accountID = accountID
         self.uid = uid
+        self.uidValidity = uidValidity
         self.folder = folder
         self.downloader = downloader
         self.folderBookmark = folderBookmark
@@ -45,7 +49,9 @@ struct AttachmentChipView: View {
             mimeType: feedbackAttachment.mimeType,
             sizeBytes: feedbackAttachment.sizeBytes ?? 0
         )
+        self.accountID = nil
         self.uid = 0
+        self.uidValidity = 0
         self.folder = ""
         self.downloader = nil
         self.folderBookmark = nil
@@ -107,7 +113,9 @@ struct AttachmentChipView: View {
             do {
                 let url = try await downloader.download(
                     messageID: attachment.messageID,
+                    accountID: accountID,
                     uid: uid,
+                    uidValidity: uidValidity,
                     folder: folder,
                     partID: attachment.partID,
                     filename: attachment.filename,
