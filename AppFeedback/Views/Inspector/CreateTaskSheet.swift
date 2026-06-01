@@ -11,8 +11,6 @@ struct CreateTaskSheet: View {
     @State private var status: TaskStatus = .todo
     @State private var priority: TaskPriority = .med
     @State private var selectedVersionID: UUID?
-    @State private var working = false
-    @State private var errorMessage: String?
     private let service = TaskService()
 
     var body: some View {
@@ -94,11 +92,6 @@ struct CreateTaskSheet: View {
                         .menuIndicator(.hidden)
                     }
 
-                    if let errorMessage {
-                        Label(errorMessage, systemImage: "exclamationmark.triangle.fill")
-                            .font(.footnote)
-                            .foregroundStyle(.red)
-                    }
                 }
                 .padding(20)
             }
@@ -111,7 +104,7 @@ struct CreateTaskSheet: View {
                 ToolbarItem(placement: .confirmationAction) {
                     Button("Create") { create() }
                         .fontWeight(.semibold)
-                        .disabled(title.trimmingCharacters(in: .whitespaces).isEmpty || working)
+                        .disabled(title.trimmingCharacters(in: .whitespaces).isEmpty)
                 }
             }
         }
