@@ -482,6 +482,44 @@ final class IssueListViewModel {
         downloadApprovalTick &+= 1
     }
 
+    /// Marks a `detected`→`target` pair as needing a user-approved download. Called by
+    /// the host when availability reports `.supported` for a pair the user hasn't approved.
+    func markFallbackNeedsDownload(detected: String, target: String) {
+        pairsNeedingDownload.insert(LanguagePair(detected: detected, target: target))
+    }
+
+    /// The source-language display name to prompt the user to download for `issue`, or
+    /// nil if it isn't gated on a download (no pending request, or already approved).
+    func needsLanguageDownload(_ issue: FeedbackIssue) -> String? {
+        guard let req = pendingFallbacks.first(where: { $0.issueNumber == issue.number }) else { return nil }
+        let pair = LanguagePair(detected: req.detected, target: req.target)
+        guard pairsNeedingDownload.contains(pair) else { return nil }
+        return Locale.current.localizedString(forLanguageCode: req.detected) ?? req.detected
+    }
+
+    /// Convenience for the card: resolves `issue` to its pending pair and approves it.
+    func approveLanguageDownload(for issue: FeedbackIssue) {
+        guard let req = pendingFallbacks.first(where: { $0.issueNumber == issue.number }) else { return }
+        approveLanguageDownload(detected: req.detected, target: req.target)
+    }
+
+    /// Re-gates a previously-approved pair — used when the user dismissed the system
+    /// download sheet without downloading, so the inline prompt reappears.
+    func regateDownload(detected: String, target: String) {
+        let pair = LanguagePair(detected: detected, target: target)
+        approvedDownloadPairs.remove(pair)
+        pairsNeedingDownload.insert(pair)
+    }
+
+    /// The first pending fallback eligible to pump now: one whose pair is not currently
+    /// gated awaiting a download. Approving a pair removes it from `pairsNeedingDownload`,
+    /// so approved pairs are eligible again.
+    func nextPumpableFallback() -> FallbackRequest? {
+        pendingFallbacks.first { req in
+            !pairsNeedingDownload.contains(LanguagePair(detected: req.detected, target: req.target))
+        }
+    }
+
     /// Removes a single fallback request without blacklisting its language.
     /// Used when the Translation framework threw a transient error (network,
     /// cancellation) so the queue can keep draining without poisoning the
