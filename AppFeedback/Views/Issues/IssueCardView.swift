@@ -93,6 +93,18 @@ struct IssueCardView: View {
 
     private var translationVisible: Bool { issue.hasTranslation && !showOriginal }
 
+    /// Fractional width of the scroll fade on each edge of the tag row. Because the
+    /// gradient stops are fractional, the same value reads as a wider fade on the
+    /// roomier macOS card — so we tighten it there to keep the fade hugging the edge
+    /// the way it does on iOS.
+    private var tagFadeInset: CGFloat {
+        #if os(macOS)
+        0.015
+        #else
+        0.04
+        #endif
+    }
+
     /// True when the issue itself is unread, or any attached mail thread has an inbound
     /// reply the user hasn't viewed yet. Re-evaluates on `threadStore.version` changes.
     private var effectiveUnread: Bool {
@@ -324,8 +336,8 @@ struct IssueCardView: View {
                             LinearGradient(
                                 stops: [
                                     .init(color: .clear, location: 0.0),
-                                    .init(color: .black, location: 0.04),
-                                    .init(color: .black, location: 0.96),
+                                    .init(color: .black, location: tagFadeInset),
+                                    .init(color: .black, location: 1.0 - tagFadeInset),
                                     .init(color: .clear, location: 1.0)
                                 ],
                                 startPoint: .leading,
