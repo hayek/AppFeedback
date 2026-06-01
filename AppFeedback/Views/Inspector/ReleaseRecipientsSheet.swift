@@ -16,12 +16,29 @@ struct ReleaseRecipientsSheet: View {
     @State private var progress: (Int, Int)? = nil
     @State private var sending = false
 
+    private var feedbackTitles: [Int: String] {
+        Dictionary(feedback.map { ($0.number, $0.title) }, uniquingKeysWith: { a, _ in a })
+    }
+
     var body: some View {
         NavigationStack {
             Form {
                 Section("What's new") {
-                    TextField("Subject", text: $template.subject)
-                    TextField("Body", text: $template.body, axis: .vertical).lineLimit(6...18)
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text("Subject").font(.caption).foregroundStyle(.secondary)
+                        TextField("Subject", text: $template.subject)
+                            .labelsHidden()
+                            .multilineTextAlignment(.leading)
+                            .textFieldStyle(.roundedBorder)
+                    }
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text("Body").font(.caption).foregroundStyle(.secondary)
+                        TextField("Body", text: $template.body, axis: .vertical)
+                            .labelsHidden()
+                            .multilineTextAlignment(.leading)
+                            .textFieldStyle(.roundedBorder)
+                            .lineLimit(6...18)
+                    }
                     Text("Placeholders: {appName} {version} {whatsNew} {theirFeedbacks}")
                         .font(.caption2).foregroundStyle(.secondary)
                 }
@@ -37,8 +54,10 @@ struct ReleaseRecipientsSheet: View {
                         )) {
                             VStack(alignment: .leading) {
                                 Text(r.email)
-                                Text(r.feedbackNumbers.map { "#\($0)" }.joined(separator: " "))
-                                    .font(.caption2).foregroundStyle(.secondary)
+                                ForEach(r.feedbackNumbers, id: \.self) { n in
+                                    Text(feedbackTitles[n].map { "#\(n)  \($0)" } ?? "#\(n)")
+                                        .font(.caption2).foregroundStyle(.secondary)
+                                }
                                 if alreadySent.contains(r.email) {
                                     Text("Already emailed").font(.caption2).foregroundStyle(.orange)
                                 }
