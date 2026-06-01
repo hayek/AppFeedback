@@ -2,7 +2,6 @@ import SwiftUI
 
 struct CreateTaskSheet: View {
     let repo: RepoConfig
-    let feedbackNumbers: [Int]
     let versions: [ProjectVersion]
     var onCreated: () -> Void
 
@@ -95,18 +94,6 @@ struct CreateTaskSheet: View {
                         .menuIndicator(.hidden)
                     }
 
-                    if !feedbackNumbers.isEmpty {
-                        field("Addresses feedback") {
-                            HStack(spacing: 6) {
-                                Image(systemName: "link").font(.system(size: 11, weight: .semibold))
-                                    .foregroundStyle(.tertiary)
-                                Text(feedbackNumbers.map { "#\($0)" }.joined(separator: ", "))
-                                    .font(.subheadline)
-                                    .foregroundStyle(.secondary)
-                            }
-                        }
-                    }
-
                     if let errorMessage {
                         Label(errorMessage, systemImage: "exclamationmark.triangle.fill")
                             .font(.footnote)
@@ -146,11 +133,11 @@ struct CreateTaskSheet: View {
 
     private func create() {
         let milestone = versions.first { $0.id == selectedVersionID }?.milestoneNumber
-        let t = title, p = prose, s = status, pr = priority, refs = feedbackNumbers
+        let t = title, p = prose, s = status, pr = priority
         dismiss()
         Task {
             _ = try? await service.createTask(repo: repo, title: t, prose: p,
-                feedbackRefs: refs, status: s, priority: pr, milestoneNumber: milestone)
+                feedbackRefs: [], status: s, priority: pr, milestoneNumber: milestone)
             onCreated()   // refresh so the new task issue appears
         }
     }

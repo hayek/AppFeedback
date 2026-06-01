@@ -145,20 +145,11 @@ struct RootView: View {
         } message: {
             Text(taskWriteError ?? "")
         }
-        .onChange(of: viewModel.requestCreateTask) { _, want in
-            guard want else { return }
-            viewModel.requestCreateTask = false
-            showCreateTask = true
-        }
         .sheet(isPresented: $showCreateTask) {
             if let repo = store.repos.first(where: { $0.id == selection?.repoId }) {
                 CreateTaskSheet(repo: repo,
-                    feedbackNumbers: Array(viewModel.selectedFeedbackNumbers).sorted(),
                     versions: versionStore.versions(owner: repo.owner, repo: repo.repo),
-                    onCreated: {
-                        viewModel.clearSelection()
-                        Task { await refreshSelectedRepo() }
-                    })
+                    onCreated: { Task { await refreshSelectedRepo() } })
             }
         }
         .sheet(isPresented: $showCreateVersion) {
@@ -275,7 +266,7 @@ struct RootView: View {
             inspector: inspector,
             versionStore: versionStore,
             canEmail: mailAccountStore.defaultSender != nil,
-            onCreateTask: { viewModel.clearSelection(); showCreateTask = true },
+            onCreateTask: { showCreateTask = true },
             onCreateVersion: { showCreateVersion = true },
             onRelease: { startRelease($0) },
             onDeleteTask: { deleteTask($0) }
