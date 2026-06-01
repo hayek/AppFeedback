@@ -30,6 +30,8 @@ struct RootView: View {
     /// Serializes feedback-ref writes per task issue so two rapid attach/detach gestures on the
     /// same task can't race to a PATCH that lands out of order and drops a ref.
     @State private var refWriteChain: [Int: Task<Void, Never>] = [:]
+    /// Surfaces a failed attach/detach write so the optimistic tag doesn't just silently revert.
+    @State private var taskWriteError: String?
     @State private var showCreateVersion = false
     @State private var showCreateTask = false
     @State private var columnVisibility: NavigationSplitViewVisibility = .automatic
@@ -141,6 +143,14 @@ struct RootView: View {
         }
         .sheet(isPresented: $showAddRepo) {
             AddEditRepoView(store: store)
+        }
+        .alert("Couldn't update task", isPresented: Binding(
+            get: { taskWriteError != nil },
+            set: { if !$0 { taskWriteError = nil } }
+        )) {
+            Button("OK", role: .cancel) { taskWriteError = nil }
+        } message: {
+            Text(taskWriteError ?? "")
         }
         .onChange(of: viewModel.requestCreateTask) { _, want in
             guard want else { return }
@@ -380,6 +390,7 @@ struct RootView: View {
                 await refreshSelectedRepo()
             } catch {
                 if let previous { inspector.revertPending(number: task.number, to: previous) }
+                taskWriteError = "Task #\(task.number): \(error.localizedDescription)"
             }
         }
         refWriteChain[task.number] = job
