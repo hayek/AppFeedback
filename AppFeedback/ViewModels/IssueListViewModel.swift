@@ -233,7 +233,37 @@ final class IssueListViewModel {
         var id: UUID { requestID }
     }
 
+    /// A (source → target) translation language pair. Modeled in full (not just the
+    /// source) so a mid-session target switch is tracked correctly.
+    struct LanguagePair: Hashable {
+        let detected: String
+        let target: String
+    }
+
+    /// Framework-agnostic mirror of `Translation.LanguageAvailability.Status`, so the
+    /// gating decision can be unit-tested without the Translation framework.
+    enum LanguageDownloadState {
+        case installed     // both languages on-device; translate silently
+        case supported     // supported but not downloaded; needs a user-approved download
+        case unsupported   // not translatable at all
+    }
+
+    /// What the fallback host should do with a pending request given its pair's state.
+    enum FallbackPumpDecision: Equatable {
+        case proceed        // start the session (installed, or user approved the download)
+        case needsDownload  // gate: surface the inline download affordance, don't start yet
+        case unavailable    // drop/blacklist via handleFallbackUnavailable
+    }
+
     private(set) var pendingFallbacks: [FallbackRequest] = []
+    /// Pairs that are supported but not downloaded and are awaiting the user's tap.
+    /// Drives the per-issue "download to translate" affordance.
+    private(set) var pairsNeedingDownload: Set<LanguagePair> = []
+    /// Pairs the user explicitly approved downloading; lets `pumpDecision` proceed past
+    /// the `.supported` gate so the session starts and the system sheet appears.
+    private var approvedDownloadPairs: Set<LanguagePair> = []
+    /// Bumped on each approval so `TranslationFallbackHost` re-pumps the queue.
+    private(set) var downloadApprovalTick: Int = 0
 
     /// Issue numbers granted a one-shot bypass of `unsupportedSourceLanguages` by
     /// `forceRetranslate`. Consumed by `startTranslationsIfNeeded` so the retry runs
@@ -427,6 +457,29 @@ final class IssueListViewModel {
         case .guardrail:
             dropPendingFallback(request)
         }
+    }
+
+    /// Decides what the fallback host does with `request` given its pair's availability.
+    /// A `.supported` pair proceeds only if the user has approved its download.
+    func pumpDecision(for request: FallbackRequest, state: LanguageDownloadState) -> FallbackPumpDecision {
+        switch state {
+        case .unsupported:
+            return .unavailable
+        case .installed:
+            return .proceed
+        case .supported:
+            let pair = LanguagePair(detected: request.detected, target: request.target)
+            return approvedDownloadPairs.contains(pair) ? .proceed : .needsDownload
+        }
+    }
+
+    /// Records the user's consent to download `detected`→`target`, clears any pending
+    /// gate for it, and nudges the host (via `downloadApprovalTick`) to re-pump.
+    func approveLanguageDownload(detected: String, target: String) {
+        let pair = LanguagePair(detected: detected, target: target)
+        pairsNeedingDownload.remove(pair)
+        approvedDownloadPairs.insert(pair)
+        downloadApprovalTick &+= 1
     }
 
     /// Removes a single fallback request without blacklisting its language.

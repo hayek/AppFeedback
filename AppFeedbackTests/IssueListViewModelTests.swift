@@ -516,4 +516,37 @@ extension IssueListViewModelTests {
         vm.handleFallbackUnavailable(request)
         XCTAssertTrue(vm.unsupportedSourceLanguages.contains("de"))
     }
+
+    // MARK: - Language download gating
+
+    private func makeFallbackReq(
+        detected: String,
+        target: String = "en",
+        reason: IssueListViewModel.FallbackReason = .unsupportedOnDevice
+    ) -> IssueListViewModel.FallbackRequest {
+        IssueListViewModel.FallbackRequest(
+            requestID: UUID(), issueNumber: 1, title: "t", body: "b",
+            detected: detected, target: target, reason: reason)
+    }
+
+    func test_pumpDecision_installed_proceeds() {
+        let vm = IssueListViewModel()
+        XCTAssertEqual(vm.pumpDecision(for: makeFallbackReq(detected: "ar"), state: .installed), .proceed)
+    }
+
+    func test_pumpDecision_unsupported_isUnavailable() {
+        let vm = IssueListViewModel()
+        XCTAssertEqual(vm.pumpDecision(for: makeFallbackReq(detected: "ar"), state: .unsupported), .unavailable)
+    }
+
+    func test_pumpDecision_supportedUnapproved_needsDownload() {
+        let vm = IssueListViewModel()
+        XCTAssertEqual(vm.pumpDecision(for: makeFallbackReq(detected: "ar"), state: .supported), .needsDownload)
+    }
+
+    func test_pumpDecision_supportedApproved_proceeds() {
+        let vm = IssueListViewModel()
+        vm.approveLanguageDownload(detected: "ar", target: "en")
+        XCTAssertEqual(vm.pumpDecision(for: makeFallbackReq(detected: "ar"), state: .supported), .proceed)
+    }
 }
