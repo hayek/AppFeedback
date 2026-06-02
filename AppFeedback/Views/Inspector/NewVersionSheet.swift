@@ -1,16 +1,16 @@
 import SwiftUI
 
 struct NewVersionSheet: View {
-    let repo: RepoConfig
-    var versionStore: VersionStore
-    var onCreated: () -> Void
+    /// Hands the entered values back so the caller can create the version optimistically and
+    /// provision the GitHub milestone in the background (mirrors `CreateTaskSheet.onSubmit`).
+    var onSubmit: (VersionDraft) -> Void
 
     @Environment(\.dismiss) private var dismiss
     @State private var name = ""
     @State private var title = ""
     @State private var changelog = ""
-    @State private var working = false
-    @State private var errorMessage: String?
+    /// Guards a fast double-tap of Create from submitting the same version twice.
+    @State private var submitted = false
 
     var body: some View {
         NavigationStack {
@@ -46,11 +46,6 @@ struct NewVersionSheet: View {
                             .background(RoundedRectangle(cornerRadius: 10, style: .continuous).fill(Color.primary.opacity(0.045)))
                             .overlay(RoundedRectangle(cornerRadius: 10, style: .continuous).strokeBorder(Color.primary.opacity(0.06), lineWidth: 1))
                     }
-
-                    if let errorMessage {
-                        Label(errorMessage, systemImage: "exclamationmark.triangle.fill")
-                            .font(.footnote).foregroundStyle(.red)
-                    }
                 }
                 .padding(20)
             }
@@ -63,7 +58,7 @@ struct NewVersionSheet: View {
                 ToolbarItem(placement: .confirmationAction) {
                     Button("Create") { create() }
                         .fontWeight(.semibold)
-                        .disabled(name.trimmingCharacters(in: .whitespaces).isEmpty || working)
+                        .disabled(name.trimmingCharacters(in: .whitespaces).isEmpty || submitted)
                 }
             }
         }
@@ -84,15 +79,12 @@ struct NewVersionSheet: View {
     }
 
     private func create() {
-        // Create the local version immediately (it appears in the panel at once), close, then
-        // provision the GitHub milestone in the background; roll back if that fails.
-        let version = versionStore.create(repoOwner: repo.owner, repoName: repo.repo, name: name, releaseTitle: title, changelog: changelog)
-        onCreated()
+        guard !submitted else { return }
+        submitted = true
+        onSubmit(VersionDraft(
+            name: name.trimmingCharacters(in: .whitespacesAndNewlines),
+            releaseTitle: title,
+            changelog: changelog))
         dismiss()
-        let service = VersionService(store: versionStore)
-        Task {
-            do { try await service.provisionMilestone(repo: repo, version: version) }
-            catch { versionStore.delete(version) }
-        }
     }
 }

@@ -3,7 +3,10 @@ import SwiftUI
 struct CreateTaskSheet: View {
     let repo: RepoConfig
     let versions: [ProjectVersion]
-    var onCreated: () -> Void
+    /// Hands the entered values back so the caller can show the task optimistically and drive
+    /// the GitHub write after this sheet dismisses (mirrors how a mail reply sends in the
+    /// background after the composer closes).
+    var onSubmit: (TaskDraft) -> Void
 
     @Environment(\.dismiss) private var dismiss
     @State private var title = ""
@@ -11,7 +14,9 @@ struct CreateTaskSheet: View {
     @State private var status: TaskStatus = .todo
     @State private var priority: TaskPriority = .med
     @State private var selectedVersionID: UUID?
-    private let service = TaskService()
+    /// Guards against a fast double-tap of Create submitting the same draft (and thus creating the
+    /// same issue) twice before the sheet finishes dismissing.
+    @State private var submitted = false
 
     var body: some View {
         NavigationStack {
@@ -125,13 +130,18 @@ struct CreateTaskSheet: View {
     }
 
     private func create() {
-        let milestone = versions.first { $0.id == selectedVersionID }?.milestoneNumber
-        let t = title, p = prose, s = status, pr = priority
+        guard !submitted else { return }
+        submitted = true
+        let version = versions.first { $0.id == selectedVersionID }
+        let draft = TaskDraft(
+            title: title.trimmingCharacters(in: .whitespacesAndNewlines),
+            prose: prose,
+            status: status,
+            priority: priority,
+            milestoneNumber: version?.milestoneNumber,
+            milestoneTitle: version?.name
+        )
+        onSubmit(draft)   // caller inserts the optimistic card and drives the GitHub write
         dismiss()
-        Task {
-            _ = try? await service.createTask(repo: repo, title: t, prose: p,
-                feedbackRefs: [], status: s, priority: pr, milestoneNumber: milestone)
-            onCreated()   // refresh so the new task issue appears
-        }
     }
 }

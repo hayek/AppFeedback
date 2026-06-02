@@ -10,6 +10,13 @@ struct ProjectInspectorPanel: View {
     var onRelease: (ProjectVersion) -> Void
     var onDeleteTask: (TaskItem) -> Void
     var onOpenFeedback: (Int) -> Void
+    var onRetryCreation: (UUID) -> Void = { _ in }
+    var onDismissCreation: (UUID) -> Void = { _ in }
+    var versionCreations: CreationStatusTracker
+    var onRetryVersion: (UUID) -> Void = { _ in }
+    var onDismissVersion: (UUID) -> Void = { _ in }
+    /// Pull-to-refresh: reloads the repo's tasks (and versions reflect their synced state).
+    var onRefresh: () async -> Void = {}
 
     @State private var taskToOpen: TaskItem?
     @State private var versionToOpen: ProjectVersion?
@@ -20,8 +27,12 @@ struct ProjectInspectorPanel: View {
     var body: some View {
         Group {
             if let repo {
+                // Row insert/remove animate via List's own animation (driven by `withAnimation`
+                // at the mutation sites); the badge fades via a value-animation on the card. The
+                // key is NOT to put custom `.transition`s on List rows — that suppresses List's
+                // built-in animation.
                 List {
-                    header(title: "Tasks", count: inspector.filteredTasks.count,
+                    header(title: "Tasks", count: taskRowItems.count,
                            addLabel: "New Task", add: onCreateTask, topPad: 4)
                     taskRows(repo: repo)
 
@@ -33,6 +44,7 @@ struct ProjectInspectorPanel: View {
                 .environment(\.defaultMinListRowHeight, 0)
                 .scrollContentBackground(.hidden)
                 .scrollIndicators(.hidden)
+                .refreshable { await onRefresh() }
                 #if os(iOS)
                 .contentMargins(.top, 16, for: .scrollContent)
                 #endif
@@ -92,17 +104,34 @@ struct ProjectInspectorPanel: View {
             .listRowInsets(EdgeInsets(top: topPad, leading: 12, bottom: 8, trailing: 12))
     }
 
-    @ViewBuilder private func taskRows(repo: RepoConfig) -> some View {
+    /// Real tasks and not-yet-reloaded creation placeholders, merged and sorted together so a
+    /// placeholder sits where its real card will land — no jump at hand-off. A real task that a
+    /// just-created creation still tracks carries that creation's badge.
+    private var taskRowItems: [InspectorTaskRow] {
         let tasks = inspector.filteredTasks
-        if tasks.isEmpty {
-            PanelEmptyState(icon: "checklist", message: "No tasks yet.").cardRow()
-        } else {
-            ForEach(tasks) { task in
+        // Presence is judged against the full task set (not the filtered one) so a creation's
+        // hand-off to its real card is detected even if a status filter would hide that task.
+        let present = Set(inspector.tasks.map(\.number))
+        var rows: [InspectorTaskRow] = tasks.map {
+            .task($0, badge: inspector.creationBadge(forTaskNumber: $0.number))
+        }
+        rows += inspector.pendingCreations(loadedTaskNumbers: present).map(InspectorTaskRow.pending)
+        return rows.sorted { $0.sortKey < $1.sortKey }
+    }
+
+    @ViewBuilder private func taskRows(repo: RepoConfig) -> some View {
+        let rows = taskRowItems
+        // Keep the ForEach unconditional (no enclosing if/else) so List sees a stable ForEach and
+        // animates row insert/remove; the empty state is a separate trailing row.
+        ForEach(rows) { row in
+            switch row {
+            case .task(let task, let badge):
                 TaskCard(
                     task: task,
                     onStatus: { changeStatus(repo: repo, task: task, status: $0) },
                     onPriority: { changePriority(repo: repo, task: task, priority: $0) },
-                    onOpen: { taskToOpen = task }
+                    onOpen: { taskToOpen = task },
+                    creationBadge: badge
                 )
                 .cardRow()
                 .swipeActions(edge: .trailing, allowsFullSwipe: false) {
@@ -110,29 +139,41 @@ struct ProjectInspectorPanel: View {
                         Label("Delete", systemImage: "trash")
                     }
                 }
+            case .pending(let creation):
+                PendingTaskCard(
+                    creation: creation,
+                    onRetry: { onRetryCreation(creation.id) },
+                    onDismiss: { onDismissCreation(creation.id) }
+                )
+                .cardRow()
             }
+        }
+        if rows.isEmpty {
+            PanelEmptyState(icon: "checklist", message: "No tasks yet.").cardRow()
         }
     }
 
     @ViewBuilder private func versionRows(repo: RepoConfig) -> some View {
         let versions = versionStore.versions(owner: repo.owner, repo: repo.repo)
-        if versions.isEmpty {
-            PanelEmptyState(icon: "shippingbox", message: "No versions yet.").cardRow()
-        } else {
-            ForEach(versions) { version in
-                VersionCard(
-                    name: version.name,
-                    state: version.derivedState(anyTaskStarted: inspector.anyTaskStarted(versionNamed: version.name)),
-                    taskCount: inspector.tasks(forVersionNamed: version.name).count,
-                    action: { versionToOpen = version }
-                )
-                .cardRow()
-                .swipeActions(edge: .trailing, allowsFullSwipe: false) {
-                    Button(role: .destructive) { versionToDelete = version } label: {
-                        Label("Delete", systemImage: "trash")
-                    }
+        ForEach(versions) { version in
+            VersionCard(
+                name: version.name,
+                state: version.derivedState(anyTaskStarted: inspector.anyTaskStarted(versionNamed: version.name)),
+                taskCount: inspector.tasks(forVersionNamed: version.name).count,
+                creationBadge: versionCreations.status(version.id),
+                onRetry: { onRetryVersion(version.id) },
+                onDismiss: { onDismissVersion(version.id) },
+                action: { versionToOpen = version }
+            )
+            .cardRow()
+            .swipeActions(edge: .trailing, allowsFullSwipe: false) {
+                Button(role: .destructive) { versionToDelete = version } label: {
+                    Label("Delete", systemImage: "trash")
                 }
             }
+        }
+        if versions.isEmpty {
+            PanelEmptyState(icon: "shippingbox", message: "No versions yet.").cardRow()
         }
     }
 
@@ -172,5 +213,31 @@ private extension View {
             .listRowSeparator(.hidden)
             .listRowBackground(Color.clear)
             .listRowInsets(EdgeInsets(top: 5, leading: 12, bottom: 5, trailing: 12))
+    }
+}
+
+/// One row in the Tasks section: either a real task (optionally wearing a just-created badge) or
+/// a placeholder for a creation whose issue hasn't reloaded yet. Both sort by the same key so a
+/// placeholder occupies the slot its real card will, avoiding a jump at hand-off.
+private enum InspectorTaskRow: Identifiable {
+    case task(TaskItem, badge: CreationPhase?)
+    case pending(TaskCreation)
+
+    var id: String {
+        switch self {
+        case .task(let task, _): return "task-\(task.number)"
+        case .pending(let creation): return "pending-\(creation.id)"
+        }
+    }
+
+    /// (priority rank, pending-flag, tiebreak). Within a priority, real tasks (flag 0, by issue
+    /// number) come first and placeholders (flag 1, by creation order) after — so a placeholder
+    /// sits where its brand-new (highest-numbered) issue will land, and several placeholders keep
+    /// a stable oldest-first order. Hand-off to the real card causes no reorder.
+    var sortKey: (Int, Int, Int) {
+        switch self {
+        case .task(let task, _): return (task.priority.sortRank, 0, task.number)
+        case .pending(let creation): return (creation.draft.priority.sortRank, 1, creation.sequence)
+        }
     }
 }

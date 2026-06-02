@@ -15,4 +15,20 @@ final class TasksSectionSmokeTests: XCTestCase {
         XCTAssertNotNil(view)
         #endif
     }
+
+    func testPendingTaskCardRendersInEachPhase() {
+        let draft = TaskDraft(title: "New task", prose: "", status: .todo, priority: .med,
+                              milestoneNumber: nil, milestoneTitle: "1.0")
+        let phases: [CreationPhase] = [.creating, .created, .failed("network error")]
+        for phase in phases {
+            let creation = TaskCreation(id: UUID(), sequence: 1, draft: draft, phase: phase,
+                                        number: phase == .created ? 5 : nil)
+            let view = PendingTaskCard(creation: creation, onRetry: {}, onDismiss: {})
+            #if os(macOS)
+            XCTAssertNotNil(NSHostingView(rootView: view))
+            #else
+            XCTAssertNotNil(view)
+            #endif
+        }
+    }
 }

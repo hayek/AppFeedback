@@ -20,7 +20,7 @@ struct MailSendStatusBadge: View {
             switch state {
             case .sending:
                 row(icon: "paperplane", color: .tertiary) {
-                    SendingShimmerText("Sending…")
+                    ShimmerText("Sending…")
                 }
             case .sent:
                 row(icon: "checkmark", color: .tertiary) { Text("Sent") }
@@ -71,7 +71,10 @@ struct MailSendStatusBadge: View {
     }
 }
 
-private struct SendingShimmerText: View {
+/// A label whose text has a soft highlight sweeping across it left-to-right, forever.
+/// Conveys an in-flight action — used for the mail "Sending…" badge and the
+/// task "Creating…" badge (see `CreationBadge`).
+struct ShimmerText: View {
     let text: String
     @State private var phase: CGFloat = -1
 

@@ -25,6 +25,9 @@ struct RootView: View {
     @State private var showAddRepo = false
     @State private var showInspector = true
     @State private var inspector = ProjectInspectorModel()
+    /// Creation-status badges for just-created versions (parallel to the task creations in
+    /// `inspector`); the version card exists immediately, so this only tracks the badge.
+    @State private var versionCreations = CreationStatusTracker()
     @State private var versionToRelease: ProjectVersion?
     @State private var taskFromFeedback: TaskItem?
     /// Serializes feedback-ref writes per task issue so two rapid attach/detach gestures on the
@@ -150,12 +153,12 @@ struct RootView: View {
             if let repo = store.repos.first(where: { $0.id == selection?.repoId }) {
                 CreateTaskSheet(repo: repo,
                     versions: versionStore.versions(owner: repo.owner, repo: repo.repo),
-                    onCreated: { Task { await refreshSelectedRepo() } })
+                    onSubmit: { draft in createTask(repo: repo, draft: draft) })
             }
         }
         .sheet(isPresented: $showCreateVersion) {
             if let repo = store.repos.first(where: { $0.id == selection?.repoId }) {
-                NewVersionSheet(repo: repo, versionStore: versionStore, onCreated: {})
+                NewVersionSheet(onSubmit: { draft in createVersion(repo: repo, draft: draft) })
             }
         }
         .sheet(item: $taskFromFeedback) { task in
@@ -183,7 +186,14 @@ struct RootView: View {
                     })
             }
         }
-        .onChange(of: selection) { _, newValue in
+        .onChange(of: selection) { oldValue, newValue in
+            // Switching projects (including to no-selection) drops any optimistic creation cards
+            // so a pending task from one repo can't linger on another. Same-repo reloads
+            // (selectedLoadedSignature) keep them.
+            if oldValue?.repoId != newValue?.repoId {
+                inspector.clearCreations()
+                versionCreations.clearAll()
+            }
             guard let newValue else { return }
             updateViewModel(for: newValue)
         }
@@ -272,7 +282,19 @@ struct RootView: View {
             onCreateVersion: { showCreateVersion = true },
             onRelease: { startRelease($0) },
             onDeleteTask: { deleteTask($0) },
-            onOpenFeedback: { openFeedback($0) }
+            onOpenFeedback: { openFeedback($0) },
+            onRetryCreation: { retryCreation($0) },
+            onDismissCreation: { id in withAnimation(.easeInOut(duration: 0.3)) { inspector.removeCreation(id: id) } },
+            versionCreations: versionCreations,
+            onRetryVersion: { retryVersion($0) },
+            onDismissVersion: { dismissVersion($0) },
+            onRefresh: {
+                // Full reconcile so tasks update and any deleted upstream are pruned (mirrors the
+                // main issue list's pull-to-refresh). Versions are local/CloudKit-synced.
+                guard let repo = store.repos.first(where: { $0.id == selection.repoId }),
+                      let token = await KeychainService.load(for: repo) else { return }
+                await loaders[selection.repoId]?.load(token: token, fullReconcile: true)
+            }
         )
         .inspectorColumnWidth(min: 260, ideal: 320, max: 480)
     }
@@ -420,7 +442,10 @@ struct RootView: View {
     /// surface the error and refresh — it wasn't actually deleted.
     private func deleteTask(_ task: TaskItem) {
         guard let repo = store.repos.first(where: { $0.id == selection?.repoId }) else { return }
-        inspector.removeTask(number: task.number)
+        withAnimation(.easeInOut(duration: 0.3)) {
+            inspector.removeCreation(forTaskNumber: task.number)   // drop any "Created ✓" badge for it
+            inspector.removeTask(number: task.number)              // animate the card out
+        }
         Task {
             do {
                 try await TaskService().deleteTask(repo: repo, task: task)
@@ -435,6 +460,101 @@ struct RootView: View {
                 }
             }
         }
+    }
+
+    /// Creates a task optimistically: inserts a "Creating…" card immediately, then writes to
+    /// GitHub in the background. On success the card shows a green checkmark for a few seconds
+    /// (while a refresh pulls in the real issue) and is then replaced by the real task card; on
+    /// failure it persists with the reason and Retry / Dismiss controls.
+    private func createTask(repo: RepoConfig, draft: TaskDraft) {
+        // Animate the placeholder card dropping into the list.
+        let id = withAnimation(.spring(response: 0.35, dampingFraction: 0.82)) {
+            inspector.beginCreation(draft)
+        }
+        runCreation(repo: repo, id: id, draft: draft)
+    }
+
+    /// Re-attempts a failed creation, reusing the same card. `inspector.retryCreation` only
+    /// returns true when the card was actually in the failed state, so a double-tap of Retry
+    /// can't spawn two concurrent GitHub writes.
+    private func retryCreation(_ id: UUID) {
+        guard let repo = store.repos.first(where: { $0.id == selection?.repoId }),
+              let draft = inspector.draft(forCreation: id) else { return }
+        let didRetry = withAnimation(.easeInOut(duration: 0.3)) { inspector.retryCreation(id: id) }
+        guard didRetry else { return }
+        runCreation(repo: repo, id: id, draft: draft)
+    }
+
+    /// Performs the GitHub write for an optimistic creation and resolves its card.
+    private func runCreation(repo: RepoConfig, id: UUID, draft: TaskDraft) {
+        Task {
+            do {
+                let number = try await TaskService().createTask(
+                    repo: repo, title: draft.title, prose: draft.prose, feedbackRefs: [],
+                    status: draft.status, priority: draft.priority, milestoneNumber: draft.milestoneNumber)
+                inspector.markCreated(id: id, number: number)
+                // Pull the real issue into THIS repo's list (not whatever is selected now — the
+                // user may have switched away). Once it arrives, the real card wears the badge and
+                // replaces the placeholder; the badge clears a few seconds later.
+                await refresh(repo: repo)
+            } catch {
+                withAnimation(.easeInOut(duration: 0.3)) {
+                    inspector.markFailed(id: id, reason: error.localizedDescription)
+                }
+            }
+        }
+    }
+
+    /// Creates a version optimistically: the local record appears at once (with a "Creating…"
+    /// badge), then the GitHub milestone is provisioned in the background — green checkmark on
+    /// success (clearing after a few seconds), or a "Failed" card with Retry / Dismiss.
+    private func createVersion(repo: RepoConfig, draft: VersionDraft) {
+        let version = withAnimation(.spring(response: 0.35, dampingFraction: 0.82)) {
+            versionStore.create(repoOwner: repo.owner, repoName: repo.repo,
+                                name: draft.name, releaseTitle: draft.releaseTitle, changelog: draft.changelog)
+        }
+        versionCreations.begin(version.id)
+        provisionVersion(repo: repo, version: version)
+    }
+
+    /// Re-attempts a failed version provision, reusing the same card. The `retry` guard returns
+    /// true only from the failed state, so a double-tap can't fire two concurrent writes.
+    private func retryVersion(_ id: UUID) {
+        guard let repo = store.repos.first(where: { $0.id == selection?.repoId }),
+              let version = versionStore.versionsAll.first(where: { $0.id == id }) else { return }
+        let didRetry = withAnimation(.easeInOut(duration: 0.3)) { versionCreations.retry(id) }
+        guard didRetry else { return }
+        provisionVersion(repo: repo, version: version)
+    }
+
+    /// Dismisses a failed version: rolls back the local record (its milestone never provisioned).
+    private func dismissVersion(_ id: UUID) {
+        let version = versionStore.versionsAll.first { $0.id == id }
+        withAnimation(.easeInOut(duration: 0.3)) {
+            versionCreations.clear(id)
+            if let version { versionStore.delete(version) }
+        }
+    }
+
+    private func provisionVersion(repo: RepoConfig, version: ProjectVersion) {
+        let id = version.id
+        Task {
+            do {
+                try await VersionService(store: versionStore).provisionMilestone(repo: repo, version: version)
+                versionCreations.succeed(id)
+            } catch {
+                withAnimation(.easeInOut(duration: 0.3)) {
+                    versionCreations.fail(id, reason: error.localizedDescription)
+                }
+            }
+        }
+    }
+
+    /// Reloads a specific repo's loader (used after creating a task so the new issue appears even
+    /// if the user has since switched projects).
+    private func refresh(repo: RepoConfig) async {
+        guard let token = await KeychainService.load(for: repo) else { return }
+        await loaders[repo.id]?.load(token: token)
     }
 
     /// Reloads the currently-selected repo so a freshly-created task issue appears.

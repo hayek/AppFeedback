@@ -134,4 +134,158 @@ final class ProjectInspectorModelTests: XCTestCase {
         model.setTasks([a])
         XCTAssertEqual(model.task(number: 1)?.feedbackRefs, [200])
     }
+
+    // MARK: - Optimistic task creation
+
+    private func draft(_ title: String, status: TaskStatus = .todo, priority: TaskPriority = .med) -> TaskDraft {
+        TaskDraft(title: title, prose: "", status: status, priority: priority,
+                  milestoneNumber: nil, milestoneTitle: nil)
+    }
+
+    func testBeginCreationInsertsCreatingCardNewestFirst() {
+        let model = ProjectInspectorModel()
+        let first = model.beginCreation(draft("a"))
+        let second = model.beginCreation(draft("b"))
+        XCTAssertEqual(model.creations.map(\.id), [second, first])   // newest on top
+        XCTAssertEqual(model.creations.first?.phase, .creating)
+        // No number yet → both render as their own placeholder cards.
+        XCTAssertEqual(model.pendingCreations(loadedTaskNumbers: []).count, 2)
+    }
+
+    func testCreationsCarryAscendingSequence() {
+        let model = ProjectInspectorModel()
+        let first = model.beginCreation(draft("a"))
+        let second = model.beginCreation(draft("b"))
+        let firstSeq = model.creations.first { $0.id == first }?.sequence ?? 0
+        let secondSeq = model.creations.first { $0.id == second }?.sequence ?? 0
+        // Placeholders sort by sequence, so an older creation stays above a newer one — matching
+        // the ascending issue-number order they take once their real issues load (no reorder).
+        XCTAssertLessThan(firstSeq, secondSeq)
+    }
+
+    func testCreationsSurviveSetTasksReload() {
+        let model = ProjectInspectorModel()
+        let id = model.beginCreation(draft("New"))
+        // A reload landing mid-creation rebuilds `tasks` but must not drop the optimistic card.
+        model.setTasks([todoTask(1)])
+        XCTAssertEqual(model.creations.map(\.id), [id])
+    }
+
+    func testCreatedCreationBecomesBadgeOnReloadedTaskThenClears() {
+        let model = ProjectInspectorModel()
+        let id = model.beginCreation(draft("New"))
+        model.markCreated(id: id, number: 42)
+        XCTAssertEqual(model.creations.first?.phase, .created)
+        // Before the reload: #42 isn't in `tasks`, so it renders as its own placeholder card
+        // (the panel only queries creationBadge for tasks that are actually present).
+        XCTAssertEqual(model.pendingCreations(loadedTaskNumbers: []).map(\.id), [id])
+
+        // The refresh brings in the real issue #42: it's no longer a placeholder, and the real
+        // card wears the "Created" badge instead.
+        model.setTasks([todoTask(42)])
+        XCTAssertTrue(model.pendingCreations(loadedTaskNumbers: [42]).isEmpty)
+        XCTAssertEqual(model.creationBadge(forTaskNumber: 42), .created)
+
+        // Badge clears → the real task stays, just without a badge.
+        model.removeCreation(id: id)
+        XCTAssertNil(model.creationBadge(forTaskNumber: 42))
+        XCTAssertTrue(model.tasks.contains { $0.number == 42 })
+        XCTAssertTrue(model.creations.isEmpty)
+    }
+
+    func testRemoveCreationForTaskNumberDropsBadge() {
+        let model = ProjectInspectorModel()
+        let id = model.beginCreation(draft("New"))
+        model.markCreated(id: id, number: 7)
+        model.setTasks([todoTask(7)])
+        XCTAssertEqual(model.creationBadge(forTaskNumber: 7), .created)
+        model.removeCreation(forTaskNumber: 7)   // e.g. the task was deleted mid-badge
+        XCTAssertNil(model.creationBadge(forTaskNumber: 7))
+        XCTAssertTrue(model.creations.isEmpty)
+    }
+
+    func testMarkFailedKeepsCardWithReasonAndNoNumber() {
+        let model = ProjectInspectorModel()
+        let id = model.beginCreation(draft("New"))
+        model.markFailed(id: id, reason: "No GitHub token")
+        XCTAssertEqual(model.creations.count, 1)
+        XCTAssertEqual(model.creations.first?.phase, .failed("No GitHub token"))
+        XCTAssertNil(model.creations.first?.number)
+        // A failed card has no number, so it always renders as its own placeholder.
+        XCTAssertEqual(model.pendingCreations(loadedTaskNumbers: [1, 2, 3]).map(\.id), [id])
+    }
+
+    func testRetryReturnsFailedCardToCreating() {
+        let model = ProjectInspectorModel()
+        let id = model.beginCreation(draft("New"))
+        model.markFailed(id: id, reason: "boom")
+        XCTAssertTrue(model.retryCreation(id: id))
+        XCTAssertEqual(model.creations.first?.phase, .creating)
+        XCTAssertNil(model.creations.first?.number)
+    }
+
+    // Guards the Retry double-tap: retrying anything not currently failed is a no-op, so a
+    // second tap can't fire a second concurrent GitHub write.
+    func testRetryIsNoOpUnlessFailed() {
+        let model = ProjectInspectorModel()
+        let id = model.beginCreation(draft("New"))
+        XCTAssertFalse(model.retryCreation(id: id))          // .creating → ignored
+        model.markCreated(id: id, number: 9)
+        XCTAssertFalse(model.retryCreation(id: id))          // .created → ignored
+        XCTAssertFalse(model.retryCreation(id: UUID()))      // unknown id → ignored
+    }
+
+    func testDraftForCreationRoundTrips() {
+        let model = ProjectInspectorModel()
+        let id = model.beginCreation(draft("Title", status: .inProgress, priority: .high))
+        XCTAssertEqual(model.draft(forCreation: id)?.title, "Title")
+        XCTAssertEqual(model.draft(forCreation: id)?.status, .inProgress)
+        XCTAssertEqual(model.draft(forCreation: id)?.priority, .high)
+        XCTAssertNil(model.draft(forCreation: UUID()))
+    }
+
+    func testRemoveAndClearCreations() {
+        let model = ProjectInspectorModel()
+        let id1 = model.beginCreation(draft("a"))
+        _ = model.beginCreation(draft("b"))
+        model.removeCreation(id: id1)
+        XCTAssertEqual(model.creations.count, 1)
+        XCTAssertFalse(model.creations.contains { $0.id == id1 })
+        model.clearCreations()
+        XCTAssertTrue(model.creations.isEmpty)
+    }
+
+    // MARK: - Version creation-status tracker
+
+    func testVersionCreationTrackerLifecycle() {
+        let tracker = CreationStatusTracker()
+        let id = UUID()
+        XCTAssertNil(tracker.status(id))
+        tracker.begin(id)
+        XCTAssertEqual(tracker.status(id), .creating)
+        tracker.succeed(id)                       // clears after a linger; immediate state is .created
+        XCTAssertEqual(tracker.status(id), .created)
+        tracker.clear(id)
+        XCTAssertNil(tracker.status(id))
+    }
+
+    func testVersionCreationTrackerFailRetryGuard() {
+        let tracker = CreationStatusTracker()
+        let id = UUID()
+        tracker.begin(id)
+        tracker.fail(id, reason: "no token")
+        XCTAssertEqual(tracker.status(id), .failed("no token"))
+        XCTAssertTrue(tracker.retry(id))          // failed → back to creating
+        XCTAssertEqual(tracker.status(id), .creating)
+        XCTAssertFalse(tracker.retry(id))         // not failed → no-op (double-tap guard)
+    }
+
+    func testVersionCreationTrackerClearAll() {
+        let tracker = CreationStatusTracker()
+        let a = UUID(); let b = UUID()
+        tracker.begin(a); tracker.fail(b, reason: "x")
+        tracker.clearAll()
+        XCTAssertNil(tracker.status(a))
+        XCTAssertNil(tracker.status(b))
+    }
 }
