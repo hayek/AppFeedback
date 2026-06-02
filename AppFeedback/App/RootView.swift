@@ -104,7 +104,7 @@ struct RootView: View {
                         onRemoveTaskFromFeedback: { detachTask(taskNumber: $0, fromFeedback: $1) },
                         repoOwner: owner,
                         repoName: name,
-                        appColorOverrides: store.appColors[selection.repoId] ?? [:],
+                        repoAccent: repo?.colorHex.map(Color.init(hex:)),
                         summaryVM: summaryVM,
                         summaryCollapseKey: "\(owner)/\(name)"
                     )

@@ -19,7 +19,8 @@ struct IssueListView: View {
     var onRemoveTaskFromFeedback: ((Int, Int) -> Void)? = nil
     var repoOwner: String = ""
     var repoName: String = ""
-    var appColorOverrides: [String: String] = [:]
+    /// Accent color chosen for this repo, applied to feedback dots and UI tint. `nil` = system accent.
+    var repoAccent: Color? = nil
     @Bindable var summaryVM: UnreadSummaryViewModel
     let summaryCollapseKey: String
 
@@ -41,7 +42,7 @@ struct IssueListView: View {
         onRemoveTaskFromFeedback: ((Int, Int) -> Void)? = nil,
         repoOwner: String = "",
         repoName: String = "",
-        appColorOverrides: [String: String] = [:],
+        repoAccent: Color? = nil,
         summaryVM: UnreadSummaryViewModel,
         summaryCollapseKey: String
     ) {
@@ -56,7 +57,7 @@ struct IssueListView: View {
         self.onRemoveTaskFromFeedback = onRemoveTaskFromFeedback
         self.repoOwner = repoOwner
         self.repoName = repoName
-        self.appColorOverrides = appColorOverrides
+        self.repoAccent = repoAccent
         self.summaryVM = summaryVM
         self.summaryCollapseKey = summaryCollapseKey
         self._summaryCollapsed = AppStorage(wrappedValue: false, "summary.collapsed.\(summaryCollapseKey)")
@@ -211,13 +212,11 @@ struct IssueListView: View {
         if !viewModel.allowsAppFilter, let onlyApp = viewModel.appFilter.first {
             return appColor(for: onlyApp)
         }
-        return .accentColor
+        return repoAccent ?? .accentColor
     }
 
     private func appColor(for appName: String) -> Color {
-        if let hex = appColorOverrides[appName] {
-            return Color(hex: hex)
-        }
+        if let repoAccent { return repoAccent }
         return ColorPalette.color(for: appName, in: allApps)
     }
 

@@ -9,6 +9,8 @@ struct RepoConfig: Identifiable, Codable, Hashable, Sendable {
     var redactEmailAddresses: Bool
     var connectedRepoOwner: String?
     var connectedRepoName: String?
+    /// Optional sidebar accent color, as a 6-digit hex string. `nil` = default.
+    var colorHex: String?
 
     init(
         id: UUID = UUID(),
@@ -18,7 +20,8 @@ struct RepoConfig: Identifiable, Codable, Hashable, Sendable {
         mirrorEmailsToGitHub: Bool = true,
         redactEmailAddresses: Bool = true,
         connectedRepoOwner: String? = nil,
-        connectedRepoName: String? = nil
+        connectedRepoName: String? = nil,
+        colorHex: String? = nil
     ) {
         self.id = id
         self.displayName = displayName
@@ -28,5 +31,6 @@ struct RepoConfig: Identifiable, Codable, Hashable, Sendable {
         self.redactEmailAddresses = redactEmailAddresses
         self.connectedRepoOwner = connectedRepoOwner
         self.connectedRepoName = connectedRepoName
+        self.colorHex = colorHex
     }
 }

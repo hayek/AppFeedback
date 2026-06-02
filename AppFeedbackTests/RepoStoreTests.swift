@@ -93,6 +93,36 @@ final class RepoStoreTests: XCTestCase {
         XCTAssertEqual(store2.colorHexFor(app: "AppA", in: repo.id), "ff6b8a")
     }
 
+    func test_repoColor_defaultsToNil() {
+        let repo = RepoConfig(displayName: "T", owner: "o", repo: "r")
+        store.add(repo)
+        XCTAssertNil(store.colorHexFor(repo: repo.id))
+    }
+
+    func test_setRepoColor_storesAndReadsHex() {
+        let repo = RepoConfig(displayName: "T", owner: "o", repo: "r")
+        store.add(repo)
+        store.setColor("7b8cff", forRepo: repo.id)
+        XCTAssertEqual(store.colorHexFor(repo: repo.id), "7b8cff")
+    }
+
+    func test_setRepoColor_nilClearsOverride() {
+        let repo = RepoConfig(displayName: "T", owner: "o", repo: "r")
+        store.add(repo)
+        store.setColor("7b8cff", forRepo: repo.id)
+        store.setColor(nil, forRepo: repo.id)
+        XCTAssertNil(store.colorHexFor(repo: repo.id))
+    }
+
+    func test_setRepoColor_persistsAcrossInstances() {
+        let repo = RepoConfig(displayName: "T", owner: "o", repo: "r")
+        store.add(repo)
+        store.setColor("34d399", forRepo: repo.id)
+
+        let store2 = RepoStore(context: ModelContext(container))
+        XCTAssertEqual(store2.colorHexFor(repo: repo.id), "34d399")
+    }
+
     func test_hideApp_writesToHiddenAppStore() throws {
         let repo = RepoConfig(displayName: "T", owner: "o", repo: "r")
         store.add(repo)

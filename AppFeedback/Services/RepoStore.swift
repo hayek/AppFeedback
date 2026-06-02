@@ -64,6 +64,7 @@ final class RepoStore {
             displayName: repo.displayName,
             owner: repo.owner,
             repo: repo.repo,
+            colorHex: repo.colorHex,
             mirrorEmailsToGitHub: repo.mirrorEmailsToGitHub,
             redactEmailAddresses: repo.redactEmailAddresses,
             connectedRepoOwner: repo.connectedRepoOwner,
@@ -83,6 +84,7 @@ final class RepoStore {
         model.redactEmailAddresses = repo.redactEmailAddresses
         model.connectedRepoOwner = repo.connectedRepoOwner
         model.connectedRepoName = repo.connectedRepoName
+        model.colorHex = repo.colorHex
         save()
         reload()
     }
@@ -137,6 +139,21 @@ final class RepoStore {
         appColors[repoId]?[appName]
     }
 
+    // MARK: - Repo color
+
+    /// Set (or clear, with `nil`) the sidebar accent color for a repo.
+    func setColor(_ hex: String?, forRepo repoId: UUID) {
+        guard let model = fetchModel(id: repoId) else { return }
+        if model.colorHex == hex { return }
+        model.colorHex = hex
+        save()
+        reload()
+    }
+
+    func colorHexFor(repo repoId: UUID) -> String? {
+        repos.first { $0.id == repoId }?.colorHex
+    }
+
     // MARK: - Internal
 
     private func fetchModel(id: UUID) -> Repo? {
@@ -161,7 +178,8 @@ final class RepoStore {
                 mirrorEmailsToGitHub: $0.mirrorEmailsToGitHub,
                 redactEmailAddresses: $0.redactEmailAddresses,
                 connectedRepoOwner: $0.connectedRepoOwner,
-                connectedRepoName: $0.connectedRepoName
+                connectedRepoName: $0.connectedRepoName,
+                colorHex: $0.colorHex
             )
         }
         // Build hidden-app map from HiddenAppStore (CloudKit-synced) with one-time

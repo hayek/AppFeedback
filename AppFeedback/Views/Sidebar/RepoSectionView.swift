@@ -9,16 +9,44 @@ struct RepoSectionView: View {
     @State private var showRemoveConfirmation = false
 
     var body: some View {
+        let accent: Color = repo.colorHex.map(Color.init(hex:)) ?? .secondary
         AppRowView(
             label: repo.displayName,
             count: issues.count,
-            color: .secondary,
+            color: accent,
             isSelected: selection == .allIssues(repoId: repo.id)
         )
         .tag(SidebarSelection.allIssues(repoId: repo.id))
         .contentShape(Rectangle())
         .onTapGesture { selection = .allIssues(repoId: repo.id) }
         .contextMenu {
+            Menu {
+                if repo.colorHex != nil {
+                    Button {
+                        store.setColor(nil, forRepo: repo.id)
+                    } label: {
+                        Label("Default", systemImage: "circle.dashed")
+                    }
+                    Divider()
+                }
+                ForEach(ColorPalette.swatches, id: \.self) { swatch in
+                    Button {
+                        store.setColor(swatch.hex, forRepo: repo.id)
+                    } label: {
+                        #if os(macOS)
+                        Image(nsImage: ColorPalette.swatchImage(hex: swatch.hex))
+                        #else
+                        Circle().fill(Color(hex: swatch.hex))
+                        #endif
+                        Text(swatch.name)
+                    }
+                }
+            } label: {
+                Label("Color", systemImage: "paintpalette")
+            }
+
+            Divider()
+
             Button(role: .destructive) {
                 showRemoveConfirmation = true
             } label: {
