@@ -73,8 +73,8 @@ struct VersionDetailView: View {
         VStack(alignment: .leading, spacing: 12) {
             HStack(alignment: .firstTextBaseline, spacing: 10) {
                 Text(version.name).font(.largeTitle.weight(.bold))
+                Spacer(minLength: 8)
                 VersionStatePill(state: state)
-                Spacer(minLength: 0)
             }
             if !tasks.isEmpty {
                 VStack(alignment: .leading, spacing: 6) {
