@@ -153,12 +153,36 @@ struct PanelEmptyState: View {
 
 // MARK: - Chip menu (status / priority on a task card)
 
+/// Outlined badge presentation shared by `ChipMenu` and its static twin: a colored dot and
+/// accent text inside a soft-tinted capsule ringed in the value's status/priority color.
+private struct BadgeLabel: View {
+    let label: String
+    let accent: Color
+    /// A slightly stronger fill while hovered, so the badge reads as tappable (macOS pointer only).
+    var hovering: Bool = false
+
+    var body: some View {
+        HStack(spacing: 6) {
+            Circle().fill(accent).frame(width: 6, height: 6)
+            Text(label)
+                .font(.caption.weight(.semibold))
+                .foregroundStyle(accent)
+        }
+        .padding(.horizontal, 10)
+        .padding(.vertical, 5)
+        .background(Capsule().fill(accent.opacity(hovering ? 0.22 : 0.15)))
+        .overlay(Capsule().strokeBorder(accent.opacity(0.7), lineWidth: 1.5))
+        .contentShape(Capsule())
+    }
+}
+
 struct ChipMenu<Value: Hashable>: View {
     let label: String
-    let dot: Color
+    let accent: Color
     let options: [Value]
     let title: (Value) -> String
     let onSelect: (Value) -> Void
+    @State private var hovering = false
 
     var body: some View {
         Menu {
@@ -166,26 +190,16 @@ struct ChipMenu<Value: Hashable>: View {
                 Button(title(option)) { onSelect(option) }
             }
         } label: {
-            HStack(spacing: 5) {
-                Circle().fill(dot).frame(width: 6, height: 6)
-                Text(label)
-                    .font(.caption.weight(.medium))
-                    .foregroundStyle(.primary)
-                Image(systemName: "chevron.down")
-                    .font(.system(size: 7, weight: .bold))
-                    .foregroundStyle(.tertiary)
-            }
-            .padding(.horizontal, 8)
-            .padding(.vertical, 4)
-            .background(Capsule().fill(Color.primary.opacity(0.06)))
-            .overlay(Capsule().strokeBorder(Color.primary.opacity(0.06), lineWidth: 1))
-            .contentShape(Capsule())
+            BadgeLabel(label: label, accent: accent, hovering: hovering)
         }
-        #if os(macOS)
-        .menuStyle(.borderlessButton)
-        #endif
+        // `.button` keeps the trigger as a real SwiftUI button so the custom pill renders;
+        // `.borderlessButton` bridges to an AppKit pop-up that strips the dot/fill/border.
+        .menuStyle(.button)
+        .buttonStyle(.plain)
         .menuIndicator(.hidden)
         .fixedSize()
+        .onHover { hovering = $0 }
+        .animation(.easeOut(duration: 0.14), value: hovering)
     }
 }
 
@@ -224,9 +238,9 @@ struct TaskCard: View {
             }
             .animation(.easeInOut(duration: 0.4), value: creationBadge)   // fade the label in/out
             HStack(spacing: 6) {
-                ChipMenu(label: task.status.displayName, dot: task.status.accent,
+                ChipMenu(label: task.status.displayName, accent: task.status.accent,
                          options: TaskStatus.allCases, title: { $0.displayName }, onSelect: onStatus)
-                ChipMenu(label: task.priority.displayName, dot: task.priority.accent,
+                ChipMenu(label: task.priority.displayName, accent: task.priority.accent,
                          options: TaskPriority.allCases, title: { $0.displayName }, onSelect: onPriority)
                 Spacer(minLength: 0)
                 if let version = task.milestoneTitle, !version.isEmpty {
@@ -383,8 +397,8 @@ struct PendingTaskCard: View {
                 CreationBadge(phase: displayPhase)
             }
             HStack(spacing: 6) {
-                StaticChip(label: draft.status.displayName, dot: draft.status.accent)
-                StaticChip(label: draft.priority.displayName, dot: draft.priority.accent)
+                StaticChip(label: draft.status.displayName, accent: draft.status.accent)
+                StaticChip(label: draft.priority.displayName, accent: draft.priority.accent)
                 Spacer(minLength: 0)
                 if let version = draft.milestoneTitle, !version.isEmpty {
                     HStack(spacing: 3) {
@@ -418,16 +432,9 @@ struct PendingTaskCard: View {
 /// which can't be edited until the task actually exists.
 private struct StaticChip: View {
     let label: String
-    let dot: Color
+    let accent: Color
     var body: some View {
-        HStack(spacing: 5) {
-            Circle().fill(dot).frame(width: 6, height: 6)
-            Text(label).font(.caption.weight(.medium)).foregroundStyle(.primary)
-        }
-        .padding(.horizontal, 8)
-        .padding(.vertical, 4)
-        .background(Capsule().fill(Color.primary.opacity(0.06)))
-        .overlay(Capsule().strokeBorder(Color.primary.opacity(0.06), lineWidth: 1))
+        BadgeLabel(label: label, accent: accent)
     }
 }
 
