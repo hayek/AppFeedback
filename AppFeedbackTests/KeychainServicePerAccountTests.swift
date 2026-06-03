@@ -47,4 +47,36 @@ final class KeychainServicePerAccountTests: XCTestCase {
         XCTAssertNil(afterDeleteA)
         XCTAssertEqual(afterDeleteB, "b")
     }
+
+    func test_gitHubTokenRoundTripIsAccountScoped() async throws {
+        let a = UUID()
+        let b = UUID()
+        defer {
+            Task { await KeychainService.deleteGitHubToken(for: a) }
+            Task { await KeychainService.deleteGitHubToken(for: b) }
+        }
+        _ = await KeychainService.saveGitHubToken("tok-a", for: a)
+        _ = await KeychainService.saveGitHubToken("tok-b", for: b)
+        let loadedA = await KeychainService.loadGitHubToken(for: a)
+        let loadedB = await KeychainService.loadGitHubToken(for: b)
+        XCTAssertEqual(loadedA, "tok-a")
+        XCTAssertEqual(loadedB, "tok-b")
+        XCTAssertEqual(KeychainService.loadGitHubTokenSync(for: a), "tok-a")
+    }
+
+    func test_deleteGitHubTokenLeavesOthers() async throws {
+        let a = UUID()
+        let b = UUID()
+        defer {
+            Task { await KeychainService.deleteGitHubToken(for: a) }
+            Task { await KeychainService.deleteGitHubToken(for: b) }
+        }
+        _ = await KeychainService.saveGitHubToken("a", for: a)
+        _ = await KeychainService.saveGitHubToken("b", for: b)
+        await KeychainService.deleteGitHubToken(for: a)
+        let afterDeleteA = await KeychainService.loadGitHubToken(for: a)
+        let afterDeleteB = await KeychainService.loadGitHubToken(for: b)
+        XCTAssertNil(afterDeleteA)
+        XCTAssertEqual(afterDeleteB, "b")
+    }
 }

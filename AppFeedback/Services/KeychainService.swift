@@ -178,6 +178,42 @@ enum KeychainService {
         await deleteSynchronizablePassword(account: imapAccountKey(for: accountID))
     }
 
+    // MARK: - GitHub account tokens
+
+    private static func gitHubTokenAccountKey(for accountID: UUID) -> String {
+        "github.token.\(accountID.uuidString)"
+    }
+
+    @discardableResult
+    static func saveGitHubToken(_ token: String, for accountID: UUID) async -> Bool {
+        await saveSynchronizablePassword(token, account: gitHubTokenAccountKey(for: accountID))
+    }
+
+    static func loadGitHubToken(for accountID: UUID) async -> String? {
+        await loadSynchronizablePassword(account: gitHubTokenAccountKey(for: accountID))
+    }
+
+    /// Synchronous variant for `@Sendable () -> String?` / non-async callers,
+    /// parallelling `loadSync(for:)`.
+    static func loadGitHubTokenSync(for accountID: UUID) -> String? {
+        let query: [String: Any] = [
+            kSecClass as String:              kSecClassGenericPassword,
+            kSecAttrService as String:        service,
+            kSecAttrAccount as String:        gitHubTokenAccountKey(for: accountID),
+            kSecAttrSynchronizable as String: kCFBooleanTrue!,
+            kSecReturnData as String:         true,
+            kSecMatchLimit as String:         kSecMatchLimitOne,
+        ]
+        var result: AnyObject?
+        guard SecItemCopyMatching(query as CFDictionary, &result) == errSecSuccess,
+              let data = result as? Data else { return nil }
+        return String(data: data, encoding: .utf8)
+    }
+
+    static func deleteGitHubToken(for accountID: UUID) async {
+        await deleteSynchronizablePassword(account: gitHubTokenAccountKey(for: accountID))
+    }
+
     // MARK: - Shared helpers
 
     private static func saveSynchronizablePassword(_ password: String, account: String) async -> Bool {
