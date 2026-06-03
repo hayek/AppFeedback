@@ -74,6 +74,7 @@ struct AppFeedbackApp: App {
                 let testConfig = ModelConfiguration(isStoredInMemoryOnly: true, cloudKitDatabase: .none)
                 container = try ModelContainer(
                     for: Repo.self, SeenIssue.self, HiddenApp.self, MailAccount.self,
+                        GitHubAccount.self,
                         MailSettings.self,
                         MailThread.self, MailMessage.self, MailAttachment.self,
                         IssueTranslation.self, IssueSummaryCache.self,
@@ -83,7 +84,7 @@ struct AppFeedbackApp: App {
                     configurations: testConfig
                 )
             } else {
-                let cloudSchema = Schema([Repo.self, SeenIssue.self, HiddenApp.self, MailAccount.self, MailSettings.self, MailThread.self, MailMessage.self, MailAttachment.self, IssueTranslation.self, IssueSummaryCache.self, ProjectVersion.self, SentReleaseNotification.self])
+                let cloudSchema = Schema([Repo.self, SeenIssue.self, HiddenApp.self, MailAccount.self, GitHubAccount.self, MailSettings.self, MailThread.self, MailMessage.self, MailAttachment.self, IssueTranslation.self, IssueSummaryCache.self, ProjectVersion.self, SentReleaseNotification.self])
                 let localSchema = Schema([CachedIssue.self, MailAttachmentLocal.self, MailAccountLocalState.self, RepoFetchState.self, FeedbackAttachmentLocal.self])
                 let cloudConfig = ModelConfiguration(
                     "cloud",
@@ -93,6 +94,7 @@ struct AppFeedbackApp: App {
                 let localConfig = ModelConfiguration("local", schema: localSchema, cloudKitDatabase: .none)
                 container = try ModelContainer(
                     for: Repo.self, SeenIssue.self, HiddenApp.self, MailAccount.self,
+                        GitHubAccount.self,
                         MailSettings.self,
                         MailThread.self, MailMessage.self, MailAttachment.self,
                         IssueTranslation.self, IssueSummaryCache.self,
