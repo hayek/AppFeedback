@@ -39,6 +39,7 @@ struct AppFeedbackApp: App {
     @State private var syncStatus: CloudSyncStatus
     @State private var activityLog: ActivityLog
     @State private var mailAccountStore: MailAccountStore
+    @State private var gitHubAccountStore: GitHubAccountStore
     @State private var mailSettingsStore: MailSettingsStore
     @State private var threadStore: MailThreadStore
     @State private var outboundTracker: OutboundSendTracker = OutboundSendTracker()
@@ -129,6 +130,7 @@ struct AppFeedbackApp: App {
         _seenStore = State(initialValue: SeenIssueStore(context: cloudContext))
         _hiddenAppStore = State(initialValue: hiddenAppStoreLocal)
         _store = State(initialValue: RepoStore(context: ModelContext(container), hiddenAppStore: hiddenAppStoreLocal))
+        _gitHubAccountStore = State(initialValue: GitHubAccountStore(context: ModelContext(container)))
         _versionStore = State(initialValue: VersionStore(context: ModelContext(container)))
         _cacheContext = State(initialValue: ModelContext(container))
         _syncStatus = State(initialValue: CloudSyncStatus())
@@ -275,6 +277,7 @@ struct AppFeedbackApp: App {
                 .environment(syncStatus)
                 .environment(activityLog)
                 .environment(mailAccountStore)
+                .environment(gitHubAccountStore)
                 .environment(mailSettingsStore)
                 .environment(threadStore)
                 .environment(outboundTracker)
@@ -352,6 +355,7 @@ struct AppFeedbackApp: App {
                 .environment(syncStatus)
                 .environment(activityLog)
                 .environment(mailAccountStore)
+                .environment(gitHubAccountStore)
                 .environment(mailSettingsStore)
                 .environment(threadStore)
                 .environment(outboundTracker)
