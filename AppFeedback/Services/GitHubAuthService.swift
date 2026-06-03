@@ -109,4 +109,16 @@ actor GitHubAuthService {
         }
         return collected
     }
+
+    func fetchCurrentUser(token: String) async throws -> GitHubUser {
+        var request = URLRequest(url: URL(string: "https://api.github.com/user")!)
+        request.setValue("Bearer \(token)",                 forHTTPHeaderField: "Authorization")
+        request.setValue("application/vnd.github.v3+json", forHTTPHeaderField: "Accept")
+
+        let (data, response) = try await session.data(for: request)
+        guard let http = response as? HTTPURLResponse, (200...299).contains(http.statusCode) else {
+            throw AuthError.apiError((response as? HTTPURLResponse)?.statusCode ?? 0)
+        }
+        return try JSONDecoder().decode(GitHubUser.self, from: data)
+    }
 }

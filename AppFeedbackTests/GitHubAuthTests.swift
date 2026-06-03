@@ -39,6 +39,15 @@ final class GitHubAuthModelsTests: XCTestCase {
         XCTAssertTrue(repo.isPrivate)
         XCTAssertEqual(repo.owner.login, "acme")
     }
+
+    func test_gitHubUser_decodesFromGitHubJSON() throws {
+        let json = """
+        { "login": "octocat", "avatar_url": "https://example.com/a.png" }
+        """.data(using: .utf8)!
+        let user = try JSONDecoder().decode(GitHubUser.self, from: json)
+        XCTAssertEqual(user.login, "octocat")
+        XCTAssertEqual(user.avatarURL, "https://example.com/a.png")
+    }
 }
 
 final class GitHubAuthServiceTests: XCTestCase {
@@ -210,5 +219,31 @@ final class GitHubAuthServiceTests: XCTestCase {
         XCTAssertEqual(captured?.url?.absoluteString, "https://github.com/login/device/code")
         XCTAssertEqual(captured?.httpMethod, "POST")
         XCTAssertEqual(captured?.value(forHTTPHeaderField: "Accept"), "application/json")
+    }
+
+    // MARK: fetchCurrentUser
+
+    func test_fetchCurrentUser_decodesLoginAndAvatar() async throws {
+        let json = """
+        { "login": "octocat", "avatar_url": "https://avatars.githubusercontent.com/u/1?v=4", "id": 1 }
+        """.data(using: .utf8)!
+        MockURLProtocol.requestHandler = { req in (self.ok(req), json) }
+        let service = GitHubAuthService(session: .mock)
+        let user = try await service.fetchCurrentUser(token: "tok")
+        XCTAssertEqual(user.login, "octocat")
+        XCTAssertEqual(user.avatarURL, "https://avatars.githubusercontent.com/u/1?v=4")
+    }
+
+    func test_fetchCurrentUser_throwsOnUnauthorized() async throws {
+        MockURLProtocol.requestHandler = { req in
+            (HTTPURLResponse(url: req.url!, statusCode: 401, httpVersion: nil, headerFields: nil)!, Data())
+        }
+        let service = GitHubAuthService(session: .mock)
+        do {
+            _ = try await service.fetchCurrentUser(token: "tok")
+            XCTFail("Expected throw")
+        } catch GitHubAuthService.AuthError.apiError(let code) {
+            XCTAssertEqual(code, 401)
+        }
     }
 }
