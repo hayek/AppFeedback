@@ -23,6 +23,15 @@ struct AddEditRepoView: View {
         !displayName.isEmpty && !owner.isEmpty && !repo.isEmpty && !token.isEmpty
     }
 
+    private var existingRepoKeys: Set<String> {
+        Set(store.repos.map { "\($0.owner)/\($0.repo)".lowercased() })
+    }
+
+    private var selectedRepoKey: String? {
+        guard !owner.isEmpty, !repo.isEmpty else { return nil }
+        return "\(owner)/\(repo)".lowercased()
+    }
+
     var body: some View {
         platformContent
             .task { await populateFromExisting() }
@@ -68,18 +77,35 @@ struct AddEditRepoView: View {
         ScrollView {
             VStack(spacing: 20) {
                 if !isEditing {
-                    Button {
-                        showGitHubLogin = true
-                    } label: {
-                        HStack(spacing: 6) {
-                            Image(systemName: "person.badge.key.fill")
-                            Text("Sign in with GitHub")
-                                .fontWeight(.semibold)
+                    if accountStore.accounts.isEmpty {
+                        Button {
+                            showGitHubLogin = true
+                        } label: {
+                            HStack(spacing: 6) {
+                                Image(systemName: "person.badge.key.fill")
+                                Text("Sign in with GitHub")
+                                    .fontWeight(.semibold)
+                            }
+                            .frame(maxWidth: .infinity)
+                            .padding(.vertical, 4)
                         }
-                        .frame(maxWidth: .infinity)
-                        .padding(.vertical, 4)
+                        .buttonStyle(.borderedProminent)
+                    } else {
+                        AccountRepoPicker(
+                            accounts: accountStore.accounts,
+                            accountStore: accountStore,
+                            existingRepoKeys: existingRepoKeys,
+                            selectedKey: selectedRepoKey,
+                            onSelect: { account, ghRepo in
+                                owner = ghRepo.owner.login
+                                repo = ghRepo.name
+                                displayName = ghRepo.name
+                                token = accountStore.token(for: account) ?? ""
+                                redactEmailAddresses = !ghRepo.isPrivate
+                            },
+                            onConnectAnother: { showGitHubLogin = true }
+                        )
                     }
-                    .buttonStyle(.borderedProminent)
 
                     HStack {
                         VStack { Divider() }
