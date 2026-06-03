@@ -4,16 +4,9 @@ import SwiftUI
 struct GitHubLoginView: View {
     @Environment(\.dismiss) private var dismiss
     @Environment(\.openURL) private var openURL
-    @Bindable var store: RepoStore
-    var onCompleted: (() -> Void)? = nil
-
+    var accountStore: GitHubAccountStore
     @State private var authState: AuthState = .requestingCode
-    @State private var oauthToken = ""
-    @State private var searchText = ""
-    @State private var selectedRepo: GitHubRepo?
-    @State private var displayName = ""
     @State private var pollTask: Task<Void, Never>?
-    @State private var isSaving = false
     @State private var didCopyCode = false
 
     private let service = GitHubAuthService()
@@ -21,8 +14,7 @@ struct GitHubLoginView: View {
     enum AuthState {
         case requestingCode
         case waitingForUser(DeviceCodeResponse)
-        case fetchingRepos
-        case pickingRepo([GitHubRepo])
+        case finalizing
         case failed(String)
     }
 
@@ -70,10 +62,8 @@ struct GitHubLoginView: View {
             centeredProgress("Connecting to GitHub…")
         case .waitingForUser(let response):
             waitingView(response)
-        case .fetchingRepos:
-            centeredProgress("Loading your repositories…")
-        case .pickingRepo(let repos):
-            repoPickerView(repos)
+        case .finalizing:
+            centeredProgress("Finishing sign-in…")
         case .failed(let message):
             failedView(message)
         }
@@ -113,16 +103,6 @@ struct GitHubLoginView: View {
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .padding()
-    }
-
-    private func repoPickerView(_ repos: [GitHubRepo]) -> some View {
-        RepoPickerContent(
-            repos: repos,
-            searchText: $searchText,
-            selectedRepo: $selectedRepo,
-            displayName: $displayName,
-            onSave: { Task { await saveSelectedRepo() } }
-        )
     }
 
     private func failedView(_ message: String) -> some View {
@@ -179,128 +159,14 @@ struct GitHubLoginView: View {
                     deviceCode: codeResponse.deviceCode,
                     interval: codeResponse.interval
                 )
-                oauthToken = token
-                authState = .fetchingRepos
-                let repos = try await service.listRepos(token: token)
-                authState = .pickingRepo(repos)
+                authState = .finalizing
+                let user = try await service.fetchCurrentUser(token: token)
+                _ = await accountStore.add(login: user.login, avatarURL: user.avatarURL, token: token)
+                dismiss()
             } catch is CancellationError {
                 // user dismissed — do nothing
             } catch {
                 authState = .failed(error.localizedDescription)
-            }
-        }
-    }
-
-    private func saveSelectedRepo() async {
-        guard !isSaving, let selected = selectedRepo, !oauthToken.isEmpty else { return }
-        isSaving = true
-        defer { isSaving = false }
-
-        let trimName = displayName.trimmingCharacters(in: .whitespaces)
-        let config = RepoConfig(
-            displayName: trimName.isEmpty ? selected.name : trimName,
-            owner: selected.owner.login,
-            repo: selected.name,
-            redactEmailAddresses: !selected.isPrivate
-        )
-        // Save token first so SettingsView's tokens dictionary doesn't briefly show "no token".
-        await KeychainService.save(token: oauthToken, for: config)
-        store.add(config)
-        onCompleted?()
-        dismiss()
-    }
-}
-
-// MARK: - Repo Picker Sub-view
-
-@MainActor
-private struct RepoPickerContent: View {
-    let repos: [GitHubRepo]
-    @Binding var searchText: String
-    @Binding var selectedRepo: GitHubRepo?
-    @Binding var displayName: String
-    let onSave: () -> Void
-
-    var filtered: [GitHubRepo] {
-        repos.filter {
-            searchText.isEmpty || $0.fullName.localizedCaseInsensitiveContains(searchText)
-        }
-    }
-
-    @ViewBuilder
-    var repoList: some View {
-        if filtered.isEmpty {
-            Text(repos.isEmpty
-                 ? "No repositories found.\nCheck that your OAuth app has repo scope."
-                 : "No results.")
-                .font(.system(size: 12))
-                .foregroundStyle(.secondary)
-                .multilineTextAlignment(.center)
-                .frame(maxWidth: .infinity, maxHeight: .infinity)
-        } else {
-            ScrollView {
-                LazyVStack(spacing: 0) {
-                    ForEach(filtered) { (repo: GitHubRepo) in
-                        Button {
-                            selectedRepo = repo
-                            displayName = repo.name
-                        } label: {
-                            HStack {
-                                VStack(alignment: .leading, spacing: 2) {
-                                    Text(repo.fullName)
-                                        .font(.system(size: 12, weight: .medium))
-                                        .foregroundStyle(.primary)
-                                    if repo.isPrivate {
-                                        Label("Private", systemImage: "lock")
-                                            .font(.system(size: 10))
-                                            .foregroundStyle(.secondary)
-                                    }
-                                }
-                                Spacer()
-                                if selectedRepo?.id == repo.id {
-                                    Image(systemName: "checkmark")
-                                        .foregroundStyle(Color.accentColor)
-                                }
-                            }
-                            .padding(.horizontal, 12)
-                            .padding(.vertical, 8)
-                            .contentShape(Rectangle())
-                        }
-                        .buttonStyle(.plain)
-                        Divider().padding(.leading, 12)
-                    }
-                }
-            }
-        }
-    }
-
-    var body: some View {
-        VStack(spacing: 0) {
-            HStack(spacing: 6) {
-                Image(systemName: "magnifyingglass").foregroundStyle(.tertiary)
-                TextField("Search repositories…", text: $searchText)
-                    .textFieldStyle(.plain)
-            }
-            .padding(8)
-            .background(.quaternary, in: RoundedRectangle(cornerRadius: 8))
-            .padding(.horizontal, 16)
-            .padding(.top, 12)
-            .padding(.bottom, 8)
-
-            Divider()
-
-            repoList
-
-            if selectedRepo != nil {
-                Divider()
-                HStack(spacing: 10) {
-                    TextField("Display name", text: $displayName)
-                        .textFieldStyle(.roundedBorder)
-                    Button("Add") { onSave() }
-                        .disabled(displayName.trimmingCharacters(in: .whitespaces).isEmpty)
-                        .buttonStyle(.borderedProminent)
-                }
-                .padding(12)
             }
         }
     }

@@ -3,6 +3,7 @@ import SwiftUI
 struct AddEditRepoView: View {
     @Environment(\.dismiss) private var dismiss
     @Bindable var store: RepoStore
+    @Environment(GitHubAccountStore.self) private var accountStore
 
     var existing: RepoConfig?
     var embedInNavigation: Bool = true
@@ -26,7 +27,7 @@ struct AddEditRepoView: View {
         platformContent
             .task { await populateFromExisting() }
             .sheet(isPresented: $showGitHubLogin) {
-                GitHubLoginView(store: store, onCompleted: { dismiss() })
+                GitHubLoginView(accountStore: accountStore)
             }
     }
 
