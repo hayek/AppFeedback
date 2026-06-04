@@ -350,9 +350,13 @@ final class ProjectInspectorModelTests: XCTestCase {
             makeTask(1, status: .inProgress, priority: .high, milestone: "1.0"),
             makeTask(2, status: .inProgress, priority: .low,  milestone: "1.0"),
             makeTask(3, status: .todo,       priority: .high, milestone: "1.0"),
+            makeTask(4, status: .inProgress, priority: .high, milestone: "2.0"),
         ])
         m.taskFilters.statuses = [.inProgress]
         m.taskFilters.priorities = [.high]
+        m.taskFilters.versions = ["1.0"]
+        // Only #1 matches all three dimensions. #4 matches status+priority but is excluded by version,
+        // proving the version dimension is AND'd in (not OR'd).
         XCTAssertEqual(m.filteredTasks.map(\.number), [1])
     }
 

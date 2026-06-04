@@ -280,6 +280,7 @@ final class ProjectInspectorModel {
         tasks.filter { t in
             (taskFilters.statuses.isEmpty   || taskFilters.statuses.contains(t.displayStatus)) &&
             (taskFilters.priorities.isEmpty || taskFilters.priorities.contains(t.priority)) &&
+            // "" is never in uniqueTaskVersions (compactMap drops nil), so version-less tasks safely miss any version filter.
             (taskFilters.versions.isEmpty   || taskFilters.versions.contains(t.milestoneTitle ?? "")) &&
             t.matchesSearch(taskFilters.search)
         }
@@ -288,7 +289,8 @@ final class ProjectInspectorModel {
     /// Distinct, sorted version names present among the loaded tasks (drives the Version filter
     /// menu). Excludes tasks with no version.
     var uniqueTaskVersions: [String] {
-        Array(Set(tasks.compactMap(\.milestoneTitle))).sorted()
+        Array(Set(tasks.compactMap(\.milestoneTitle)))
+            .sorted { $0.compare($1, options: .numeric) == .orderedAscending }
     }
 
     /// Pure predicate for the Versions section filter; the panel supplies each version's derived
