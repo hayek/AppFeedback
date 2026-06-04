@@ -50,7 +50,7 @@ struct FilterBarView: View {
                 )
 
                 if hasAnyActiveFilter {
-                    ClearFiltersButton(title: "Clear All", action: clearAll)
+                    ClearFiltersButton(action: clearAll)
                 }
             }
             .padding(.horizontal, 12)

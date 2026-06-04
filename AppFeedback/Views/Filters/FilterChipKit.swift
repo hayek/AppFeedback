@@ -12,7 +12,7 @@ struct MultiSelectFilterChip<Value: Hashable>: View {
     var display: (Value) -> String
     /// Optional SF Symbol per value; when present the menu shows it (or a checkmark when selected)
     /// and the sub-pill carries it as a leading glyph.
-    var symbol: ((Value) -> String?)? = nil
+    var symbol: ((Value) -> String)? = nil
     var accent: Color = .accentColor
 
     var body: some View {
@@ -60,6 +60,7 @@ struct MultiSelectFilterChip<Value: Hashable>: View {
 
 /// A magnifier button that expands into an inline text field with a clear/collapse control.
 /// Stays expanded while it holds text; collapses when emptied and unfocused.
+/// Shared widget: used by the inspector's task/version filter bars (and any future filter bar).
 struct ExpandableSearchField: View {
     @Binding var text: String
     var prompt: String = "Search"
@@ -100,11 +101,16 @@ struct ExpandableSearchField: View {
                 .padding(.horizontal, 8)
                 .padding(.vertical, 4)
                 .background(Capsule().fill(Color.secondary.opacity(0.10)))
+                // `accent` only tints the active (non-empty) border; search is otherwise styled
+                // neutrally so it doesn't read as an active filter chip.
                 .overlay(Capsule().stroke(accent.opacity(text.isEmpty ? 0 : 0.28), lineWidth: 1))
             } else {
                 Button {
                     withAnimation(.easeInOut(duration: 0.18)) { expanded = true }
-                    DispatchQueue.main.async { focused = true }   // focus after the field exists
+                    // Focus on the next runloop tick, once the TextField exists in the hierarchy.
+                    // Deliberately NOT via the field's .onAppear: that would re-raise the keyboard
+                    // if the enclosing List row re-appears while already expanded.
+                    DispatchQueue.main.async { focused = true }
                 } label: {
                     Image(systemName: "magnifyingglass")
                         .font(.system(size: 12, weight: .medium))
