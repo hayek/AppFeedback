@@ -193,6 +193,7 @@ struct RootView: View {
             if oldValue?.repoId != newValue?.repoId {
                 inspector.clearCreations()
                 versionCreations.clearAll()
+                inspector.clearFilters()
             }
             guard let newValue else { return }
             updateViewModel(for: newValue)
