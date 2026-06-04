@@ -31,6 +31,8 @@ struct ProjectInspectorPanel: View {
                 // at the mutation sites); the badge fades via a value-animation on the card. The
                 // key is NOT to put custom `.transition`s on List rows — that suppresses List's
                 // built-in animation.
+                // Chips/buttons use `.accentColor` for interactivity — intentionally unlike
+                // RepoSectionView's sidebar dot, which falls back to `.secondary` as a neutral marker.
                 let accent: Color = repo.colorHex.map(Color.init(hex:)) ?? .accentColor
                 List {
                     header(title: "Tasks", count: taskRowItems.count,
@@ -168,7 +170,8 @@ struct ProjectInspectorPanel: View {
         }
     }
 
-    /// All versions for the repo, narrowed by the active version filters.
+    /// All versions for the repo, narrowed by the active version filters. Called twice per render
+    /// (header count + rows); the work is O(versions × tasks) but negligible at sidebar scale.
     private func filteredVersions(repo: RepoConfig) -> [ProjectVersion] {
         versionStore.versions(owner: repo.owner, repo: repo.repo).filter { version in
             inspector.versionMatches(
