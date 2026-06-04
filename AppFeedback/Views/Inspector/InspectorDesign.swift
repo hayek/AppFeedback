@@ -151,6 +151,31 @@ struct PanelEmptyState: View {
     }
 }
 
+/// Empty state shown when active filters hide every row in a section (distinct from the
+/// genuinely-empty "No tasks yet." state); offers an inline Clear.
+struct PanelFilteredEmptyState: View {
+    let message: String
+    let clear: () -> Void
+
+    var body: some View {
+        HStack(spacing: 8) {
+            Image(systemName: "line.3.horizontal.decrease.circle")
+                .font(.system(size: 12))
+                .foregroundStyle(.tertiary)
+            Text(message)
+                .font(.caption)
+                .foregroundStyle(.secondary)
+            Spacer(minLength: 0)
+            Button("Clear", action: clear)
+                .font(.caption.weight(.semibold))
+                .buttonStyle(.plain)
+                .foregroundStyle(Color.accentColor)
+        }
+        .padding(.vertical, 4)
+        .padding(.leading, 2)
+    }
+}
+
 // MARK: - Chip menu (status / priority on a task card)
 
 /// Outlined badge presentation shared by `ChipMenu` and its static twin: a colored dot and

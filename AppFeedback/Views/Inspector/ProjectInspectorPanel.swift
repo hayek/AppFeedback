@@ -31,13 +31,16 @@ struct ProjectInspectorPanel: View {
                 // at the mutation sites); the badge fades via a value-animation on the card. The
                 // key is NOT to put custom `.transition`s on List rows — that suppresses List's
                 // built-in animation.
+                let accent: Color = repo.colorHex.map(Color.init(hex:)) ?? .accentColor
                 List {
                     header(title: "Tasks", count: taskRowItems.count,
                            addLabel: "New Task", add: onCreateTask, topPad: 4)
+                    filterRow { TaskFilterBar(inspector: inspector, accent: accent) }
                     taskRows(repo: repo)
 
-                    header(title: "Versions", count: versionStore.versions(owner: repo.owner, repo: repo.repo).count,
+                    header(title: "Versions", count: filteredVersions(repo: repo).count,
                            addLabel: "New Version", add: onCreateVersion, topPad: 22)
+                    filterRow { VersionFilterBar(inspector: inspector, accent: accent) }
                     versionRows(repo: repo)
                 }
                 .listStyle(.plain)
@@ -104,6 +107,14 @@ struct ProjectInspectorPanel: View {
             .listRowInsets(EdgeInsets(top: topPad, leading: 12, bottom: 8, trailing: 12))
     }
 
+    @ViewBuilder
+    private func filterRow<Content: View>(@ViewBuilder _ content: () -> Content) -> some View {
+        content()
+            .listRowSeparator(.hidden)
+            .listRowBackground(Color.clear)
+            .listRowInsets(EdgeInsets(top: 0, leading: 0, bottom: 4, trailing: 0))
+    }
+
     /// Real tasks and not-yet-reloaded creation placeholders, merged and sorted together so a
     /// placeholder sits where its real card will land — no jump at hand-off. A real task that a
     /// just-created creation still tracks carries that creation's badge.
@@ -149,12 +160,28 @@ struct ProjectInspectorPanel: View {
             }
         }
         if rows.isEmpty {
-            PanelEmptyState(icon: "checklist", message: "No tasks yet.").cardRow()
+            if inspector.taskFilters.isActive && !inspector.tasks.isEmpty {
+                PanelFilteredEmptyState(message: "No tasks match") { inspector.clearTaskFilters() }.cardRow()
+            } else {
+                PanelEmptyState(icon: "checklist", message: "No tasks yet.").cardRow()
+            }
+        }
+    }
+
+    /// All versions for the repo, narrowed by the active version filters.
+    private func filteredVersions(repo: RepoConfig) -> [ProjectVersion] {
+        versionStore.versions(owner: repo.owner, repo: repo.repo).filter { version in
+            inspector.versionMatches(
+                name: version.name,
+                releaseTitle: version.releaseTitle,
+                state: version.derivedState(anyTaskStarted: inspector.anyTaskStarted(versionNamed: version.name))
+            )
         }
     }
 
     @ViewBuilder private func versionRows(repo: RepoConfig) -> some View {
-        let versions = versionStore.versions(owner: repo.owner, repo: repo.repo)
+        let total = versionStore.versions(owner: repo.owner, repo: repo.repo).count
+        let versions = filteredVersions(repo: repo)
         ForEach(versions) { version in
             VersionCard(
                 name: version.name,
@@ -173,7 +200,11 @@ struct ProjectInspectorPanel: View {
             }
         }
         if versions.isEmpty {
-            PanelEmptyState(icon: "shippingbox", message: "No versions yet.").cardRow()
+            if inspector.versionFilters.isActive && total > 0 {
+                PanelFilteredEmptyState(message: "No versions match") { inspector.clearVersionFilters() }.cardRow()
+            } else {
+                PanelEmptyState(icon: "shippingbox", message: "No versions yet.").cardRow()
+            }
         }
     }
 
