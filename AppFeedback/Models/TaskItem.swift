@@ -22,13 +22,15 @@ struct TaskItem: Identifiable, Sendable, Hashable {
     /// "Done" filter and never under "To Do" / "In Progress".
     var displayStatus: TaskStatus { isCompleted ? .done : status }
 
-    /// Case-insensitive match of `query` against the task's number ("#42"), title, and prose
-    /// (the body with the machine-managed feedback-ref block stripped, so refs don't pollute
-    /// matches). A blank/whitespace query matches everything.
+    /// Case-insensitive match of `query` against the task's number, title, and prose (the body
+    /// with the machine-managed feedback-ref block stripped, so refs don't pollute matches). A
+    /// numeric query (optionally "#"-prefixed) matches the task's own number exactly, so "#4"
+    /// finds #4 and not #42. A blank/whitespace query matches everything.
     func matchesSearch(_ query: String) -> Bool {
         let q = query.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !q.isEmpty else { return true }
-        if "#\(number)".localizedCaseInsensitiveContains(q) { return true }
+        let numeric = q.hasPrefix("#") ? String(q.dropFirst()) : q
+        if let n = Int(numeric), n == number { return true }
         if title.localizedCaseInsensitiveContains(q) { return true }
         return FeedbackTaskRefParser.prose(of: body).localizedCaseInsensitiveContains(q)
     }

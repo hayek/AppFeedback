@@ -39,6 +39,8 @@ final class TaskItemTests: XCTestCase {
         XCTAssertEqual(todo.displayStatus, .todo)
         let wip = TaskItem(issue: issue(number: 2, body: "", labels: [AppFeedbackLabels.task, "status:in-progress"], state: .open, milestone: nil))
         XCTAssertEqual(wip.displayStatus, .inProgress)
+        let done = TaskItem(issue: issue(number: 3, body: "", labels: [AppFeedbackLabels.task, "status:done"], state: .open, milestone: nil))
+        XCTAssertEqual(done.displayStatus, .done)
     }
 
     func testDisplayStatusIsDoneWhenClosedEvenIfLabeledTodo() {
@@ -56,6 +58,8 @@ final class TaskItemTests: XCTestCase {
         XCTAssertTrue(item.matchesSearch("T42"))          // title is "T42"
         XCTAssertTrue(item.matchesSearch("#42"))          // issue number
         XCTAssertTrue(item.matchesSearch("CRASH"))        // prose, case-insensitive
+        XCTAssertFalse(item.matchesSearch("nonexistent"))   // matches no field
+        XCTAssertFalse(item.matchesSearch("#4"))            // exact-number: must not match #42
     }
 
     func testMatchesSearchIgnoresRefBlockAndBlankQuery() {
