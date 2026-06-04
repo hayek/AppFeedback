@@ -145,6 +145,7 @@
 		55A467A155FAEE3871FF8226 /* MailDefaultsSection.swift in Sources */ = {isa = PBXBuildFile; fileRef = FEBBE0C28162DB5C340799E2 /* MailDefaultsSection.swift */; };
 		562460209F2D73146B278AD2 /* UnreadSummaryViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = F21997922568B439D705E5DA /* UnreadSummaryViewModel.swift */; };
 		56CC2B9967F4A70A2DF60675 /* MailToGitHubMirror.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4319D976803D979C7D114484 /* MailToGitHubMirror.swift */; };
+		5772D38212FF45DDEC039AEC /* InspectorFilterBars.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA9230F8F5C542709BB4BE44 /* InspectorFilterBars.swift */; };
 		57A1B6E768B25DD22D47D28B /* AppFeedbackTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 98F8C9ECF3F6884F65EFEE8D /* AppFeedbackTests.swift */; };
 		58B9B2B566EACEAF5CD4738C /* MailThreadStoreTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1D93EA05B7A45FF6DD6E3E19 /* MailThreadStoreTests.swift */; };
 		58ECB8D09E14152B01B25A8F /* GitHubIssueWriter.swift in Sources */ = {isa = PBXBuildFile; fileRef = 53C3ABD26C55E7997E31FE54 /* GitHubIssueWriter.swift */; };
@@ -173,6 +174,7 @@
 		64EC38217CE11BA070E828CC /* GitHubIssueWriterTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8A172DC491C08B2B19321D90 /* GitHubIssueWriterTests.swift */; };
 		6604F5C9B9D507FABADF9B32 /* MailSettingsStoreTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 41A259F8580D4738755D4CC2 /* MailSettingsStoreTests.swift */; };
 		6645EA25CABF717B2D1B6E09 /* IssueCardView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7B47F8578C6AACFA2B16D08C /* IssueCardView.swift */; };
+		666FEC2518C0B07F2367EE8C /* InspectorFilterBars.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA9230F8F5C542709BB4BE44 /* InspectorFilterBars.swift */; };
 		671859F39DD0985A8C4ABC7C /* ProjectInspectorModelTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 787DB55D32DE6798C2427FE6 /* ProjectInspectorModelTests.swift */; };
 		67421A19C6A62694ECF0B115 /* CreateTaskSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = F6C7BCC2911F1E0A091D27A5 /* CreateTaskSheet.swift */; };
 		677FA0A37ED1C2356AEE47E1 /* AppFeedbackTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 98F8C9ECF3F6884F65EFEE8D /* AppFeedbackTests.swift */; };
@@ -611,6 +613,7 @@
 		A558CA608A7858A089B1E342 /* OSVersionFormatTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OSVersionFormatTests.swift; sourceTree = "<group>"; };
 		A5A00E7444118AEC76580EAB /* FilterBarView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FilterBarView.swift; sourceTree = "<group>"; };
 		A5BB14DF0A7F96185DE65083 /* AttachmentMirrorTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AttachmentMirrorTests.swift; sourceTree = "<group>"; };
+		AA9230F8F5C542709BB4BE44 /* InspectorFilterBars.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = InspectorFilterBars.swift; sourceTree = "<group>"; };
 		AD51A65BAE673C49864200A4 /* InlineReplyView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = InlineReplyView.swift; sourceTree = "<group>"; };
 		ADB9724B7CB5D9FF9058FEE4 /* AppFeedbackApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppFeedbackApp.swift; sourceTree = "<group>"; };
 		AE7215BA1A0BAA6222B021CC /* HTMLSanitizerTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HTMLSanitizerTests.swift; sourceTree = "<group>"; };
@@ -1076,6 +1079,7 @@
 				F6C7BCC2911F1E0A091D27A5 /* CreateTaskSheet.swift */,
 				2EB3611362B1B0690EC053F1 /* DetailDesign.swift */,
 				6487B44FEA5C51FEE77A15CB /* InspectorDesign.swift */,
+				AA9230F8F5C542709BB4BE44 /* InspectorFilterBars.swift */,
 				B9928198061F3E1C46A15C60 /* NewVersionSheet.swift */,
 				6375A1FFE5DE68A18FFE315A /* ProjectInspectorPanel.swift */,
 				07E13C25608097892A67A421 /* ReleaseRecipientsSheet.swift */,
@@ -1311,6 +1315,7 @@
 				BFAB198DF0E83A583F4660F8 /* IOSMailDefaultsView.swift in Sources */,
 				EAC5CD362385D4BF52088A3D /* InlineReplyView.swift in Sources */,
 				6077A4A552EC68C669A5DF66 /* InspectorDesign.swift in Sources */,
+				5772D38212FF45DDEC039AEC /* InspectorFilterBars.swift in Sources */,
 				3A97DFF7570825CC39DACE81 /* IntelligenceAvailability.swift in Sources */,
 				C20DEE744F36E1EA4A7CDB84 /* IntelligenceProvider.swift in Sources */,
 				CEE908C0A858F0CA26064BAF /* IntelligenceService.swift in Sources */,
@@ -1540,6 +1545,7 @@
 				2ADFCADACE15F9CED14427B1 /* IOSMailDefaultsView.swift in Sources */,
 				D5C176B9591FEBC55CB2C388 /* InlineReplyView.swift in Sources */,
 				5A11A723C32DC19D666D51F8 /* InspectorDesign.swift in Sources */,
+				666FEC2518C0B07F2367EE8C /* InspectorFilterBars.swift in Sources */,
 				939E9E35143B354C009D56A4 /* IntelligenceAvailability.swift in Sources */,
 				42DCD3ABA7391F9EDD0C1F9B /* IntelligenceProvider.swift in Sources */,
 				3305E47FF701B2C78B5E955B /* IntelligenceService.swift in Sources */,
