@@ -31,4 +31,38 @@ final class TaskItemTests: XCTestCase {
         XCTAssertTrue(item.isClosed)
         XCTAssertTrue(item.isCompleted)   // closed OR status:done
     }
+
+    // MARK: - displayStatus
+
+    func testDisplayStatusReflectsRawStatusWhenOpen() {
+        let todo = TaskItem(issue: issue(number: 1, body: "", labels: [AppFeedbackLabels.task], state: .open, milestone: nil))
+        XCTAssertEqual(todo.displayStatus, .todo)
+        let wip = TaskItem(issue: issue(number: 2, body: "", labels: [AppFeedbackLabels.task, "status:in-progress"], state: .open, milestone: nil))
+        XCTAssertEqual(wip.displayStatus, .inProgress)
+    }
+
+    func testDisplayStatusIsDoneWhenClosedEvenIfLabeledTodo() {
+        // A closed issue still carries its old status:todo label, but reads as Done.
+        let item = TaskItem(issue: issue(number: 1, body: "", labels: [AppFeedbackLabels.task, "status:todo"], state: .closed, milestone: nil))
+        XCTAssertEqual(item.status, .todo)
+        XCTAssertEqual(item.displayStatus, .done)
+    }
+
+    // MARK: - matchesSearch
+
+    func testMatchesSearchTitleNumberAndProse() {
+        let body = FeedbackTaskRefParser.upsert(into: "investigate the crash log", refs: [7])
+        let item = TaskItem(issue: issue(number: 42, body: body, labels: [AppFeedbackLabels.task], state: .open, milestone: nil))
+        XCTAssertTrue(item.matchesSearch("T42"))          // title is "T42"
+        XCTAssertTrue(item.matchesSearch("#42"))          // issue number
+        XCTAssertTrue(item.matchesSearch("CRASH"))        // prose, case-insensitive
+    }
+
+    func testMatchesSearchIgnoresRefBlockAndBlankQuery() {
+        let body = FeedbackTaskRefParser.upsert(into: "notes", refs: [55])
+        let item = TaskItem(issue: issue(number: 1, body: body, labels: [AppFeedbackLabels.task], state: .open, milestone: nil))
+        XCTAssertFalse(item.matchesSearch("Addresses"))   // lives only in the stripped ref block
+        XCTAssertFalse(item.matchesSearch("#55"))         // ref number is in the block, not prose; not this task's number
+        XCTAssertTrue(item.matchesSearch("   "))          // blank query matches everything
+    }
 }

@@ -17,6 +17,22 @@ struct TaskItem: Identifiable, Sendable, Hashable {
     /// "Completed" for notification purposes: the issue is closed or explicitly status:done.
     var isCompleted: Bool { isClosed || status == .done }
 
+    /// The status to display/filter by: a completed task (closed, or `status:done`) reads as
+    /// `.done` regardless of its raw status label, so a closed issue still appears under a
+    /// "Done" filter and never under "To Do" / "In Progress".
+    var displayStatus: TaskStatus { isCompleted ? .done : status }
+
+    /// Case-insensitive match of `query` against the task's number ("#42"), title, and prose
+    /// (the body with the machine-managed feedback-ref block stripped, so refs don't pollute
+    /// matches). A blank/whitespace query matches everything.
+    func matchesSearch(_ query: String) -> Bool {
+        let q = query.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !q.isEmpty else { return true }
+        if "#\(number)".localizedCaseInsensitiveContains(q) { return true }
+        if title.localizedCaseInsensitiveContains(q) { return true }
+        return FeedbackTaskRefParser.prose(of: body).localizedCaseInsensitiveContains(q)
+    }
+
     init(issue: FeedbackIssue) {
         self.number = issue.number
         self.title = issue.title
