@@ -47,10 +47,36 @@ struct TaskCreation: Identifiable, Equatable {
     var number: Int?
 }
 
+/// Active filters for the inspector's Tasks section. An empty set on a dimension means "no
+/// constraint"; dimensions combine with AND. `search` is matched by `TaskItem.matchesSearch`.
+struct TaskFilters: Equatable {
+    var statuses:   Set<TaskStatus>   = []
+    var priorities: Set<TaskPriority> = []
+    var versions:   Set<String>       = []     // milestoneTitle values
+    var search:     String            = ""
+
+    var isActive: Bool {
+        !statuses.isEmpty || !priorities.isEmpty || !versions.isEmpty
+            || !search.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+    }
+}
+
+/// Active filters for the inspector's Versions section: by derived `VersionState` and a name/
+/// title search. Empty `states` means "no constraint".
+struct VersionFilters: Equatable {
+    var states: Set<VersionState> = []
+    var search: String            = ""
+
+    var isActive: Bool {
+        !states.isEmpty || !search.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+    }
+}
+
 @Observable @MainActor
 final class ProjectInspectorModel {
     private(set) var tasks: [TaskItem] = []
-    var statusFilter: TaskStatus? = nil
+    var taskFilters    = TaskFilters()
+    var versionFilters = VersionFilters()
 
     // MARK: - Optimistic task creation
 
@@ -248,10 +274,37 @@ final class ProjectInspectorModel {
         tasks.removeAll { $0.number == number }
     }
 
+    /// Tasks passing all active filters (status, priority, version, search) — empty dimensions
+    /// impose no constraint, and the dimensions combine with AND.
     var filteredTasks: [TaskItem] {
-        guard let statusFilter else { return tasks }
-        return tasks.filter { ($0.status == statusFilter && !$0.isClosed) || (statusFilter == .done && $0.isCompleted) }
+        tasks.filter { t in
+            (taskFilters.statuses.isEmpty   || taskFilters.statuses.contains(t.displayStatus)) &&
+            (taskFilters.priorities.isEmpty || taskFilters.priorities.contains(t.priority)) &&
+            (taskFilters.versions.isEmpty   || taskFilters.versions.contains(t.milestoneTitle ?? "")) &&
+            t.matchesSearch(taskFilters.search)
+        }
     }
+
+    /// Distinct, sorted version names present among the loaded tasks (drives the Version filter
+    /// menu). Excludes tasks with no version.
+    var uniqueTaskVersions: [String] {
+        Array(Set(tasks.compactMap(\.milestoneTitle))).sorted()
+    }
+
+    /// Pure predicate for the Versions section filter; the panel supplies each version's derived
+    /// `state`. No filters → matches everything.
+    func versionMatches(name: String, releaseTitle: String, state: VersionState) -> Bool {
+        let stateOK = versionFilters.states.isEmpty || versionFilters.states.contains(state)
+        let q = versionFilters.search.trimmingCharacters(in: .whitespacesAndNewlines)
+        let searchOK = q.isEmpty
+            || name.localizedCaseInsensitiveContains(q)
+            || releaseTitle.localizedCaseInsensitiveContains(q)
+        return stateOK && searchOK
+    }
+
+    func clearTaskFilters()    { taskFilters = TaskFilters() }
+    func clearVersionFilters() { versionFilters = VersionFilters() }
+    func clearFilters()        { clearTaskFilters(); clearVersionFilters() }
 
     func task(number: Int) -> TaskItem? {
         tasks.first { $0.number == number }

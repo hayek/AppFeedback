@@ -288,4 +288,123 @@ final class ProjectInspectorModelTests: XCTestCase {
         XCTAssertNil(tracker.status(a))
         XCTAssertNil(tracker.status(b))
     }
+
+    // MARK: - makeTask helper
+
+    private func makeTask(_ n: Int, status: TaskStatus = .todo, priority: TaskPriority = .med,
+                          milestone: String? = nil, closed: Bool = false,
+                          title: String? = nil, body: String = "") -> TaskItem {
+        var labels = [AppFeedbackLabels.task]
+        if status != .todo { labels.append(status.label) }      // .todo is the parsed default
+        if priority != .med { labels.append(priority.label) }   // .med is the parsed default
+        return TaskItem(issue: FeedbackIssue(
+            number: n, title: title ?? "t\(n)", createdAt: Date(), rawBody: body,
+            appName: nil, appVersion: nil, device: nil, osVersion: nil, email: nil, description: body,
+            labels: labels.map { IssueLabel(name: $0, colorHex: "x") },
+            state: closed ? .closed : .open, milestoneTitle: milestone))
+    }
+
+    // MARK: - Task filtering
+
+    func testFilteredTasksNoFiltersReturnsAll() {
+        let m = ProjectInspectorModel()
+        m.setTasks([makeTask(1), makeTask(2, status: .inProgress)])
+        XCTAssertEqual(m.filteredTasks.map(\.number), [1, 2])
+    }
+
+    func testFilterByMultipleStatuses() {
+        let m = ProjectInspectorModel()
+        m.setTasks([makeTask(1, status: .todo), makeTask(2, status: .inProgress), makeTask(3, status: .done)])
+        m.taskFilters.statuses = [.todo, .inProgress]
+        XCTAssertEqual(Set(m.filteredTasks.map(\.number)), [1, 2])
+    }
+
+    func testClosedTaskMatchesDoneNotTodo() {
+        let m = ProjectInspectorModel()
+        // A closed task reads as Done via displayStatus regardless of its raw status. (The
+        // explicit status:todo-label variant is proven at the TaskItem layer in Task 1.)
+        m.setTasks([makeTask(1, status: .todo, closed: true)])
+        m.taskFilters.statuses = [.done]
+        XCTAssertEqual(m.filteredTasks.map(\.number), [1], "closed task should match a Done filter")
+        m.taskFilters.statuses = [.todo]
+        XCTAssertTrue(m.filteredTasks.isEmpty, "closed task should not match a To Do filter")
+    }
+
+    func testFilterByPriority() {
+        let m = ProjectInspectorModel()
+        m.setTasks([makeTask(1, priority: .high), makeTask(2, priority: .low)])
+        m.taskFilters.priorities = [.high]
+        XCTAssertEqual(m.filteredTasks.map(\.number), [1])
+    }
+
+    func testFilterByVersion() {
+        let m = ProjectInspectorModel()
+        m.setTasks([makeTask(1, milestone: "1.0"), makeTask(2, milestone: "2.0"), makeTask(3, milestone: nil)])
+        m.taskFilters.versions = ["1.0"]
+        XCTAssertEqual(m.filteredTasks.map(\.number), [1])
+    }
+
+    func testFilterDimensionsCombineWithAnd() {
+        let m = ProjectInspectorModel()
+        m.setTasks([
+            makeTask(1, status: .inProgress, priority: .high, milestone: "1.0"),
+            makeTask(2, status: .inProgress, priority: .low,  milestone: "1.0"),
+            makeTask(3, status: .todo,       priority: .high, milestone: "1.0"),
+        ])
+        m.taskFilters.statuses = [.inProgress]
+        m.taskFilters.priorities = [.high]
+        XCTAssertEqual(m.filteredTasks.map(\.number), [1])
+    }
+
+    func testFilterBySearch() {
+        let m = ProjectInspectorModel()
+        m.setTasks([
+            makeTask(1, title: "Fix login bug"),
+            makeTask(2, title: "Polish onboarding"),
+        ])
+        m.taskFilters.search = "login"
+        XCTAssertEqual(m.filteredTasks.map(\.number), [1])
+        m.taskFilters.search = "  "          // blank → no constraint
+        XCTAssertEqual(m.filteredTasks.count, 2)
+    }
+
+    func testUniqueTaskVersionsDistinctSortedExcludingNil() {
+        let m = ProjectInspectorModel()
+        m.setTasks([makeTask(1, milestone: "2.0"), makeTask(2, milestone: "1.0"),
+                    makeTask(3, milestone: "2.0"), makeTask(4, milestone: nil)])
+        XCTAssertEqual(m.uniqueTaskVersions, ["1.0", "2.0"])
+    }
+
+    // MARK: - Version filtering
+
+    func testVersionMatchesByState() {
+        let m = ProjectInspectorModel()
+        XCTAssertTrue(m.versionMatches(name: "1.0.0", releaseTitle: "Polish", state: .new))  // no filters → all
+        m.versionFilters.states = [.released]
+        XCTAssertFalse(m.versionMatches(name: "1.0.0", releaseTitle: "Polish", state: .new))
+        XCTAssertTrue(m.versionMatches(name: "1.0.0", releaseTitle: "Polish", state: .released))
+    }
+
+    func testVersionMatchesBySearchOnNameOrTitle() {
+        let m = ProjectInspectorModel()
+        m.versionFilters.search = "pol"
+        XCTAssertTrue(m.versionMatches(name: "1.0.0", releaseTitle: "Polish", state: .new))   // title
+        XCTAssertFalse(m.versionMatches(name: "1.0.0", releaseTitle: "Speed", state: .new))
+        m.versionFilters.search = "1.3"
+        XCTAssertTrue(m.versionMatches(name: "1.3.0", releaseTitle: "x", state: .new))         // name
+        XCTAssertFalse(m.versionMatches(name: "2.0.0", releaseTitle: "x", state: .new))
+    }
+
+    // MARK: - Clearing
+
+    func testClearFiltersResetsEverything() {
+        let m = ProjectInspectorModel()
+        m.taskFilters.statuses = [.done]
+        m.taskFilters.search = "x"
+        m.versionFilters.states = [.released]
+        m.versionFilters.search = "y"
+        m.clearFilters()
+        XCTAssertFalse(m.taskFilters.isActive)
+        XCTAssertFalse(m.versionFilters.isActive)
+    }
 }
