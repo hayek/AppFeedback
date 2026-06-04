@@ -32,7 +32,9 @@ struct TaskFilterBar: View {
                     accent: accent
                 )
                 if inspector.taskFilters.isActive {
-                    ClearFiltersButton(title: "Clear") { inspector.clearTaskFilters() }
+                    ClearFiltersButton(title: "Clear") {
+                        withAnimation(.easeInOut(duration: 0.18)) { inspector.clearTaskFilters() }
+                    }
                 }
             }
             .padding(.horizontal, 12)
@@ -61,7 +63,9 @@ struct VersionFilterBar: View {
                     accent: accent
                 )
                 if inspector.versionFilters.isActive {
-                    ClearFiltersButton(title: "Clear") { inspector.clearVersionFilters() }
+                    ClearFiltersButton(title: "Clear") {
+                        withAnimation(.easeInOut(duration: 0.18)) { inspector.clearVersionFilters() }
+                    }
                 }
             }
             .padding(.horizontal, 12)
