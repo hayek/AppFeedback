@@ -72,11 +72,12 @@ struct QuickLookHost: View {
 
     var body: some View {
         Color.clear
-            .fullScreenCover(isPresented: Binding(
+            .sheet(isPresented: Binding(
                 get: { presenter.isPresented },
                 set: { if !$0 { presenter.dismiss() } }
             )) {
                 QLPreviewControllerRepresentable(urls: presenter.items, startIndex: presenter.startIndex)
+                    .ignoresSafeArea()
             }
     }
 }

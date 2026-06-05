@@ -126,30 +126,7 @@ struct IssueCardView: View {
     }
 
     private var copyText: String {
-        var lines: [String] = []
-        lines.append(issue.displayedTitle(translated: translationVisible))
-        let body = issue.displayedBody(translated: translationVisible)
-        if !body.isEmpty {
-            lines.append("")
-            lines.append(body)
-        }
-        var badges: [String] = []
-        if let typed = issue.labels.issueType {
-            badges.append(typed.type.displayName)
-        }
-        for label in issue.labels.withoutTypeAndUserSubmitted {
-            badges.append(label.name)
-        }
-        if let app = issue.appName { badges.append(app) }
-        if let version = issue.appVersion { badges.append("v\(version)") }
-        if let device = issue.device { badges.append("device: \(DeviceName.friendly(device))") }
-        if let os = issue.osVersion { badges.append("os: \(OSVersionFormat.display(os))") }
-        if let email = issue.email { badges.append("✉ \(email)") }
-        if !badges.isEmpty {
-            lines.append("")
-            lines.append(badges.joined(separator: " • "))
-        }
-        return lines.joined(separator: "\n")
+        FeedbackClipboard.text(for: issue, threads: threads, translated: translationVisible)
     }
 
     private func copyToClipboard() {
@@ -607,8 +584,13 @@ private struct TaskTagView: View {
                         .font(.system(size: 8, weight: .bold))
                         .foregroundStyle(tint.opacity(0.85))
                         #if os(iOS)
-                        .frame(width: 22, height: 22)   // touch-friendly target on iOS
+                        // Touch-friendly 22pt hit area, but the negative vertical
+                        // padding pulls its layout height back so it doesn't inflate
+                        // the pill — keeping this tag the same height as the others
+                        // in the row (the macOS path is already compact).
+                        .frame(width: 22, height: 22)
                         .contentShape(Rectangle())
+                        .padding(.vertical, -8)
                         #else
                         .padding(.leading, 1)
                         #endif

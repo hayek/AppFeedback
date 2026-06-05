@@ -6,13 +6,25 @@ struct RepoSectionView: View {
     let allApps: [String]          // retained param (callers still pass it); unused for selection now
     @Binding var selection: SidebarSelection?
     var store: RepoStore
+    var seenStore: SeenIssueStore
     @State private var showRemoveConfirmation = false
+
+    /// Unread feedback for this repo: feedback issues not yet marked seen, excluding tasks (which
+    /// are GitHub issues too but never enter the seen store) and hidden apps, so the badge matches
+    /// what's actually shown as unread in the list (mirrors IssueListViewModel.unreadIssues).
+    private var unreadCount: Int {
+        let seen = seenStore.seenNumbers(owner: repo.owner, repo: repo.repo)
+        let hidden = store.hiddenAppsFor(repo.id)
+        return issues.filter {
+            !TaskItem.isTask($0) && !seen.contains($0.number) && !hidden.contains($0.appName ?? "")
+        }.count
+    }
 
     var body: some View {
         let accent: Color = repo.colorHex.map(Color.init(hex:)) ?? .secondary
         AppRowView(
             label: repo.displayName,
-            count: issues.count,
+            count: unreadCount,
             color: accent,
             isSelected: selection == .allIssues(repoId: repo.id)
         )

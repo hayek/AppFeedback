@@ -3,6 +3,7 @@ import SwiftUI
 struct SidebarView: View {
     @Bindable var store: RepoStore
     let loaders: [UUID: IssueLoader]
+    var seenStore: SeenIssueStore
     @Binding var selection: SidebarSelection?
     var onAddRepo: () -> Void = {}
 
@@ -27,7 +28,8 @@ struct SidebarView: View {
                             issues: issues,
                             allApps: apps,
                             selection: $selection,
-                            store: store
+                            store: store,
+                            seenStore: seenStore
                         )
                     }
                 }

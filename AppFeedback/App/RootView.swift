@@ -64,7 +64,7 @@ struct RootView: View {
 
     var body: some View {
         NavigationSplitView(columnVisibility: $columnVisibility, preferredCompactColumn: $preferredColumn) {
-            SidebarView(store: store, loaders: loaders, selection: $selection, onAddRepo: { showAddRepo = true })
+            SidebarView(store: store, loaders: loaders, seenStore: seenStore, selection: $selection, onAddRepo: { showAddRepo = true })
                 .toolbar {
                     ToolbarItem(placement: .primaryAction) {
                         Button {
@@ -90,11 +90,10 @@ struct RootView: View {
                         allApps: allApps(for: selection.repoId),
                         onRefresh: {
                             async let mailPoll: Void = coordinatorRegistry?.pollNow() ?? ()
-                            if let repo, let token = await KeychainService.load(for: repo) {
-                                // Explicit refresh does a full reconcile so deletions upstream are
-                                // detected and stale phantom issues are pruned from the cache.
-                                await loaders[selection.repoId]?.load(token: token, fullReconcile: true)
-                            }
+                            // Refresh every repo (not just the selected one) so all sidebar unread
+                            // badges update together. Full reconcile so deletions upstream are
+                            // detected and stale phantom issues are pruned from each cache.
+                            await loadRepos(store.repos, fullReconcile: true)
                             await mailPoll
                         },
                         onDropTask: { attachTask(taskNumber: $0, toFeedback: $1) },
@@ -118,9 +117,9 @@ struct RootView: View {
                                 .help("Toggle Tasks & Versions")
                         }
                     }
-                    .inspector(isPresented: $showInspector) {
+                    .modifier(TasksPanelPresentation(isPresented: $showInspector) {
                         inspectorPanel(for: selection)
-                    }
+                    })
                 } else {
                     ProgressView()
                 }
@@ -567,7 +566,7 @@ struct RootView: View {
         await loaders[selection.repoId]?.load(token: token)
     }
 
-    private func loadRepos(_ repos: [RepoConfig]) async {
+    private func loadRepos(_ repos: [RepoConfig], fullReconcile: Bool = false) async {
         await withTaskGroup(of: Void.self) { group in
             for repo in repos {
                 guard let loader = loaders[repo.id] else { continue }
@@ -577,7 +576,7 @@ struct RootView: View {
                     for attempt in 0..<2 {
                         if attempt > 0 { try? await Task.sleep(for: .seconds(2)) }
                         if let token = await KeychainService.load(for: repo) {
-                            await loader.load(token: token)
+                            await loader.load(token: token, fullReconcile: fullReconcile)
                             return
                         }
                     }
@@ -716,5 +715,44 @@ struct RootView: View {
 
     private func save(snapshottedRepos: Set<String>) {
         UserDefaults.standard.set(Array(snapshottedRepos), forKey: Self.snapshottedReposKey)
+    }
+}
+
+/// Presents the Tasks & Versions panel.
+///
+/// On iPhone (compact width) it's a real sheet wrapped in a `NavigationStack`, so it gets the
+/// genuine native navigation bar (large title + the system "Done" button, which pick up Liquid
+/// Glass automatically) and proper swipe-to-dismiss. We can't get that from `.inspector` here:
+/// because the panel is attached to a `NavigationSplitView` detail (a regular-width context),
+/// `.inspector` renders as a trailing column whose chevron is the only dismiss affordance and
+/// which won't surface a `NavigationStack`'s toolbar. On iPad / macOS (regular width) the native
+/// inspector column is the right presentation, so we keep it there.
+private struct TasksPanelPresentation<Panel: View>: ViewModifier {
+    @Binding var isPresented: Bool
+    @ViewBuilder var panel: () -> Panel
+    #if os(iOS)
+    @Environment(\.horizontalSizeClass) private var hSizeClass
+    #endif
+
+    func body(content: Content) -> some View {
+        #if os(iOS)
+        if hSizeClass == .compact {
+            content.sheet(isPresented: $isPresented) {
+                NavigationStack {
+                    panel()
+                        .navigationTitle("Tasks & Versions")
+                        .toolbar {
+                            ToolbarItem(placement: .confirmationAction) {
+                                Button("Done") { isPresented = false }
+                            }
+                        }
+                }
+            }
+        } else {
+            content.inspector(isPresented: $isPresented) { panel() }
+        }
+        #else
+        content.inspector(isPresented: $isPresented) { panel() }
+        #endif
     }
 }
