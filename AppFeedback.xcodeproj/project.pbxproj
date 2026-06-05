@@ -189,6 +189,7 @@
 		69B9FC7B81B7887BFF92A7EC /* GitHubAccount.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0B75100DCCD4EC465E6268A7 /* GitHubAccount.swift */; };
 		6A9072C44D20620FCA2625DC /* AppleDevices.json in Resources */ = {isa = PBXBuildFile; fileRef = DE92D9261E5C2EBC2DD6FF7A /* AppleDevices.json */; };
 		6B40CDF6721D0AD5F45C7CD8 /* QuickLookPresenter.swift in Sources */ = {isa = PBXBuildFile; fileRef = AF5877FF67B938450612AFB8 /* QuickLookPresenter.swift */; };
+		6B4835409ED8B06F61785873 /* ReplyTemplatePickerView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0653CBDD9DD6D65B6990CC0C /* ReplyTemplatePickerView.swift */; };
 		6C43EA14A71D994E5F3AE656 /* MockUserNotificationCenter.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2D036DFC422C71DC1D4015AA /* MockUserNotificationCenter.swift */; };
 		6C8EC8E9F02F92FF48146FBB /* MockUserNotificationCenter.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2D036DFC422C71DC1D4015AA /* MockUserNotificationCenter.swift */; };
 		6CB6AE6603C06A8FEF6E44D6 /* MessageIDGenerator.swift in Sources */ = {isa = PBXBuildFile; fileRef = 49EE3E10210A3F9668481BEE /* MessageIDGenerator.swift */; };
@@ -289,6 +290,7 @@
 		9ED2C8220ADAA9745E75AC0F /* ActivityLogTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = EC52FD3E27B1F223D322FA99 /* ActivityLogTests.swift */; };
 		A001E259ADE3AEF043D8DAD1 /* OSVersionFormat.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5BE6BCAE91822839B3E9E6C0 /* OSVersionFormat.swift */; };
 		A03D41692F74229FC3395579 /* QuickLookPresenter.swift in Sources */ = {isa = PBXBuildFile; fileRef = AF5877FF67B938450612AFB8 /* QuickLookPresenter.swift */; };
+		A05476902146400681BA82B5 /* ReplyTemplatePickerView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0653CBDD9DD6D65B6990CC0C /* ReplyTemplatePickerView.swift */; };
 		A277AB50575F0C39FA6891E1 /* NotificationsSettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 76F517911AEFC8F2CB8939A1 /* NotificationsSettingsView.swift */; };
 		A39AE526357FEEAFB785BCA5 /* MockURLProtocol.swift in Sources */ = {isa = PBXBuildFile; fileRef = 862BA4BF33A265329E335DDE /* MockURLProtocol.swift */; };
 		A3EA78F78185D7E79418463D /* MailThreadView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 96E4496353959C8AB67C52AA /* MailThreadView.swift */; };
@@ -482,6 +484,7 @@
 		01EF2AF87A9357C9D020B117 /* AccountRepoPicker.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AccountRepoPicker.swift; sourceTree = "<group>"; };
 		037248630ABDD42BE4DC6D3C /* IssueSummary.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = IssueSummary.swift; sourceTree = "<group>"; };
 		0376C061DCE08A242E9B349A /* ModelsTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ModelsTests.swift; sourceTree = "<group>"; };
+		0653CBDD9DD6D65B6990CC0C /* ReplyTemplatePickerView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ReplyTemplatePickerView.swift; sourceTree = "<group>"; };
 		067DE9EAC993F3796314B998 /* IMAPSyntheticIDTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = IMAPSyntheticIDTests.swift; sourceTree = "<group>"; };
 		06966BDC1078923389E15249 /* GitHubAuthService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GitHubAuthService.swift; sourceTree = "<group>"; };
 		07E13C25608097892A67A421 /* ReleaseRecipientsSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ReleaseRecipientsSheet.swift; sourceTree = "<group>"; };
@@ -952,6 +955,7 @@
 			isa = PBXGroup;
 			children = (
 				491B7359CA6CFF02178CF363 /* ReplyTemplateEditorView.swift */,
+				0653CBDD9DD6D65B6990CC0C /* ReplyTemplatePickerView.swift */,
 			);
 			path = Templates;
 			sourceTree = "<group>";
@@ -1407,6 +1411,7 @@
 				9B5C77B582735942AB8784A1 /* ReplyHeaderBuilder.swift in Sources */,
 				43A5EEBB061601222E44F8A5 /* ReplyTemplate.swift in Sources */,
 				33AEE3C30E41D1E582398642 /* ReplyTemplateEditorView.swift in Sources */,
+				6B4835409ED8B06F61785873 /* ReplyTemplatePickerView.swift in Sources */,
 				DB8861383E108C84A6D648C5 /* ReplyTemplateStore.swift in Sources */,
 				1EC8163F7DEE0525965BFCA1 /* Repo.swift in Sources */,
 				163F9EDEE630D71D09691AE3 /* RepoConfig.swift in Sources */,
@@ -1641,6 +1646,7 @@
 				ADE456AA2BBD3F7AE83EB639 /* ReplyHeaderBuilder.swift in Sources */,
 				A580BC326ADDAC8DEE996F57 /* ReplyTemplate.swift in Sources */,
 				013FE788F27886B0414A363B /* ReplyTemplateEditorView.swift in Sources */,
+				A05476902146400681BA82B5 /* ReplyTemplatePickerView.swift in Sources */,
 				3B9148DBABD80A7BC645DF0B /* ReplyTemplateStore.swift in Sources */,
 				7B8BCFC7FC5636D0038B7FF3 /* Repo.swift in Sources */,
 				38EC294B4EE9CC45E2839A1D /* RepoConfig.swift in Sources */,
