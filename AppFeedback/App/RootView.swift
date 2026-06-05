@@ -296,7 +296,7 @@ struct RootView: View {
                 await loaders[selection.repoId]?.load(token: token, fullReconcile: true)
             }
         )
-        .inspectorColumnWidth(min: 260, ideal: 320, max: 480)
+        .inspectorColumnWidth(min: 260, ideal: 340, max: 480)
     }
 
     private func updateViewModel(for selection: SidebarSelection) {
