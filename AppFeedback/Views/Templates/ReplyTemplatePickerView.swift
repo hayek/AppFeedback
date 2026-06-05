@@ -1,8 +1,9 @@
 import SwiftUI
 
-/// Modal that lists prewritten reply templates for single selection, with a this-repo /
-/// global scope toggle, full add/edit/delete, and two CTAs: Send (immediate) and Prefill.
-/// The host provides onSend/onPrefill, which build the ComposeRequest for its reply context.
+/// Modal that lists prewritten reply templates for single selection. A scope dropdown
+/// (top-right) switches between this-repo and a merged "Global" view; the footer offers
+/// Add, plus the Send / Prefill CTAs. The host provides onSend/onPrefill, which build the
+/// ComposeRequest for its reply context.
 struct ReplyTemplatePickerView: View {
     let store: ReplyTemplateStore
     let repoOwner: String
@@ -30,39 +31,37 @@ struct ReplyTemplatePickerView: View {
     }
 
     var body: some View {
-        NavigationStack {
-            VStack(spacing: 0) {
-                Picker("", selection: $scope) {
-                    Text("\(repoOwner)/\(repoName)").tag(Scope.thisRepo)
-                    Text("Global").tag(Scope.global)
-                }
-                .pickerStyle(.segmented)
-                .padding(8)
-
-                Divider()
-
-                list
-
-                Divider()
-                footer
-            }
-            .navigationTitle("Reply Templates")
-            #if os(iOS)
-            .navigationBarTitleDisplayMode(.inline)
-            #endif
-            .toolbar {
-                ToolbarItem(placement: .cancellationAction) {
-                    Button("Done") { dismiss() }
-                }
-            }
-            .sheet(isPresented: $showAdd) {
-                ReplyTemplateEditorView(store: store, owner: repoOwner, repo: repoName, existing: nil)
-            }
-            .sheet(item: $editingTemplate) { tmpl in
-                ReplyTemplateEditorView(store: store, owner: repoOwner, repo: repoName, existing: tmpl)
-            }
+        VStack(spacing: 0) {
+            header
+            Divider()
+            list
+            Divider()
+            footer
         }
-        .frame(minWidth: 420, minHeight: 420)
+        .frame(minWidth: 460, minHeight: 440)
+        .sheet(isPresented: $showAdd) {
+            ReplyTemplateEditorView(store: store, owner: repoOwner, repo: repoName, existing: nil)
+        }
+        .sheet(item: $editingTemplate) { tmpl in
+            ReplyTemplateEditorView(store: store, owner: repoOwner, repo: repoName, existing: tmpl)
+        }
+    }
+
+    private var header: some View {
+        HStack {
+            Text("Reply Templates")
+                .font(.headline)
+            Spacer()
+            Picker("Scope", selection: $scope) {
+                Text("\(repoOwner)/\(repoName)").tag(Scope.thisRepo)
+                Text("Global").tag(Scope.global)
+            }
+            .labelsHidden()
+            .pickerStyle(.menu)
+            .fixedSize()
+        }
+        .padding(.horizontal, 16)
+        .padding(.vertical, 12)
     }
 
     @ViewBuilder
@@ -113,10 +112,19 @@ struct ReplyTemplatePickerView: View {
     }
 
     private var footer: some View {
-        HStack {
-            PanelAddButton(title: "Add") { showAdd = true }
-                .fixedSize()
+        HStack(spacing: 10) {
+            Button {
+                showAdd = true
+            } label: {
+                Label("Add", systemImage: "plus")
+            }
+            .buttonStyle(.bordered)
+
             Spacer()
+
+            Button("Cancel") { dismiss() }
+                .keyboardShortcut(.cancelAction)
+
             Button("Prefill…") {
                 if let t = selectedTemplate { onPrefill(t); dismiss() }
             }

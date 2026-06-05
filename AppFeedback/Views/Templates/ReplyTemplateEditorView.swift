@@ -15,6 +15,7 @@ struct ReplyTemplateEditorView: View {
     // NOTE: must NOT be named `body` — that collides with View's `var body: some View`
     // and fails to compile with "invalid redeclaration of 'body'".
     @State private var messageBody: String
+    @FocusState private var titleFocused: Bool
 
     init(store: ReplyTemplateStore, owner: String, repo: String, existing: ReplyTemplate? = nil) {
         self.store = store
@@ -31,33 +32,58 @@ struct ReplyTemplateEditorView: View {
     }
 
     var body: some View {
-        NavigationStack {
-            Form {
-                Section("Title") {
+        VStack(alignment: .leading, spacing: 0) {
+            Text(existing == nil ? "New Template" : "Edit Template")
+                .font(.headline)
+                .padding(.horizontal, 20)
+                .padding(.top, 20)
+                .padding(.bottom, 16)
+
+            VStack(alignment: .leading, spacing: 16) {
+                field(label: "Title") {
                     TextField("e.g. Thanks for the report", text: $title)
+                        .textFieldStyle(.roundedBorder)
+                        .focused($titleFocused)
                 }
-                Section("Message") {
+                field(label: "Message") {
                     TextEditor(text: $messageBody)
                         .font(.body)
-                        .frame(minHeight: 160)
+                        .scrollContentBackground(.hidden)
+                        .padding(8)
+                        .frame(minHeight: 180)
+                        .background(RoundedRectangle(cornerRadius: 8).fill(Color.primary.opacity(0.04)))
+                        .overlay(RoundedRectangle(cornerRadius: 8).strokeBorder(Color.secondary.opacity(0.25)))
                 }
             }
-            .navigationTitle(existing == nil ? "New Template" : "Edit Template")
-            #if os(iOS)
-            .navigationBarTitleDisplayMode(.inline)
-            #endif
-            .toolbar {
-                ToolbarItem(placement: .cancellationAction) {
-                    Button("Cancel") { dismiss() }
-                }
-                ToolbarItem(placement: .confirmationAction) {
-                    Button("Save") { save() }
-                        .fontWeight(.semibold)
-                        .disabled(!canSave)
-                }
+            .padding(.horizontal, 20)
+
+            Spacer(minLength: 24)
+            Divider()
+
+            HStack {
+                Spacer()
+                Button("Cancel") { dismiss() }
+                    .keyboardShortcut(.cancelAction)
+                Button("Save") { save() }
+                    .buttonStyle(.borderedProminent)
+                    .keyboardShortcut(.defaultAction)
+                    .disabled(!canSave)
             }
+            .padding(.horizontal, 20)
+            .padding(.vertical, 16)
         }
-        .frame(minWidth: 380, minHeight: 320)
+        .frame(minWidth: 440, minHeight: 400)
+        .onAppear { titleFocused = true }
+    }
+
+    /// A left-aligned field label stacked above its input.
+    private func field<Content: View>(label: String, @ViewBuilder content: () -> Content) -> some View {
+        VStack(alignment: .leading, spacing: 6) {
+            Text(label)
+                .font(.subheadline.weight(.medium))
+                .foregroundStyle(.secondary)
+            content()
+        }
     }
 
     private func save() {
