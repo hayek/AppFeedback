@@ -9,6 +9,7 @@
 /* Begin PBXBuildFile section */
 		0013ACCBC18F35001EE1A1F9 /* MailThread.swift in Sources */ = {isa = PBXBuildFile; fileRef = BED5E6BE0D18A4F03C1E2482 /* MailThread.swift */; };
 		00D2184620E75F5220E16288 /* SidebarSelection.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7D45273CCFDF0900BE1142A5 /* SidebarSelection.swift */; };
+		013FE788F27886B0414A363B /* ReplyTemplateEditorView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 491B7359CA6CFF02178CF363 /* ReplyTemplateEditorView.swift */; };
 		01BCDBCA68EDCD15D430CDC8 /* VersionStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = C1FE6931BF5BEDAA397B354D /* VersionStore.swift */; };
 		01C889E5DEE2882E2D05B1A0 /* ReplyHeaderBuilderTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = F712D1EF260B1A506C404047 /* ReplyHeaderBuilderTests.swift */; };
 		02CD1D56F06F44F045B838EA /* ModelsTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0376C061DCE08A242E9B349A /* ModelsTests.swift */; };
@@ -102,6 +103,7 @@
 		327F963289185B4696956AC7 /* MailDraftStoreTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = E5C6263279C20E2145346F0B /* MailDraftStoreTests.swift */; };
 		3305E47FF701B2C78B5E955B /* IntelligenceService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4535CA36DD3985D230B6F273 /* IntelligenceService.swift */; };
 		33951CE526607CA3B7FE2C14 /* VersionStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = C1FE6931BF5BEDAA397B354D /* VersionStore.swift */; };
+		33AEE3C30E41D1E582398642 /* ReplyTemplateEditorView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 491B7359CA6CFF02178CF363 /* ReplyTemplateEditorView.swift */; };
 		343B39142EA97139F480D82E /* FeedbackClipboardTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = B3220BD03FCDBA819DFBE9FD /* FeedbackClipboardTests.swift */; };
 		3641F94754DACBAB971307C1 /* NotifiedIssueStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = FBAAD6326BE1779473B7F6BF /* NotifiedIssueStore.swift */; };
 		38215DD60FB5F77B3B271E5E /* MessageIDGenerator.swift in Sources */ = {isa = PBXBuildFile; fileRef = 49EE3E10210A3F9668481BEE /* MessageIDGenerator.swift */; };
@@ -545,6 +547,7 @@
 		471B9988C615510FF69089C4 /* AccountDeletionConfirmation.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AccountDeletionConfirmation.swift; sourceTree = "<group>"; };
 		475CBB84AE981B4DEB210FB6 /* EmailAccountEditor.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EmailAccountEditor.swift; sourceTree = "<group>"; };
 		484D0449B3635E27795DA4BC /* AppFeedbackTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = AppFeedbackTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
+		491B7359CA6CFF02178CF363 /* ReplyTemplateEditorView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ReplyTemplateEditorView.swift; sourceTree = "<group>"; };
 		49269C3629BF0756B51F7C1D /* CloudSyncStatusRow.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CloudSyncStatusRow.swift; sourceTree = "<group>"; };
 		49EE3E10210A3F9668481BEE /* MessageIDGenerator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MessageIDGenerator.swift; sourceTree = "<group>"; };
 		4AE05E8F7F70F07274A684EB /* SentReleaseNotification.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SentReleaseNotification.swift; sourceTree = "<group>"; };
@@ -841,6 +844,7 @@
 				DF247E30B4E5EAEC50BE4F98 /* Mail */,
 				A1235423F6AC682292EBDF93 /* Settings */,
 				214A6FD891694E8FB90A6E72 /* Sidebar */,
+				B11F956BEC84485BC79BBDFA /* Templates */,
 			);
 			path = Views;
 			sourceTree = "<group>";
@@ -942,6 +946,14 @@
 				25303C36861831879121DF4F /* TaskMetadata.swift */,
 			);
 			path = Models;
+			sourceTree = "<group>";
+		};
+		B11F956BEC84485BC79BBDFA /* Templates */ = {
+			isa = PBXGroup;
+			children = (
+				491B7359CA6CFF02178CF363 /* ReplyTemplateEditorView.swift */,
+			);
+			path = Templates;
 			sourceTree = "<group>";
 		};
 		BE673B600ED359F287B2B061 /* Filters */ = {
@@ -1394,6 +1406,7 @@
 				2DC3AFBF514F89B8DC642886 /* ReleaseRecipientsSheet.swift in Sources */,
 				9B5C77B582735942AB8784A1 /* ReplyHeaderBuilder.swift in Sources */,
 				43A5EEBB061601222E44F8A5 /* ReplyTemplate.swift in Sources */,
+				33AEE3C30E41D1E582398642 /* ReplyTemplateEditorView.swift in Sources */,
 				DB8861383E108C84A6D648C5 /* ReplyTemplateStore.swift in Sources */,
 				1EC8163F7DEE0525965BFCA1 /* Repo.swift in Sources */,
 				163F9EDEE630D71D09691AE3 /* RepoConfig.swift in Sources */,
@@ -1627,6 +1640,7 @@
 				9053A969459659F3E57B3CAB /* ReleaseRecipientsSheet.swift in Sources */,
 				ADE456AA2BBD3F7AE83EB639 /* ReplyHeaderBuilder.swift in Sources */,
 				A580BC326ADDAC8DEE996F57 /* ReplyTemplate.swift in Sources */,
+				013FE788F27886B0414A363B /* ReplyTemplateEditorView.swift in Sources */,
 				3B9148DBABD80A7BC645DF0B /* ReplyTemplateStore.swift in Sources */,
 				7B8BCFC7FC5636D0038B7FF3 /* Repo.swift in Sources */,
 				38EC294B4EE9CC45E2839A1D /* RepoConfig.swift in Sources */,
