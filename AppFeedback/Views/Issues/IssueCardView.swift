@@ -688,23 +688,45 @@ struct ReplyBadgeButton: View {
     let onCopy: () -> Void
     var replyFromOptions: [ReplyFromOption] = []
     var onReplyFrom: ((UUID) -> Void)? = nil
+    /// When set, renders a divider + template segment that opens the reply-template picker.
+    var onTemplates: (() -> Void)? = nil
 
     var body: some View {
-        Button(action: onReply) {
-            HStack(spacing: 4) {
-                Image(systemName: "arrowshape.turn.up.left.fill")
-                    .font(.system(size: 9, weight: .semibold))
-                Text("Reply")
-                    .font(.system(size: 11, weight: .semibold))
+        HStack(spacing: 0) {
+            // Left segment: the existing reply action.
+            Button(action: onReply) {
+                HStack(spacing: 4) {
+                    Image(systemName: "arrowshape.turn.up.left.fill")
+                        .font(.system(size: 9, weight: .semibold))
+                    Text("Reply")
+                        .font(.system(size: 11, weight: .semibold))
+                }
+                .foregroundStyle(color)
+                .padding(.horizontal, 8)
+                .padding(.vertical, 3)
             }
-            .foregroundStyle(color)
-            .padding(.horizontal, 8)
-            .padding(.vertical, 3)
-            .background(color.opacity(0.12), in: RoundedRectangle(cornerRadius: 6))
-            .overlay(RoundedRectangle(cornerRadius: 6).stroke(color.opacity(0.4), lineWidth: 1))
+            .buttonStyle(.plain)
+            .help("Reply to \(email)")
+
+            // Right segment: open the template picker. Only present when wired up.
+            if let onTemplates {
+                Rectangle()
+                    .fill(color.opacity(0.4))
+                    .frame(width: 1, height: 16)
+                Button(action: onTemplates) {
+                    Image(systemName: "list.bullet.rectangle")
+                        .font(.system(size: 10, weight: .semibold))
+                        .foregroundStyle(color)
+                        .padding(.horizontal, 7)
+                        .padding(.vertical, 3)
+                }
+                .buttonStyle(.plain)
+                .help("Reply with a template")
+                .accessibilityLabel("Reply with template")
+            }
         }
-        .buttonStyle(.plain)
-        .help("Reply to \(email)")
+        .background(color.opacity(0.12), in: RoundedRectangle(cornerRadius: 6))
+        .overlay(RoundedRectangle(cornerRadius: 6).stroke(color.opacity(0.4), lineWidth: 1))
         .contextMenu {
             Button("Reply to \(email)", action: onReply)
             if !replyFromOptions.isEmpty, let onReplyFrom {
@@ -713,6 +735,9 @@ struct ReplyBadgeButton: View {
                         Button(opt.address) { onReplyFrom(opt.id) }
                     }
                 }
+            }
+            if let onTemplates {
+                Button("Reply with template…", action: onTemplates)
             }
             Button("Copy address", action: onCopy)
         }
