@@ -38,7 +38,11 @@ struct ReplyTemplatePickerView: View {
             Divider()
             footer
         }
+        // A fixed min size suits a free-floating macOS sheet, but on iPhone the sheet fills the
+        // screen width — forcing it wider than the device overflows and clips both edges.
+        #if os(macOS)
         .frame(minWidth: 460, minHeight: 440)
+        #endif
         .sheet(isPresented: $showAdd) {
             ReplyTemplateEditorView(store: store, owner: repoOwner, repo: repoName, existing: nil)
         }

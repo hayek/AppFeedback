@@ -23,7 +23,14 @@ struct RootView: View {
     @State private var summaryVM: UnreadSummaryViewModel?
     @State private var showSettings = false
     @State private var showAddRepo = false
+    // iOS opens to the feedback list; the Tasks & Versions panel is opened on demand from the
+    // toolbar (on iPhone it's a sheet that would otherwise cover the list on launch). macOS keeps
+    // the inspector column open by default.
+    #if os(iOS)
+    @State private var showInspector = false
+    #else
     @State private var showInspector = true
+    #endif
     @State private var inspector = ProjectInspectorModel()
     /// Creation-status badges for just-created versions (parallel to the task creations in
     /// `inspector`); the version card exists immediately, so this only tracks the badge.

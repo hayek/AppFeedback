@@ -72,7 +72,11 @@ struct ReplyTemplateEditorView: View {
             .padding(.horizontal, 20)
             .padding(.vertical, 16)
         }
+        // Fixed min size is for the free-floating macOS sheet; on iPhone it would push the content
+        // wider than the screen and clip the side padding.
+        #if os(macOS)
         .frame(minWidth: 440, minHeight: 400)
+        #endif
         .onAppear { titleFocused = true }
     }
 
