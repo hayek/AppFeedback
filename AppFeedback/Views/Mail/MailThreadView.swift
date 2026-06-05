@@ -20,6 +20,8 @@ struct MailThreadView: View {
     private var replyKey: DraftKey { .reply(threadID: thread.id) }
 
     private var activeReply: ComposeRequest? { drafts.openRequest(for: replyKey) }
+    @Environment(ReplyTemplateStore.self) private var replyTemplateStore
+    @State private var showTemplatePicker: Bool = false
 
     private var messages: [MailMessage] { thread.sortedDedupedMessages }
 
@@ -108,6 +110,32 @@ struct MailThreadView: View {
         #endif
     }
 
+    private func useTemplate(_ template: ReplyTemplate, autoSend: Bool) {
+        #if canImport(SwiftMail)
+        guard let last = messages.last, let recipient = replyRecipient else { return }
+        guard let chosen = resolvedSenderAccountID else { return }
+        let headers = MailMessageHeaders(
+            messageID: last.messageID,
+            inReplyTo: last.inReplyTo,
+            references: last.referencesAsArray
+        )
+        let request = ComposeRequest(
+            recipient: recipient,
+            issue: issue,
+            repoOwner: repoOwner,
+            repoName: repoName,
+            inReplyTo: headers,
+            subjectOverride: MailSubject.replyPrefixed(last.subject),
+            senderAccountID: chosen,
+            initialBody: template.body,
+            autoSend: autoSend
+        )
+        withAnimation(.easeOut(duration: 0.2)) {
+            drafts.setOpenRequest(request, for: replyKey)
+        }
+        #endif
+    }
+
     private func copyRecipient() {
         guard let recipient = replyRecipient else { return }
         #if os(macOS)
@@ -144,10 +172,21 @@ struct MailThreadView: View {
                 onReply: { beginReply() },
                 onCopy: copyRecipient,
                 replyFromOptions: options.count > 1 ? options : [],
-                onReplyFrom: { id in beginReply(senderAccountID: id) }
+                onReplyFrom: { id in beginReply(senderAccountID: id) },
+                onTemplates: { showTemplatePicker = true }
             )
             .padding(.top, 8)
             .frame(maxWidth: .infinity, alignment: .trailing)
+            .sheet(isPresented: $showTemplatePicker) {
+                ReplyTemplatePickerView(
+                    store: replyTemplateStore,
+                    repoOwner: repoOwner,
+                    repoName: repoName,
+                    accent: appColor,
+                    onSend: { template in useTemplate(template, autoSend: true) },
+                    onPrefill: { template in useTemplate(template, autoSend: false) }
+                )
+            }
         }
     }
 }
