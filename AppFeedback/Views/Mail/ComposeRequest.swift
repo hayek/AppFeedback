@@ -13,6 +13,10 @@ struct ComposeRequest: Identifiable {
     let subjectOverride: String?
     let senderAccountID: UUID?
     var attachments: [PendingAttachment] = []
+    /// When set, seeds the composer body (placeholder-substituted) — used by template replies.
+    var initialBody: String? = nil
+    /// When true, the composer sends immediately on appear (if credentialed) — the modal's "Send" CTA.
+    var autoSend: Bool = false
 }
 
 struct PendingAttachment: Identifiable, Sendable, Equatable {
