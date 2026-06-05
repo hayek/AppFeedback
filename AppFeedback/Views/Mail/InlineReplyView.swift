@@ -199,7 +199,24 @@ struct InlineReplyView: View {
             if !existing.body.isEmpty { vm.body = NSAttributedString(string: existing.body) }
         }
 
+        // Template replies: seed the chosen template body, running it through the same
+        // {{placeholder}} substitution that header/footer get. The body is USER_BODY only —
+        // MailComposer.compose() still wraps it with HEADER + FOOTER, so a templated send
+        // carries the same header/footer as a normal reply.
+        if let initial = request.initialBody, !initial.isEmpty {
+            let substituted = MailComposer().applyPlaceholders(initial, context: vm.placeholderContext())
+            vm.body = NSAttributedString(string: substituted)
+        }
+
         viewModel = vm
+
+        // One-tap template send (the modal's primary CTA). Reuses the existing send path,
+        // which dismisses the composer and finishes the SMTP round-trip in the background.
+        // If there are no credentials, leave the composer open with the body seeded so it
+        // gracefully degrades to a prefill the user can send manually.
+        if request.autoSend, vm.body.length > 0, hasCredentials {
+            send(vm: vm)
+        }
     }
 
 }
