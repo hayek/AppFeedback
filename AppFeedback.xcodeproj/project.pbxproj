@@ -124,6 +124,7 @@
 		41B72E1D883407E28AC5E6CB /* MailAccountStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 86D913610C499CDB7C15463E /* MailAccountStore.swift */; };
 		42DCD3ABA7391F9EDD0C1F9B /* IntelligenceProvider.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8190A2B4D5CDFCE9437EA19A /* IntelligenceProvider.swift */; };
 		435936822AEB08C20B9BB40E /* SettingsTabBar.swift in Sources */ = {isa = PBXBuildFile; fileRef = F6CC5C4D19E1784830D4E8FF /* SettingsTabBar.swift */; };
+		43A5EEBB061601222E44F8A5 /* ReplyTemplate.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2CC0E566A09EEE7E4DE3F124 /* ReplyTemplate.swift */; };
 		43C5D32D5EC056549E7A602F /* MailDraftStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8DD092EC30F14CBD7F2EDD0B /* MailDraftStore.swift */; };
 		4630F99F04FA2ACAC0C122FF /* AppRowView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 74EC251FE14CC5A2EFB9BB14 /* AppRowView.swift */; };
 		4683C6E5086D509090B2CAFC /* FeedbackAttachmentLocal.swift in Sources */ = {isa = PBXBuildFile; fileRef = F0D9732025539091DDA60796 /* FeedbackAttachmentLocal.swift */; };
@@ -287,6 +288,7 @@
 		A39AE526357FEEAFB785BCA5 /* MockURLProtocol.swift in Sources */ = {isa = PBXBuildFile; fileRef = 862BA4BF33A265329E335DDE /* MockURLProtocol.swift */; };
 		A3EA78F78185D7E79418463D /* MailThreadView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 96E4496353959C8AB67C52AA /* MailThreadView.swift */; };
 		A538E18965A452EBE730AB86 /* VersionService.swift in Sources */ = {isa = PBXBuildFile; fileRef = B22269BD22A9566A5BBC7578 /* VersionService.swift */; };
+		A580BC326ADDAC8DEE996F57 /* ReplyTemplate.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2CC0E566A09EEE7E4DE3F124 /* ReplyTemplate.swift */; };
 		A5E4894A6D7EF95BFC260B9A /* CloudSyncStatusTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1A5E9D6EA54332099D0A0E76 /* CloudSyncStatusTests.swift */; };
 		A60C3D764DC66781247CC401 /* EmailAccountEditor.swift in Sources */ = {isa = PBXBuildFile; fileRef = 475CBB84AE981B4DEB210FB6 /* EmailAccountEditor.swift */; };
 		A677C4D32D8F19C03E0AFBDE /* VersionService.swift in Sources */ = {isa = PBXBuildFile; fileRef = B22269BD22A9566A5BBC7578 /* VersionService.swift */; };
@@ -513,6 +515,7 @@
 		28E73A3D20A778F2AAB2579F /* MailSyncCoordinatorRegistry.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MailSyncCoordinatorRegistry.swift; sourceTree = "<group>"; };
 		2A5E2F5FD335BF8BEDD0FC0A /* MailAccountMigration.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MailAccountMigration.swift; sourceTree = "<group>"; };
 		2B1E39D284FE0DA4E3A8CAB6 /* TasksSectionSmokeTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TasksSectionSmokeTests.swift; sourceTree = "<group>"; };
+		2CC0E566A09EEE7E4DE3F124 /* ReplyTemplate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ReplyTemplate.swift; sourceTree = "<group>"; };
 		2D036DFC422C71DC1D4015AA /* MockUserNotificationCenter.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MockUserNotificationCenter.swift; sourceTree = "<group>"; };
 		2EA9ED253AAB1648CE69C3C8 /* IssueBodyParser.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = IssueBodyParser.swift; sourceTree = "<group>"; };
 		2EB3611362B1B0690EC053F1 /* DetailDesign.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DetailDesign.swift; sourceTree = "<group>"; };
@@ -921,6 +924,7 @@
 				BED5E6BE0D18A4F03C1E2482 /* MailThread.swift */,
 				0D96B99A93590344411F42CD /* MailTypes.swift */,
 				38D556C6C6867929820B5612 /* ProjectVersion.swift */,
+				2CC0E566A09EEE7E4DE3F124 /* ReplyTemplate.swift */,
 				21BC609BC2D10473659865E1 /* Repo.swift */,
 				CB4F1AB8C4EA41A8708C1EA3 /* RepoConfig.swift */,
 				8817C9FD52303F29DDC181C1 /* RepoFetchState.swift */,
@@ -1381,6 +1385,7 @@
 				D5CA2D1A71072B1B357F395F /* ReleaseRecipientCalculator.swift in Sources */,
 				2DC3AFBF514F89B8DC642886 /* ReleaseRecipientsSheet.swift in Sources */,
 				9B5C77B582735942AB8784A1 /* ReplyHeaderBuilder.swift in Sources */,
+				43A5EEBB061601222E44F8A5 /* ReplyTemplate.swift in Sources */,
 				1EC8163F7DEE0525965BFCA1 /* Repo.swift in Sources */,
 				163F9EDEE630D71D09691AE3 /* RepoConfig.swift in Sources */,
 				DEDE8D0198D4AB049E292437 /* RepoFetchState.swift in Sources */,
@@ -1611,6 +1616,7 @@
 				30D3F4EF95A7B3F30E6019BF /* ReleaseRecipientCalculator.swift in Sources */,
 				9053A969459659F3E57B3CAB /* ReleaseRecipientsSheet.swift in Sources */,
 				ADE456AA2BBD3F7AE83EB639 /* ReplyHeaderBuilder.swift in Sources */,
+				A580BC326ADDAC8DEE996F57 /* ReplyTemplate.swift in Sources */,
 				7B8BCFC7FC5636D0038B7FF3 /* Repo.swift in Sources */,
 				38EC294B4EE9CC45E2839A1D /* RepoConfig.swift in Sources */,
 				256C8FFEEE2A0A85EDF4E911 /* RepoFetchState.swift in Sources */,
