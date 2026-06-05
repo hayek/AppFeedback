@@ -36,6 +36,7 @@ struct AppFeedbackApp: App {
     private let repoConfigSnapshot = RepoConfigSnapshot()
     @State private var store: RepoStore
     @State private var versionStore: VersionStore
+    @State private var replyTemplateStore: ReplyTemplateStore
     @State private var syncStatus: CloudSyncStatus
     @State private var activityLog: ActivityLog
     @State private var mailAccountStore: MailAccountStore
@@ -134,6 +135,7 @@ struct AppFeedbackApp: App {
         _store = State(initialValue: RepoStore(context: ModelContext(container), hiddenAppStore: hiddenAppStoreLocal))
         _gitHubAccountStore = State(initialValue: GitHubAccountStore(context: ModelContext(container)))
         _versionStore = State(initialValue: VersionStore(context: ModelContext(container)))
+        _replyTemplateStore = State(initialValue: ReplyTemplateStore(context: ModelContext(container)))
         _cacheContext = State(initialValue: ModelContext(container))
         _syncStatus = State(initialValue: CloudSyncStatus())
         // Seed the snapshot so tokenProvider works even before the first repos observation.
@@ -282,6 +284,7 @@ struct AppFeedbackApp: App {
                 .environment(gitHubAccountStore)
                 .environment(mailSettingsStore)
                 .environment(threadStore)
+                .environment(replyTemplateStore)
                 .environment(outboundTracker)
                 .environment(outboundFailures)
                 .environment(settingsNavigation)
@@ -360,6 +363,7 @@ struct AppFeedbackApp: App {
                 .environment(gitHubAccountStore)
                 .environment(mailSettingsStore)
                 .environment(threadStore)
+                .environment(replyTemplateStore)
                 .environment(outboundTracker)
                 .environment(outboundFailures)
                 .environment(settingsNavigation)
