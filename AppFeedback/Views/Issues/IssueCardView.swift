@@ -84,6 +84,7 @@ struct IssueCardView: View {
     var onRemoveTask: ((TaskItem) -> Void)? = nil
 
     @Environment(MailThreadStore.self) private var threadStore
+    @Environment(ReplyTemplateStore.self) private var replyTemplateStore
     #if canImport(SwiftMail)
     @Environment(MailDraftStore.self) private var drafts
     #endif
@@ -92,6 +93,7 @@ struct IssueCardView: View {
     @State private var highlightActive: Bool = false
     @State private var didCopy: Bool = false
     @State private var threads: [MailThread] = []
+    @State private var showTemplatePicker: Bool = false
 
     private var translationVisible: Bool { issue.hasTranslation && !showOriginal }
 
@@ -188,6 +190,28 @@ struct IssueCardView: View {
             return [(key, req)]
         }
         return []
+    }
+
+    /// Open the inline composer for `email`, seeded with the template body. When `autoSend`
+    /// is true the composer sends immediately (if credentialed); otherwise it stays open
+    /// for editing. Mirrors `replyToEmail(_:)` but carries the template body.
+    private func useTemplate(_ template: ReplyTemplate, autoSend: Bool, email: String) {
+        withAnimation(.easeOut(duration: 0.2)) {
+            drafts.setOpenRequest(
+                ComposeRequest(
+                    recipient: email,
+                    issue: issue,
+                    repoOwner: repoOwner,
+                    repoName: repoName,
+                    inReplyTo: nil,
+                    subjectOverride: nil,
+                    senderAccountID: nil,
+                    initialBody: template.body,
+                    autoSend: autoSend
+                ),
+                for: newEmailKey(for: email)
+            )
+        }
     }
     #endif
 
@@ -339,8 +363,24 @@ struct IssueCardView: View {
                                 onCopy: {
                                     onInteract?()
                                     copyEmailToClipboard(email)
+                                },
+                                onTemplates: {
+                                    onInteract?()
+                                    showTemplatePicker = true
                                 }
                             )
+                            #if canImport(SwiftMail)
+                            .sheet(isPresented: $showTemplatePicker) {
+                                ReplyTemplatePickerView(
+                                    store: replyTemplateStore,
+                                    repoOwner: repoOwner,
+                                    repoName: repoName,
+                                    accent: appColor,
+                                    onSend: { template in useTemplate(template, autoSend: true, email: email) },
+                                    onPrefill: { template in useTemplate(template, autoSend: false, email: email) }
+                                )
+                            }
+                            #endif
                         }
                     }
 
