@@ -603,7 +603,9 @@ struct ReplyTemplateEditorView: View {
 
     @Environment(\.dismiss) private var dismiss
     @State private var title: String
-    @State private var body: String
+    // NOTE: must NOT be named `body` — that collides with the View protocol's
+    // `var body: some View` and fails with "invalid redeclaration of 'body'".
+    @State private var messageBody: String
 
     init(store: ReplyTemplateStore, owner: String, repo: String, existing: ReplyTemplate? = nil) {
         self.store = store
@@ -611,12 +613,12 @@ struct ReplyTemplateEditorView: View {
         self.repo = repo
         self.existing = existing
         _title = State(initialValue: existing?.title ?? "")
-        _body = State(initialValue: existing?.body ?? "")
+        _messageBody = State(initialValue: existing?.body ?? "")
     }
 
     private var canSave: Bool {
         !title.trimmingCharacters(in: .whitespaces).isEmpty
-            && !body.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+            && !messageBody.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
     }
 
     var body: some View {
@@ -626,7 +628,7 @@ struct ReplyTemplateEditorView: View {
                     TextField("e.g. Thanks for the report", text: $title)
                 }
                 Section("Message") {
-                    TextEditor(text: $body)
+                    TextEditor(text: $messageBody)
                         .font(.body)
                         .frame(minHeight: 160)
                 }
@@ -651,7 +653,7 @@ struct ReplyTemplateEditorView: View {
 
     private func save() {
         let trimmedTitle = title.trimmingCharacters(in: .whitespaces)
-        let trimmedBody = body.trimmingCharacters(in: .whitespacesAndNewlines)
+        let trimmedBody = messageBody.trimmingCharacters(in: .whitespacesAndNewlines)
         if let existing {
             store.update(existing, title: trimmedTitle, body: trimmedBody)
         } else {
