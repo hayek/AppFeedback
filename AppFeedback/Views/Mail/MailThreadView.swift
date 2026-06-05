@@ -177,6 +177,7 @@ struct MailThreadView: View {
             )
             .padding(.top, 8)
             .frame(maxWidth: .infinity, alignment: .trailing)
+            #if canImport(SwiftMail)
             .sheet(isPresented: $showTemplatePicker) {
                 ReplyTemplatePickerView(
                     store: replyTemplateStore,
@@ -187,6 +188,7 @@ struct MailThreadView: View {
                     onPrefill: { template in useTemplate(template, autoSend: false) }
                 )
             }
+            #endif
         }
     }
 }
