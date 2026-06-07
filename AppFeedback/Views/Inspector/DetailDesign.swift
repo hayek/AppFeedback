@@ -39,20 +39,35 @@ struct DetailCard<Content: View>: View {
 }
 
 /// A multiline text editor styled like the rest of the surfaces.
+///
+/// Uses `TextEditor` rather than a vertical `TextField` so Return inserts a newline.
+/// (A `TextField(axis: .vertical)` commits the edit on Return on macOS instead of
+/// breaking the line, which makes multi-paragraph text impossible to type.)
 struct DetailTextEditor: View {
     let placeholder: String
     @Binding var text: String
-    var lineLimit: ClosedRange<Int> = 4...14
+    var minHeight: CGFloat = 92
 
     var body: some View {
-        TextField(placeholder, text: $text, axis: .vertical)
-            .textFieldStyle(.plain)
+        TextEditor(text: $text)
+            .textEditorStyle(.plain)
+            .scrollContentBackground(.hidden)
             .font(.body)
-            .lineLimit(lineLimit)
+            .frame(minHeight: minHeight, alignment: .topLeading)
             .frame(maxWidth: .infinity, alignment: .leading)
-            .padding(11)
+            .padding(7)
             .background(RoundedRectangle(cornerRadius: 10, style: .continuous).fill(Color.primary.opacity(0.045)))
             .overlay(RoundedRectangle(cornerRadius: 10, style: .continuous).strokeBorder(Color.primary.opacity(0.06), lineWidth: 1))
+            .overlay(alignment: .topLeading) {
+                if text.isEmpty {
+                    Text(placeholder)
+                        .font(.body)
+                        .foregroundStyle(.tertiary)
+                        .padding(.horizontal, 12)
+                        .padding(.vertical, 12)
+                        .allowsHitTesting(false)
+                }
+            }
     }
 }
 

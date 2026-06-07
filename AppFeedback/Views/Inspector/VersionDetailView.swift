@@ -50,8 +50,14 @@ struct VersionDetailView: View {
         #endif
         .toolbar {
             ToolbarItem(placement: .cancellationAction) { Button("Cancel") { dismiss() } }
-            ToolbarItem(placement: .confirmationAction) {
-                Button("Apply") { applyDetails() }.fontWeight(.semibold).disabled(!dirty)
+            // .primaryAction (not .confirmationAction) so Return is NOT bound to Apply —
+            // otherwise pressing Return in the multi-line "What's new" editor would dismiss
+            // the sheet instead of inserting a newline. Apply is click-only.
+            ToolbarItem(placement: .primaryAction) {
+                Button("Apply") { applyDetails() }
+                    .buttonStyle(.borderedProminent)
+                    .fontWeight(.semibold)
+                    .disabled(!dirty)
             }
         }
         .confirmationDialog("Delete version \(version.name)?", isPresented: $showDeleteConfirm, titleVisibility: .visible) {
