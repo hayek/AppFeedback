@@ -29,7 +29,7 @@ struct FilterBarView: View {
                 )
                 MultiSelectFilterChip(
                     label: "Version",
-                    values: viewModel.uniqueValues(for: \.appVersion),
+                    values: viewModel.uniqueVersions,
                     selection: binding(for: \.appVersion),
                     display: { $0 },
                     accent: accent

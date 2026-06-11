@@ -100,6 +100,13 @@ final class IssueListViewModel {
         return Array(Set(base.compactMap { $0[keyPath: keyPath] })).sorted()
     }
 
+    /// Distinct app versions present among the visible issues, sorted newest-first using a numeric
+    /// (not lexicographic) comparison so "2.8" sorts above "2.6 (80)" above "1.6" above "0.1.0".
+    var uniqueVersions: [String] {
+        Array(Set(visibleBase.compactMap(\.appVersion)))
+            .sorted { $0.compare($1, options: .numeric) == .orderedDescending }
+    }
+
     /// All issues with hidden apps filtered out, optionally narrowed to the selected app.
     private var visibleBase: [FeedbackIssue] {
         let withoutHidden = hiddenApps.isEmpty ? allIssues : allIssues.filter { !hiddenApps.contains($0.appName ?? "") }
