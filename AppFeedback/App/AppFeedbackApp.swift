@@ -84,10 +84,11 @@ struct AppFeedbackApp: App {
                         CachedIssue.self, MailAttachmentLocal.self, MailAccountLocalState.self,
                         RepoFetchState.self, FeedbackAttachmentLocal.self,
                         ReplyTemplate.self,
+                        RepoFilterPreference.self,
                     configurations: testConfig
                 )
             } else {
-                let cloudSchema = Schema([Repo.self, SeenIssue.self, HiddenApp.self, MailAccount.self, GitHubAccount.self, MailSettings.self, MailThread.self, MailMessage.self, MailAttachment.self, IssueTranslation.self, IssueSummaryCache.self, ProjectVersion.self, SentReleaseNotification.self, ReplyTemplate.self])
+                let cloudSchema = Schema([Repo.self, SeenIssue.self, HiddenApp.self, MailAccount.self, GitHubAccount.self, MailSettings.self, MailThread.self, MailMessage.self, MailAttachment.self, IssueTranslation.self, IssueSummaryCache.self, ProjectVersion.self, SentReleaseNotification.self, ReplyTemplate.self, RepoFilterPreference.self])
                 let localSchema = Schema([CachedIssue.self, MailAttachmentLocal.self, MailAccountLocalState.self, RepoFetchState.self, FeedbackAttachmentLocal.self])
                 let cloudConfig = ModelConfiguration(
                     "cloud",
@@ -105,6 +106,7 @@ struct AppFeedbackApp: App {
                         CachedIssue.self, MailAttachmentLocal.self, MailAccountLocalState.self,
                         RepoFetchState.self, FeedbackAttachmentLocal.self,
                         ReplyTemplate.self,
+                        RepoFilterPreference.self,
                     configurations: cloudConfig, localConfig
                 )
             }
