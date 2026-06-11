@@ -18,7 +18,7 @@ enum AppFeedbackLabels {
     ]
 }
 
-enum TaskStatus: String, CaseIterable, Sendable {
+enum TaskStatus: String, CaseIterable, Codable, Sendable {
     case todo
     case inProgress = "in-progress"
     case done
@@ -39,7 +39,7 @@ enum TaskStatus: String, CaseIterable, Sendable {
     }
 }
 
-enum TaskPriority: String, CaseIterable, Sendable {
+enum TaskPriority: String, CaseIterable, Codable, Sendable {
     case low, med, high
 
     var label: String { "priority:\(rawValue)" }

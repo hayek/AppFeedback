@@ -47,6 +47,15 @@ struct TaskCreation: Identifiable, Equatable {
     var number: Int?
 }
 
+/// The task Version filter's value: no constraint, a single derived state (resolved live so
+/// versions added later are covered), or an explicit set of milestone names. State and a fresh
+/// specific-version pick replace the whole value; a second specific-version pick is additive.
+enum VersionScope: Equatable, Codable {
+    case any
+    case state(VersionState)
+    case versions(Set<String>)
+}
+
 /// Active filters for the inspector's Tasks section. An empty set on a dimension means "no
 /// constraint"; dimensions combine with AND. `search` is matched by `TaskItem.matchesSearch`.
 struct TaskFilters: Equatable {

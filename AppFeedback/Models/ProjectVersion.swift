@@ -1,7 +1,7 @@
 import Foundation
 import SwiftData
 
-enum VersionState: String, Sendable, Hashable { case new, wip, released }
+enum VersionState: String, Codable, Sendable, Hashable { case new, wip, released }
 
 @Model
 final class ProjectVersion: Identifiable {

@@ -10,7 +10,7 @@ enum IssueState: String, Codable, Sendable {
     case closed
 }
 
-enum IssueType: String {
+enum IssueType: String, Codable {
     case bug
     case featureRequest = "feature-request"
 
