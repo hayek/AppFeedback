@@ -340,7 +340,7 @@ final class ProjectInspectorModelTests: XCTestCase {
     func testFilterByVersion() {
         let m = ProjectInspectorModel()
         m.setTasks([makeTask(1, milestone: "1.0"), makeTask(2, milestone: "2.0"), makeTask(3, milestone: nil)])
-        m.taskFilters.versions = ["1.0"]
+        m.taskFilters.versionScope = .versions(["1.0"])
         XCTAssertEqual(m.filteredTasks.map(\.number), [1])
     }
 
@@ -354,7 +354,7 @@ final class ProjectInspectorModelTests: XCTestCase {
         ])
         m.taskFilters.statuses = [.inProgress]
         m.taskFilters.priorities = [.high]
-        m.taskFilters.versions = ["1.0"]
+        m.taskFilters.versionScope = .versions(["1.0"])
         // Only #1 matches all three dimensions. #4 matches status+priority but is excluded by version,
         // proving the version dimension is AND'd in (not OR'd).
         XCTAssertEqual(m.filteredTasks.map(\.number), [1])

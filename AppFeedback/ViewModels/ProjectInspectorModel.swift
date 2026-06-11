@@ -61,12 +61,34 @@ enum VersionScope: Equatable, Codable {
 struct TaskFilters: Equatable {
     var statuses:   Set<TaskStatus>   = []
     var priorities: Set<TaskPriority> = []
-    var versions:   Set<String>       = []     // milestoneTitle values
+    var versionScope: VersionScope    = .any
     var search:     String            = ""
 
     var isActive: Bool {
-        !statuses.isEmpty || !priorities.isEmpty || !versions.isEmpty
+        !statuses.isEmpty || !priorities.isEmpty || versionScope != .any
             || !search.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+    }
+
+    func isStateSelected(_ s: VersionState) -> Bool { versionScope == .state(s) }
+
+    func isVersionSelected(_ name: String) -> Bool {
+        if case .versions(let names) = versionScope { return names.contains(name) }
+        return false
+    }
+
+    /// Selecting a state replaces the whole scope; re-selecting the active state clears to `.any`.
+    mutating func toggleState(_ s: VersionState) {
+        versionScope = (versionScope == .state(s)) ? .any : .state(s)
+    }
+
+    /// A specific-version pick overrides a state/`.any`; a second pick is additive. Emptying → `.any`.
+    mutating func toggleVersion(_ name: String) {
+        if case .versions(var names) = versionScope {
+            if names.contains(name) { names.remove(name) } else { names.insert(name) }
+            versionScope = names.isEmpty ? .any : .versions(names)
+        } else {
+            versionScope = .versions([name])
+        }
     }
 }
 
@@ -86,6 +108,8 @@ final class ProjectInspectorModel {
     private(set) var tasks: [TaskItem] = []
     var taskFilters    = TaskFilters()
     var versionFilters = VersionFilters()
+    /// Derived state per version name, pushed from `RootView`. Drives `.state` version filtering.
+    var versionStates: [String: VersionState] = [:]
 
     // MARK: - Optimistic task creation
 
@@ -283,15 +307,24 @@ final class ProjectInspectorModel {
         tasks.removeAll { $0.number == number }
     }
 
-    /// Tasks passing all active filters (status, priority, version, search) — empty dimensions
-    /// impose no constraint, and the dimensions combine with AND.
+    /// Tasks passing all active filters (status, priority, version scope, search) — empty
+    /// dimensions impose no constraint, and the dimensions combine with AND.
     var filteredTasks: [TaskItem] {
         tasks.filter { t in
             (taskFilters.statuses.isEmpty   || taskFilters.statuses.contains(t.displayStatus)) &&
             (taskFilters.priorities.isEmpty || taskFilters.priorities.contains(t.priority)) &&
-            // "" is never in uniqueTaskVersions (compactMap drops nil), so version-less tasks safely miss any version filter.
-            (taskFilters.versions.isEmpty   || taskFilters.versions.contains(t.milestoneTitle ?? "")) &&
+            versionScopeMatches(t) &&
             t.matchesSearch(taskFilters.search)
+        }
+    }
+
+    /// Resolves the task against the active `VersionScope`. `.state` looks the task's milestone up
+    /// in `versionStates`; version-less tasks match neither `.state` nor `.versions`.
+    private func versionScopeMatches(_ t: TaskItem) -> Bool {
+        switch taskFilters.versionScope {
+        case .any:                 return true
+        case .state(let s):        return (t.milestoneTitle.flatMap { versionStates[$0] }) == s
+        case .versions(let names): return names.contains(t.milestoneTitle ?? "")
         }
     }
 
