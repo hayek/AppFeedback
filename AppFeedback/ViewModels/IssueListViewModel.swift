@@ -50,7 +50,7 @@ final class IssueListViewModel {
         Array(Set(allIssues.compactMap(\.appName).filter { !hiddenApps.contains($0) })).sorted()
     }
 
-    struct ActiveFilters {
+    struct ActiveFilters: Equatable {
         var appVersion: Set<String> = []
         var device: Set<String> = []
         var osVersion: Set<String> = []

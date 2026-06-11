@@ -36,6 +36,7 @@ struct AppFeedbackApp: App {
     private let repoConfigSnapshot = RepoConfigSnapshot()
     @State private var store: RepoStore
     @State private var versionStore: VersionStore
+    @State private var filterStore: FilterPreferenceStore
     @State private var replyTemplateStore: ReplyTemplateStore
     @State private var syncStatus: CloudSyncStatus
     @State private var activityLog: ActivityLog
@@ -137,6 +138,7 @@ struct AppFeedbackApp: App {
         _store = State(initialValue: RepoStore(context: ModelContext(container), hiddenAppStore: hiddenAppStoreLocal))
         _gitHubAccountStore = State(initialValue: GitHubAccountStore(context: ModelContext(container)))
         _versionStore = State(initialValue: VersionStore(context: ModelContext(container)))
+        _filterStore = State(initialValue: FilterPreferenceStore(context: ModelContext(container)))
         _replyTemplateStore = State(initialValue: ReplyTemplateStore(context: ModelContext(container)))
         _cacheContext = State(initialValue: ModelContext(container))
         _syncStatus = State(initialValue: CloudSyncStatus())
@@ -276,7 +278,7 @@ struct AppFeedbackApp: App {
 
     var body: some Scene {
         WindowGroup {
-            RootView(store: store, seenStore: seenStore, cacheContext: cacheContext, versionStore: versionStore)
+            RootView(store: store, seenStore: seenStore, cacheContext: cacheContext, versionStore: versionStore, filterStore: filterStore)
                 #if !os(macOS)
                 .overlay(QuickLookHost())
                 #endif

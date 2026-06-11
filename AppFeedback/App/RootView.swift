@@ -7,12 +7,14 @@ struct RootView: View {
     var seenStore: SeenIssueStore
     var cacheContext: ModelContext
     var versionStore: VersionStore
+    var filterStore: FilterPreferenceStore
 
-    init(store: RepoStore, seenStore: SeenIssueStore, cacheContext: ModelContext, versionStore: VersionStore) {
+    init(store: RepoStore, seenStore: SeenIssueStore, cacheContext: ModelContext, versionStore: VersionStore, filterStore: FilterPreferenceStore) {
         self.store = store
         self.seenStore = seenStore
         self.cacheContext = cacheContext
         self.versionStore = versionStore
+        self.filterStore = filterStore
         // Seed the selection so the iPhone opens to the detail (feedback) rather than the sidebar.
         _selection = State(initialValue: store.repos.first.map { SidebarSelection.allIssues(repoId: $0.id) })
     }
@@ -199,7 +201,6 @@ struct RootView: View {
             if oldValue?.repoId != newValue?.repoId {
                 inspector.clearCreations()
                 versionCreations.clearAll()
-                inspector.clearFilters()
             }
             guard let newValue else { return }
             updateViewModel(for: newValue)
@@ -207,6 +208,7 @@ struct RootView: View {
         .onChange(of: selectedLoadedSignature) { _, _ in
             if let selection { updateViewModel(for: selection) }
         }
+        .onChange(of: filterPersistenceSignature) { _, _ in savePersistedFilters() }
         .onChange(of: store.repos) { _, newRepos in
             syncLoaders(repos: newRepos)
             autoSelectIfNeeded(repos: newRepos)
@@ -262,6 +264,7 @@ struct RootView: View {
         .task {
             for await _ in NotificationCenter.cloudKitImportSucceeded {
                 retryStuckLoaders()
+                if let repoId = selection?.repoId { loadPersistedFilters(repoId: repoId) }
             }
         }
     }
@@ -306,6 +309,32 @@ struct RootView: View {
         .inspectorColumnWidth(min: 260, ideal: 340, max: 480)
     }
 
+    private func ownerRepo(for repoId: UUID) -> (owner: String, repo: String)? {
+        guard let cfg = store.repos.first(where: { $0.id == repoId }) else { return nil }
+        return (cfg.owner, cfg.repo)
+    }
+
+    /// Loads this repo's persisted filters into the view models. Falls back to cleared filters.
+    private func loadPersistedFilters(repoId: UUID) {
+        guard let (owner, repo) = ownerRepo(for: repoId) else {
+            inspector.clearFilters(); viewModel.clearFilters(); viewModel.appFilter = []
+            return
+        }
+        let bundle = filterStore.load(owner: owner, repo: repo)
+        inspector.taskFilters.apply(bundle.task)
+        inspector.versionFilters.apply(bundle.version)
+        viewModel.applyFeedbackFilters(bundle.feedback)
+    }
+
+    /// Persists the current repo's filter selections (structured chips only).
+    private func savePersistedFilters() {
+        guard let repoId = selection?.repoId, let (owner, repo) = ownerRepo(for: repoId) else { return }
+        let bundle = PersistedFilterBundle(task: inspector.taskFilters.persisted,
+                                           version: inspector.versionFilters.persisted,
+                                           feedback: viewModel.persistedFeedbackFilters)
+        filterStore.save(owner: owner, repo: repo, bundle: bundle)
+    }
+
     private func updateViewModel(for selection: SidebarSelection) {
         guard let loader = loaders[selection.repoId],
               case .loaded(let issues, _) = loader.state else { return }
@@ -315,9 +344,26 @@ struct RootView: View {
         viewModel.attachSeenStore(seenStore, owner: owner, repo: repoName)
         viewModel.applyLoaded(issues)
         inspector.setTasks(viewModel.tasks)
-        viewModel.clearFilters()
-        viewModel.appFilter = []
+        inspector.versionStates = versionStates(owner: owner, repo: repoName)
+        loadPersistedFilters(repoId: selection.repoId)
         viewModel.allowsAppFilter = true
+    }
+
+    /// Combined snapshot of the persistable filter selections (task chips, version chips, feedback
+    /// chips, app filter). Folded into one `.onChange` so the body's modifier chain stays within the
+    /// Swift type-checker's budget — any of the four changing triggers a single `savePersistedFilters`.
+    private struct FilterPersistenceSignature: Equatable {
+        var task: TaskFilters
+        var version: VersionFilters
+        var feedback: IssueListViewModel.ActiveFilters
+        var appFilter: Set<String>
+    }
+
+    private var filterPersistenceSignature: FilterPersistenceSignature {
+        FilterPersistenceSignature(task: inspector.taskFilters,
+                                   version: inspector.versionFilters,
+                                   feedback: viewModel.filters,
+                                   appFilter: viewModel.appFilter)
     }
 
     private var selectedLoadedSignature: String {
