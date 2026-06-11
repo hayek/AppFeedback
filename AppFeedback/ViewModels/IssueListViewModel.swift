@@ -117,6 +117,21 @@ final class IssueListViewModel {
         filters = ActiveFilters()
     }
 
+    /// Feedback-list filter selections for persistence (structured chips only — not `searchQuery`).
+    var persistedFeedbackFilters: PersistedFeedbackFilters {
+        PersistedFeedbackFilters(appVersion: filters.appVersion, device: filters.device,
+                                 osVersion: filters.osVersion, issueType: filters.issueType,
+                                 appFilter: appFilter)
+    }
+
+    func applyFeedbackFilters(_ dto: PersistedFeedbackFilters) {
+        filters.appVersion = dto.appVersion
+        filters.device = dto.device
+        filters.osVersion = dto.osVersion
+        filters.issueType = dto.issueType
+        appFilter = dto.appFilter
+    }
+
 
     private(set) var tasks: [TaskItem] = []
 

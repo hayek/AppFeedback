@@ -106,6 +106,23 @@ struct VersionFilters: Equatable {
     }
 }
 
+extension TaskFilters {
+    var persisted: PersistedTaskFilters {
+        PersistedTaskFilters(statuses: statuses, priorities: priorities, versionScope: versionScope)
+    }
+    /// Applies persisted selections, leaving `search` untouched (it is never persisted).
+    mutating func apply(_ dto: PersistedTaskFilters) {
+        statuses = dto.statuses
+        priorities = dto.priorities
+        versionScope = dto.versionScope
+    }
+}
+
+extension VersionFilters {
+    var persisted: PersistedVersionFilters { PersistedVersionFilters(states: states) }
+    mutating func apply(_ dto: PersistedVersionFilters) { states = dto.states }
+}
+
 @Observable @MainActor
 final class ProjectInspectorModel {
     private(set) var tasks: [TaskItem] = []
