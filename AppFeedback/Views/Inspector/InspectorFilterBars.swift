@@ -24,13 +24,9 @@ struct TaskFilterBar: View {
                     display: { $0.displayName },
                     accent: accent
                 )
-                MultiSelectFilterChip(
-                    label: "Version",
-                    values: inspector.uniqueTaskVersions,
-                    selection: $inspector.taskFilters.versions,
-                    display: { $0 },
-                    accent: accent
-                )
+                VersionScopeFilterChip(filters: $inspector.taskFilters,
+                                       versions: inspector.uniqueTaskVersions,
+                                       accent: accent)
                 if inspector.taskFilters.isActive {
                     ClearFiltersButton(title: "Clear") {
                         withAnimation(.easeInOut(duration: 0.18)) { inspector.clearTaskFilters() }
@@ -72,5 +68,67 @@ struct VersionFilterBar: View {
             .padding(.vertical, 4)
         }
         .scrollClipDisabled()
+    }
+}
+
+/// The task **Version** filter: single-select state chips (New / In Progress / Released) plus a
+/// "Version" submenu of specific milestone names. Selection follows `TaskFilters`' override rules.
+struct VersionScopeFilterChip: View {
+    @Binding var filters: TaskFilters
+    let versions: [String]
+    var accent: Color = .accentColor
+
+    private var isActive: Bool { filters.versionScope != .any }
+
+    var body: some View {
+        FilterChipContainer(isActive: isActive, accent: accent) {
+            Menu {
+                if isActive {
+                    Button("Clear Version") { filters.versionScope = .any }
+                    Divider()
+                }
+                ForEach([VersionState.new, .wip, .released], id: \.self) { state in
+                    Button {
+                        filters.toggleState(state)
+                    } label: {
+                        Label(state.title, systemImage: filters.isStateSelected(state) ? "checkmark" : state.symbol)
+                    }
+                }
+                if !versions.isEmpty {
+                    Divider()
+                    Menu("Version") {
+                        ForEach(versions, id: \.self) { name in
+                            Button {
+                                filters.toggleVersion(name)
+                            } label: {
+                                if filters.isVersionSelected(name) {
+                                    Label(name, systemImage: "checkmark")
+                                } else {
+                                    Text(name)
+                                }
+                            }
+                        }
+                    }
+                }
+            } label: {
+                FilterTitleSegment(label: "Version", showsAll: !isActive)
+            }
+            .menuStyle(.button)
+            .buttonStyle(.plain)
+            .menuIndicator(.hidden)
+            .fixedSize()
+
+            // Active-selection sub-pills (state → one pill; versions → one pill per name).
+            switch filters.versionScope {
+            case .any:
+                EmptyView()
+            case .state(let s):
+                SubPill(text: s.title, leadingSymbol: s.symbol, accent: accent) { filters.versionScope = .any }
+            case .versions(let names):
+                ForEach(names.sorted { $0.compare($1, options: .numeric) == .orderedDescending }, id: \.self) { name in
+                    SubPill(text: name, accent: accent) { filters.toggleVersion(name) }
+                }
+            }
+        }
     }
 }
