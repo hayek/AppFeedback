@@ -84,7 +84,7 @@ struct VersionScopeFilterChip: View {
         FilterChipContainer(isActive: isActive, accent: accent) {
             Menu {
                 if isActive {
-                    Button("Clear Version") { filters.versionScope = .any }
+                    Button("Clear Version") { filters.clearVersionScope() }
                     Divider()
                 }
                 ForEach([VersionState.new, .wip, .released], id: \.self) { state in
@@ -123,9 +123,9 @@ struct VersionScopeFilterChip: View {
             case .any:
                 EmptyView()
             case .state(let s):
-                SubPill(text: s.title, leadingSymbol: s.symbol, accent: accent) { filters.versionScope = .any }
+                SubPill(text: s.title, leadingSymbol: s.symbol, accent: accent) { filters.clearVersionScope() }
             case .versions(let names):
-                ForEach(names.sorted { $0.compare($1, options: .numeric) == .orderedDescending }, id: \.self) { name in
+                ForEach(names.sorted { $0.compare($1, options: .numeric) == .orderedAscending }, id: \.self) { name in
                     SubPill(text: name, accent: accent) { filters.toggleVersion(name) }
                 }
             }

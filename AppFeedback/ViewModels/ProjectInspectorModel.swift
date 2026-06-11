@@ -90,6 +90,9 @@ struct TaskFilters: Equatable {
             versionScope = .versions([name])
         }
     }
+
+    /// Clears any version constraint (state or specific names) back to `.any`.
+    mutating func clearVersionScope() { versionScope = .any }
 }
 
 /// Active filters for the inspector's Versions section: by derived `VersionState` and a name/
