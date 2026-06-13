@@ -157,18 +157,6 @@ struct RootView: View {
         } message: {
             Text(taskWriteError ?? "")
         }
-        .sheet(isPresented: $showCreateTask) {
-            if let repo = store.repos.first(where: { $0.id == selection?.repoId }) {
-                CreateTaskSheet(repo: repo,
-                    versions: versionStore.versions(owner: repo.owner, repo: repo.repo),
-                    onSubmit: { draft in createTask(repo: repo, draft: draft) })
-            }
-        }
-        .sheet(isPresented: $showCreateVersion) {
-            if let repo = store.repos.first(where: { $0.id == selection?.repoId }) {
-                NewVersionSheet(onSubmit: { draft in createVersion(repo: repo, draft: draft) })
-            }
-        }
         .sheet(item: $taskFromFeedback) { task in
             if let repo = store.repos.first(where: { $0.id == selection?.repoId }) {
                 TaskDetailView(repo: repo, task: task, inspector: inspector, versionStore: versionStore,
@@ -307,6 +295,21 @@ struct RootView: View {
             }
         )
         .inspectorColumnWidth(min: 260, ideal: 340, max: 480)
+        // Presented from WITHIN the panel (not the root NavigationSplitView) so that on iPhone —
+        // where the panel is itself a sheet — these stack on top of it instead of being silently
+        // swallowed by an already-occupied presentation slot. Mirrors taskToOpen/versionToOpen.
+        .sheet(isPresented: $showCreateTask) {
+            if let repo = store.repos.first(where: { $0.id == selection.repoId }) {
+                CreateTaskSheet(repo: repo,
+                    versions: versionStore.versions(owner: repo.owner, repo: repo.repo),
+                    onSubmit: { draft in createTask(repo: repo, draft: draft) })
+            }
+        }
+        .sheet(isPresented: $showCreateVersion) {
+            if let repo = store.repos.first(where: { $0.id == selection.repoId }) {
+                NewVersionSheet(onSubmit: { draft in createVersion(repo: repo, draft: draft) })
+            }
+        }
     }
 
     private func ownerRepo(for repoId: UUID) -> (owner: String, repo: String)? {
