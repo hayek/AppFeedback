@@ -214,8 +214,7 @@ extension IssueListViewModelTests {
         XCTAssertFalse(vm.isUnread(issue(1)))
     }
 
-    func test_translation_skipsTargetLanguageIssues() async {
-        let mock = MockIntelligenceProvider()
+    func test_translation_skipsTargetLanguageIssues() {
         let settings = IntelligenceSettings(defaults: UserDefaults(suiteName: UUID().uuidString)!)
         settings.targetLanguageCode = "en"
 
@@ -232,15 +231,14 @@ extension IssueListViewModelTests {
         vm.allIssues = [englishIssue]
         let context = ModelContext(try! ModelContainer(for: CachedIssue.self,
             configurations: ModelConfiguration(isStoredInMemoryOnly: true)))
-        vm.attachIntelligence(provider: mock, settings: settings, cacheContext: context)
+        vm.attachIntelligence(provider: MockIntelligenceProvider(), settings: settings, cacheContext: context)
 
         vm.startTranslationsIfNeeded()
-        try? await Task.sleep(nanoseconds: 50_000_000)
-        XCTAssertEqual(mock.translateCalls.count, 0)
+        // An English issue with target "en" is the same language → never enqueued.
+        XCTAssertTrue(vm.pendingTranslations.isEmpty)
     }
 
-    func test_translation_translatesNonTargetLanguage() async {
-        let mock = MockIntelligenceProvider()
+    func test_translation_enqueuesNonTargetLanguageForFramework() {
         let settings = IntelligenceSettings(defaults: UserDefaults(suiteName: UUID().uuidString)!)
         settings.targetLanguageCode = "en"
 
@@ -257,17 +255,49 @@ extension IssueListViewModelTests {
         vm.allIssues = [spanishIssue]
         let context = ModelContext(try! ModelContainer(for: CachedIssue.self,
             configurations: ModelConfiguration(isStoredInMemoryOnly: true)))
+        vm.attachIntelligence(provider: MockIntelligenceProvider(), settings: settings, cacheContext: context)
+
+        // No on-device call anymore: a non-target issue is enqueued directly for the
+        // Translation framework (driven by TranslationHost), carrying its detected source.
+        vm.startTranslationsIfNeeded()
+        XCTAssertEqual(vm.pendingTranslations.count, 1)
+        let req = vm.pendingTranslations.first
+        XCTAssertEqual(req?.issueNumber, 2)
+        XCTAssertEqual(req?.target, "en")
+        XCTAssertEqual(req?.detected, "es")
+        XCTAssertEqual(req?.title, "La aplicación se cierra inesperadamente")
+
+        // Simulating the framework returning a result commits via the shared path.
+        vm.applyTranslation(req!, title: "The app closes unexpectedly",
+                            body: "The app closes when I open the settings page.")
+        XCTAssertEqual(vm.allIssues[0].translatedTitle, "The app closes unexpectedly")
+        XCTAssertEqual(vm.allIssues[0].translationTargetLanguage, "en")
+        XCTAssertTrue(vm.pendingTranslations.isEmpty)
+    }
+
+    func test_translation_enqueuesWithoutAppleIntelligence() {
+        // The global Apple-Intelligence availability gate is gone: translation runs through
+        // the Translation framework regardless of SystemLanguageModel availability.
+        let mock = MockIntelligenceProvider()
+        mock.availability = .appleIntelligenceNotEnabled
+        let settings = IntelligenceSettings(defaults: UserDefaults(suiteName: UUID().uuidString)!)
+        settings.targetLanguageCode = "en"
+
+        let vm = IssueListViewModel()
+        vm.allIssues = [FeedbackIssue(
+            number: 3,
+            title: "La aplicación se cierra inesperadamente",
+            createdAt: Date(),
+            rawBody: "",
+            appName: "App", appVersion: nil, device: nil, osVersion: nil, email: nil,
+            description: "La aplicación se cierra cuando abro la página de configuración.",
+            labels: [])]
+        let context = ModelContext(try! ModelContainer(for: CachedIssue.self,
+            configurations: ModelConfiguration(isStoredInMemoryOnly: true)))
         vm.attachIntelligence(provider: mock, settings: settings, cacheContext: context)
 
         vm.startTranslationsIfNeeded()
-
-        for _ in 0..<50 {
-            if mock.translateCalls.count >= 2 { break }
-            try? await Task.sleep(nanoseconds: 20_000_000)
-        }
-        XCTAssertEqual(mock.translateCalls.count, 2)
-        XCTAssertEqual(vm.allIssues[0].translationTargetLanguage, "en")
-        XCTAssertEqual(vm.allIssues[0].translatedTitle, "[t] La aplicación se cierra inesperadamente")
+        XCTAssertEqual(vm.pendingTranslations.count, 1)
     }
 
     func test_applyLoaded_hydratesTranslationsFromCloudStore() {
@@ -349,67 +379,12 @@ extension IssueListViewModelTests {
         XCTAssertTrue(titleOnlyEmptyBody.hasTranslation)
     }
 
-    func test_translation_guardrailBlockOnBody_routesToFallbackNotPartialCommit() async {
-        // Repro of #381: Apple's on-device safety guardrail false-positives on the
-        // German body, so the body attempt throws .guardrailBlocked while the short
-        // title translates fine. A guardrail block must route the WHOLE issue to the
-        // Translation-framework fallback — NOT commit a title-only result that freezes
-        // the issue (translationTargetLanguage stamped, so no retry) with the body
-        // left in the original language under a "translated" label.
-        let germanBody = "Guten Tag, meine Demo ist gerade abgelaufen und ich wollte das Lifetime Produkt kaufen. Leider wird mir bei der Zahlung immer ein 50 Prozent höherer Preis angezeigt als in der App. Können Sie hierbei bitte helfen?"
-        let mock = MockIntelligenceProvider()
-        mock.translateHandler = { text, _, _ in
-            if text == germanBody { throw IntelligenceError.guardrailBlocked }
-            return "[t] " + text
-        }
-        let settings = IntelligenceSettings(defaults: UserDefaults(suiteName: UUID().uuidString)!)
-        settings.targetLanguageCode = "en"
-
-        let vm = IssueListViewModel()
-        vm.allIssues = [FeedbackIssue(
-            number: 381,
-            title: "Lifetime Preis:",
-            createdAt: Date(),
-            rawBody: germanBody,
-            appName: "App", appVersion: nil, device: nil, osVersion: nil, email: nil,
-            description: germanBody,
-            labels: []
-        )]
-        let context = ModelContext(try! ModelContainer(for: CachedIssue.self,
-            configurations: ModelConfiguration(isStoredInMemoryOnly: true)))
-        vm.attachIntelligence(provider: mock, settings: settings, cacheContext: context)
-
-        vm.startTranslationsIfNeeded()
-
-        var finished = false
-        for _ in 0..<200 {
-            if !vm.translatingNumbers.contains(381) { finished = true; break }
-            try? await Task.sleep(nanoseconds: 10_000_000)
-        }
-        XCTAssertTrue(finished, "translation task did not finish within the timeout")
-        // The title actually translated on-device — proves the title-vs-body asymmetry the
-        // test guards (a body-only block), not a both-fields-failed false pass.
-        XCTAssertTrue(mock.translateCalls.contains { $0.text == "Lifetime Preis:" })
-
-        // Routed to the fallback for the whole issue, tagged as a guardrail block…
-        XCTAssertEqual(vm.pendingFallbacks.count, 1)
-        XCTAssertEqual(vm.pendingFallbacks.first?.issueNumber, 381)
-        XCTAssertEqual(vm.pendingFallbacks.first?.reason, .guardrail)
-        // …and NOT frozen as a title-only partial commit.
-        XCTAssertNil(vm.allIssues[0].translatedTitle)
-        XCTAssertNil(vm.allIssues[0].translationTargetLanguage)
-    }
-
-    /// Sets up a VM whose body translation trips the guardrail (title translates fine),
-    /// drives it, and returns once the issue is enqueued to the fallback.
+    /// Builds a VM with a single non-target-language issue (German) enqueued for
+    /// translation, and returns the enqueued request. The Translation framework itself
+    /// can't run in tests, so tests drive the view-model side of the queue directly.
     @MainActor
-    private func makeGuardrailFallbackVM(germanBody: String) async
-        -> (vm: IssueListViewModel, context: ModelContext, request: IssueListViewModel.FallbackRequest)? {
-        let mock = MockIntelligenceProvider()
-        mock.translateHandler = { text, _, _ in
-            if text == germanBody { throw IntelligenceError.guardrailBlocked }
-            return "[t] " + text
-        }
+    private func makePendingTranslationVM(germanBody: String)
+        -> (vm: IssueListViewModel, context: ModelContext, request: IssueListViewModel.TranslationRequest)? {
         let settings = IntelligenceSettings(defaults: UserDefaults(suiteName: UUID().uuidString)!)
         settings.targetLanguageCode = "en"
         let context = ModelContext(try! ModelContainer(for: CachedIssue.self, IssueTranslation.self,
@@ -423,48 +398,47 @@ extension IssueListViewModelTests {
         context.insert(CachedIssue.from(issue, repoOwner: "org", repoName: "repo"))
         try? context.save()
         vm.allIssues = [issue]
-        vm.attachIntelligence(provider: mock, settings: settings, cacheContext: context)
+        vm.attachIntelligence(provider: MockIntelligenceProvider(), settings: settings, cacheContext: context)
 
         vm.startTranslationsIfNeeded()
-        for _ in 0..<200 {
-            if let r = vm.pendingFallbacks.first(where: { $0.issueNumber == 381 }) {
-                return (vm, context, r)
-            }
-            try? await Task.sleep(nanoseconds: 10_000_000)
-        }
-        return nil
+        guard let r = vm.pendingTranslations.first(where: { $0.issueNumber == 381 }) else { return nil }
+        return (vm, context, r)
     }
 
-    func test_guardrailFallbackUnavailable_doesNotBlacklistLanguage_andLeavesCacheRetryable() async {
-        // When a guardrail-routed issue's pair is ALSO unavailable in the Translation
-        // framework, we must NOT blacklist the whole language (other German issues
-        // translate fine on-device), and the cache must stay un-stamped so it retries
-        // next launch rather than being permanently frozen.
-        let germanBody = "Guten Tag, meine Demo ist gerade abgelaufen und ich wollte das Lifetime Produkt kaufen. Leider wird mir bei der Zahlung immer ein 50 Prozent höherer Preis angezeigt als in der App."
-        guard let (vm, context, request) = await makeGuardrailFallbackVM(germanBody: germanBody) else {
-            return XCTFail("guardrail body never routed to fallback")
-        }
-        XCTAssertEqual(request.reason, .guardrail)
-
-        vm.handleFallbackUnavailable(request)
-
-        XCTAssertFalse(vm.unsupportedSourceLanguages.contains("de"))
-        XCTAssertTrue(vm.pendingFallbacks.isEmpty)
-        let fetched = try? context.fetch(
-            FetchDescriptor<CachedIssue>(predicate: #Predicate { $0.number == 381 })).first
-        XCTAssertNil(fetched?.translationTargetLanguage)
-    }
-
-    func test_guardrailFallbackEmptyResult_notStoredAsTranslation() async {
+    func test_emptyTranslationResult_notStoredAsTranslation() {
         // An empty/whitespace result from the framework must not be committed as a
         // translation (it would render a blank body under a "translated" label).
         let germanBody = "Guten Tag, meine Demo ist gerade abgelaufen und ich wollte das Lifetime Produkt kaufen. Leider wird mir bei der Zahlung immer ein 50 Prozent höherer Preis angezeigt als in der App."
-        guard let (vm, _, request) = await makeGuardrailFallbackVM(germanBody: germanBody) else {
-            return XCTFail("guardrail body never routed to fallback")
+        guard let (vm, _, request) = makePendingTranslationVM(germanBody: germanBody) else {
+            return XCTFail("issue never enqueued for translation")
         }
-        vm.applyFallbackTranslation(request, title: "[t] Lifetime Price:", body: "   ")
+        vm.applyTranslation(request, title: "[t] Lifetime Price:", body: "   ")
         XCTAssertEqual(vm.allIssues[0].translatedTitle, "[t] Lifetime Price:")
         XCTAssertNil(vm.allIssues[0].translatedBody)
+    }
+
+    func test_transientErrorWithPartialResult_doesNotCommitPartial_andStaysRetryable() {
+        // Repro of the #381 partial-commit hazard on the framework path: a transient
+        // failure (e.g. cancellation when the view disappears) lands AFTER the title
+        // translated but BEFORE the body. The outcome must NOT commit the title-only
+        // partial — that would stamp translationTargetLanguage and freeze the issue with
+        // the body stranded in its original language under a "translated" label, never
+        // retried. It must drop instead, leaving the cache un-stamped for a fresh retry.
+        let germanBody = "Guten Tag, meine Demo ist gerade abgelaufen und ich wollte das Lifetime Produkt kaufen. Leider wird mir bei der Zahlung immer ein 50 Prozent höherer Preis angezeigt als in der App."
+        guard let (vm, context, request) = makePendingTranslationVM(germanBody: germanBody) else {
+            return XCTFail("issue never enqueued for translation")
+        }
+
+        vm.applyTranslationOutcome(request, title: "[t] Lifetime Preis:", body: nil, transientError: true)
+
+        // No partial committed in memory.
+        XCTAssertNil(vm.allIssues[0].translatedTitle)
+        XCTAssertNil(vm.allIssues[0].translatedBody)
+        XCTAssertTrue(vm.pendingTranslations.isEmpty)
+        // Cache stays un-stamped so the whole issue retries on the next launch.
+        let fetched = try? context.fetch(
+            FetchDescriptor<CachedIssue>(predicate: #Predicate { $0.number == 381 })).first
+        XCTAssertNil(fetched?.translationTargetLanguage)
     }
 
     func testApplyLoadedExcludesTaskIssuesFromFeedback() {
@@ -480,103 +454,101 @@ extension IssueListViewModelTests {
         XCTAssertEqual(vm.tasks.map(\.number), [2])
     }
 
-    func test_unsupportedLanguageFallbackUnavailable_blacklistsLanguage() async {
-        // Contrast with the guardrail case: a genuine on-device-unsupported language that
-        // the framework also can't translate SHOULD blacklist the language for the session.
+    func test_translationUnavailable_blacklistsLanguage() {
+        // When the Translation framework reports a pair genuinely unsupported, the source
+        // language is blacklisted for the session so we stop retrying every issue in it.
         let germanBody = "Guten Tag, meine Demo ist gerade abgelaufen und ich wollte das Lifetime Produkt kaufen."
-        let mock = MockIntelligenceProvider()
-        mock.translateHandler = { _, _, _ in throw IntelligenceError.unsupportedLanguage }
-        let settings = IntelligenceSettings(defaults: UserDefaults(suiteName: UUID().uuidString)!)
-        settings.targetLanguageCode = "en"
-        let context = ModelContext(try! ModelContainer(for: CachedIssue.self, IssueTranslation.self,
-            configurations: ModelConfiguration(isStoredInMemoryOnly: true)))
-        let vm = IssueListViewModel()
-        vm.attachSeenStore(SeenIssueStore(context: context), owner: "org", repo: "repo")
-        vm.allIssues = [FeedbackIssue(
-            number: 381, title: "Lifetime Preis:", createdAt: Date(), rawBody: germanBody,
-            appName: nil, appVersion: nil, device: nil, osVersion: nil, email: nil,
-            description: germanBody, labels: [])]
-        vm.attachIntelligence(provider: mock, settings: settings, cacheContext: context)
-
-        vm.startTranslationsIfNeeded()
-        var request: IssueListViewModel.FallbackRequest?
-        for _ in 0..<200 {
-            if let r = vm.pendingFallbacks.first(where: { $0.issueNumber == 381 }) { request = r; break }
-            try? await Task.sleep(nanoseconds: 10_000_000)
+        guard let (vm, _, request) = makePendingTranslationVM(germanBody: germanBody) else {
+            return XCTFail("issue never enqueued for translation")
         }
-        guard let request else { return XCTFail("unsupported body never routed to fallback") }
-        XCTAssertEqual(request.reason, .unsupportedOnDevice)
+        XCTAssertEqual(request.detected, "de")
 
-        vm.handleFallbackUnavailable(request)
+        vm.handleTranslationUnavailable(request)
         XCTAssertTrue(vm.unsupportedSourceLanguages.contains("de"))
+        XCTAssertTrue(vm.pendingTranslations.isEmpty)
+    }
+
+    func test_invalidateTranslations_clearsQueueAndBlacklist() {
+        // A target-language change invalidates: pending work, download gating, and the
+        // session blacklist all reset so the new target gets a fresh evaluation.
+        let germanBody = "Guten Tag, meine Demo ist gerade abgelaufen und ich wollte das Lifetime Produkt kaufen."
+        guard let (vm, _, request) = makePendingTranslationVM(germanBody: germanBody) else {
+            return XCTFail("issue never enqueued for translation")
+        }
+        vm.handleTranslationUnavailable(request)
+        XCTAssertFalse(vm.unsupportedSourceLanguages.isEmpty)
+
+        vm.invalidateTranslations()
+        XCTAssertTrue(vm.pendingTranslations.isEmpty)
+        XCTAssertTrue(vm.unsupportedSourceLanguages.isEmpty)
+        XCTAssertNil(vm.allIssues[0].translationTargetLanguage)
     }
 
     // MARK: - Language download gating
 
-    private func makeFallbackReq(
+    private func makeRequest(
         detected: String,
-        target: String = "en",
-        reason: IssueListViewModel.FallbackReason = .unsupportedOnDevice
-    ) -> IssueListViewModel.FallbackRequest {
-        IssueListViewModel.FallbackRequest(
+        target: String = "en"
+    ) -> IssueListViewModel.TranslationRequest {
+        IssueListViewModel.TranslationRequest(
             requestID: UUID(), issueNumber: 1, title: "t", body: "b",
-            detected: detected, target: target, reason: reason)
+            detected: detected, target: target)
     }
 
     func test_pumpDecision_installed_proceeds() {
         let vm = IssueListViewModel()
-        XCTAssertEqual(vm.pumpDecision(for: makeFallbackReq(detected: "ar"), state: .installed), .proceed)
+        XCTAssertEqual(vm.pumpDecision(for: makeRequest(detected: "ar"), state: .installed), .proceed)
     }
 
     func test_pumpDecision_unsupported_isUnavailable() {
         let vm = IssueListViewModel()
-        XCTAssertEqual(vm.pumpDecision(for: makeFallbackReq(detected: "ar"), state: .unsupported), .unavailable)
+        XCTAssertEqual(vm.pumpDecision(for: makeRequest(detected: "ar"), state: .unsupported), .unavailable)
     }
 
     func test_pumpDecision_supportedUnapproved_needsDownload() {
         let vm = IssueListViewModel()
-        XCTAssertEqual(vm.pumpDecision(for: makeFallbackReq(detected: "ar"), state: .supported), .needsDownload)
+        XCTAssertEqual(vm.pumpDecision(for: makeRequest(detected: "ar"), state: .supported), .needsDownload)
     }
 
     func test_pumpDecision_supportedApproved_proceeds() {
         let vm = IssueListViewModel()
         vm.approveLanguageDownload(detected: "ar", target: "en")
-        XCTAssertEqual(vm.pumpDecision(for: makeFallbackReq(detected: "ar"), state: .supported), .proceed)
+        XCTAssertEqual(vm.pumpDecision(for: makeRequest(detected: "ar"), state: .supported), .proceed)
     }
 
     func test_pumpDecision_approvalIsPairSpecific() {
         let vm = IssueListViewModel()
         vm.approveLanguageDownload(detected: "ar", target: "en")
         // A different source language for the same target is still gated.
-        XCTAssertEqual(vm.pumpDecision(for: makeFallbackReq(detected: "fr"), state: .supported), .needsDownload)
+        XCTAssertEqual(vm.pumpDecision(for: makeRequest(detected: "fr"), state: .supported), .needsDownload)
         // The same source language but a different target is still gated.
-        XCTAssertEqual(vm.pumpDecision(for: makeFallbackReq(detected: "ar", target: "de"), state: .supported), .needsDownload)
+        XCTAssertEqual(vm.pumpDecision(for: makeRequest(detected: "ar", target: "de"), state: .supported), .needsDownload)
     }
 
-    func test_languageDownloadGate_lifecycle() async {
-        // A real pending fallback request (German guardrail route) to exercise the gate.
+    func test_languageDownloadGate_lifecycle() {
+        // A real pending German→English request to exercise the download gate.
         let germanBody = "Guten Tag, meine Demo ist gerade abgelaufen und ich wollte das Lifetime Produkt kaufen. Leider wird mir bei der Zahlung immer ein 50 Prozent höherer Preis angezeigt als in der App."
-        guard let (vm, _, request) = await makeGuardrailFallbackVM(germanBody: germanBody) else {
-            return XCTFail("guardrail body never routed to fallback")
+        guard let (vm, _, request) = makePendingTranslationVM(germanBody: germanBody) else {
+            return XCTFail("issue never enqueued for translation")
         }
         let issue = vm.allIssues[0]
 
         // Not gated yet: no prompt, request is pumpable.
         XCTAssertNil(vm.needsLanguageDownload(issue))
-        XCTAssertEqual(vm.nextPumpableFallback()?.issueNumber, 381)
+        XCTAssertEqual(vm.nextPumpableRequest()?.issueNumber, 381)
 
         // Host gates the pair (simulating a `.supported` status): prompt appears,
         // and the gated pair is skipped so it can't block a ready pair behind it.
-        vm.markFallbackNeedsDownload(detected: request.detected, target: request.target)
+        vm.markNeedsDownload(detected: request.detected, target: request.target)
         XCTAssertNotNil(vm.needsLanguageDownload(issue))
-        XCTAssertNil(vm.nextPumpableFallback())
+        XCTAssertNil(vm.nextPumpableRequest())
 
         // User taps download: prompt clears, request becomes pumpable, a `.supported`
         // pair now proceeds, and the host is nudged via the tick.
         let tickBefore = vm.downloadApprovalTick
         vm.approveLanguageDownload(for: issue)
         XCTAssertNil(vm.needsLanguageDownload(issue))
-        XCTAssertEqual(vm.nextPumpableFallback()?.issueNumber, 381)
+        XCTAssertEqual(vm.nextPumpableRequest()?.issueNumber, 381)
         XCTAssertEqual(vm.pumpDecision(for: request, state: .supported), .proceed)
         XCTAssertGreaterThan(vm.downloadApprovalTick, tickBefore)
 

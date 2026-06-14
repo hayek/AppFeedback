@@ -88,7 +88,7 @@ struct IssueListView: View {
                 }
             }
         }
-        .background(TranslationFallbackHost(viewModel: viewModel))
+        .background(TranslationHost(viewModel: viewModel))
         .searchable(text: $viewModel.searchQuery, prompt: "Search issues, apps, emails…")
         #if os(macOS)
         .background(Color(NSColor.controlBackgroundColor))
@@ -249,7 +249,6 @@ struct IssueListView: View {
             onToggleIssueType: { type in
                 viewModel.filters.issueType.toggleMembership(type)
             },
-            intelligenceAvailable: viewModel.intelligenceProvider?.availability.isReady ?? false,
             targetLanguageCode: targetLanguageCode,
             isTranslating: viewModel.isTranslating(issue),
             isHighlighted: viewModel.highlightedIssueNumber == issue.number,

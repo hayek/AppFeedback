@@ -65,7 +65,6 @@ struct IssueCardView: View {
     var onToggleOSVersion: ((String) -> Void)? = nil
     var activeIssueType: Set<IssueType> = []
     var onToggleIssueType: ((IssueType) -> Void)? = nil
-    var intelligenceAvailable: Bool = false
     var targetLanguageCode: String = "en"
     var isTranslating: Bool = false
     var isHighlighted: Bool = false
@@ -119,12 +118,6 @@ struct IssueCardView: View {
     private var sourceLanguageDisplayName: String? {
         guard let code = issue.detectedLanguageCode, !code.isEmpty else { return nil }
         return Locale.current.localizedString(forLanguageCode: code)
-    }
-
-    private var needsTranslationButUnavailable: Bool {
-        guard !intelligenceAvailable else { return false }
-        guard let detected = issue.detectedLanguageCode, !detected.isEmpty else { return false }
-        return !detected.hasPrefix(targetLanguageCode)
     }
 
     private var copyText: String {
@@ -288,11 +281,6 @@ struct IssueCardView: View {
                     } else if translationUnsupported {
                         let lang = sourceLanguageDisplayName ?? "this language"
                         Text("Translation not supported for \(lang)")
-                            .font(.system(size: 11))
-                            .foregroundStyle(.tertiary)
-                            .padding(.top, 4)
-                    } else if needsTranslationButUnavailable {
-                        Text("Apple Intelligence required to translate")
                             .font(.system(size: 11))
                             .foregroundStyle(.tertiary)
                             .padding(.top, 4)

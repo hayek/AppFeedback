@@ -1,14 +1,12 @@
 import SwiftUI
 import Translation
 
-/// Invisible host that drives Apple's Translation framework as a fallback for
-/// issues the on-device Foundation Models translator refused with
-/// `unsupportedLanguageOrLocale` (or a guardrail false-positive). Reads
-/// `viewModel.pendingFallbacks`, processes one language pair at a time, and reports
-/// results back. Pairs whose languages aren't downloaded are gated in the view model
-/// and surfaced as a per-issue tap target rather than auto-presenting the system
+/// Invisible host that drives Apple's Translation framework — the app's sole translation
+/// engine. Reads `viewModel.pendingTranslations`, processes one language pair at a time,
+/// and reports results back. Pairs whose languages aren't downloaded are gated in the view
+/// model and surfaced as a per-issue tap target rather than auto-presenting the system
 /// download sheet; the session for such a pair starts only after the user approves.
-struct TranslationFallbackHost: View {
+struct TranslationHost: View {
     @Bindable var viewModel: IssueListViewModel
 
     @State private var activeConfig: TranslationSession.Configuration?
@@ -28,7 +26,7 @@ struct TranslationFallbackHost: View {
                 await drain(session: session, detected: detected, target: target)
             }
             .task { pumpIfIdle() }
-            .onChange(of: viewModel.pendingFallbacks) { _, _ in pumpIfIdle() }
+            .onChange(of: viewModel.pendingTranslations) { _, _ in pumpIfIdle() }
             .onChange(of: viewModel.downloadApprovalTick) { _, _ in pumpIfIdle() }
     }
 
@@ -50,7 +48,7 @@ struct TranslationFallbackHost: View {
         guard activeConfig == nil, !isPumping else { return }
         // Take the first pending request whose pair isn't gated awaiting a download —
         // otherwise a gated pair at the head would block a ready pair behind it.
-        guard let next = viewModel.nextPumpableFallback() else { return }
+        guard let next = viewModel.nextPumpableRequest() else { return }
         let detected = next.detected
         let target = next.target
         isPumping = true
@@ -60,14 +58,13 @@ struct TranslationFallbackHost: View {
                 isPumping = false
                 switch viewModel.pumpDecision(for: next, state: state) {
                 case .unavailable:
-                    // Genuine unsupported blacklists the language; a guardrail
-                    // false-positive drops just this issue (see handleFallbackUnavailable).
-                    viewModel.handleFallbackUnavailable(next)
+                    // The pair is genuinely unsupported — blacklist the source language.
+                    viewModel.handleTranslationUnavailable(next)
                     pumpIfIdle()
                 case .needsDownload:
                     // Gate it and surface the inline affordance; try other pairs that
                     // may already be installed.
-                    viewModel.markFallbackNeedsDownload(detected: detected, target: target)
+                    viewModel.markNeedsDownload(detected: detected, target: target)
                     pumpIfIdle()
                 case .proceed:
                     activeLanguage = detected
@@ -86,8 +83,8 @@ struct TranslationFallbackHost: View {
             // Match BOTH detected and target — if the user switched the global target
             // mid-drain, new requests carry the new target and must be processed by a
             // session bound to that target, not this one.
-            let request: IssueListViewModel.FallbackRequest? = await MainActor.run {
-                viewModel.pendingFallbacks.first(where: { $0.detected == detected && $0.target == target })
+            let request: IssueListViewModel.TranslationRequest? = await MainActor.run {
+                viewModel.pendingTranslations.first(where: { $0.detected == detected && $0.target == target })
             }
             guard let request else { break }
 
@@ -95,7 +92,7 @@ struct TranslationFallbackHost: View {
             // "neither translatedTitle nor translatedBody, no thrown error" branch and
             // poison the whole source language for the session.
             if request.title.isEmpty && request.body.isEmpty {
-                await MainActor.run { viewModel.dropPendingFallback(request) }
+                await MainActor.run { viewModel.dropPendingRequest(request) }
                 continue
             }
 
@@ -123,17 +120,16 @@ struct TranslationFallbackHost: View {
                 // Otherwise a genuine transient error (network, cancellation) — don't
                 // blacklist the whole source language on the strength of one failure.
                 transientError = true
-                print("[FallbackTranslate] error for #\(request.issueNumber): \(error)")
+                print("[Translate] error for #\(request.issueNumber): \(error)")
             }
 
             await MainActor.run {
-                if translatedTitle != nil || translatedBody != nil {
-                    viewModel.applyFallbackTranslation(request, title: translatedTitle, body: translatedBody)
-                } else if transientError {
-                    viewModel.dropPendingFallback(request)
-                } else {
-                    viewModel.markFallbackUnsupported(detectedLanguage: request.detected)
-                }
+                viewModel.applyTranslationOutcome(
+                    request,
+                    title: translatedTitle,
+                    body: translatedBody,
+                    transientError: transientError
+                )
             }
         }
 

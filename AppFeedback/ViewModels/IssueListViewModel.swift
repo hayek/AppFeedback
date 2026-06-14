@@ -132,7 +132,6 @@ final class IssueListViewModel {
         appFilter = dto.appFilter
     }
 
-
     private(set) var tasks: [TaskItem] = []
 
     private var seenStore: SeenIssueStore?
@@ -210,23 +209,12 @@ final class IssueListViewModel {
     private(set) var intelligenceProvider: IntelligenceProvider?
     private(set) var intelligenceSettings: IntelligenceSettings?
     private var cacheContext: ModelContext?
-    private var translationTasks: [Int: Task<Void, Never>] = [:]
-    private(set) var translatingNumbers: Set<Int> = []
-    /// Session-scoped so a transient state can be cleared by a relaunch; the
-    /// on-device model's verdict on language support isn't worth persisting.
+    /// Source languages the Translation framework reported it can't translate to the
+    /// current target. Session-scoped: a transient verdict not worth persisting, and
+    /// reset on a target-language change so the new target gets a fresh evaluation.
     private(set) var unsupportedSourceLanguages: Set<String> = []
 
-    /// Why an issue was handed to the Translation-framework fallback. Drives what
-    /// happens if the framework also can't translate the pair: a genuine on-device
-    /// `unsupportedOnDevice` blacklists the whole source language (it's truly
-    /// untranslatable here), whereas a `guardrail` false-positive must NOT — the
-    /// on-device model can translate other issues in that language fine.
-    enum FallbackReason: Equatable {
-        case unsupportedOnDevice
-        case guardrail
-    }
-
-    struct FallbackRequest: Identifiable, Equatable {
+    struct TranslationRequest: Identifiable, Equatable {
         /// Per-enqueue identity. A second enqueue for the same issue (e.g. after
         /// `forceRetranslate`) produces a distinct `requestID` so a late-arriving result
         /// from the first enqueue can be distinguished from a fresh one and dropped.
@@ -236,7 +224,6 @@ final class IssueListViewModel {
         let body: String
         let detected: String
         let target: String
-        let reason: FallbackReason
         var id: UUID { requestID }
     }
 
@@ -255,31 +242,35 @@ final class IssueListViewModel {
         case unsupported   // not translatable at all
     }
 
-    /// What the fallback host should do with a pending request given its pair's state.
-    enum FallbackPumpDecision: Equatable {
+    /// What `TranslationHost` should do with a pending request given its pair's state.
+    enum PumpDecision: Equatable {
         case proceed        // start the session (installed, or user approved the download)
         case needsDownload  // gate: surface the inline download affordance, don't start yet
-        case unavailable    // drop/blacklist via handleFallbackUnavailable
+        case unavailable    // blacklist the language via handleTranslationUnavailable
     }
 
-    private(set) var pendingFallbacks: [FallbackRequest] = []
+    private(set) var pendingTranslations: [TranslationRequest] = []
     /// Pairs that are supported but not downloaded and are awaiting the user's tap.
     /// Drives the per-issue "download to translate" affordance.
     private(set) var pairsNeedingDownload: Set<LanguagePair> = []
     /// Pairs the user explicitly approved downloading; lets `pumpDecision` proceed past
     /// the `.supported` gate so the session starts and the system sheet appears.
     private var approvedDownloadPairs: Set<LanguagePair> = []
-    /// Bumped on each approval so `TranslationFallbackHost` re-pumps the queue.
+    /// Bumped on each approval so `TranslationHost` re-pumps the queue.
     private(set) var downloadApprovalTick: Int = 0
 
     /// Issue numbers granted a one-shot bypass of `unsupportedSourceLanguages` by
     /// `forceRetranslate`. Consumed by `startTranslationsIfNeeded` so the retry runs
     /// for this issue only — without un-blacklisting the language for every other
-    /// issue that the on-device model already said it can't handle.
+    /// issue the Translation framework already said it can't handle.
     private var forcedRetranslateNumbers: Set<Int> = []
 
+    /// An issue is "translating" while it sits in the queue actively being processed —
+    /// i.e. enqueued and not parked behind a pending language download. (A download-gated
+    /// request shows the inline download affordance instead; see `needsLanguageDownload`.)
     func isTranslating(_ issue: FeedbackIssue) -> Bool {
-        translatingNumbers.contains(issue.number)
+        pendingTranslations.contains { $0.issueNumber == issue.number }
+            && needsLanguageDownload(issue) == nil
     }
 
     /// Returns a write target for the rolling 30-day summary cache, or nil when
@@ -312,10 +303,7 @@ final class IssueListViewModel {
     /// Clears local + cloud translation state for one issue and kicks off a fresh translate.
     /// Useful for debugging the translation pipeline when a cached result already exists.
     func forceRetranslate(issueNumber: Int) {
-        translationTasks[issueNumber]?.cancel()
-        translationTasks[issueNumber] = nil
-        translatingNumbers.remove(issueNumber)
-        pendingFallbacks.removeAll { $0.issueNumber == issueNumber }
+        pendingTranslations.removeAll { $0.issueNumber == issueNumber }
 
         if let idx = allIssues.firstIndex(where: { $0.number == issueNumber }) {
             // Grant a one-shot bypass for this specific issue instead of removing the
@@ -353,16 +341,18 @@ final class IssueListViewModel {
         startTranslationsIfNeeded()
     }
 
+    /// Enqueues every eligible issue for translation by the Translation framework
+    /// (driven by `TranslationHost`). No Apple Intelligence dependency — gated only on
+    /// the user's translation setting. Per-language-pair availability (installed /
+    /// needs-download / unsupported) is resolved downstream by the host via `pumpDecision`.
     func startTranslationsIfNeeded() {
-        guard let provider = intelligenceProvider,
-              let settings = intelligenceSettings,
-              settings.translationEnabled,
-              provider.availability.isReady else { return }
+        guard let settings = intelligenceSettings, settings.translationEnabled else { return }
 
         let target = settings.targetLanguageCode
         for i in allIssues.indices {
             if allIssues[i].translationTargetLanguage == target { continue }
-            if translationTasks[allIssues[i].number] != nil { continue }
+            // Already queued (or in flight in the host): skip without consuming a bypass.
+            if pendingTranslations.contains(where: { $0.issueNumber == allIssues[i].number }) { continue }
 
             if allIssues[i].detectedLanguageCode == nil {
                 let combined = allIssues[i].title + "\n" + allIssues[i].description
@@ -370,76 +360,29 @@ final class IssueListViewModel {
             }
             let issueNumber = allIssues[i].number
             let isForced = forcedRetranslateNumbers.contains(issueNumber)
+            // Source detection is now the single source of truth (the framework needs an
+            // explicit source language). Skip undetectable, same-language, and blacklisted.
             guard let detected = allIssues[i].detectedLanguageCode, !detected.isEmpty,
                   !detected.hasPrefix(target),
                   isForced || !unsupportedSourceLanguages.contains(detected) else { continue }
 
-            // Consume the one-shot bypass exactly when we commit to running. Leaving
+            // Consume the one-shot bypass exactly when we commit to enqueuing. Leaving
             // it set across a no-op pass would let a later, unrelated translate-cycle
             // accidentally bypass the language guard.
             if isForced { forcedRetranslateNumbers.remove(issueNumber) }
 
-            let issue = allIssues[i]
-            translatingNumbers.insert(issue.number)
-            translationTasks[issue.number] = Task { [weak self] in
-                await self?.translate(issue: issue, detected: detected, target: target)
-            }
+            enqueueTranslation(for: allIssues[i], detected: detected, target: target)
         }
     }
 
     @MainActor
-    private func translate(issue: FeedbackIssue, detected: String, target: String) async {
-        defer {
-            translationTasks[issue.number] = nil
-            translatingNumbers.remove(issue.number)
-        }
-        guard let provider = intelligenceProvider else { return }
-        async let titleT = Self.attemptTranslate(provider: provider, text: issue.title, from: detected, to: target)
-        async let bodyT = Self.attemptTranslate(provider: provider, text: issue.description, from: detected, to: target)
-        let titleOutcome = await titleT
-        let bodyOutcome = await bodyT
-        guard !Task.isCancelled else { return }
-
-        let newTitle: String? = if case .translated(let s) = titleOutcome { s } else { nil }
-        let newBody: String? = if case .translated(let s) = bodyOutcome { s } else { nil }
-
-        // If either field needs the Translation framework fallback — the on-device model
-        // doesn't support this source language, or the safety guardrail blocked the text —
-        // hand the whole issue off. Discarding any partial on-device result is acceptable:
-        // the fallback covers both fields and commits via the same `commitTranslation` path.
-        // Crucially this avoids freezing the issue as a title-only partial (translationTargetLanguage
-        // stamped → no retry) with the body stranded in its original language under a "translated" label.
-        if titleOutcome.needsFallback || bodyOutcome.needsFallback {
-            // A guardrail block proves the on-device model CAN reach this language (it
-            // tried and was blocked on content); only an `.unsupportedLanguage` outcome
-            // means the language itself is off-device. That distinction decides whether a
-            // later fallback failure may blacklist the whole language (see handleFallbackUnavailable).
-            let anyUnsupported: Bool = {
-                if case .unsupportedLanguage = titleOutcome { return true }
-                if case .unsupportedLanguage = bodyOutcome { return true }
-                return false
-            }()
-            enqueueFallback(for: issue, detected: detected, target: target,
-                            reason: anyUnsupported ? .unsupportedOnDevice : .guardrail)
-            return
-        }
-
-        if newTitle == nil && newBody == nil {
-            recordAttempted(issueNumber: issue.number, target: target)
-            return
-        }
-
-        commitTranslation(issueNumber: issue.number, detected: detected, title: newTitle, body: newBody, target: target)
-    }
-
-    @MainActor
-    func applyFallbackTranslation(_ request: FallbackRequest, title: String?, body: String?) {
+    func applyTranslation(_ request: TranslationRequest, title: String?, body: String?) {
         // Match by requestID: if `forceRetranslate` (or a target switch) cleared this
         // request from the queue between drain dispatch and resume, the entry is gone
         // and we must NOT write its stale output. A new enqueue gets a fresh requestID,
         // so an identical-looking re-enqueue won't match either.
-        guard pendingFallbacks.contains(where: { $0.requestID == request.requestID }) else { return }
-        pendingFallbacks.removeAll { $0.requestID == request.requestID }
+        guard pendingTranslations.contains(where: { $0.requestID == request.requestID }) else { return }
+        pendingTranslations.removeAll { $0.requestID == request.requestID }
         guard title != nil || body != nil else { return }
         commitTranslation(
             issueNumber: request.issueNumber,
@@ -450,25 +393,41 @@ final class IssueListViewModel {
         )
     }
 
-    /// Called by the fallback host when the Translation framework reports the
-    /// (detected → target) pair unavailable. Branches on why the issue was routed here:
-    /// a genuine on-device-unsupported language is blacklisted for the session (it's
-    /// truly untranslatable on this device); a guardrail false-positive is dropped for
-    /// this one issue only — blacklisting the language would wrongly freeze every other
-    /// issue in it that the on-device model translates fine.
+    /// Resolves a finished `TranslationHost` drain step into the right state change,
+    /// keeping the host a thin driver and the decision unit-testable. The order matters:
+    /// a transient error is handled FIRST so a partial result (e.g. the title translated
+    /// but the body's `session.translate` was cancelled mid-issue) is discarded rather
+    /// than committed. Committing a partial would stamp `translationTargetLanguage` and
+    /// freeze the issue with a translated title and the body stranded in its original
+    /// language under a "translated" label, never retried (#381).
     @MainActor
-    func handleFallbackUnavailable(_ request: FallbackRequest) {
-        switch request.reason {
-        case .unsupportedOnDevice:
-            markFallbackUnsupported(detectedLanguage: request.detected)
-        case .guardrail:
-            dropPendingFallback(request)
+    func applyTranslationOutcome(
+        _ request: TranslationRequest,
+        title: String?,
+        body: String?,
+        transientError: Bool
+    ) {
+        if transientError {
+            dropPendingRequest(request)
+        } else if title != nil || body != nil {
+            applyTranslation(request, title: title, body: body)
+        } else {
+            markLanguageUnsupported(detectedLanguage: request.detected)
         }
     }
 
-    /// Decides what the fallback host does with `request` given its pair's availability.
+    /// Called by `TranslationHost` when the Translation framework reports the
+    /// (detected → target) pair genuinely unsupported. Blacklist the source language for
+    /// the session so we stop retrying every issue in it. (Pairs that merely need a
+    /// download are gated upstream via `pumpDecision`/`needsLanguageDownload`, never here.)
+    @MainActor
+    func handleTranslationUnavailable(_ request: TranslationRequest) {
+        markLanguageUnsupported(detectedLanguage: request.detected)
+    }
+
+    /// Decides what `TranslationHost` does with `request` given its pair's availability.
     /// A `.supported` pair proceeds only if the user has approved its download.
-    func pumpDecision(for request: FallbackRequest, state: LanguageDownloadState) -> FallbackPumpDecision {
+    func pumpDecision(for request: TranslationRequest, state: LanguageDownloadState) -> PumpDecision {
         switch state {
         case .unsupported:
             return .unavailable
@@ -491,14 +450,14 @@ final class IssueListViewModel {
 
     /// Marks a `detected`→`target` pair as needing a user-approved download. Called by
     /// the host when availability reports `.supported` for a pair the user hasn't approved.
-    func markFallbackNeedsDownload(detected: String, target: String) {
+    func markNeedsDownload(detected: String, target: String) {
         pairsNeedingDownload.insert(LanguagePair(detected: detected, target: target))
     }
 
     /// The source-language display name to prompt the user to download for `issue`, or
     /// nil if it isn't gated on a download (no pending request, or already approved).
     func needsLanguageDownload(_ issue: FeedbackIssue) -> String? {
-        guard let req = pendingFallbacks.first(where: { $0.issueNumber == issue.number }) else { return nil }
+        guard let req = pendingTranslations.first(where: { $0.issueNumber == issue.number }) else { return nil }
         let pair = LanguagePair(detected: req.detected, target: req.target)
         guard pairsNeedingDownload.contains(pair) else { return nil }
         return Locale.current.localizedString(forLanguageCode: req.detected) ?? req.detected
@@ -506,7 +465,7 @@ final class IssueListViewModel {
 
     /// Convenience for the card: resolves `issue` to its pending pair and approves it.
     func approveLanguageDownload(for issue: FeedbackIssue) {
-        guard let req = pendingFallbacks.first(where: { $0.issueNumber == issue.number }) else { return }
+        guard let req = pendingTranslations.first(where: { $0.issueNumber == issue.number }) else { return }
         approveLanguageDownload(detected: req.detected, target: req.target)
     }
 
@@ -518,26 +477,26 @@ final class IssueListViewModel {
         pairsNeedingDownload.insert(pair)
     }
 
-    /// The first pending fallback eligible to pump now: one whose pair is not currently
+    /// The first pending request eligible to pump now: one whose pair is not currently
     /// gated awaiting a download. Approving a pair removes it from `pairsNeedingDownload`,
     /// so approved pairs are eligible again.
-    func nextPumpableFallback() -> FallbackRequest? {
-        pendingFallbacks.first { req in
+    func nextPumpableRequest() -> TranslationRequest? {
+        pendingTranslations.first { req in
             !pairsNeedingDownload.contains(LanguagePair(detected: req.detected, target: req.target))
         }
     }
 
-    /// Removes a single fallback request without blacklisting its language.
+    /// Removes a single pending request without blacklisting its language.
     /// Used when the Translation framework threw a transient error (network,
     /// cancellation) so the queue can keep draining without poisoning the
     /// whole language for the session.
     @MainActor
-    func dropPendingFallback(_ request: FallbackRequest) {
-        // Same currency check as `applyFallbackTranslation` — a cancelled request
-        // shouldn't stamp `translationTargetLanguage`, since a fresh translate may
-        // already be in flight.
-        guard pendingFallbacks.contains(where: { $0.requestID == request.requestID }) else { return }
-        pendingFallbacks.removeAll { $0.requestID == request.requestID }
+    func dropPendingRequest(_ request: TranslationRequest) {
+        // Same currency check as `applyTranslation` — a cancelled request shouldn't
+        // stamp `translationTargetLanguage`, since a fresh translate may already be
+        // in flight.
+        guard pendingTranslations.contains(where: { $0.requestID == request.requestID }) else { return }
+        pendingTranslations.removeAll { $0.requestID == request.requestID }
         // Stamp in-memory only (persist: false): suppress a tight in-session retry loop,
         // but leave the SwiftData cache un-stamped so a transient/guardrail failure is
         // retried on the next launch instead of being permanently frozen.
@@ -545,10 +504,10 @@ final class IssueListViewModel {
     }
 
     @MainActor
-    func markFallbackUnsupported(detectedLanguage: String) {
+    func markLanguageUnsupported(detectedLanguage: String) {
         unsupportedSourceLanguages.insert(detectedLanguage)
-        let drained = pendingFallbacks.filter { $0.detected == detectedLanguage }
-        pendingFallbacks.removeAll { $0.detected == detectedLanguage }
+        let drained = pendingTranslations.filter { $0.detected == detectedLanguage }
+        pendingTranslations.removeAll { $0.detected == detectedLanguage }
         let indexByNumber = Dictionary(uniqueKeysWithValues: allIssues.enumerated().map { ($1.number, $0) })
         for req in drained {
             // Stamp each request with the target IT was enqueued for. Using a single
@@ -611,48 +570,16 @@ final class IssueListViewModel {
     }
 
     @MainActor
-    private func enqueueFallback(for issue: FeedbackIssue, detected: String, target: String, reason: FallbackReason) {
-        guard !pendingFallbacks.contains(where: { $0.issueNumber == issue.number }) else { return }
-        pendingFallbacks.append(FallbackRequest(
+    private func enqueueTranslation(for issue: FeedbackIssue, detected: String, target: String) {
+        guard !pendingTranslations.contains(where: { $0.issueNumber == issue.number }) else { return }
+        pendingTranslations.append(TranslationRequest(
             requestID: UUID(),
             issueNumber: issue.number,
             title: issue.title,
             body: issue.description,
             detected: detected,
-            target: target,
-            reason: reason
+            target: target
         ))
-    }
-
-    enum TranslateAttempt {
-        case translated(String)
-        case unsupportedLanguage
-        case guardrail
-        case failed
-
-        /// True when the on-device attempt failed in a way the Apple Translation
-        /// framework fallback can recover: an unsupported source language, or a
-        /// safety-guardrail block. The fallback's NMT model has no LLM safety
-        /// classifier, so benign text the guardrail false-positives on (e.g. the
-        /// German payment complaint in #381) still translates there.
-        var needsFallback: Bool {
-            switch self {
-            case .unsupportedLanguage, .guardrail: return true
-            case .translated, .failed: return false
-            }
-        }
-    }
-
-    nonisolated private static func attemptTranslate(
-        provider: IntelligenceProvider,
-        text: String,
-        from: String,
-        to: String
-    ) async -> TranslateAttempt {
-        do { return .translated(try await provider.translate(text: text, from: from, to: to)) }
-        catch IntelligenceError.unsupportedLanguage { return .unsupportedLanguage }
-        catch IntelligenceError.guardrailBlocked { return .guardrail }
-        catch { return .failed }
     }
 
     private func markTranslationAttempt(
@@ -764,9 +691,14 @@ final class IssueListViewModel {
     }
 
     func invalidateTranslations() {
-        for (_, task) in translationTasks { task.cancel() }
-        translationTasks.removeAll()
-        translatingNumbers.removeAll()
+        // Drop everything queued for the old target so a late result can't commit onto a
+        // re-translation, and reset the per-pair download gating + session blacklist so a
+        // target switch re-evaluates language support against the new target.
+        pendingTranslations.removeAll()
+        pairsNeedingDownload.removeAll()
+        approvedDownloadPairs.removeAll()
+        unsupportedSourceLanguages.removeAll()
+        forcedRetranslateNumbers.removeAll()
         for i in allIssues.indices {
             allIssues[i].translatedTitle = nil
             allIssues[i].translatedBody = nil

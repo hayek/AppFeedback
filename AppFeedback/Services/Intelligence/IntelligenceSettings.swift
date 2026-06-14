@@ -26,41 +26,52 @@ final class IntelligenceSettings {
         self.targetLanguageCode = storedLanguage.isEmpty ? Self.systemLanguageCode() : storedLanguage
     }
 
-    /// Languages Apple Intelligence currently supports for on-device generation.
-    /// Keep in sync with Apple's supported list.
-    static let appleIntelligenceSupportedLanguageCodes: Set<String> = [
-        "en", "fr", "de", "it", "ja", "ko", "pt", "es", "zh-Hans", "vi"
+    /// Languages offered as translation targets. Apple's Translation framework supports
+    /// these and downloads each language pair on demand the first time it's used — no
+    /// Apple Intelligence required. Keep in sync with `pickerOptions`.
+    static let supportedTargetLanguageCodes: Set<String> = [
+        "en", "ar", "zh-Hans", "zh-Hant", "nl", "fr", "de", "hi", "id", "it",
+        "ja", "ko", "pl", "pt", "ru", "es", "th", "tr", "uk", "vi"
     ]
 
-    /// The user's preferred language if Apple Intelligence supports it, otherwise English.
+    /// The user's preferred language if it's an available translation target, otherwise English.
     static func systemLanguageCode() -> String {
         for preferred in Locale.preferredLanguages {
             let locale = Locale(identifier: preferred)
             if let script = locale.language.script?.identifier,
                let base = locale.language.languageCode?.identifier {
                 let scripted = "\(base)-\(script)"
-                if appleIntelligenceSupportedLanguageCodes.contains(scripted) { return scripted }
+                if supportedTargetLanguageCodes.contains(scripted) { return scripted }
             }
             if let base = locale.language.languageCode?.identifier,
-               appleIntelligenceSupportedLanguageCodes.contains(base) {
+               supportedTargetLanguageCodes.contains(base) {
                 return base
             }
         }
         return "en"
     }
 
+    /// Target-language options, ordered alphabetically by display name after English.
     static let pickerOptions: [(code: String, displayName: String)] = [
         ("en", "English"),
-        ("es", "Spanish"),
+        ("ar", "Arabic"),
+        ("zh-Hans", "Chinese (Simplified)"),
+        ("zh-Hant", "Chinese (Traditional)"),
+        ("nl", "Dutch"),
         ("fr", "French"),
         ("de", "German"),
+        ("hi", "Hindi"),
+        ("id", "Indonesian"),
         ("it", "Italian"),
-        ("pt", "Portuguese"),
         ("ja", "Japanese"),
         ("ko", "Korean"),
-        ("zh-Hans", "Chinese (Simplified)"),
-        ("ar", "Arabic"),
+        ("pl", "Polish"),
+        ("pt", "Portuguese"),
         ("ru", "Russian"),
-        ("nl", "Dutch")
+        ("es", "Spanish"),
+        ("th", "Thai"),
+        ("tr", "Turkish"),
+        ("uk", "Ukrainian"),
+        ("vi", "Vietnamese")
     ]
 }
