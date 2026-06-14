@@ -94,6 +94,11 @@ struct VersionScopeFilterChip: View {
                         Label(state.title, systemImage: filters.isStateSelected(state) ? "checkmark" : state.symbol)
                     }
                 }
+                Button {
+                    filters.toggleUnassigned()
+                } label: {
+                    Label("Unassigned", systemImage: filters.isUnassignedSelected ? "checkmark" : "tray")
+                }
                 if !versions.isEmpty {
                     Divider()
                     Menu("Version") {
@@ -124,6 +129,8 @@ struct VersionScopeFilterChip: View {
                 EmptyView()
             case .state(let s):
                 SubPill(text: s.title, leadingSymbol: s.symbol, accent: accent) { filters.clearVersionScope() }
+            case .unassigned:
+                SubPill(text: "Unassigned", leadingSymbol: "tray", accent: accent) { filters.clearVersionScope() }
             case .versions(let names):
                 ForEach(names.sorted { $0.compare($1, options: .numeric) == .orderedAscending }, id: \.self) { name in
                     SubPill(text: name, accent: accent) { filters.toggleVersion(name) }

@@ -32,6 +32,14 @@ final class FilterPreferenceStoreTests: XCTestCase {
         XCTAssertEqual(loaded, bundle)
     }
 
+    func test_saveThenLoad_roundTrips_unassignedScope() throws {
+        let store = try makeStore()
+        var bundle = PersistedFilterBundle()
+        bundle.task.versionScope = .unassigned
+        store.save(owner: "o", repo: "r", bundle: bundle)
+        XCTAssertEqual(store.load(owner: "o", repo: "r").task.versionScope, .unassigned)
+    }
+
     func test_isolatedByRepo() throws {
         let store = try makeStore()
         var a = PersistedFilterBundle(); a.task.versionScope = .state(.new)

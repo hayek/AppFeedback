@@ -54,6 +54,8 @@ enum VersionScope: Equatable, Codable {
     case any
     case state(VersionState)
     case versions(Set<String>)
+    /// Tasks with no version (no milestone) assigned.
+    case unassigned
 }
 
 /// Active filters for the inspector's Tasks section. An empty set on a dimension means "no
@@ -71,6 +73,8 @@ struct TaskFilters: Equatable {
 
     func isStateSelected(_ s: VersionState) -> Bool { versionScope == .state(s) }
 
+    var isUnassignedSelected: Bool { versionScope == .unassigned }
+
     func isVersionSelected(_ name: String) -> Bool {
         if case .versions(let names) = versionScope { return names.contains(name) }
         return false
@@ -79,6 +83,12 @@ struct TaskFilters: Equatable {
     /// Selecting a state replaces the whole scope; re-selecting the active state clears to `.any`.
     mutating func toggleState(_ s: VersionState) {
         versionScope = (versionScope == .state(s)) ? .any : .state(s)
+    }
+
+    /// Like a state, "Unassigned" is single-select: it replaces any state/version scope, and
+    /// re-selecting it clears back to `.any`.
+    mutating func toggleUnassigned() {
+        versionScope = (versionScope == .unassigned) ? .any : .unassigned
     }
 
     /// A specific-version pick overrides a state/`.any`; a second pick is additive. Emptying → `.any`.
@@ -339,12 +349,14 @@ final class ProjectInspectorModel {
     }
 
     /// Resolves the task against the active `VersionScope`. `.state` looks the task's milestone up
-    /// in `versionStates`; version-less tasks match neither `.state` nor `.versions`.
+    /// in `versionStates`; version-less tasks match neither `.state` nor `.versions`, but are the
+    /// sole matches for `.unassigned`.
     private func versionScopeMatches(_ t: TaskItem) -> Bool {
         switch taskFilters.versionScope {
         case .any:                 return true
         case .state(let s):        return (t.milestoneTitle.flatMap { versionStates[$0] }) == s
         case .versions(let names): return names.contains(t.milestoneTitle ?? "")
+        case .unassigned:          return (t.milestoneTitle ?? "").isEmpty
         }
     }
 
