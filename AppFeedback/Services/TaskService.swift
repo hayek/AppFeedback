@@ -1,7 +1,7 @@
 import Foundation
 
 /// Orchestrates task-issue writes: resolves the GitHub token for a repo, ensures labels exist,
-/// and delegates to `GitHubIssueWriter`. @MainActor because it reads `RepoConfig` from the UI layer.
+/// and delegates to `GitHubIssueWriter`. @MainActor because it reads `ProductConfig` from the UI layer.
 @MainActor
 final class TaskService {
     enum ServiceError: LocalizedError {
@@ -26,7 +26,7 @@ final class TaskService {
     }
 
     /// Creates a task issue. Returns its number. Requires online.
-    func createTask(repo: RepoConfig, title: String, prose: String, feedbackRefs: [Int],
+    func createTask(repo: ProductConfig, title: String, prose: String, feedbackRefs: [Int],
                     status: TaskStatus, priority: TaskPriority, milestoneNumber: Int?) async throws -> Int {
         guard let token = KeychainService.loadSync(for: repo) else { throw ServiceError.noToken }
         try await ensureLabels(repo: repo, token: token)
@@ -37,7 +37,7 @@ final class TaskService {
             milestoneNumber: milestoneNumber, token: token)
     }
 
-    func setStatus(repo: RepoConfig, task: TaskItem, status: TaskStatus) async throws {
+    func setStatus(repo: ProductConfig, task: TaskItem, status: TaskStatus) async throws {
         guard let token = KeychainService.loadSync(for: repo) else { throw ServiceError.noToken }
         let labels = [AppFeedbackLabels.task, status.label, task.priority.label]
         // status:done also closes the issue; reopening on any other status.
@@ -46,26 +46,26 @@ final class TaskService {
             labels: labels, state: state, token: token)
     }
 
-    func setPriority(repo: RepoConfig, task: TaskItem, priority: TaskPriority) async throws {
+    func setPriority(repo: ProductConfig, task: TaskItem, priority: TaskPriority) async throws {
         guard let token = KeychainService.loadSync(for: repo) else { throw ServiceError.noToken }
         try await writer.updateIssue(owner: repo.owner, repo: repo.repo, number: task.number,
             labels: [AppFeedbackLabels.task, task.status.label, priority.label], token: token)
     }
 
-    func setFeedbackRefs(repo: RepoConfig, task: TaskItem, refs: [Int]) async throws {
+    func setFeedbackRefs(repo: ProductConfig, task: TaskItem, refs: [Int]) async throws {
         guard let token = KeychainService.loadSync(for: repo) else { throw ServiceError.noToken }
         let newBody = FeedbackTaskRefParser.upsert(into: task.body, refs: refs)
         try await writer.updateIssue(owner: repo.owner, repo: repo.repo, number: task.number, body: newBody, token: token)
     }
 
-    func assignVersion(repo: RepoConfig, task: TaskItem, milestoneNumber: Int?) async throws {
+    func assignVersion(repo: ProductConfig, task: TaskItem, milestoneNumber: Int?) async throws {
         guard let token = KeychainService.loadSync(for: repo) else { throw ServiceError.noToken }
         try await writer.updateIssue(owner: repo.owner, repo: repo.repo, number: task.number,
             milestoneNumber: .some(milestoneNumber), token: token)
     }
 
     /// Updates the task's title and notes, preserving the machine-managed feedback-refs block.
-    func updateContent(repo: RepoConfig, task: TaskItem, title: String, prose: String) async throws {
+    func updateContent(repo: ProductConfig, task: TaskItem, title: String, prose: String) async throws {
         guard let token = KeychainService.loadSync(for: repo) else { throw ServiceError.noToken }
         let body = FeedbackTaskRefParser.upsert(into: prose, refs: task.feedbackRefs)
         try await writer.updateIssue(owner: repo.owner, repo: repo.repo, number: task.number,
@@ -74,7 +74,7 @@ final class TaskService {
 
     /// Applies a full set of edits (title, notes, status, priority, version) in a single PATCH.
     /// Used by the task detail's Apply action so everything commits atomically.
-    func applyEdits(repo: RepoConfig, task: TaskItem, title: String, prose: String,
+    func applyEdits(repo: ProductConfig, task: TaskItem, title: String, prose: String,
                     status: TaskStatus, priority: TaskPriority, milestoneNumber: Int?) async throws {
         guard let token = KeychainService.loadSync(for: repo) else { throw ServiceError.noToken }
         try await ensureLabels(repo: repo, token: token)
@@ -86,12 +86,12 @@ final class TaskService {
     }
 
     /// Permanently deletes the task's GitHub issue.
-    func deleteTask(repo: RepoConfig, task: TaskItem) async throws {
+    func deleteTask(repo: ProductConfig, task: TaskItem) async throws {
         guard let token = KeychainService.loadSync(for: repo) else { throw ServiceError.noToken }
         try await writer.deleteIssue(owner: repo.owner, repo: repo.repo, number: task.number, token: token)
     }
 
-    private func ensureLabels(repo: RepoConfig, token: String) async throws {
+    private func ensureLabels(repo: ProductConfig, token: String) async throws {
         for label in AppFeedbackLabels.managed {
             try await labelClient.ensureLabel(owner: repo.owner, repo: repo.repo, name: label.name, color: label.color, token: token)
         }

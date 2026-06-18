@@ -61,7 +61,7 @@ final class ReleaseNotificationService {
 
     /// Sends to each selected recipient sequentially; isolated failures are recorded, not fatal.
     /// `onProgress` reports (completed, total).
-    func send(repo: RepoConfig,
+    func send(repo: ProductConfig,
               version: ProjectVersion,
               recipients: [ReleaseRecipient],
               feedback: [FeedbackIssue],
@@ -126,7 +126,7 @@ final class ReleaseNotificationService {
     /// so the release email threads into that conversation (mirrors `MailThreadView.beginReply`).
     /// Returns `nil` when there is no existing thread/message — the email still sends as a fresh
     /// message and is recorded against the chosen feedback.
-    private func latestHeaders(repo: RepoConfig, feedbackNumber: Int, title: String) -> MailMessageHeaders? {
+    private func latestHeaders(repo: ProductConfig, feedbackNumber: Int, title: String) -> MailMessageHeaders? {
         let threads = deps.threadStore.threads(forIssue:
             (owner: repo.owner, repo: repo.repo, number: feedbackNumber, title: title))
         guard let thread = threads.max(by: { $0.lastMessageAt < $1.lastMessageAt }),

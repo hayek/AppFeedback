@@ -3,13 +3,13 @@ import SwiftData
 
 @MainActor
 struct RootView: View {
-    var store: RepoStore
+    var store: ProductStore
     var seenStore: SeenIssueStore
     var cacheContext: ModelContext
     var versionStore: VersionStore
     var filterStore: FilterPreferenceStore
 
-    init(store: RepoStore, seenStore: SeenIssueStore, cacheContext: ModelContext, versionStore: VersionStore, filterStore: FilterPreferenceStore) {
+    init(store: ProductStore, seenStore: SeenIssueStore, cacheContext: ModelContext, versionStore: VersionStore, filterStore: FilterPreferenceStore) {
         self.store = store
         self.seenStore = seenStore
         self.cacheContext = cacheContext
@@ -376,7 +376,7 @@ struct RootView: View {
         return "\(selection.repoId)-\(issues.count)-\(date.timeIntervalSince1970)"
     }
 
-    private func autoSelectIfNeeded(repos: [RepoConfig]) {
+    private func autoSelectIfNeeded(repos: [ProductConfig]) {
         if selection == nil, let first = repos.first {
             selection = .allIssues(repoId: first.id)
             return
@@ -386,8 +386,8 @@ struct RootView: View {
         }
     }
 
-    private func syncLoaders(repos: [RepoConfig]) {
-        var newlyAdded: [RepoConfig] = []
+    private func syncLoaders(repos: [ProductConfig]) {
+        var newlyAdded: [ProductConfig] = []
         for repo in repos where loaders[repo.id] == nil {
             loaders[repo.id] = IssueLoader(
                 config: repo,
@@ -471,7 +471,7 @@ struct RootView: View {
     /// in. The override survives reloads and self-clears once GitHub's returned refs match — the
     /// loader serves cached/incremental state that lags the write, so an immediate reload alone
     /// would otherwise revert the attach.
-    private func setTaskRefs(repo: RepoConfig, task: TaskItem, refs: [Int]) {
+    private func setTaskRefs(repo: ProductConfig, task: TaskItem, refs: [Int]) {
         let previous = inspector.setPendingRefs(number: task.number, refs: refs)
         let prior = refWriteChain[task.number]
         let job = Task {
@@ -522,7 +522,7 @@ struct RootView: View {
     /// GitHub in the background. On success the card shows a green checkmark for a few seconds
     /// (while a refresh pulls in the real issue) and is then replaced by the real task card; on
     /// failure it persists with the reason and Retry / Dismiss controls.
-    private func createTask(repo: RepoConfig, draft: TaskDraft) {
+    private func createTask(repo: ProductConfig, draft: TaskDraft) {
         // Animate the placeholder card dropping into the list.
         let id = withAnimation(.spring(response: 0.35, dampingFraction: 0.82)) {
             inspector.beginCreation(draft)
@@ -542,7 +542,7 @@ struct RootView: View {
     }
 
     /// Performs the GitHub write for an optimistic creation and resolves its card.
-    private func runCreation(repo: RepoConfig, id: UUID, draft: TaskDraft) {
+    private func runCreation(repo: ProductConfig, id: UUID, draft: TaskDraft) {
         Task {
             do {
                 let number = try await TaskService().createTask(
@@ -564,7 +564,7 @@ struct RootView: View {
     /// Creates a version optimistically: the local record appears at once (with a "Creating…"
     /// badge), then the GitHub milestone is provisioned in the background — green checkmark on
     /// success (clearing after a few seconds), or a "Failed" card with Retry / Dismiss.
-    private func createVersion(repo: RepoConfig, draft: VersionDraft) {
+    private func createVersion(repo: ProductConfig, draft: VersionDraft) {
         let version = withAnimation(.spring(response: 0.35, dampingFraction: 0.82)) {
             versionStore.create(repoOwner: repo.owner, repoName: repo.repo,
                                 name: draft.name, releaseTitle: draft.releaseTitle, changelog: draft.changelog)
@@ -592,7 +592,7 @@ struct RootView: View {
         }
     }
 
-    private func provisionVersion(repo: RepoConfig, version: ProjectVersion) {
+    private func provisionVersion(repo: ProductConfig, version: ProjectVersion) {
         let id = version.id
         Task {
             do {
@@ -608,7 +608,7 @@ struct RootView: View {
 
     /// Reloads a specific repo's loader (used after creating a task so the new issue appears even
     /// if the user has since switched projects).
-    private func refresh(repo: RepoConfig) async {
+    private func refresh(repo: ProductConfig) async {
         guard let token = await KeychainService.load(for: repo) else { return }
         await loaders[repo.id]?.load(token: token)
     }
@@ -622,7 +622,7 @@ struct RootView: View {
         await loaders[selection.repoId]?.load(token: token)
     }
 
-    private func loadRepos(_ repos: [RepoConfig], fullReconcile: Bool = false) async {
+    private func loadRepos(_ repos: [ProductConfig], fullReconcile: Bool = false) async {
         await withTaskGroup(of: Void.self) { group in
             for repo in repos {
                 guard let loader = loaders[repo.id] else { continue }

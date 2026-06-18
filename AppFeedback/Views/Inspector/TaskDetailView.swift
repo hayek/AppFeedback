@@ -1,7 +1,7 @@
 import SwiftUI
 
 struct TaskDetailView: View {
-    let repo: RepoConfig
+    let repo: ProductConfig
     let task: TaskItem
     var inspector: ProjectInspectorModel
     var versionStore: VersionStore

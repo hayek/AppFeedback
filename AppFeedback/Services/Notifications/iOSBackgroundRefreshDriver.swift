@@ -7,14 +7,14 @@ import SwiftData
 final class iOSBackgroundRefreshDriver {
     static let taskIdentifier = "com.amirhayek.AppFeedback.refresh"
 
-    private let store: RepoStore
+    private let store: ProductStore
     private let cacheContext: ModelContext
     private let notificationService: NotificationService
     private let settings: NotificationSettings
     private let activityLog: ActivityLog
 
     init(
-        store: RepoStore,
+        store: ProductStore,
         cacheContext: ModelContext,
         notificationService: NotificationService,
         settings: NotificationSettings,

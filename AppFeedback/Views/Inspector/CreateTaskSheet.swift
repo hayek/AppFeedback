@@ -1,7 +1,7 @@
 import SwiftUI
 
 struct CreateTaskSheet: View {
-    let repo: RepoConfig
+    let repo: ProductConfig
     let versions: [ProjectVersion]
     /// Hands the entered values back so the caller can show the task optimistically and drive
     /// the GitHub write after this sheet dismisses (mirrors how a mail reply sends in the

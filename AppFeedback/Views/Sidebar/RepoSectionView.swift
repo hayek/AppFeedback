@@ -1,11 +1,11 @@
 import SwiftUI
 
 struct RepoSectionView: View {
-    let repo: RepoConfig
+    let repo: ProductConfig
     let issues: [FeedbackIssue]
     let allApps: [String]          // retained param (callers still pass it); unused for selection now
     @Binding var selection: SidebarSelection?
-    var store: RepoStore
+    var store: ProductStore
     var seenStore: SeenIssueStore
     @State private var showRemoveConfirmation = false
 

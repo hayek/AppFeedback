@@ -1,7 +1,7 @@
 import SwiftUI
 
 struct VersionDetailView: View {
-    let repo: RepoConfig
+    let repo: ProductConfig
     @Bindable var version: ProjectVersion
     var inspector: ProjectInspectorModel
     var versionStore: VersionStore

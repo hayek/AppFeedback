@@ -14,17 +14,17 @@ import Observation
 @Observable
 final class MailToGitHubMirror {
     private let context: ModelContext
-    private let repoStore: RepoStore
+    private let repoStore: ProductStore
     private let activityLog: ActivityLog
     private let poster: GitHubCommentPoster
-    private let tokenLoader: @Sendable (RepoConfig) async -> String?
+    private let tokenLoader: @Sendable (ProductConfig) async -> String?
 
     init(
         context: ModelContext,
-        repoStore: RepoStore,
+        repoStore: ProductStore,
         activityLog: ActivityLog,
         poster: GitHubCommentPoster,
-        tokenLoader: @Sendable @escaping (RepoConfig) async -> String? = { await KeychainService.load(for: $0) }
+        tokenLoader: @Sendable @escaping (ProductConfig) async -> String? = { await KeychainService.load(for: $0) }
     ) {
         self.context = context
         self.repoStore = repoStore
@@ -53,8 +53,8 @@ final class MailToGitHubMirror {
         )
         let pending = (try? context.fetch(descriptor)) ?? []
 
-        // Group by (owner, repo) so we look up each RepoConfig once instead of per-message.
-        var repoCache: [String: RepoConfig?] = [:]
+        // Group by (owner, repo) so we look up each ProductConfig once instead of per-message.
+        var repoCache: [String: ProductConfig?] = [:]
         for message in pending {
             guard let thread = message.thread, thread.issueNumber > 0 else { continue }
             let key = "\(thread.issueRepoOwner)/\(thread.issueRepoName)"
@@ -67,7 +67,7 @@ final class MailToGitHubMirror {
 
     // MARK: - Core
 
-    private func mirror(message: MailMessage, thread: MailThread, repo: RepoConfig) async {
+    private func mirror(message: MailMessage, thread: MailThread, repo: ProductConfig) async {
         guard repo.mirrorEmailsToGitHub else { return }
 
         let body = Self.buildCommentBody(message: message, redactEmail: repo.redactEmailAddresses)
@@ -97,7 +97,7 @@ final class MailToGitHubMirror {
 
     // MARK: - Helpers
 
-    private func configuredRepo(forThread thread: MailThread) -> RepoConfig? {
+    private func configuredRepo(forThread thread: MailThread) -> ProductConfig? {
         repoStore.repos.first(where: {
             $0.owner == thread.issueRepoOwner && $0.repo == thread.issueRepoName
         })

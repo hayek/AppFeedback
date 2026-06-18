@@ -1,7 +1,7 @@
 import SwiftUI
 
 struct SidebarView: View {
-    @Bindable var store: RepoStore
+    @Bindable var store: ProductStore
     let loaders: [UUID: IssueLoader]
     var seenStore: SeenIssueStore
     @Binding var selection: SidebarSelection?
@@ -42,7 +42,7 @@ struct SidebarView: View {
         #endif
     }
 
-    private func issuesFor(_ repo: RepoConfig) -> [FeedbackIssue] {
+    private func issuesFor(_ repo: ProductConfig) -> [FeedbackIssue] {
         guard let loader = loaders[repo.id],
               case .loaded(let issues, _) = loader.state else { return [] }
         return issues

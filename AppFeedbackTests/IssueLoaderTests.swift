@@ -5,7 +5,7 @@ import os
 
 @MainActor
 final class IssueLoaderTests: XCTestCase {
-    private let repo = RepoConfig(displayName: "Test", owner: "org", repo: "feedback")
+    private let repo = ProductConfig(displayName: "Test", owner: "org", repo: "feedback")
     private var container: ModelContainer!
     private var context: ModelContext!
 

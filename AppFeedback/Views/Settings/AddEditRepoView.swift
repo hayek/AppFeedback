@@ -2,10 +2,10 @@ import SwiftUI
 
 struct AddEditRepoView: View {
     @Environment(\.dismiss) private var dismiss
-    @Bindable var store: RepoStore
+    @Bindable var store: ProductStore
     @Environment(GitHubAccountStore.self) private var accountStore
 
-    var existing: RepoConfig?
+    var existing: ProductConfig?
     var embedInNavigation: Bool = true
 
     @State private var displayName = ""
@@ -312,7 +312,7 @@ struct AddEditRepoView: View {
             await KeychainService.save(token: trimToken, for: updated)
             store.update(updated)
         } else {
-            let newRepo = RepoConfig(
+            let newRepo = ProductConfig(
                 displayName: trimName,
                 owner: trimOwner,
                 repo: trimRepo,

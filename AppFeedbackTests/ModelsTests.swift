@@ -4,9 +4,9 @@ import XCTest
 final class ModelsTests: XCTestCase {
 
     func test_repoConfig_roundTrips_codable() throws {
-        let repo = RepoConfig(displayName: "My App", owner: "acme", repo: "feedback")
+        let repo = ProductConfig(displayName: "My App", owner: "acme", repo: "feedback")
         let data = try JSONEncoder().encode(repo)
-        let decoded = try JSONDecoder().decode(RepoConfig.self, from: data)
+        let decoded = try JSONDecoder().decode(ProductConfig.self, from: data)
         XCTAssertEqual(decoded.displayName, "My App")
         XCTAssertEqual(decoded.owner, "acme")
         XCTAssertEqual(decoded.repo, "feedback")
@@ -59,5 +59,16 @@ final class ModelsTests: XCTestCase {
         XCTAssertNil(p.feedbackInboxAccountID)
         XCTAssertTrue(p.mirrorEmailsToGitHub)
         XCTAssertTrue(p.redactEmailAddresses)
+    }
+
+    func test_mailAccount_feedbackProductIDDefaultsNil() {
+        let acc = MailAccount()
+        XCTAssertNil(acc.feedbackProductID)
+    }
+
+    func test_mailAccount_feedbackProductIDRoundTrips() {
+        let id = UUID()
+        let acc = MailAccount(feedbackProductID: id)
+        XCTAssertEqual(acc.feedbackProductID, id)
     }
 }

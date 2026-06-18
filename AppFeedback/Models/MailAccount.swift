@@ -18,6 +18,9 @@ final class MailAccount {
     /// new replies. `MailAccountStore` enforces the invariant.
     var isDefaultSender: Bool = false
     var createdAt: Date = Date()
+    /// nil ⇒ legacy reply-mirror account; non-nil ⇒ feedback inbox for that product.
+    /// The inbox-vs-reply-mirror "role" is DERIVED from this; there is no stored role.
+    var feedbackProductID: UUID? = nil
 
     init(
         id: UUID = UUID(),
@@ -32,7 +35,8 @@ final class MailAccount {
         pollingEnabled: Bool = true,
         backfillCompleted: Bool = false,
         isDefaultSender: Bool = false,
-        createdAt: Date = Date()
+        createdAt: Date = Date(),
+        feedbackProductID: UUID? = nil
     ) {
         self.id = id
         self.presetRaw = presetRaw
@@ -47,6 +51,7 @@ final class MailAccount {
         self.backfillCompleted = backfillCompleted
         self.isDefaultSender = isDefaultSender
         self.createdAt = createdAt
+        self.feedbackProductID = feedbackProductID
     }
 
     var preset: SMTPCredentials.Preset {

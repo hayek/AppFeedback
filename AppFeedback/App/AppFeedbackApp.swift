@@ -5,10 +5,10 @@ import os
 
 // Thread-safe snapshot of repo configs used by the FeedbackAttachmentDownloader
 // tokenProvider closure, which must be @Sendable and synchronous.
-private final class RepoConfigSnapshot: @unchecked Sendable {
-    private let lock = OSAllocatedUnfairLock<[RepoConfig]>(initialState: [])
+private final class ProductConfigSnapshot: @unchecked Sendable {
+    private let lock = OSAllocatedUnfairLock<[ProductConfig]>(initialState: [])
 
-    func update(_ repos: [RepoConfig]) {
+    func update(_ repos: [ProductConfig]) {
         lock.withLock { $0 = repos }
     }
 
@@ -33,8 +33,8 @@ private final class RepoConfigSnapshot: @unchecked Sendable {
 struct AppFeedbackApp: App {
     @Environment(\.scenePhase) private var scenePhase
     private let container: ModelContainer
-    private let repoConfigSnapshot = RepoConfigSnapshot()
-    @State private var store: RepoStore
+    private let repoConfigSnapshot = ProductConfigSnapshot()
+    @State private var store: ProductStore
     @State private var versionStore: VersionStore
     @State private var filterStore: FilterPreferenceStore
     @State private var replyTemplateStore: ReplyTemplateStore
@@ -76,7 +76,7 @@ struct AppFeedbackApp: App {
                 // In-process test host: single in-memory config, no CloudKit validation.
                 let testConfig = ModelConfiguration(isStoredInMemoryOnly: true, cloudKitDatabase: .none)
                 container = try ModelContainer(
-                    for: Repo.self, SeenIssue.self, HiddenApp.self, MailAccount.self,
+                    for: Product.self, Repo.self, SeenIssue.self, HiddenApp.self, MailAccount.self,
                         GitHubAccount.self,
                         MailSettings.self,
                         MailThread.self, MailMessage.self, MailAttachment.self,
@@ -89,7 +89,7 @@ struct AppFeedbackApp: App {
                     configurations: testConfig
                 )
             } else {
-                let cloudSchema = Schema([Repo.self, SeenIssue.self, HiddenApp.self, MailAccount.self, GitHubAccount.self, MailSettings.self, MailThread.self, MailMessage.self, MailAttachment.self, IssueTranslation.self, IssueSummaryCache.self, ProjectVersion.self, SentReleaseNotification.self, ReplyTemplate.self, RepoFilterPreference.self])
+                let cloudSchema = Schema([Product.self, Repo.self, SeenIssue.self, HiddenApp.self, MailAccount.self, GitHubAccount.self, MailSettings.self, MailThread.self, MailMessage.self, MailAttachment.self, IssueTranslation.self, IssueSummaryCache.self, ProjectVersion.self, SentReleaseNotification.self, ReplyTemplate.self, RepoFilterPreference.self])
                 let localSchema = Schema([CachedIssue.self, MailAttachmentLocal.self, MailAccountLocalState.self, RepoFetchState.self, FeedbackAttachmentLocal.self])
                 let cloudConfig = ModelConfiguration(
                     "cloud",
@@ -98,7 +98,7 @@ struct AppFeedbackApp: App {
                 )
                 let localConfig = ModelConfiguration("local", schema: localSchema, cloudKitDatabase: .none)
                 container = try ModelContainer(
-                    for: Repo.self, SeenIssue.self, HiddenApp.self, MailAccount.self,
+                    for: Product.self, Repo.self, SeenIssue.self, HiddenApp.self, MailAccount.self,
                         GitHubAccount.self,
                         MailSettings.self,
                         MailThread.self, MailMessage.self, MailAttachment.self,
@@ -127,6 +127,7 @@ struct AppFeedbackApp: App {
                 settingsStore: mailSettingsStoreLocal,
                 threadStore: threadStoreLocal
             )
+            ProductMigration.run(context: cloudContext)
         }
         _mailAccountStore = State(initialValue: mailAccountStoreLocal)
         _mailSettingsStore = State(initialValue: mailSettingsStoreLocal)
@@ -135,7 +136,7 @@ struct AppFeedbackApp: App {
         _mailLocalStateStore = State(initialValue: localStateStoreLocal)
         _seenStore = State(initialValue: SeenIssueStore(context: cloudContext))
         _hiddenAppStore = State(initialValue: hiddenAppStoreLocal)
-        _store = State(initialValue: RepoStore(context: ModelContext(container), hiddenAppStore: hiddenAppStoreLocal))
+        _store = State(initialValue: ProductStore(context: ModelContext(container), hiddenAppStore: hiddenAppStoreLocal))
         _gitHubAccountStore = State(initialValue: GitHubAccountStore(context: ModelContext(container)))
         _versionStore = State(initialValue: VersionStore(context: ModelContext(container)))
         _filterStore = State(initialValue: FilterPreferenceStore(context: ModelContext(container)))

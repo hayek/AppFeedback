@@ -4,8 +4,12 @@ import SwiftData
 import CoreData
 
 @Observable @MainActor
-final class RepoStore {
-    private(set) var repos: [RepoConfig] = []
+final class ProductStore {
+    private(set) var repos: [ProductConfig] = []
+    /// Preferred name in all NEW code. Mirrors the stored `repos` array (the stored
+    /// name is kept to avoid churning existing `store.repos` call sites). Reading
+    /// `products` registers the same Observation dependency as reading `repos`.
+    var products: [ProductConfig] { repos }
     private(set) var hiddenApps: [UUID: Set<String>] = [:]
     private(set) var appColors: [UUID: [String: String]] = [:]
 
@@ -56,10 +60,10 @@ final class RepoStore {
         cloudKitImportTask?.cancel()
     }
 
-    // MARK: - Repos
+    // MARK: - Products
 
-    func add(_ repo: RepoConfig) {
-        let model = Repo(
+    func add(_ repo: ProductConfig) {
+        let model = Product(
             id: repo.id,
             displayName: repo.displayName,
             owner: repo.owner,
@@ -68,14 +72,18 @@ final class RepoStore {
             mirrorEmailsToGitHub: repo.mirrorEmailsToGitHub,
             redactEmailAddresses: repo.redactEmailAddresses,
             connectedRepoOwner: repo.connectedRepoOwner,
-            connectedRepoName: repo.connectedRepoName
+            connectedRepoName: repo.connectedRepoName,
+            appStoreIssuerID: repo.appStoreIssuerID,
+            appStoreKeyID: repo.appStoreKeyID,
+            appStoreAppAppleID: repo.appStoreAppAppleID,
+            feedbackInboxAccountID: repo.feedbackInboxAccountID
         )
         context.insert(model)
         save()
         reload()
     }
 
-    func update(_ repo: RepoConfig) {
+    func update(_ repo: ProductConfig) {
         guard let model = fetchModel(id: repo.id) else { return }
         model.displayName = repo.displayName
         model.owner = repo.owner
@@ -85,13 +93,17 @@ final class RepoStore {
         model.connectedRepoOwner = repo.connectedRepoOwner
         model.connectedRepoName = repo.connectedRepoName
         model.colorHex = repo.colorHex
+        model.appStoreIssuerID = repo.appStoreIssuerID
+        model.appStoreKeyID = repo.appStoreKeyID
+        model.appStoreAppAppleID = repo.appStoreAppAppleID
+        model.feedbackInboxAccountID = repo.feedbackInboxAccountID
         save()
         reload()
     }
 
     func remove(id: UUID) async {
         guard let model = fetchModel(id: id) else { return }
-        let config = RepoConfig(
+        let config = ProductConfig(
             id: model.id,
             displayName: model.displayName,
             owner: model.owner,
@@ -139,9 +151,9 @@ final class RepoStore {
         appColors[repoId]?[appName]
     }
 
-    // MARK: - Repo color
+    // MARK: - Product color
 
-    /// Set (or clear, with `nil`) the sidebar accent color for a repo.
+    /// Set (or clear, with `nil`) the sidebar accent color for a product.
     func setColor(_ hex: String?, forRepo repoId: UUID) {
         guard let model = fetchModel(id: repoId) else { return }
         if model.colorHex == hex { return }
@@ -156,8 +168,8 @@ final class RepoStore {
 
     // MARK: - Internal
 
-    private func fetchModel(id: UUID) -> Repo? {
-        let descriptor = FetchDescriptor<Repo>(predicate: #Predicate { $0.id == id })
+    private func fetchModel(id: UUID) -> Product? {
+        let descriptor = FetchDescriptor<Product>(predicate: #Predicate { $0.id == id })
         return (try? context.fetch(descriptor))?.first
     }
 
@@ -166,11 +178,11 @@ final class RepoStore {
     }
 
     private func reload() {
-        let models = (try? context.fetch(FetchDescriptor<Repo>(
+        let models = (try? context.fetch(FetchDescriptor<Product>(
             sortBy: [SortDescriptor(\.createdAt)]
         ))) ?? []
         let newRepos = models.map {
-            RepoConfig(
+            ProductConfig(
                 id: $0.id,
                 displayName: $0.displayName,
                 owner: $0.owner,
@@ -179,11 +191,15 @@ final class RepoStore {
                 redactEmailAddresses: $0.redactEmailAddresses,
                 connectedRepoOwner: $0.connectedRepoOwner,
                 connectedRepoName: $0.connectedRepoName,
-                colorHex: $0.colorHex
+                colorHex: $0.colorHex,
+                appStoreIssuerID: $0.appStoreIssuerID,
+                appStoreKeyID: $0.appStoreKeyID,
+                appStoreAppAppleID: $0.appStoreAppAppleID,
+                feedbackInboxAccountID: $0.feedbackInboxAccountID
             )
         }
         // Build hidden-app map from HiddenAppStore (CloudKit-synced) with one-time
-        // best-effort migration from legacy Repo.hiddenAppNames into HiddenApp rows.
+        // best-effort migration from legacy Product.hiddenAppNames into HiddenApp rows.
         var newHiddenApps: [UUID: Set<String>] = [:]
         for model in models {
             if let store = hiddenAppStore {

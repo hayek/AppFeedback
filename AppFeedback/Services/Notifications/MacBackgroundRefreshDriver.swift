@@ -6,7 +6,7 @@ import SwiftData
 final class MacBackgroundRefreshDriver {
     static let identifier = "com.amirhayek.AppFeedback.refresh"
 
-    private let store: RepoStore
+    private let store: ProductStore
     private let cacheContext: ModelContext
     private let notificationService: NotificationService
     private let settings: NotificationSettings
@@ -14,7 +14,7 @@ final class MacBackgroundRefreshDriver {
     private var scheduler: NSBackgroundActivityScheduler?
 
     init(
-        store: RepoStore,
+        store: ProductStore,
         cacheContext: ModelContext,
         notificationService: NotificationService,
         settings: NotificationSettings,

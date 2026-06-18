@@ -19,7 +19,7 @@ final class SettingsNavigation {
 #endif
 
 struct SettingsView: View {
-    @Bindable var store: RepoStore
+    @Bindable var store: ProductStore
     @Environment(CloudSyncStatus.self) private var syncStatus
     @Environment(IntelligenceSettings.self) private var intelligenceSettings
     @Environment(IntelligenceService.self) private var intelligenceService
@@ -30,7 +30,7 @@ struct SettingsView: View {
     @Environment(\.dismiss) private var dismiss
     #endif
     @State private var showAdd = false
-    @State private var editTarget: RepoConfig?
+    @State private var editTarget: ProductConfig?
     @State private var hoveredId: UUID?
     @State private var tokens: [UUID: String] = [:]
 
@@ -226,7 +226,7 @@ struct SettingsView: View {
         }
     }
 
-    private func iosRepoRow(_ repo: RepoConfig) -> some View {
+    private func iosRepoRow(_ repo: ProductConfig) -> some View {
         let color = ColorPalette.color(for: repo.displayName, in: allDisplayNames)
         return HStack(spacing: 12) {
             ZStack {
@@ -317,7 +317,7 @@ struct SettingsView: View {
         }
     }
 
-    private func maskedToken(for repo: RepoConfig) -> String {
+    private func maskedToken(for repo: ProductConfig) -> String {
         let raw = tokens[repo.id] ?? ""
         guard !raw.isEmpty else { return "no token" }
         guard raw.count > 7 else { return "••••••••" }
@@ -379,7 +379,7 @@ struct SettingsView: View {
 // MARK: - Repo row
 
 private struct RepoRowView: View {
-    let repo: RepoConfig
+    let repo: ProductConfig
     let color: Color
     let maskedToken: String
     let isHovered: Bool

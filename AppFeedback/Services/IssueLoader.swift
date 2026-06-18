@@ -31,14 +31,14 @@ final class IssueLoader {
 
     var isInFlight: Bool { inFlight != nil }
 
-    private let config: RepoConfig
+    private let config: ProductConfig
     private let session: URLSession
     private let cacheContext: ModelContext?
     private var inFlight: (token: String, task: Task<Void, Never>)?
     private let activityLog: ActivityLog?
 
     init(
-        config: RepoConfig,
+        config: ProductConfig,
         session: URLSession = .shared,
         activityLog: ActivityLog? = nil,
         cacheContext: ModelContext? = nil

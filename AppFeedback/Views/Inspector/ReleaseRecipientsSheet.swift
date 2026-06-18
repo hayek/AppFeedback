@@ -1,7 +1,7 @@
 import SwiftUI
 
 struct ReleaseRecipientsSheet: View {
-    let repo: RepoConfig
+    let repo: ProductConfig
     @Bindable var version: ProjectVersion
     let recipients: [ReleaseRecipient]
     let alreadySent: Set<String>

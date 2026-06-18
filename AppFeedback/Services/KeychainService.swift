@@ -7,7 +7,7 @@ import Security
 enum KeychainService {
     private static let service = "com.feedbackviewer.tokens"
 
-    static func save(token: String, for repo: RepoConfig) async {
+    static func save(token: String, for repo: ProductConfig) async {
         let account = accountKey(for: repo)
         let data = Data(token.utf8)
         let query: [String: Any] = [
@@ -25,13 +25,13 @@ enum KeychainService {
         }
     }
 
-    static func load(for repo: RepoConfig) async -> String? {
+    static func load(for repo: ProductConfig) async -> String? {
         loadSync(for: repo)
     }
 
     /// Synchronous variant — calls SecItemCopyMatching directly so it can be
     /// used inside a `@Sendable () -> String?` closure without `await`.
-    static func loadSync(for repo: RepoConfig) -> String? {
+    static func loadSync(for repo: ProductConfig) -> String? {
         let query: [String: Any] = [
             kSecClass as String:              kSecClassGenericPassword,
             kSecAttrService as String:        service,
@@ -46,7 +46,7 @@ enum KeychainService {
         return String(data: data, encoding: .utf8)
     }
 
-    static func delete(for repo: RepoConfig) async {
+    static func delete(for repo: ProductConfig) async {
         let query: [String: Any] = [
             kSecClass as String:              kSecClassGenericPassword,
             kSecAttrService as String:        service,
@@ -56,7 +56,7 @@ enum KeychainService {
         SecItemDelete(query as CFDictionary)
     }
 
-    private static func accountKey(for repo: RepoConfig) -> String {
+    private static func accountKey(for repo: ProductConfig) -> String {
         "\(repo.owner)/\(repo.repo)"
     }
 

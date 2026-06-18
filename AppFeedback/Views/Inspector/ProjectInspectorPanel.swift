@@ -1,7 +1,7 @@
 import SwiftUI
 
 struct ProjectInspectorPanel: View {
-    let repo: RepoConfig?
+    let repo: ProductConfig?
     var inspector: ProjectInspectorModel
     var versionStore: VersionStore
     var canEmail: Bool
@@ -132,7 +132,7 @@ struct ProjectInspectorPanel: View {
         return rows.sorted { $0.sortKey < $1.sortKey }
     }
 
-    @ViewBuilder private func taskRows(repo: RepoConfig) -> some View {
+    @ViewBuilder private func taskRows(repo: ProductConfig) -> some View {
         let rows = taskRowItems
         // Keep the ForEach unconditional (no enclosing if/else) so List sees a stable ForEach and
         // animates row insert/remove; the empty state is a separate trailing row.
@@ -172,7 +172,7 @@ struct ProjectInspectorPanel: View {
 
     /// All versions for the repo, narrowed by the active version filters. Called twice per render
     /// (header count + rows); the work is O(versions × tasks) but negligible at sidebar scale.
-    private func filteredVersions(repo: RepoConfig) -> [ProjectVersion] {
+    private func filteredVersions(repo: ProductConfig) -> [ProjectVersion] {
         versionStore.versions(owner: repo.owner, repo: repo.repo).filter { version in
             inspector.versionMatches(
                 name: version.name,
@@ -182,7 +182,7 @@ struct ProjectInspectorPanel: View {
         }
     }
 
-    @ViewBuilder private func versionRows(repo: RepoConfig) -> some View {
+    @ViewBuilder private func versionRows(repo: ProductConfig) -> some View {
         let total = versionStore.versions(owner: repo.owner, repo: repo.repo).count
         let versions = filteredVersions(repo: repo)
         ForEach(versions) { version in
@@ -218,7 +218,7 @@ struct ProjectInspectorPanel: View {
 
     // MARK: Mutations (optimistic + background write)
 
-    private func changeStatus(repo: RepoConfig, task: TaskItem, status: TaskStatus) {
+    private func changeStatus(repo: ProductConfig, task: TaskItem, status: TaskStatus) {
         let previous = inspector.applyOptimistic(number: task.number, status: status)
         Task {
             do { try await taskService.setStatus(repo: repo, task: task, status: status) }
@@ -226,7 +226,7 @@ struct ProjectInspectorPanel: View {
         }
     }
 
-    private func changePriority(repo: RepoConfig, task: TaskItem, priority: TaskPriority) {
+    private func changePriority(repo: ProductConfig, task: TaskItem, priority: TaskPriority) {
         let previous = inspector.applyOptimistic(number: task.number, priority: priority)
         Task {
             do { try await taskService.setPriority(repo: repo, task: task, priority: priority) }
@@ -234,7 +234,7 @@ struct ProjectInspectorPanel: View {
         }
     }
 
-    private func deleteVersion(repo: RepoConfig, version: ProjectVersion) {
+    private func deleteVersion(repo: ProductConfig, version: ProjectVersion) {
         let service = VersionService(store: versionStore)
         Task { try? await service.deleteVersion(repo: repo, version: version) }
     }
