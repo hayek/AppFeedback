@@ -50,4 +50,14 @@ final class ModelsTests: XCTestCase {
                                releaseTitle: "Performance & polish", changelog: "notes")
         XCTAssertEqual(v.releaseTitle, "Performance & polish")
     }
+
+    func test_productDefaults_newSourceFieldsAreNil() {
+        let p = Product(displayName: "P", owner: "o", repo: "r")
+        XCTAssertNil(p.appStoreIssuerID)
+        XCTAssertNil(p.appStoreKeyID)
+        XCTAssertNil(p.appStoreAppAppleID)
+        XCTAssertNil(p.feedbackInboxAccountID)
+        XCTAssertTrue(p.mirrorEmailsToGitHub)
+        XCTAssertTrue(p.redactEmailAddresses)
+    }
 }
