@@ -1,6 +1,9 @@
 import Foundation
 import SwiftData
 
+/// LEGACY — read-only. Kept registered for one release so existing CloudKit `CD_Repo`
+/// rows still load and can be copied into `Product` by `ProductMigration`. Remove the
+/// release after Phase 0 ships. Do NOT add new fields here.
 @Model
 final class Repo {
     var id: UUID = UUID()
@@ -9,15 +12,9 @@ final class Repo {
     var repo: String = ""
     var hiddenAppNames: [String] = []
     var appColors: [String: String] = [:]
-    /// Optional sidebar accent color for this repo, as a 6-digit hex string. `nil` = default.
     var colorHex: String? = nil
     var createdAt: Date = Date()
-    /// When true, every email this app sends or receives for an issue in this repo is
-    /// also posted as a comment on the GitHub issue.
     var mirrorEmailsToGitHub: Bool = true
-    /// When true, sender addresses in mirrored comments are redacted to `a***@host.tld`.
-    /// Defaulted to `true` for public repos and `false` for private at the moment the
-    /// repo is added; user-editable thereafter.
     var redactEmailAddresses: Bool = true
     var connectedRepoOwner: String? = nil
     var connectedRepoName: String? = nil
