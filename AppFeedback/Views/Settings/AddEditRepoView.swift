@@ -68,7 +68,7 @@ struct AddEditRepoView: View {
     #if os(iOS)
     private var iosForm: some View {
         formContent
-            .navigationTitle(isEditing ? "Edit Repository" : "Add Repository")
+            .navigationTitle(isEditing ? "Edit Product" : "Add Product")
             .navigationBarTitleDisplayMode(.inline)
     }
     #endif
@@ -205,7 +205,7 @@ struct AddEditRepoView: View {
                 Button {
                     Task { await save() }
                 } label: {
-                    Text(isEditing ? "Save" : "Add Repository")
+                    Text(isEditing ? "Save" : "Add Product")
                         .fontWeight(.semibold)
                         .frame(maxWidth: .infinity)
                         .padding(.vertical, 4)
@@ -224,7 +224,7 @@ struct AddEditRepoView: View {
     private var header: some View {
         HStack(alignment: .center) {
             VStack(alignment: .leading, spacing: 2) {
-                Text(isEditing ? "Edit Repository" : "Add Repository")
+                Text(isEditing ? "Edit Product" : "Add Product")
                     .font(.system(size: 13, weight: .semibold))
                 Text(isEditing ? "Update connection settings" : "Connect a GitHub repo to browse feedback")
                     .font(.system(size: 11))

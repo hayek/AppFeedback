@@ -4,7 +4,7 @@ import AppKit
 #endif
 
 enum SettingsTab: String, Hashable, CaseIterable {
-    case repos
+    case products
     case email
     case intelligence
     case notifications
@@ -12,7 +12,7 @@ enum SettingsTab: String, Hashable, CaseIterable {
 
 @Observable
 final class SettingsNavigation {
-    var selectedTab: SettingsTab = .repos
+    var selectedTab: SettingsTab = .products
 }
 
 #if os(macOS)
@@ -65,7 +65,7 @@ struct SettingsView: View {
     @ViewBuilder
     private func tabContent(selection: SettingsTab) -> some View {
         switch selection {
-        case .repos:
+        case .products:
             reposTab
         case .email:
             EmailSettingsView()
@@ -115,16 +115,16 @@ struct SettingsView: View {
                     Button {
                         showAdd = true
                     } label: {
-                        Label("Add Repository", systemImage: "plus.circle.fill")
+                        Label("Add Product", systemImage: "plus.circle.fill")
                             .symbolRenderingMode(.hierarchical)
                     }
                 } header: {
-                    Text("Repositories")
+                    Text("Products")
                 } footer: {
                     if !store.repos.isEmpty {
-                        Text("Tap a repository to edit. Swipe left to remove.")
+                        Text("Tap a product to edit. Swipe left to remove.")
                     } else {
-                        Text("Add a GitHub repository to start browsing feedback.")
+                        Text("Add a product to start browsing feedback.")
                     }
                 }
 
@@ -332,9 +332,9 @@ struct SettingsView: View {
                 .font(.system(size: 32, weight: .light))
                 .foregroundStyle(.tertiary)
             VStack(spacing: 4) {
-                Text("No Repositories")
+                Text("No Products")
                     .font(.system(size: 13, weight: .semibold))
-                Text("Add a GitHub repo to start browsing feedback.")
+                Text("Add a product to start browsing feedback.")
                     .font(.system(size: 12))
                     .foregroundStyle(.secondary)
                     .multilineTextAlignment(.center)
@@ -348,7 +348,7 @@ struct SettingsView: View {
 
     private var addBar: some View {
         HStack {
-            Text("\(store.repos.count) repo\(store.repos.count == 1 ? "" : "s")")
+            Text("\(store.repos.count) product\(store.repos.count == 1 ? "" : "s")")
                 .font(.system(size: 11, weight: .medium))
                 .foregroundStyle(.tertiary)
                 .monospacedDigit()
@@ -359,7 +359,7 @@ struct SettingsView: View {
                 HStack(spacing: 4) {
                     Image(systemName: "plus")
                         .font(.system(size: 11, weight: .semibold))
-                    Text("Add Repo")
+                    Text("Add Product")
                         .font(.system(size: 12, weight: .medium))
                 }
                 .padding(.horizontal, 12)

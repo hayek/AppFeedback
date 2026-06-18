@@ -11,11 +11,11 @@ struct SidebarView: View {
         Group {
             if store.repos.isEmpty {
                 ContentUnavailableView {
-                    Label("No Repos", systemImage: "tray")
+                    Label("No Products", systemImage: "tray")
                 } description: {
-                    Text("Add a GitHub repo to start collecting feedback.")
+                    Text("Add a product to start collecting feedback.")
                 } actions: {
-                    Button("+ Add Repo") { onAddRepo() }
+                    Button("+ Add Product") { onAddRepo() }
                         .buttonStyle(.borderedProminent)
                 }
             } else {

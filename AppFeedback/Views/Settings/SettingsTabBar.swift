@@ -91,7 +91,7 @@ struct SettingsToolbarAccessor: NSViewRepresentable {
 
         private func allTabIdentifiers() -> [NSToolbarItem.Identifier] {
             var ids: [NSToolbarItem.Identifier] = [
-                identifier(for: .repos),
+                identifier(for: .products),
                 identifier(for: .email),
                 identifier(for: .intelligence),
             ]
@@ -145,7 +145,7 @@ struct SettingsToolbarAccessor: NSViewRepresentable {
 private extension SettingsTab {
     var displayName: String {
         switch self {
-        case .repos:         return "Repos"
+        case .products:      return "Products"
         case .email:         return "Email"
         case .intelligence:  return "Intelligence"
         case .notifications: return "Notifications"
@@ -154,7 +154,7 @@ private extension SettingsTab {
 
     var systemImageName: String {
         switch self {
-        case .repos:         return "folder"
+        case .products:      return "folder"
         case .email:         return "envelope"
         case .intelligence:  return "sparkles"
         case .notifications: return "bell"

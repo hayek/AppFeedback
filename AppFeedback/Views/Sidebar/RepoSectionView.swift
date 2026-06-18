@@ -62,7 +62,7 @@ struct RepoSectionView: View {
             Button(role: .destructive) {
                 showRemoveConfirmation = true
             } label: {
-                Label("Remove Repo", systemImage: "trash")
+                Label("Remove Product", systemImage: "trash")
             }
         }
         .confirmationDialog(
@@ -75,7 +75,7 @@ struct RepoSectionView: View {
                 Task { await store.remove(id: repo.id) }
             }
         } message: {
-            Text("This will remove the repo from the sidebar. Your GitHub data will not be affected.")
+            Text("This will remove the product from the sidebar. Your GitHub data will not be affected.")
         }
     }
 }
