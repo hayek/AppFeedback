@@ -154,7 +154,7 @@ private extension SettingsTab {
 
     var systemImageName: String {
         switch self {
-        case .products:      return "folder"
+        case .products:      return "shippingbox"
         case .email:         return "envelope"
         case .intelligence:  return "sparkles"
         case .notifications: return "bell"
