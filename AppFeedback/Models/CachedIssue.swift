@@ -26,6 +26,11 @@ final class CachedIssue {
     var translatedBody: String?
     var translationTargetLanguage: String?
     var attachmentsJSON: String?
+    /// Originating feedback source raw value ("sdk" | "app-store" | "email");
+    /// nil for legacy issues cached before Phase 1 — treated as `.sdk` on read.
+    var source: String?
+    /// App Store star rating (1…5) for App Store reviews; nil otherwise.
+    var rating: Int?
 
     init(
         repoOwner: String,
@@ -79,7 +84,9 @@ final class CachedIssue {
             translatedTitle: translatedTitle,
             translatedBody: translatedBody,
             translationTargetLanguage: translationTargetLanguage,
-            attachments: Self.decodeAttachments(attachmentsJSON)
+            attachments: Self.decodeAttachments(attachmentsJSON),
+            source: FeedbackSource(rawValue: source ?? "") ?? .sdk,
+            rating: rating
         )
     }
 
@@ -103,6 +110,8 @@ final class CachedIssue {
         )
         cached.milestoneTitle = issue.milestoneTitle
         cached.attachmentsJSON = Self.encodeAttachments(issue.attachments)
+        cached.source = issue.source.rawValue
+        cached.rating = issue.rating
         return cached
     }
 
@@ -123,6 +132,8 @@ final class CachedIssue {
         self.milestoneTitle = issue.milestoneTitle
         self.labelsJSON = Self.encodeLabels(issue.labels)
         self.attachmentsJSON = Self.encodeAttachments(issue.attachments)
+        self.source = issue.source.rawValue
+        self.rating = issue.rating
     }
 
     static func encodeLabels(_ labels: [IssueLabel]) -> String? {
