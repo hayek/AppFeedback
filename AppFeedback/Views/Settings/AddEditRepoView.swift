@@ -1,5 +1,8 @@
 import SwiftUI
 
+// MARK: - AddEditRepoView (Product)
+// Navigation title and submit button strings say "Product" / "Add Product" / "Edit Product"
+// following the Phase-0 Repo→Product rename (1d77813). Task 9 of Phase 2 confirms these strings.
 struct AddEditRepoView: View {
     @Environment(\.dismiss) private var dismiss
     @Bindable var store: ProductStore
