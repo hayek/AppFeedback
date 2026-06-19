@@ -5,6 +5,9 @@ import SwiftUI
 /// selected product's `ProductSettingsView` on the right. Selection is bound to
 /// `SettingsNavigation.selectedProductID` so the sidebar "Settings…" item can focus a product
 /// in this (separate) Settings window.
+///
+/// The `.onAppear` guard in the sidebar resolves or falls back when the focused product is
+/// missing (Task 7 — delivered together with the Task 6 master-detail scaffold in commit 0be5f1b).
 struct ProductsSettingsTab: View {
     @Bindable var store: ProductStore
     @Bindable var navigation: SettingsNavigation
