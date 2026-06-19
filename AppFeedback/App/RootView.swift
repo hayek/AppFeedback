@@ -25,6 +25,9 @@ struct RootView: View {
     @State private var summaryVM: UnreadSummaryViewModel?
     @State private var showSettings = false
     @State private var showAddRepo = false
+    #if os(iOS)
+    @State private var productSettingsTarget: ProductConfig?
+    #endif
     // iOS opens to the feedback list; the Tasks & Versions panel is opened on demand from the
     // toolbar (on iPhone it's a sheet that would otherwise cover the list on launch). macOS keeps
     // the inspector column open by default.
@@ -62,6 +65,7 @@ struct RootView: View {
     @Environment(NotificationRouter.self) private var notificationRouter
     @Environment(\.notificationService) private var notificationService
     @Environment(\.mailSyncCoordinatorRegistry) private var coordinatorRegistry: MailSyncCoordinatorRegistry?
+    @Environment(SettingsNavigation.self) private var settingsNavigation
     #if os(macOS)
     @Environment(\.openWindow) private var openWindow
     #endif
@@ -73,7 +77,9 @@ struct RootView: View {
 
     var body: some View {
         NavigationSplitView(columnVisibility: $columnVisibility, preferredCompactColumn: $preferredColumn) {
-            SidebarView(store: store, loaders: loaders, seenStore: seenStore, selection: $selection, onAddRepo: { showAddRepo = true })
+            SidebarView(store: store, loaders: loaders, seenStore: seenStore, selection: $selection,
+                        onAddRepo: { showAddRepo = true },
+                        onOpenProductSettings: { id in openProductSettings(id) })
                 .toolbar {
                     ToolbarItem(placement: .primaryAction) {
                         Button {
@@ -149,6 +155,18 @@ struct RootView: View {
         .sheet(isPresented: $showAddRepo) {
             AddEditRepoView(store: store)
         }
+        #if os(iOS)
+        .sheet(item: $productSettingsTarget) { product in
+            NavigationStack {
+                ProductSettingsView(store: store, product: product, embedInNavigation: false)
+                    .toolbar {
+                        ToolbarItem(placement: .confirmationAction) {
+                            Button("Done") { productSettingsTarget = nil }
+                        }
+                    }
+            }
+        }
+        #endif
         .alert("Couldn't update task", isPresented: Binding(
             get: { taskWriteError != nil },
             set: { if !$0 { taskWriteError = nil } }
@@ -255,6 +273,15 @@ struct RootView: View {
                 if let repoId = selection?.repoId { loadPersistedFilters(repoId: repoId) }
             }
         }
+    }
+
+    private func openProductSettings(_ id: UUID) {
+        #if os(macOS)
+        settingsNavigation.focus(productID: id)
+        openWindow(id: "settings")
+        #else
+        productSettingsTarget = store.repos.first(where: { $0.id == id })
+        #endif
     }
 
     #if os(iOS)
