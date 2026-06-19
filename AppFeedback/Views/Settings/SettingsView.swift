@@ -13,6 +13,15 @@ enum SettingsTab: String, Hashable, CaseIterable {
 @Observable
 final class SettingsNavigation {
     var selectedTab: SettingsTab = .products
+    /// The product whose detail the Products tab should focus. nil ⇒ no/first selection.
+    var selectedProductID: UUID?
+
+    /// Focus the Products tab on a specific product (used by the sidebar "Settings…" item
+    /// and the macOS Settings window, which share this object via the environment).
+    func focus(productID: UUID) {
+        selectedTab = .products
+        selectedProductID = productID
+    }
 }
 
 #if os(macOS)

@@ -14,3 +14,18 @@ final class SettingsNavigationTests: XCTestCase {
         XCTAssertNil(SettingsTab(rawValue: "repos"))
     }
 }
+
+extension SettingsNavigationTests {
+    func test_focus_setsTabAndProduct() {
+        let nav = SettingsNavigation()
+        let id = UUID()
+        nav.selectedTab = .email          // start elsewhere
+        nav.focus(productID: id)
+        XCTAssertEqual(nav.selectedTab, .products)
+        XCTAssertEqual(nav.selectedProductID, id)
+    }
+
+    func test_selectedProductID_defaultsNil() {
+        XCTAssertNil(SettingsNavigation().selectedProductID)
+    }
+}
