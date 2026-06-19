@@ -55,8 +55,21 @@ final class IssueListViewModel {
         var device: Set<String> = []
         var osVersion: Set<String> = []
         var issueType: Set<IssueType> = []
+        /// Selected sources. Default = all-on. A full set (all cases) means "no
+        /// source filter" — equivalent to empty for `isEmpty`/`visibleIssues`.
+        var sources: Set<FeedbackSource> = Set(FeedbackSource.allCases)
 
-        var isEmpty: Bool { appVersion.isEmpty && device.isEmpty && osVersion.isEmpty && issueType.isEmpty }
+        /// True when no facet is narrowing the list. Sources count as inactive
+        /// when all-on (the default) so the row count / "Clear All" pill match
+        /// the other facets' empty-means-all semantics.
+        private var sourcesActive: Bool {
+            !sources.isEmpty && sources != Set(FeedbackSource.allCases)
+        }
+
+        var isEmpty: Bool {
+            appVersion.isEmpty && device.isEmpty && osVersion.isEmpty
+                && issueType.isEmpty && !sourcesActive
+        }
     }
 
     var visibleIssues: [FeedbackIssue] {
@@ -75,6 +88,9 @@ final class IssueListViewModel {
         if !filters.device.isEmpty     { list = list.filter { filters.device.contains($0.device ?? "") } }
         if !filters.osVersion.isEmpty  { list = list.filter { filters.osVersion.contains($0.osVersion ?? "") } }
         if !filters.issueType.isEmpty  { list = list.filter { ($0.labels.issueType?.type).map { filters.issueType.contains($0) } ?? false } }
+        if !filters.sources.isEmpty && filters.sources != Set(FeedbackSource.allCases) {
+            list = list.filter { filters.sources.contains($0.source) }
+        }
 
         if !searchQuery.isEmpty {
             let q = searchQuery.lowercased()
@@ -107,6 +123,12 @@ final class IssueListViewModel {
             .sorted { $0.compare($1, options: .numeric) == .orderedDescending }
     }
 
+    /// Distinct sources present among the visible issues, in canonical case order.
+    var uniqueSources: [FeedbackSource] {
+        let present = Set(visibleBase.map(\.source))
+        return FeedbackSource.allCases.filter { present.contains($0) }
+    }
+
     /// All issues with hidden apps filtered out, optionally narrowed to the selected app.
     private var visibleBase: [FeedbackIssue] {
         let withoutHidden = hiddenApps.isEmpty ? allIssues : allIssues.filter { !hiddenApps.contains($0.appName ?? "") }
@@ -121,7 +143,7 @@ final class IssueListViewModel {
     var persistedFeedbackFilters: PersistedFeedbackFilters {
         PersistedFeedbackFilters(appVersion: filters.appVersion, device: filters.device,
                                  osVersion: filters.osVersion, issueType: filters.issueType,
-                                 appFilter: appFilter)
+                                 appFilter: appFilter, sources: filters.sources)
     }
 
     func applyFeedbackFilters(_ dto: PersistedFeedbackFilters) {
@@ -130,6 +152,7 @@ final class IssueListViewModel {
         filters.osVersion = dto.osVersion
         filters.issueType = dto.issueType
         appFilter = dto.appFilter
+        filters.sources = dto.sources
     }
 
     private(set) var tasks: [TaskItem] = []

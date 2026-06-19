@@ -525,6 +525,52 @@ extension IssueListViewModelTests {
         XCTAssertEqual(vm.pumpDecision(for: makeRequest(detected: "ar", target: "de"), state: .supported), .needsDownload)
     }
 
+    @MainActor
+    func test_source_filter_narrows_visible_issues() {
+        let vm = IssueListViewModel()
+        let sdk = FeedbackIssue(number: 1, title: "a", createdAt: Date(), rawBody: "",
+            appName: nil, appVersion: nil, device: nil, osVersion: nil, email: nil,
+            description: "", labels: [], source: .sdk)
+        let review = FeedbackIssue(number: 2, title: "b", createdAt: Date(), rawBody: "",
+            appName: nil, appVersion: nil, device: nil, osVersion: nil, email: nil,
+            description: "", labels: [], source: .appStore, rating: 5)
+        vm.allIssues = [sdk, review]
+
+        // Default all-on: both visible.
+        XCTAssertEqual(Set(vm.visibleIssues.map(\.number)), [1, 2])
+
+        // Narrow to App Store only.
+        vm.filters.sources = [.appStore]
+        XCTAssertEqual(vm.visibleIssues.map(\.number), [2])
+    }
+
+    @MainActor
+    func test_source_filter_persists_and_applies() {
+        let vm = IssueListViewModel()
+        vm.filters.sources = [.email]
+        XCTAssertEqual(vm.persistedFeedbackFilters.sources, [.email])
+
+        let vm2 = IssueListViewModel()
+        vm2.applyFeedbackFilters(PersistedFeedbackFilters(sources: [.appStore, .sdk]))
+        XCTAssertEqual(vm2.filters.sources, [.appStore, .sdk])
+    }
+
+    @MainActor
+    func test_clearFilters_restores_all_sources() {
+        let vm = IssueListViewModel()
+        vm.filters.sources = [.email]
+        vm.clearFilters()
+        XCTAssertEqual(vm.filters.sources, Set(FeedbackSource.allCases))
+    }
+
+    @MainActor
+    func test_activeFilters_allOn_sources_is_empty() {
+        var f = IssueListViewModel.ActiveFilters()
+        XCTAssertTrue(f.isEmpty)                 // default all-on ⇒ no active source filter
+        f.sources = [.appStore]
+        XCTAssertFalse(f.isEmpty)
+    }
+
     func test_languageDownloadGate_lifecycle() {
         // A real pending German→English request to exercise the download gate.
         let germanBody = "Guten Tag, meine Demo ist gerade abgelaufen und ich wollte das Lifetime Produkt kaufen. Leider wird mir bei der Zahlung immer ein 50 Prozent höherer Preis angezeigt als in der App."
