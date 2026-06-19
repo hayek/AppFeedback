@@ -49,6 +49,30 @@ struct FilterBarView: View {
                     accent: accent
                 )
 
+                if viewModel.uniqueSources.count > 1 {
+                    MultiSelectFilterChip(
+                        label: "Source",
+                        values: viewModel.uniqueSources,
+                        selection: Binding(
+                            get: {
+                                // All-on (the persisted default) reads as "none selected"
+                                // so the chip shows "All" instead of every pill.
+                                viewModel.filters.sources == Set(FeedbackSource.allCases)
+                                    ? []
+                                    : viewModel.filters.sources
+                            },
+                            set: { newValue in
+                                viewModel.filters.sources = newValue.isEmpty
+                                    ? Set(FeedbackSource.allCases)
+                                    : newValue
+                            }
+                        ),
+                        display: { $0.displayName },
+                        symbol: { $0.systemImageName },
+                        accent: accent
+                    )
+                }
+
                 if hasAnyActiveFilter {
                     ClearFiltersButton(action: clearAll)
                 }
