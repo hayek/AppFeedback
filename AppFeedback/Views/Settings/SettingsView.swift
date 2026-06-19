@@ -101,11 +101,11 @@ struct SettingsView: View {
                 }
 
                 Section {
-                    ForEach(store.repos) { repo in
+                    ForEach(store.repos) { product in
                         NavigationLink {
-                            AddEditRepoView(store: store, existing: repo, embedInNavigation: false)
+                            ProductSettingsView(store: store, product: product, embedInNavigation: false)
                         } label: {
-                            iosRepoRow(repo)
+                            iosRepoRow(product)
                         }
                     }
                     .onDelete { offsets in
@@ -126,7 +126,7 @@ struct SettingsView: View {
                     Text("Products")
                 } footer: {
                     if !store.repos.isEmpty {
-                        Text("Tap a product to edit. Swipe left to remove.")
+                        Text("Tap a product to configure its sources. Swipe left to remove.")
                     } else {
                         Text("Add a product to start browsing feedback.")
                     }
