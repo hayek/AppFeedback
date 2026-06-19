@@ -6,6 +6,7 @@ struct SidebarView: View {
     var seenStore: SeenIssueStore
     @Binding var selection: SidebarSelection?
     var onAddRepo: () -> Void = {}
+    var onOpenProductSettings: (UUID) -> Void = { _ in }
 
     var body: some View {
         Group {
@@ -29,7 +30,8 @@ struct SidebarView: View {
                             allApps: apps,
                             selection: $selection,
                             store: store,
-                            seenStore: seenStore
+                            seenStore: seenStore,
+                            onOpenSettings: onOpenProductSettings
                         )
                     }
                 }
