@@ -9,6 +9,13 @@ struct ParsedBody: Sendable {
     var osVersion: String?
     var email: String?
     var attachments: [FeedbackAttachmentRef] = []
+    /// Source-metadata marker values (`source-meta-v1` block). `source` is the
+    /// raw value of the originating `FeedbackSource`; nil for legacy SDK issues.
+    var source: String?
+    var rating: Int?
+    var reviewId: String?
+    var fromAddress: String?
+    var messageId: String?
 }
 
 /// Thin shim over `AppFeedbackCore.IssueBodyParser`. Adapts the SDK's field
@@ -25,7 +32,12 @@ enum IssueBodyParser {
             device: p.device,
             osVersion: p.osVersion,
             email: p.email,
-            attachments: p.attachments.map(FeedbackAttachmentRef.init)
+            attachments: p.attachments.map(FeedbackAttachmentRef.init),
+            source: p.source,
+            rating: p.rating,
+            reviewId: p.reviewId,
+            fromAddress: p.fromAddress,
+            messageId: p.messageId
         )
     }
 }
