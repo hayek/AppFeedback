@@ -62,6 +62,8 @@ struct FeedbackIssue: Identifiable, Codable, Sendable {
     var translatedBody: String?
     var translationTargetLanguage: String?
     var attachments: [FeedbackAttachmentRef] = []
+    var source: FeedbackSource = .sdk
+    var rating: Int?
 
     var id: Int { number }
 
@@ -84,7 +86,9 @@ struct FeedbackIssue: Identifiable, Codable, Sendable {
         translatedTitle: String? = nil,
         translatedBody: String? = nil,
         translationTargetLanguage: String? = nil,
-        attachments: [FeedbackAttachmentRef] = []
+        attachments: [FeedbackAttachmentRef] = [],
+        source: FeedbackSource = .sdk,
+        rating: Int? = nil
     ) {
         self.number = number
         self.title = title
@@ -105,6 +109,8 @@ struct FeedbackIssue: Identifiable, Codable, Sendable {
         self.translatedBody = translatedBody
         self.translationTargetLanguage = translationTargetLanguage
         self.attachments = attachments
+        self.source = source
+        self.rating = rating
     }
 
     func displayedTitle(translated: Bool) -> String {
