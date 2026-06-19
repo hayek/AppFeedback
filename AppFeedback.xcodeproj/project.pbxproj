@@ -86,6 +86,7 @@
 		261405CA00F57ABEEA9ED0D1 /* FeedbackClipboard.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0AAC2156CFBF97AD37A0626A /* FeedbackClipboard.swift */; };
 		2691E53189E014D7B36A236C /* ColorPalette.swift in Sources */ = {isa = PBXBuildFile; fileRef = A2F615F5DA761C32F8566101 /* ColorPalette.swift */; };
 		271EBD521A91D7A3BD23AD58 /* UnreadSummaryViewModelTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 00F960BE036D65B0E276B47E /* UnreadSummaryViewModelTests.swift */; };
+		289A5C478D86D0D90E94AE77 /* ProductsSettingsTab.swift in Sources */ = {isa = PBXBuildFile; fileRef = F70FE566276B096549951CA5 /* ProductsSettingsTab.swift */; };
 		2A3564632F92A68E7E179684 /* TaskItem.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9EFA523FFA32DE561302FB08 /* TaskItem.swift */; };
 		2ADFCADACE15F9CED14427B1 /* IOSMailDefaultsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 35F66F3A2861A2F66E5EB831 /* IOSMailDefaultsView.swift */; };
 		2AF2E6331E161B6C477EAD2A /* ProductConfig.swift in Sources */ = {isa = PBXBuildFile; fileRef = BEFE31FE235A96F1D9593F1D /* ProductConfig.swift */; };
@@ -311,6 +312,7 @@
 		9C849E6C1803FFA445354CA5 /* DeviceName.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7C9D3DC0DF4E66C9986AA0FD /* DeviceName.swift */; };
 		9D587B815F1E50A01A81EEC0 /* GitHubAccountStoreTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 010274A79120CEA885A09F03 /* GitHubAccountStoreTests.swift */; };
 		9D6D08D05D3623D6DD8C70CC /* MockURLProtocol.swift in Sources */ = {isa = PBXBuildFile; fileRef = 862BA4BF33A265329E335DDE /* MockURLProtocol.swift */; };
+		9DD17B74D33B2EF25EC0F985 /* ProductsSettingsTab.swift in Sources */ = {isa = PBXBuildFile; fileRef = F70FE566276B096549951CA5 /* ProductsSettingsTab.swift */; };
 		9E88186B266A34081A0BF2F5 /* IOSAddEmailAccountSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = 381BF60432757F69368AF849 /* IOSAddEmailAccountSheet.swift */; };
 		9ED2C8220ADAA9745E75AC0F /* ActivityLogTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = EC52FD3E27B1F223D322FA99 /* ActivityLogTests.swift */; };
 		A001E259ADE3AEF043D8DAD1 /* OSVersionFormat.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5BE6BCAE91822839B3E9E6C0 /* OSVersionFormat.swift */; };
@@ -757,6 +759,7 @@
 		F6C7BCC2911F1E0A091D27A5 /* CreateTaskSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CreateTaskSheet.swift; sourceTree = "<group>"; };
 		F6CC5C4D19E1784830D4E8FF /* SettingsTabBar.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsTabBar.swift; sourceTree = "<group>"; };
 		F6DC132CC8D99D5C09380980 /* AppFeedbackSDK */ = {isa = PBXFileReference; lastKnownFileType = folder; name = AppFeedbackSDK; path = ../AppFeedbackSDK; sourceTree = SOURCE_ROOT; };
+		F70FE566276B096549951CA5 /* ProductsSettingsTab.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProductsSettingsTab.swift; sourceTree = "<group>"; };
 		F712D1EF260B1A506C404047 /* ReplyHeaderBuilderTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ReplyHeaderBuilderTests.swift; sourceTree = "<group>"; };
 		F7AF27A3A83BA9E18C42D607 /* AttachmentDownloaderTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AttachmentDownloaderTests.swift; sourceTree = "<group>"; };
 		F929313F89C65548C96B17B3 /* ComposeFormCore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ComposeFormCore.swift; sourceTree = "<group>"; };
@@ -984,6 +987,7 @@
 				133B28DAE09BA529EE08E468 /* MailProviderHintCard.swift */,
 				76F517911AEFC8F2CB8939A1 /* NotificationsSettingsView.swift */,
 				FA69E2D167737C7682F97AE2 /* ProductSettingsView.swift */,
+				F70FE566276B096549951CA5 /* ProductsSettingsTab.swift */,
 				F6CC5C4D19E1784830D4E8FF /* SettingsTabBar.swift */,
 				68B931F0D2D397FA605DCCBA /* SettingsView.swift */,
 				6D747F30ECC61D5EB36E867C /* Sources */,
@@ -1498,6 +1502,7 @@
 				6247F51F55C18351EC05292C /* ProductMigration.swift in Sources */,
 				59A2B016694634A9A7AF5DF4 /* ProductSettingsView.swift in Sources */,
 				915809D12F40908362B30298 /* ProductStore.swift in Sources */,
+				289A5C478D86D0D90E94AE77 /* ProductsSettingsTab.swift in Sources */,
 				5A1BD67131132F635BD92719 /* ProjectInspectorModel.swift in Sources */,
 				67939D6324738336AED94180 /* ProjectInspectorPanel.swift in Sources */,
 				ED7B3F17C2F5B84C791F8048 /* ProjectVersion.swift in Sources */,
@@ -1753,6 +1758,7 @@
 				A495AA7C85DCC87900D803B4 /* ProductMigration.swift in Sources */,
 				1F8588687532078906F18CAC /* ProductSettingsView.swift in Sources */,
 				41DD582384E959AAED244639 /* ProductStore.swift in Sources */,
+				9DD17B74D33B2EF25EC0F985 /* ProductsSettingsTab.swift in Sources */,
 				693106396CA492E1BDDEB4E0 /* ProjectInspectorModel.swift in Sources */,
 				FB2AA2682CEC4E9D256447D0 /* ProjectInspectorPanel.swift in Sources */,
 				1C7E37CF7C59E3A7CDDDD1E0 /* ProjectVersion.swift in Sources */,
