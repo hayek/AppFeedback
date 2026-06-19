@@ -38,7 +38,7 @@ struct SettingsView: View {
     @State private var showAdd = false
     @State private var tokens: [UUID: String] = [:]
 
-    private var allDisplayNames: [String] { store.repos.map(\.displayName).sorted() }
+    private var allDisplayNames: [String] { store.products.map(\.displayName).sorted() }
 
     var body: some View {
         #if os(iOS)
@@ -101,7 +101,7 @@ struct SettingsView: View {
                 }
 
                 Section {
-                    ForEach(store.repos) { product in
+                    ForEach(store.products) { product in
                         NavigationLink {
                             ProductSettingsView(store: store, product: product, embedInNavigation: false)
                         } label: {
@@ -111,7 +111,7 @@ struct SettingsView: View {
                     .onDelete { offsets in
                         Task {
                             for index in offsets {
-                                await store.remove(id: store.repos[index].id)
+                                await store.remove(id: store.products[index].id)
                             }
                         }
                     }
@@ -125,7 +125,7 @@ struct SettingsView: View {
                 } header: {
                     Text("Products")
                 } footer: {
-                    if !store.repos.isEmpty {
+                    if !store.products.isEmpty {
                         Text("Tap a product to configure its sources. Swipe left to remove.")
                     } else {
                         Text("Add a product to start browsing feedback.")
@@ -160,7 +160,7 @@ struct SettingsView: View {
                 ToolbarItem(placement: .confirmationAction) {
                     Button("Done") { dismiss() }
                 }
-                if !store.repos.isEmpty {
+                if !store.products.isEmpty {
                     ToolbarItem(placement: .navigationBarLeading) {
                         EditButton()
                     }
@@ -169,7 +169,7 @@ struct SettingsView: View {
             .sheet(isPresented: $showAdd) {
                 AddEditRepoView(store: store)
             }
-            .task(id: store.repos.map(\.id)) {
+            .task(id: store.products.map(\.id)) {
                 await refreshTokens()
             }
         }
@@ -258,8 +258,8 @@ struct SettingsView: View {
 
     private func refreshTokens() async {
         await withTaskGroup(of: (UUID, String?).self) { group in
-            for repo in store.repos {
-                group.addTask { (repo.id, await KeychainService.load(for: repo)) }
+            for product in store.products {
+                group.addTask { (product.id, await KeychainService.load(for: product)) }
             }
             var collected: [UUID: String] = [:]
             for await (id, token) in group {

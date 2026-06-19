@@ -9,11 +9,11 @@ struct ProductsSettingsTab: View {
     @Bindable var store: ProductStore
     @Bindable var navigation: SettingsNavigation
 
-    private var allDisplayNames: [String] { store.repos.map(\.displayName).sorted() }
+    private var allDisplayNames: [String] { store.products.map(\.displayName).sorted() }
 
     private var selectedProduct: ProductConfig? {
-        store.repos.first(where: { $0.id == navigation.selectedProductID })
-            ?? store.repos.first
+        store.products.first(where: { $0.id == navigation.selectedProductID })
+            ?? store.products.first
     }
 
     var body: some View {
@@ -22,7 +22,7 @@ struct ProductsSettingsTab: View {
                 get: { selectedProduct?.id },
                 set: { navigation.selectedProductID = $0 }
             )) {
-                ForEach(store.repos) { product in
+                ForEach(store.products) { product in
                     HStack(spacing: 8) {
                         Circle()
                             .fill(ColorPalette.color(for: product.displayName, in: allDisplayNames))
@@ -40,8 +40,8 @@ struct ProductsSettingsTab: View {
             .navigationSplitViewColumnWidth(min: 180, ideal: 220, max: 300)
             .onAppear {
                 if navigation.selectedProductID == nil
-                    || !store.repos.contains(where: { $0.id == navigation.selectedProductID }) {
-                    navigation.selectedProductID = store.repos.first?.id
+                    || !store.products.contains(where: { $0.id == navigation.selectedProductID }) {
+                    navigation.selectedProductID = store.products.first?.id
                 }
             }
         } detail: {
