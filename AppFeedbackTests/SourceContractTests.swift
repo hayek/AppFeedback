@@ -59,4 +59,25 @@ final class SourceContractTests: XCTestCase {
         XCTAssertEqual(cached.toFeedbackIssue().source, .sdk)
         XCTAssertNil(cached.toFeedbackIssue().rating)
     }
+
+    func test_source_resolution_marker_wins_then_label_then_sdk() {
+        // marker present
+        XCTAssertEqual(
+            IssueLoader.resolveSource(markerSource: "email", labels: ["source:app-store"]),
+            .email
+        )
+        // no marker → label fallback
+        XCTAssertEqual(
+            IssueLoader.resolveSource(markerSource: nil, labels: ["source:app-store"]),
+            .appStore
+        )
+        // neither → sdk
+        XCTAssertEqual(IssueLoader.resolveSource(markerSource: nil, labels: ["bug"]), .sdk)
+    }
+
+    func test_rating_resolution_marker_wins_then_label() {
+        XCTAssertEqual(IssueLoader.resolveRating(markerRating: 4, labels: ["rating:2"]), 4)
+        XCTAssertEqual(IssueLoader.resolveRating(markerRating: nil, labels: ["rating:2"]), 2)
+        XCTAssertNil(IssueLoader.resolveRating(markerRating: nil, labels: ["bug"]))
+    }
 }

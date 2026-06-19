@@ -253,6 +253,26 @@ final class IssueLoader {
         return .page(decoded, etag: responseEtag)
     }
 
+    /// Resolves a feedback source from the parsed `source` marker (authoritative)
+    /// with a `source:*` GitHub label as fallback, defaulting to `.sdk`.
+    nonisolated static func resolveSource(markerSource: String?, labels: [String]) -> FeedbackSource {
+        if let markerSource, let s = FeedbackSource(rawValue: markerSource) { return s }
+        for label in labels {
+            if let s = FeedbackSource.from(label: label) { return s }
+        }
+        return .sdk
+    }
+
+    /// Resolves a star rating from the parsed `rating` marker (authoritative)
+    /// with a `rating:N` GitHub label as fallback; nil when neither is present.
+    nonisolated static func resolveRating(markerRating: Int?, labels: [String]) -> Int? {
+        if let markerRating { return markerRating }
+        for label in labels where label.hasPrefix("rating:") {
+            if let n = Int(label.dropFirst("rating:".count)) { return n }
+        }
+        return nil
+    }
+
     private static func decodePage(data: Data, owner: String, repo: String) throws -> PageResult {
         let decoder = JSONDecoder()
         decoder.dateDecodingStrategy = .iso8601
@@ -283,7 +303,9 @@ final class IssueLoader {
                 updatedAt: node.updatedAt,
                 state: IssueState(rawValue: node.state.lowercased()),
                 milestoneTitle: node.milestone?.title,
-                attachments: parsed.attachments
+                attachments: parsed.attachments,
+                source: IssueLoader.resolveSource(markerSource: parsed.source, labels: labels.map(\.name)),
+                rating: IssueLoader.resolveRating(markerRating: parsed.rating, labels: labels.map(\.name))
             )
         }
         return PageResult(
