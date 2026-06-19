@@ -65,4 +65,24 @@ final class FilterPreferenceStoreTests: XCTestCase {
         XCTAssertEqual(restored.versionScope, .state(.released))
         XCTAssertEqual(restored.search, "")          // search not persisted
     }
+
+    func test_feedback_sources_default_to_all_when_absent() throws {
+        // A bundle encoded WITHOUT the sources field (legacy JSON) must decode to all-on.
+        let legacyJSON = #"{"appVersion":[],"device":[],"osVersion":[],"issueType":[],"appFilter":[]}"#
+        let data = legacyJSON.data(using: .utf8)!
+        let decoded = try JSONDecoder().decode(PersistedFeedbackFilters.self, from: data)
+        XCTAssertEqual(decoded.sources, Set(FeedbackSource.allCases))
+    }
+
+    func test_default_feedback_filters_have_all_sources() {
+        XCTAssertEqual(PersistedFeedbackFilters().sources, Set(FeedbackSource.allCases))
+    }
+
+    func test_sources_roundtrip_through_codable() throws {
+        var f = PersistedFeedbackFilters()
+        f.sources = [.appStore]
+        let data = try JSONEncoder().encode(f)
+        let back = try JSONDecoder().decode(PersistedFeedbackFilters.self, from: data)
+        XCTAssertEqual(back.sources, [.appStore])
+    }
 }
