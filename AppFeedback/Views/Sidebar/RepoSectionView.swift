@@ -34,6 +34,7 @@ struct RepoSectionView: View {
     @Binding var selection: SidebarSelection?
     var store: ProductStore
     var seenStore: SeenIssueStore
+    var onOpenSettings: (UUID) -> Void = { _ in }
     @State private var showRemoveConfirmation = false
 
     /// Unread feedback for this repo: feedback issues not yet marked seen, excluding tasks (which
@@ -59,6 +60,15 @@ struct RepoSectionView: View {
         .contentShape(Rectangle())
         .onTapGesture { selection = .allIssues(repoId: repo.id) }
         .contextMenu {
+            Button {
+                onOpenSettings(repo.id)
+            } label: {
+                Label(ProductContextMenuAction.settings.title,
+                      systemImage: ProductContextMenuAction.settings.systemImage)
+            }
+
+            Divider()
+
             Menu {
                 if repo.colorHex != nil {
                     Button {
@@ -81,7 +91,7 @@ struct RepoSectionView: View {
                     }
                 }
             } label: {
-                Label("Color", systemImage: "paintpalette")
+                Label(ProductContextMenuAction.color.title, systemImage: ProductContextMenuAction.color.systemImage)
             }
 
             Divider()
@@ -89,7 +99,7 @@ struct RepoSectionView: View {
             Button(role: .destructive) {
                 showRemoveConfirmation = true
             } label: {
-                Label("Remove Product", systemImage: "trash")
+                Label(ProductContextMenuAction.remove.title, systemImage: ProductContextMenuAction.remove.systemImage)
             }
         }
         .confirmationDialog(
