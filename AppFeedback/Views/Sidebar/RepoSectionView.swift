@@ -1,5 +1,32 @@
 import SwiftUI
 
+/// The actions exposed by a product's sidebar context menu, in display order.
+/// `.settings` is the leading item (opens `ProductSettingsView`), followed by the existing
+/// Color submenu and Remove. Extracted so the leading-Settings ordering is unit-testable.
+enum ProductContextMenuAction: CaseIterable, Equatable {
+    case settings
+    case color
+    case remove
+
+    static var ordered: [ProductContextMenuAction] { [.settings, .color, .remove] }
+
+    var title: String {
+        switch self {
+        case .settings: return "Settings…"
+        case .color:    return "Color"
+        case .remove:   return "Remove Product"
+        }
+    }
+
+    var systemImage: String {
+        switch self {
+        case .settings: return "gearshape"
+        case .color:    return "paintpalette"
+        case .remove:   return "trash"
+        }
+    }
+}
+
 struct RepoSectionView: View {
     let repo: ProductConfig
     let issues: [FeedbackIssue]
