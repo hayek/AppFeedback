@@ -108,7 +108,7 @@ actor AppStoreReviewCoordinator {                    // poll loop: incremental +
     // exposes observable lastSuccessAt: Date? and lastError: String? for §8 per-source status
 }
 @MainActor final class AppStoreReviewCoordinatorRegistry {   // one coordinator per product-with-ASC; mirrors MailSyncCoordinatorRegistry
-    func responderContext(productID: UUID) -> AppStoreResponderContext?   // Phase 4 consumes this
+    func responderContext(productID: UUID) async -> AppStoreResponderContext?   // Phase 4 consumes this (async: reads actor-isolated coordinator properties)
 }
 struct AppStoreResponderContext: Sendable {          // Phase 3 defines; Phase 4 consumes
     let client: any AppStoreConnectClientProtocol
