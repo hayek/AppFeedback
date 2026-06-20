@@ -62,4 +62,10 @@ final class AppStoreReviewMirrorStoreTests: XCTestCase {
         XCTAssertEqual(rows.count, 1)
         XCTAssertEqual(rows.first?.issueNumber, 42, "kept row (lowest issue) survives")
     }
+
+    func testASCProductConfigMakeRequiresAllCreds() {
+        XCTAssertNil(ASCProductConfig.make(id: UUID(), owner: "o", repo: "r", issuerID: "i", keyID: "k", appAppleID: nil))
+        XCTAssertNil(ASCProductConfig.make(id: UUID(), owner: "o", repo: "r", issuerID: "", keyID: "k", appAppleID: "1"))
+        XCTAssertNotNil(ASCProductConfig.make(id: UUID(), owner: "o", repo: "r", issuerID: "i", keyID: "k", appAppleID: "1"))
+    }
 }

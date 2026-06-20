@@ -12,19 +12,22 @@ final class iOSBackgroundRefreshDriver {
     private let notificationService: NotificationService
     private let settings: NotificationSettings
     private let activityLog: ActivityLog
+    private let appStoreRegistry: AppStoreReviewCoordinatorRegistry
 
     init(
         store: ProductStore,
         cacheContext: ModelContext,
         notificationService: NotificationService,
         settings: NotificationSettings,
-        activityLog: ActivityLog
+        activityLog: ActivityLog,
+        appStoreRegistry: AppStoreReviewCoordinatorRegistry
     ) {
         self.store = store
         self.cacheContext = cacheContext
         self.notificationService = notificationService
         self.settings = settings
         self.activityLog = activityLog
+        self.appStoreRegistry = appStoreRegistry
     }
 
     func register() {
@@ -67,6 +70,7 @@ final class iOSBackgroundRefreshDriver {
                 loaded.append((repo.owner, repo.repo, issues))
             }
         }
+        await appStoreRegistry.pollNow()
         await notificationService.diffAndNotify(loadedByRepo: loaded)
     }
 }

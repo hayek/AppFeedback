@@ -11,6 +11,7 @@ final class MacBackgroundRefreshDriver {
     private let notificationService: NotificationService
     private let settings: NotificationSettings
     private let activityLog: ActivityLog
+    private let appStoreRegistry: AppStoreReviewCoordinatorRegistry
     private var scheduler: NSBackgroundActivityScheduler?
 
     init(
@@ -18,13 +19,15 @@ final class MacBackgroundRefreshDriver {
         cacheContext: ModelContext,
         notificationService: NotificationService,
         settings: NotificationSettings,
-        activityLog: ActivityLog
+        activityLog: ActivityLog,
+        appStoreRegistry: AppStoreReviewCoordinatorRegistry
     ) {
         self.store = store
         self.cacheContext = cacheContext
         self.notificationService = notificationService
         self.settings = settings
         self.activityLog = activityLog
+        self.appStoreRegistry = appStoreRegistry
     }
 
     func startIfEnabled() {
@@ -61,6 +64,7 @@ final class MacBackgroundRefreshDriver {
                 loaded.append((repo.owner, repo.repo, issues))
             }
         }
+        await appStoreRegistry.pollNow()
         await notificationService.diffAndNotify(loadedByRepo: loaded)
     }
 }

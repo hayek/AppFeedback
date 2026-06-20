@@ -58,6 +58,8 @@ struct AppFeedbackApp: App {
     @State private var downloaderHolder: AttachmentDownloaderHolder
     @State private var coordinatorRegistry: MailSyncCoordinatorRegistry?
     @State private var mirrorHolder: MailToGitHubMirrorHolder
+    @State private var appStoreReviewMirrorStore: AppStoreReviewMirrorStore
+    @State private var appStoreRegistry: AppStoreReviewCoordinatorRegistry
     @State private var mailLocalStateStore: MailAccountLocalStateStore
     @State private var mailDraftStore = MailDraftStore()
     @State private var quickLook = QuickLookPresenter()
@@ -189,6 +191,28 @@ struct AppFeedbackApp: App {
         )
         _mirrorHolder = State(initialValue: MailToGitHubMirrorHolder(mirrorLocal))
 
+        // App Store Connect review registry: one coordinator per product that has ASC configured.
+        let ascMirrorStore = AppStoreReviewMirrorStore(context: ModelContext(container))
+        _appStoreReviewMirrorStore = State(initialValue: ascMirrorStore)
+        let ascRegistry = AppStoreReviewCoordinatorRegistry { cfg in
+            let auth = AppStoreConnectAuth(issuerID: cfg.issuerID, keyID: cfg.keyID,
+                                           p8PEM: KeychainService.loadASCKeySync(for: cfg.id) ?? "")
+            let client = AppStoreConnectClient(auth: auth)
+            let owner = cfg.owner; let repo = cfg.repo
+            return AppStoreReviewCoordinator(
+                config: cfg, client: client, issueWriter: GitHubIssueWriter(),
+                commentPoster: GitHubCommentPoster(), mirrorStore: ascMirrorStore,
+                tokenLoader: { KeychainService.loadSync(for: ProductConfig(displayName: "", owner: owner, repo: repo)) },
+                activityLog: activityLogValue)
+        }
+        let initialProducts = _store.wrappedValue.repos
+        ascRegistry.syncWithProducts(initialProducts.compactMap {
+            ASCProductConfig.make(id: $0.id, owner: $0.owner, repo: $0.repo,
+                                  issuerID: $0.appStoreIssuerID, keyID: $0.appStoreKeyID,
+                                  appAppleID: $0.appStoreAppAppleID)
+        })
+        _appStoreRegistry = State(initialValue: ascRegistry)
+
         // Feedback-attachment downloader (GitHub issue attachments).
         let feedbackLocalStore = FeedbackAttachmentLocalStore(context: ModelContext(container))
         let snapshot = repoConfigSnapshot
@@ -262,7 +286,8 @@ struct AppFeedbackApp: App {
             cacheContext: _cacheContext.wrappedValue,
             notificationService: service,
             settings: settings,
-            activityLog: activityLogValue
+            activityLog: activityLogValue,
+            appStoreRegistry: ascRegistry
         )
         driver.register()
         _iosRefreshDriver = State(initialValue: driver)
@@ -272,7 +297,8 @@ struct AppFeedbackApp: App {
             cacheContext: _cacheContext.wrappedValue,
             notificationService: service,
             settings: settings,
-            activityLog: activityLogValue
+            activityLog: activityLogValue,
+            appStoreRegistry: ascRegistry
         )
         driver.startIfEnabled()
         _macRefreshDriver = State(initialValue: driver)
@@ -308,14 +334,17 @@ struct AppFeedbackApp: App {
                 .environment(thumbnailCache)
                 .environment(feedbackAttachmentDownloaderHolder)
                 .environment(\.notificationService, notificationService)
+                .environment(appStoreRegistry)
                 .task { await notificationService.requestAuthorizationIfNeeded() }
                 .task(id: store.repos.map(\.id)) {
                     repoConfigSnapshot.update(store.repos)
+                    appStoreRegistry.syncWithProducts(ascConfigs(from: store.repos))
                 }
                 .onAppear {
                     #if canImport(SwiftMail)
                     coordinatorRegistry?.start()
                     #endif
+                    appStoreRegistry.start()
                 }
                 .onChange(of: notificationSettings.isEnabled) { _, isOn in
                     #if os(macOS)
@@ -331,6 +360,9 @@ struct AppFeedbackApp: App {
                         Task { await coordinatorRegistry?.pollNow() }
                     }
                     #endif
+                    if phase == .active {
+                        Task { await appStoreRegistry.pollNow() }
+                    }
                     if phase == .background { iosRefreshDriver.scheduleNextRefresh() }
                 }
                 #elseif os(macOS)
@@ -340,6 +372,9 @@ struct AppFeedbackApp: App {
                         Task { await coordinatorRegistry?.pollNow() }
                     }
                     #endif
+                    if phase == .active {
+                        Task { await appStoreRegistry.pollNow() }
+                    }
                 }
                 #endif
         }
@@ -383,10 +418,24 @@ struct AppFeedbackApp: App {
                 .environment(mirrorHolder)
                 .environment(mailLocalStateStore)
                 .environment(\.notificationService, notificationService)
+                .environment(appStoreRegistry)
         }
         .defaultSize(width: 720, height: 620)
         .windowResizability(.contentMinSize)
         #endif
+    }
+
+    // MARK: - ASC helpers
+
+    /// Maps the current product list into `[ASCProductConfig]` — only products that have all three
+    /// ASC credential fields non-empty produce a config. When Phase 0/2 lands, the three ASC fields
+    /// on `ProductConfig` are already read here via `$0.appStoreIssuerID` etc.
+    private func ascConfigs(from products: [ProductConfig]) -> [ASCProductConfig] {
+        products.compactMap {
+            ASCProductConfig.make(id: $0.id, owner: $0.owner, repo: $0.repo,
+                                  issuerID: $0.appStoreIssuerID, keyID: $0.appStoreKeyID,
+                                  appAppleID: $0.appStoreAppAppleID)
+        }
     }
 }
 

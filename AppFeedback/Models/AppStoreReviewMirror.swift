@@ -39,3 +39,16 @@ struct ASCProductConfig: Sendable, Equatable, Identifiable {
     let keyID: String
     let appAppleID: String    // opaque ASC app id (numeric string)
 }
+
+extension ASCProductConfig {
+    /// Builds a config from a product's GitHub coordinates + its ASC credentials, or nil when ASC
+    /// isn't fully configured (all three of issuerID/keyID/appAppleID must be present & non-empty).
+    static func make(id: UUID, owner: String, repo: String,
+                     issuerID: String?, keyID: String?, appAppleID: String?) -> ASCProductConfig? {
+        guard let issuerID, !issuerID.isEmpty,
+              let keyID, !keyID.isEmpty,
+              let appAppleID, !appAppleID.isEmpty else { return nil }
+        return ASCProductConfig(id: id, owner: owner, repo: repo,
+                                issuerID: issuerID, keyID: keyID, appAppleID: appAppleID)
+    }
+}
