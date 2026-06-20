@@ -31,6 +31,9 @@ struct IssueListView: View {
     /// One response controller per App Store feedback (keyed on issue number). Cached so the
     /// editor draft survives re-renders triggered by `mirrorStore.version` bumps. Built lazily.
     @State private var responseControllers: [Int: AppStoreResponseController] = [:]
+    /// Issue numbers for which a controller-build Task is already in flight. Guards against
+    /// spawning multiple concurrent Tasks for the same issue across rapid render passes.
+    @State private var buildingControllers: Set<Int> = []
 
     @AppStorage private var summaryCollapsed: Bool
 
@@ -237,16 +240,25 @@ struct IssueListView: View {
     /// reviewId marker is missing, or when the product has no App Store source (graceful nil —
     /// the panel hides). The first call returns nil and fires a Task that populates the cache;
     /// the resulting @State mutation triggers a re-render so the panel appears on the next pass.
+    ///
+    /// `buildingControllers` acts as an in-flight guard: once a Task is spawned for a given
+    /// issue number it is inserted into the set; subsequent render passes that reach this code
+    /// path (before the Task completes) skip spawning a second Task, bounding the build to at
+    /// most one concurrent Task per issue and preventing cache-slot races.
     private func responseController(for issue: FeedbackIssue) -> AppStoreResponseController? {
         guard issue.source == .appStore else { return nil }
         if let cached = responseControllers[issue.number] { return cached }
         // Build asynchronously (responderContext is async); controller will appear on next render.
-        guard let mirrorStore,
+        // Skip if a build Task is already in flight for this issue number.
+        guard !buildingControllers.contains(issue.number),
+              let mirrorStore,
               let appStoreResponder,
               let reviewId = AppStoreReviewIdExtractor.reviewId(fromBody: issue.rawBody),
               let productID = mirrorStore.mirror(reviewId: reviewId)?.productID else { return nil }
         let issueNumber = issue.number
+        buildingControllers.insert(issueNumber)
         Task { @MainActor in
+            defer { buildingControllers.remove(issueNumber) }
             guard let context = await appStoreResponder(productID) else { return }
             let controller = AppStoreResponseController(
                 reviewId: reviewId,
