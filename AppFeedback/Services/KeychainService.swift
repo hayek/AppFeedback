@@ -214,6 +214,42 @@ enum KeychainService {
         await deleteSynchronizablePassword(account: gitHubTokenAccountKey(for: accountID))
     }
 
+    // MARK: - App Store Connect .p8 private key (PEM), keyed by product id
+
+    private static func ascKeyAccountKey(for productID: UUID) -> String {
+        "appstore.p8.\(productID.uuidString)"
+    }
+
+    @discardableResult
+    static func saveASCKey(_ pem: String, for productID: UUID) async -> Bool {
+        await saveSynchronizablePassword(pem, account: ascKeyAccountKey(for: productID))
+    }
+
+    static func loadASCKey(for productID: UUID) async -> String? {
+        await loadSynchronizablePassword(account: ascKeyAccountKey(for: productID))
+    }
+
+    /// Synchronous variant for `@Sendable () -> String?` / non-async callers, paralleling
+    /// `loadGitHubTokenSync(for:)`.
+    static func loadASCKeySync(for productID: UUID) -> String? {
+        let query: [String: Any] = [
+            kSecClass as String:              kSecClassGenericPassword,
+            kSecAttrService as String:        service,
+            kSecAttrAccount as String:        ascKeyAccountKey(for: productID),
+            kSecAttrSynchronizable as String: kCFBooleanTrue!,
+            kSecReturnData as String:         true,
+            kSecMatchLimit as String:         kSecMatchLimitOne,
+        ]
+        var result: AnyObject?
+        guard SecItemCopyMatching(query as CFDictionary, &result) == errSecSuccess,
+              let data = result as? Data else { return nil }
+        return String(data: data, encoding: .utf8)
+    }
+
+    static func deleteASCKey(for productID: UUID) async {
+        await deleteSynchronizablePassword(account: ascKeyAccountKey(for: productID))
+    }
+
     // MARK: - Shared helpers
 
     private static func saveSynchronizablePassword(_ password: String, account: String) async -> Bool {
