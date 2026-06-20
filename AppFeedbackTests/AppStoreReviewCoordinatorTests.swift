@@ -188,3 +188,88 @@ final class AppStoreReviewCoordinatorTests: XCTestCase {
         XCTAssertNotNil(store.mirror(reviewId: "DUP"))
     }
 }
+
+@MainActor
+final class AppStoreReviewCoordinatorRegistryTests: XCTestCase {
+    private func makeStore() throws -> AppStoreReviewMirrorStore {
+        let config = ModelConfiguration(isStoredInMemoryOnly: true, cloudKitDatabase: .none)
+        let container = try ModelContainer(for: AppStoreReviewMirror.self, configurations: config)
+        return AppStoreReviewMirrorStore(context: ModelContext(container))
+    }
+    private func cfg(_ id: UUID, app: String) -> ASCProductConfig {
+        ASCProductConfig(id: id, owner: "o", repo: "r", issuerID: "i", keyID: "k", appAppleID: app)
+    }
+
+    func testSyncSpinsUpAndTearsDownByProduct() throws {
+        let store = try makeStore()
+        let registry = AppStoreReviewCoordinatorRegistry { cfg in
+            AppStoreReviewCoordinator(
+                config: cfg, client: FakeAppStoreConnectClient(), issueWriter: FakeIssueWriting(),
+                commentPoster: GitHubCommentPoster(session: .mock), mirrorStore: store,
+                tokenLoader: { "tok" }, activityLog: nil, clock: { Date() })
+        }
+        let a = UUID(); let b = UUID()
+        registry.syncWithProducts([cfg(a, app: "1"), cfg(b, app: "2")])
+        XCTAssertEqual(registry.coordinatorCount, 2)
+        registry.syncWithProducts([cfg(a, app: "1")])     // b removed
+        XCTAssertEqual(registry.coordinatorCount, 1)
+        registry.syncWithProducts([])                     // all removed
+        XCTAssertEqual(registry.coordinatorCount, 0)
+    }
+
+    func testSyncIsIdempotent() throws {
+        let store = try makeStore()
+        var built = 0
+        let registry = AppStoreReviewCoordinatorRegistry { cfg in
+            built += 1
+            return AppStoreReviewCoordinator(
+                config: cfg, client: FakeAppStoreConnectClient(), issueWriter: FakeIssueWriting(),
+                commentPoster: GitHubCommentPoster(session: .mock), mirrorStore: store,
+                tokenLoader: { "tok" }, activityLog: nil, clock: { Date() })
+        }
+        let a = UUID()
+        registry.syncWithProducts([cfg(a, app: "1")])
+        registry.syncWithProducts([cfg(a, app: "1")])
+        XCTAssertEqual(built, 1, "same product not rebuilt")
+        XCTAssertEqual(registry.coordinatorCount, 1)
+    }
+
+    // [responderContext] The seam Phase 4 consumes.
+    func testResponderContextReflectsClientAndSink() async throws {
+        let store = try makeStore()
+        let client = FakeAppStoreConnectClient()
+        let registry = AppStoreReviewCoordinatorRegistry { c in
+            AppStoreReviewCoordinator(
+                config: c, client: client, issueWriter: FakeIssueWriting(),
+                commentPoster: GitHubCommentPoster(session: .mock), mirrorStore: store,
+                tokenLoader: { "tok" }, activityLog: nil, clock: { Date() })
+        }
+        let a = UUID()
+        registry.syncWithProducts([ASCProductConfig(id: a, owner: "acme", repo: "app",
+                                                    issuerID: "i", keyID: "k", appAppleID: "1")])
+        let ctx = await registry.responderContext(productID: a)
+        XCTAssertNotNil(ctx)
+        XCTAssertEqual(ctx?.owner, "acme")
+        XCTAssertEqual(ctx?.repo, "app")
+        XCTAssertEqual(ctx?.isReadOnly, false, "read-only flips only after a 403 write")
+        let unknownCtx = await registry.responderContext(productID: UUID())
+        XCTAssertNil(unknownCtx, "unknown product ⇒ nil")
+    }
+
+    func testResponderContextIsReadOnlyAfter403() async throws {
+        let store = try makeStore()
+        let registry = AppStoreReviewCoordinatorRegistry { c in
+            AppStoreReviewCoordinator(
+                config: c, client: FakeAppStoreConnectClient(), issueWriter: FakeIssueWriting(),
+                commentPoster: GitHubCommentPoster(session: .mock), mirrorStore: store,
+                tokenLoader: { "tok" }, activityLog: nil, clock: { Date() })
+        }
+        let a = UUID()
+        registry.syncWithProducts([ASCProductConfig(id: a, owner: "o", repo: "r",
+                                                    issuerID: "i", keyID: "k", appAppleID: "1")])
+        // Simulate Phase 4 observing a 403 on a write and flipping the coordinator read-only.
+        await registry.coordinator(for: a)?.markReadOnly()
+        let ctx = await registry.responderContext(productID: a)
+        XCTAssertEqual(ctx?.isReadOnly, true)
+    }
+}
