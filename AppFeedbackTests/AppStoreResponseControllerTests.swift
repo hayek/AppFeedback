@@ -191,6 +191,44 @@ final class AppStoreResponseControllerTests: XCTestCase {
         XCTAssertNil(store.mirror(reviewId: "rev-1")?.responseState)
         XCTAssertEqual(c.mode, .noResponse)
     }
+
+    // MARK: - Task 4: panel label helper
+
+    func testPrimaryButtonTitleReflectsMode() throws {
+        let cNew = try makeController()
+        XCTAssertEqual(AppStoreResponsePanelModel.primaryTitle(for: cNew.mode), "Submit Response")
+
+        let pid = UUID()
+        let store = try seededStore(reviewId: "rev-x", responseId: "r", state: "PUBLISHED",
+                                    productID: pid, issueNumber: 9)
+        let cExisting = AppStoreResponseController(
+            reviewId: "rev-x", productID: pid, issueNumber: 9, repoOwner: "o", repoName: "r",
+            client: FakeASCClient(), mirrorStore: store, commentPoster: GitHubCommentPoster(),
+            tokenLoader: { nil }, readOnly: false)
+        XCTAssertEqual(AppStoreResponsePanelModel.primaryTitle(for: cExisting.mode), "Update Response")
+
+        let cReadOnly = try makeController(readOnly: true)
+        XCTAssertEqual(AppStoreResponsePanelModel.primaryTitle(for: cReadOnly.mode), "Submit Response")
+    }
+
+    // MARK: - Task 5: PENDING_PUBLISH → PUBLISHED surfaces through the controller
+
+    func testPollRefreshStateTransitionSurfacesThroughController() throws {
+        let pid = UUID()
+        let store = try seededStore(reviewId: "rev-3", responseId: "resp-7", state: "PENDING_PUBLISH",
+                                    productID: pid, issueNumber: 11)
+        let c = AppStoreResponseController(
+            reviewId: "rev-3", productID: pid, issueNumber: 11, repoOwner: "o", repoName: "r",
+            client: FakeASCClient(), mirrorStore: store, commentPoster: GitHubCommentPoster(),
+            tokenLoader: { nil }, readOnly: false)
+        XCTAssertEqual(c.responseState, "PENDING_PUBLISH")
+
+        // Simulate a Phase-3 poll refresh writing the published state through the same store API.
+        store.setResponse(reviewId: "rev-3", responseId: "resp-7", state: "PUBLISHED")
+
+        XCTAssertEqual(c.responseState, "PUBLISHED")   // the panel reads this live
+        XCTAssertEqual(c.mode, .hasResponse)
+    }
 }
 
 // MARK: - Fake clients (shared across tasks)

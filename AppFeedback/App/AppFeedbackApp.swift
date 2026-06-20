@@ -307,7 +307,7 @@ struct AppFeedbackApp: App {
 
     var body: some Scene {
         WindowGroup {
-            RootView(store: store, seenStore: seenStore, cacheContext: cacheContext, versionStore: versionStore, filterStore: filterStore)
+            RootView(store: store, seenStore: seenStore, cacheContext: cacheContext, versionStore: versionStore, filterStore: filterStore, appStoreReviewMirrorStore: appStoreReviewMirrorStore)
                 #if !os(macOS)
                 .overlay(QuickLookHost())
                 #endif

@@ -23,6 +23,14 @@ struct IssueListView: View {
     var repoAccent: Color? = nil
     @Bindable var summaryVM: UnreadSummaryViewModel
     let summaryCollapseKey: String
+    /// Phase 3's CloudKit-synced mirror store (read response state, persist write-back).
+    var mirrorStore: AppStoreReviewMirrorStore? = nil
+    /// Resolves the App Store responder context (client + read-only + owner/repo) for a product;
+    /// nil ⇒ that product has no App Store source. Backed by Phase 3's registry (async).
+    var appStoreResponder: ((UUID) async -> AppStoreResponderContext?)? = nil
+    /// One response controller per App Store feedback (keyed on issue number). Cached so the
+    /// editor draft survives re-renders triggered by `mirrorStore.version` bumps. Built lazily.
+    @State private var responseControllers: [Int: AppStoreResponseController] = [:]
 
     @AppStorage private var summaryCollapsed: Bool
 
@@ -44,7 +52,9 @@ struct IssueListView: View {
         repoName: String = "",
         repoAccent: Color? = nil,
         summaryVM: UnreadSummaryViewModel,
-        summaryCollapseKey: String
+        summaryCollapseKey: String,
+        mirrorStore: AppStoreReviewMirrorStore? = nil,
+        appStoreResponder: ((UUID) async -> AppStoreResponderContext?)? = nil
     ) {
         self.viewModel = viewModel
         self.loader = loader
@@ -60,6 +70,8 @@ struct IssueListView: View {
         self.repoAccent = repoAccent
         self.summaryVM = summaryVM
         self.summaryCollapseKey = summaryCollapseKey
+        self.mirrorStore = mirrorStore
+        self.appStoreResponder = appStoreResponder
         self._summaryCollapsed = AppStorage(wrappedValue: false, "summary.collapsed.\(summaryCollapseKey)")
     }
 
@@ -220,6 +232,40 @@ struct IssueListView: View {
         return ColorPalette.color(for: appName, in: allApps)
     }
 
+    /// Returns the cached controller for an App Store issue, building it once (asynchronously).
+    /// Returns nil for SDK/email items, when the mirror/responder deps are absent, when the
+    /// reviewId marker is missing, or when the product has no App Store source (graceful nil —
+    /// the panel hides). The first call returns nil and fires a Task that populates the cache;
+    /// the resulting @State mutation triggers a re-render so the panel appears on the next pass.
+    private func responseController(for issue: FeedbackIssue) -> AppStoreResponseController? {
+        guard issue.source == .appStore else { return nil }
+        if let cached = responseControllers[issue.number] { return cached }
+        // Build asynchronously (responderContext is async); controller will appear on next render.
+        guard let mirrorStore,
+              let appStoreResponder,
+              let reviewId = AppStoreReviewIdExtractor.reviewId(fromBody: issue.rawBody),
+              let productID = mirrorStore.mirror(reviewId: reviewId)?.productID else { return nil }
+        let issueNumber = issue.number
+        Task { @MainActor in
+            guard let context = await appStoreResponder(productID) else { return }
+            let controller = AppStoreResponseController(
+                reviewId: reviewId,
+                productID: productID,
+                issueNumber: issueNumber,
+                repoOwner: context.owner,
+                repoName: context.repo,
+                client: context.client,
+                mirrorStore: mirrorStore,
+                commentPoster: GitHubCommentPoster(),
+                tokenLoader: { [owner = context.owner, repo = context.repo] in
+                    await KeychainService.load(for: ProductConfig(displayName: repo, owner: owner, repo: repo))
+                },
+                readOnly: context.isReadOnly)
+            responseControllers[issueNumber] = controller
+        }
+        return nil
+    }
+
     @ViewBuilder
     private func issueCard(for issue: FeedbackIssue) -> some View {
         IssueCardView(
@@ -262,7 +308,8 @@ struct IssueListView: View {
             attachedTasks: attachedTasksByFeedback[issue.number] ?? [],
             versionStates: versionStates,
             onOpenTask: onOpenTask,
-            onRemoveTask: onRemoveTaskFromFeedback.map { remove in { task in remove(task.number, issue.number) } }
+            onRemoveTask: onRemoveTaskFromFeedback.map { remove in { task in remove(task.number, issue.number) } },
+            responseController: responseController(for: issue)
         )
     }
 

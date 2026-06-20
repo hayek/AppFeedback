@@ -81,6 +81,11 @@ struct IssueCardView: View {
     var versionStates: [String: VersionState] = [:]
     var onOpenTask: ((TaskItem) -> Void)? = nil
     var onRemoveTask: ((TaskItem) -> Void)? = nil
+    /// The App Store response controller for this card, built and cached once per issue by
+    /// `IssueListView` (nil for SDK/email items or when App Store source isn't configured).
+    /// Passing it in — rather than constructing it in `body` — keeps the draft alive across
+    /// re-renders (e.g. when `mirrorStore.version` bumps on a CloudKit import).
+    var responseController: AppStoreResponseController? = nil
 
     @Environment(MailThreadStore.self) private var threadStore
     @Environment(ReplyTemplateStore.self) private var replyTemplateStore
@@ -380,6 +385,11 @@ struct IssueCardView: View {
                                 .padding(.top, 8)
                         }
                     }
+
+                    if issue.source == .appStore, let responseController {
+                        AppStoreResponsePanel(controller: responseController, accent: appColor)
+                    }
+
                     #if canImport(SwiftMail)
                     ForEach(activeInlineComposers, id: \.key) { entry in
                         InlineReplyView(

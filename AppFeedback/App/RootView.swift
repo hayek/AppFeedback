@@ -8,13 +8,17 @@ struct RootView: View {
     var cacheContext: ModelContext
     var versionStore: VersionStore
     var filterStore: FilterPreferenceStore
+    /// Phase 3's CloudKit-synced mirror store — threaded in from AppFeedbackApp so Phase 4's
+    /// "Respond on App Store" panel can read response state + persist write-back.
+    var appStoreReviewMirrorStore: AppStoreReviewMirrorStore? = nil
 
-    init(store: ProductStore, seenStore: SeenIssueStore, cacheContext: ModelContext, versionStore: VersionStore, filterStore: FilterPreferenceStore) {
+    init(store: ProductStore, seenStore: SeenIssueStore, cacheContext: ModelContext, versionStore: VersionStore, filterStore: FilterPreferenceStore, appStoreReviewMirrorStore: AppStoreReviewMirrorStore? = nil) {
         self.store = store
         self.seenStore = seenStore
         self.cacheContext = cacheContext
         self.versionStore = versionStore
         self.filterStore = filterStore
+        self.appStoreReviewMirrorStore = appStoreReviewMirrorStore
         // Seed the selection so the iPhone opens to the detail (feedback) rather than the sidebar.
         _selection = State(initialValue: store.repos.first.map { SidebarSelection.allIssues(repoId: $0.id) })
     }
@@ -66,6 +70,9 @@ struct RootView: View {
     @Environment(\.notificationService) private var notificationService
     @Environment(\.mailSyncCoordinatorRegistry) private var coordinatorRegistry: MailSyncCoordinatorRegistry?
     @Environment(SettingsNavigation.self) private var settingsNavigation
+    /// Phase 3's registry — resolves the App Store responder context (client + read-only flag
+    /// + owner/repo) for a product. Used by IssueListView to wire the response panel.
+    @Environment(AppStoreReviewCoordinatorRegistry.self) private var appStoreCoordinatorRegistry: AppStoreReviewCoordinatorRegistry?
     #if os(macOS)
     @Environment(\.openWindow) private var openWindow
     #endif
@@ -120,7 +127,14 @@ struct RootView: View {
                         repoName: name,
                         repoAccent: repo?.colorHex.map(Color.init(hex:)),
                         summaryVM: summaryVM,
-                        summaryCollapseKey: "\(owner)/\(name)"
+                        summaryCollapseKey: "\(owner)/\(name)",
+                        mirrorStore: appStoreReviewMirrorStore,
+                        appStoreResponder: { [registry = appStoreCoordinatorRegistry] productID in
+                            // Phase 3 owns the per-product client + read-only flag + owner/repo via
+                            // the AppStoreReviewCoordinatorRegistry; resolve through it. When the
+                            // product has no App Store source, this returns nil and the panel hides.
+                            await registry?.responderContext(productID: productID)
+                        }
                     )
                     #if os(iOS)
                     .navigationTitle(navigationTitle(for: selection))
