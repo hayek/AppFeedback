@@ -1,4 +1,5 @@
 import XCTest
+import AppFeedbackCore
 @testable import AppFeedback
 
 final class AppStoreReviewSynthesizerTests: XCTestCase {
@@ -28,6 +29,16 @@ final class AppStoreReviewSynthesizerTests: XCTestCase {
         XCTAssertTrue(b.contains("reviewId: R1"))
         XCTAssertTrue(b.contains("reviewCreatedAt: "))
         XCTAssertTrue(b.contains("Body text"))
+        // Must use the SDK Phase-1 HTML-comment fence, not a plain `---` separator.
+        XCTAssertTrue(b.contains("<!-- source-meta-v1 -->"), "body must use SDK sourceMetadataBlock markers")
+    }
+
+    func testBodyRoundTripsWithIssueBodyParser() {
+        let b = AppStoreReviewSynthesizer.body(for: review())
+        let parsed = AppFeedback.IssueBodyParser.parse(b)
+        XCTAssertEqual(parsed.reviewId, "R1")
+        XCTAssertEqual(parsed.rating, 4)
+        XCTAssertEqual(parsed.source, "app-store")
     }
 
     func testLabels() {

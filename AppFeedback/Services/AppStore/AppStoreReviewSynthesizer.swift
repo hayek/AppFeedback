@@ -1,5 +1,6 @@
 import Foundation
 import CryptoKit
+import AppFeedbackCore
 
 /// Pure rendering of an App Store review into the GitHub-issue title/body/labels that the rest of
 /// the app understands. The body carries the Phase-1 source markers verbatim so origin survives the
@@ -29,17 +30,18 @@ enum AppStoreReviewSynthesizer {
     }
 
     static func body(for review: ASCReview) -> String {
-        var lines: [String] = []
-        lines.append(review.body?.trimmingCharacters(in: .whitespacesAndNewlines) ?? "")
-        lines.append("")
-        lines.append("---")
-        lines.append("source: app-store")
-        lines.append("rating: \(review.rating)")
-        if let nick = review.reviewerNickname, !nick.isEmpty { lines.append("reviewerNickname: \(nick)") }
-        lines.append("territory: \(review.territory)")
-        lines.append("reviewId: \(review.id)")
-        lines.append("reviewCreatedAt: \(iso.string(from: review.createdDate))")
-        return lines.joined(separator: "\n")
+        let text = review.body?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+        let block = IssueBodyFormatter.sourceMetadataBlock(
+            source: "app-store",
+            rating: review.rating,
+            reviewerNickname: review.reviewerNickname,
+            territory: review.territory,
+            reviewId: review.id,
+            reviewCreatedAt: iso.string(from: review.createdDate),
+            fromAddress: nil,
+            messageId: nil
+        )
+        return text + "\n\n" + block
     }
 
     /// SHA-256 hex of normalized `rating + "\n" + title + "\n" + body`. Detects edits since the ASC
