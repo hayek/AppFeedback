@@ -63,7 +63,8 @@ struct ProductConfig { /* renamed from RepoConfig; same fields + the four new on
 // ── Phase 1: source contract + filters + badges ───────────────────────────
 enum FeedbackSource: String, Codable, CaseIterable, Sendable { case sdk = "sdk"; case appStore = "app-store"; case email = "email" }
 // Body-marker KEYS added to BodyMarker: "source","rating","reviewerNickname","territory","reviewId",
-//   "reviewCreatedAt","fromAddress","messageId" (carried in an HTML-comment block so they're invisible in the issue).
+//   "reviewCreatedAt","fromAddress","messageId" (carried in a source-meta-v1 block between HTML-comment fence lines,
+//   mirroring the existing attachments-v1 block — the key:value lines render VISIBLY in the issue, by design, like device-info).
 // GitHub LABELS: "source:app-store","source:email","rating:1"…"rating:5".
 // CachedIssue gains (local schema, additive): var source: String?  var rating: Int?   (nil source ⇒ .sdk)
 // FeedbackIssue gains: var source: FeedbackSource  var rating: Int?
