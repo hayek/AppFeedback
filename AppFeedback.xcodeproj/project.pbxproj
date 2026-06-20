@@ -52,6 +52,7 @@
 		16C919626C2197AE39378E7F /* OSVersionFormat.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5BE6BCAE91822839B3E9E6C0 /* OSVersionFormat.swift */; };
 		16F8B224BEAD80A4D6C24C6C /* TaskMetadata.swift in Sources */ = {isa = PBXBuildFile; fileRef = 25303C36861831879121DF4F /* TaskMetadata.swift */; };
 		183E3E10D1FE00DBD9C74E25 /* NewVersionSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = B9928198061F3E1C46A15C60 /* NewVersionSheet.swift */; };
+		18405989C984442B3449EC31 /* AppStoreReviewMirror.swift in Sources */ = {isa = PBXBuildFile; fileRef = 855CA349C7F80A974F5D8D29 /* AppStoreReviewMirror.swift */; };
 		1893B99F183E09C9C7CA4002 /* TaskDetailView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3F385B3C9BFB464255B2D76A /* TaskDetailView.swift */; };
 		1A4519EDB28C074C99F76742 /* CachedIssue.swift in Sources */ = {isa = PBXBuildFile; fileRef = ED152BDBBB643F768E8F162F /* CachedIssue.swift */; };
 		1A5087796E77E3A1B3254A6A /* AddEditRepoView.swift in Sources */ = {isa = PBXBuildFile; fileRef = DA2585A8442E3BBFF49D6958 /* AddEditRepoView.swift */; };
@@ -378,6 +379,7 @@
 		B9689C8F511CEFFC7154AE31 /* CloudSyncStatusTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1A5E9D6EA54332099D0A0E76 /* CloudSyncStatusTests.swift */; };
 		BA21E125A4A0FB9B55E7CA3A /* AttachmentDownloaderTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = F7AF27A3A83BA9E18C42D607 /* AttachmentDownloaderTests.swift */; };
 		BB64F1D9A7D592A904333F47 /* MailProviderBadge.swift in Sources */ = {isa = PBXBuildFile; fileRef = 173F40704108E1C47B7B46E1 /* MailProviderBadge.swift */; };
+		BC943091645D0748AFF4DA88 /* AppStoreReviewMirror.swift in Sources */ = {isa = PBXBuildFile; fileRef = 855CA349C7F80A974F5D8D29 /* AppStoreReviewMirror.swift */; };
 		BD159F6F074B6CF51A9BA83B /* MailThreadStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6735A1797CDAD61EEB8EA194 /* MailThreadStore.swift */; };
 		BD62B2BAB09EFC09679CC074 /* AppleDevices.json in Resources */ = {isa = PBXBuildFile; fileRef = DE92D9261E5C2EBC2DD6FF7A /* AppleDevices.json */; };
 		BD8D747D2BEDD8B474FBE101 /* ComposeMailViewModelTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 44217CE722F7BB9B95104162 /* ComposeMailViewModelTests.swift */; };
@@ -674,6 +676,7 @@
 		7D45273CCFDF0900BE1142A5 /* SidebarSelection.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SidebarSelection.swift; sourceTree = "<group>"; };
 		8179D7E75894D24AAF1B685B /* GitHubLoginView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GitHubLoginView.swift; sourceTree = "<group>"; };
 		8190A2B4D5CDFCE9437EA19A /* IntelligenceProvider.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = IntelligenceProvider.swift; sourceTree = "<group>"; };
+		855CA349C7F80A974F5D8D29 /* AppStoreReviewMirror.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppStoreReviewMirror.swift; sourceTree = "<group>"; };
 		862BA4BF33A265329E335DDE /* MockURLProtocol.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MockURLProtocol.swift; sourceTree = "<group>"; };
 		864A8D0AB787A3FE8CA251F6 /* ActivityLog.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ActivityLog.swift; sourceTree = "<group>"; };
 		86D913610C499CDB7C15463E /* MailAccountStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MailAccountStore.swift; sourceTree = "<group>"; };
@@ -1034,6 +1037,7 @@
 		B015C42C126643558CDC8C2A /* Models */ = {
 			isa = PBXGroup;
 			children = (
+				855CA349C7F80A974F5D8D29 /* AppStoreReviewMirror.swift */,
 				ED152BDBBB643F768E8F162F /* CachedIssue.swift */,
 				F0D9732025539091DDA60796 /* FeedbackAttachmentLocal.swift */,
 				E83E9C9CBD8ED97EDC04C8AD /* FeedbackAttachmentRef.swift */,
@@ -1442,6 +1446,7 @@
 				A6B230312FB4267E717BCB1F /* AppStoreConnectAuth.swift in Sources */,
 				8C80D1C4D72C2A418CD028F0 /* AppStoreConnectClient.swift in Sources */,
 				092F4068627B8F3FB89C49E3 /* AppStoreConnectModels.swift in Sources */,
+				BC943091645D0748AFF4DA88 /* AppStoreReviewMirror.swift in Sources */,
 				7916238A040FF477CB3CECC6 /* AppStoreSourceForm.swift in Sources */,
 				3900CA9F3989EDABB59EA5DA /* AttachmentChipView.swift in Sources */,
 				72BAF747427FA6651F1E79C8 /* AttachmentDownloader.swift in Sources */,
@@ -1707,6 +1712,7 @@
 				2ACC46952C00B75A3A0AE275 /* AppStoreConnectAuth.swift in Sources */,
 				AB6CF4FF07E52499CE9C30BB /* AppStoreConnectClient.swift in Sources */,
 				24A79D024984FE2636110EDC /* AppStoreConnectModels.swift in Sources */,
+				18405989C984442B3449EC31 /* AppStoreReviewMirror.swift in Sources */,
 				A039C739A40870482832B527 /* AppStoreSourceForm.swift in Sources */,
 				7350D336542599B742BF0C96 /* AttachmentChipView.swift in Sources */,
 				3912E8FE388B025E32A21DC0 /* AttachmentDownloader.swift in Sources */,
