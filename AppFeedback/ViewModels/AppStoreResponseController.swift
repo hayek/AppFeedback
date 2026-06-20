@@ -103,3 +103,85 @@ final class AppStoreResponseController {
         mode == .hasResponse && !isBusy
     }
 }
+
+// MARK: - Task 3: submit / delete / error mapping
+
+extension AppStoreResponseController {
+    /// Submit (or edit — ASC has no PATCH, the POST is an upsert) the developer response.
+    /// On success persists `responseId`/state to the mirror and drops a GitHub comment for
+    /// cross-device record. Guards the char limit before any network call.
+    func submit() async {
+        guard mode != .disabledReadOnly else { return }
+        lastError = nil
+        let body = trimmedDraft
+        guard !body.isEmpty else { return }
+        if draft.count > Self.maxBodyLength {
+            lastError = .tooLong(draft.count - Self.maxBodyLength)
+            return
+        }
+
+        isBusy = true
+        defer { isBusy = false }
+        do {
+            let response = try await client.createOrUpdateResponse(reviewId: reviewId, body: body)
+            mirrorStore.setResponse(reviewId: reviewId, responseId: response.id, state: response.state)
+            await postRecordComment(action: "Responded on App Store (pending)", body: body)
+        } catch {
+            applyWriteError(error)
+        }
+    }
+
+    /// Delete the developer response and clear the mirror's response fields.
+    func delete() async {
+        guard mode == .hasResponse,
+              let responseId = mirrorStore.mirror(reviewId: reviewId)?.responseId else { return }
+        lastError = nil
+        isBusy = true
+        defer { isBusy = false }
+        do {
+            try await client.deleteResponse(responseId: responseId)
+            mirrorStore.clearResponse(reviewId: reviewId)
+            draft = ""
+            await postRecordComment(action: "Deleted App Store response", body: nil)
+        } catch {
+            applyWriteError(error)
+        }
+    }
+
+    /// Posts a record comment to the synthesized GitHub issue (best-effort; a missing token
+    /// or a post failure never fails the write-back — the ASC change already landed).
+    private func postRecordComment(action: String, body: String?) async {
+        guard let token = await tokenLoader() else { return }
+        let text: String = body.map { "\(action): \($0)" } ?? action
+        _ = try? await commentPoster.postComment(
+            owner: repoOwner, repo: repoName, issueNumber: issueNumber, body: text, token: token)
+    }
+
+    /// Maps an ASC write failure into the panel's error/disabled state. A 403 is matched
+    /// two ways: a direct `AppStoreConnectError.forbidden` case (belt) AND any
+    /// `StatusCarryingError` whose `statusCode == 403` (suspenders) — so the read-only
+    /// disable fires for the real Phase-3 error and any other status-carrying error alike.
+    private func applyWriteError(_ error: Error) {
+        // Belt: the concrete Phase-3 forbidden case.
+        if case AppStoreConnectError.forbidden = error {
+            discoveredReadOnly = true                  // read-only key → disable the panel
+            return
+        }
+        // Suspenders: any status-carrying error (incl. AppStoreConnectError via its conformance).
+        if let coded = error as? StatusCarryingError {
+            switch coded.statusCode {
+            case 403: discoveredReadOnly = true        // read-only key → disable the panel
+            case 409: lastError = .conflict
+            case 422: lastError = .validation("App Store rejected the response text.")
+            default:  lastError = .api(coded.statusCode, nil)
+            }
+            return
+        }
+        if let postError = error as? GitHubCommentPoster.PostError,
+           case let .apiError(code, message) = postError {
+            lastError = .api(code, message)
+            return
+        }
+        lastError = .network((error as NSError).localizedDescription)
+    }
+}
