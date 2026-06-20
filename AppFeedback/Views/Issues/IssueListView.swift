@@ -256,8 +256,10 @@ struct IssueListView: View {
               let reviewId = AppStoreReviewIdExtractor.reviewId(fromBody: issue.rawBody),
               let productID = mirrorStore.mirror(reviewId: reviewId)?.productID else { return nil }
         let issueNumber = issue.number
-        buildingControllers.insert(issueNumber)
         Task { @MainActor in
+            // Insert here — deferred into the Task so this mutation does NOT occur during
+            // view body evaluation (SwiftUI forbids @State mutations during body computation).
+            buildingControllers.insert(issueNumber)
             defer { buildingControllers.remove(issueNumber) }
             guard let context = await appStoreResponder(productID) else { return }
             let controller = AppStoreResponseController(
