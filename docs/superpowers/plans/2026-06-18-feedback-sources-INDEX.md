@@ -89,9 +89,9 @@ enum FeedbackSource: String, Codable, CaseIterable, Sendable { case sdk = "sdk";
     func deleteByIssue(productID: UUID, issueNumber: Int)                // reconcile deletes a SPECIFIC row (never the kept one)
 }
 protocol StatusCarryingError: Error { var statusCode: Int { get } }
-enum AppStoreConnectError: StatusCarryingError {     // conforms → enables Phase 4's 403 read-only path
-    case authFailed, forbidden, rateLimited, http(Int), decoding, badKey
-    var statusCode: Int { get }                      // authFailed→401, forbidden→403, rateLimited→429, http(n)→n, else 0
+enum AppStoreConnectError: StatusCarryingError, Equatable {  // conforms → enables Phase 4's 403 read-only path
+    case authFailed, forbidden, rateLimited, http(Int), decoding(String), badKey(String)  // strings carry diagnostics
+    var statusCode: Int { get }                      // authFailed→401, forbidden→403, rateLimited→429, http(n)→n, decoding/badKey→0
 }
 protocol AppStoreConnectClientProtocol: Sendable {
     func listReviews(appAppleID: String, page cursor: String?) async throws -> ASCReviewPage
