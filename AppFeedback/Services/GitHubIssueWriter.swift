@@ -1,5 +1,15 @@
 import Foundation
 
+/// Narrow seam over `GitHubIssueWriter` so synthesis coordinators can inject a fake writer in
+/// tests. The signatures mirror the actor's exactly.
+protocol IssueWriting: Sendable {
+    func createIssue(owner: String, repo: String, title: String, body: String,
+                     labels: [String], milestoneNumber: Int?, token: String) async throws -> Int
+    func updateIssue(owner: String, repo: String, number: Int,
+                     title: String?, body: String?, labels: [String]?,
+                     milestoneNumber: Int??, state: String?, token: String) async throws
+}
+
 /// Creates and mutates GitHub issues used to model tasks. Mirrors `GitHubCommentPoster`'s
 /// REST conventions: injected session, Bearer token, 2xx check, typed error.
 actor GitHubIssueWriter {
@@ -109,3 +119,5 @@ actor GitHubIssueWriter {
         return data
     }
 }
+
+extension GitHubIssueWriter: IssueWriting {}
