@@ -36,7 +36,12 @@ final class FakeAppStoreConnectClient: AppStoreConnectClientProtocol, @unchecked
             return state.pages[state.pageIndex]
         }
     }
-    func listApps() async throws -> [ASCApp] { lock.withLock { $0.apps } }
+    func listApps() async throws -> [ASCApp] {
+        try lock.withLock { state in
+            if let e = state.throwOnList { throw e }
+            return state.apps
+        }
+    }
     func createOrUpdateResponse(reviewId: String, body: String) async throws -> ASCResponse {
         lock.withLock { $0.createCalls.append((reviewId, body)) }
         return ASCResponse(id: "RESP-\(reviewId)", responseBody: body, state: "PENDING_PUBLISH", lastModifiedDate: Date())
