@@ -212,6 +212,11 @@ struct EmailSourceForm: View {
         if let existing = model.existingAccountID {
             accountStore.update(id: existing) { acc in apply(v, to: acc) }
             accountID = existing
+        } else if let alreadyCreated = productStore.products.first(where: { $0.id == product.id })?.feedbackInboxAccountID {
+            // An account was already created this session (e.g. a previous "Test Connection" call).
+            // Reuse the same UUID so we don't mint a second orphaned MailAccount + Keychain entry.
+            accountStore.update(id: alreadyCreated) { acc in apply(v, to: acc) }
+            accountID = alreadyCreated
         } else {
             let acc = accountStore.add { a in apply(v, to: a) }
             accountID = acc.id
