@@ -403,6 +403,7 @@
 		B19A573B4D1CF4B68C587DB0 /* FilterPreferenceStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = FB3AD54F937BF198975EC1F7 /* FilterPreferenceStore.swift */; };
 		B2337CDD01B9CB3D797B8B81 /* GitHubMilestoneReleaseClient.swift in Sources */ = {isa = PBXBuildFile; fileRef = DFBF90E755958089C20AE4E9 /* GitHubMilestoneReleaseClient.swift */; };
 		B2C11249A27B7FE2EC5F8AEE /* AppStoreReviewCoordinatorTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = B7FB5B515CAD2DA5A00CF590 /* AppStoreReviewCoordinatorTests.swift */; };
+		B32FC65E17DF4C5F94543D36 /* IOSEmailSourceForm.swift in Sources */ = {isa = PBXBuildFile; fileRef = DBC69742A3AD09BEEE72CA50 /* IOSEmailSourceForm.swift */; };
 		B49BAF3ADFABB19BE4B28752 /* ProductStoreTestSupport.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5D11686ABFF558C5AB08036F /* ProductStoreTestSupport.swift */; };
 		B684F952FF9D333091CF11F1 /* SettingsNavigationTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = E581E8C6C12E0A2628F7B31F /* SettingsNavigationTests.swift */; };
 		B6FCA0A038E78F1D56018AC9 /* EmailAccountList.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1C5E4AF7386763AADC7864DE /* EmailAccountList.swift */; };
@@ -512,6 +513,7 @@
 		E6B2B7DA9170238051C3D937 /* ProjectInspectorModelTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 787DB55D32DE6798C2427FE6 /* ProjectInspectorModelTests.swift */; };
 		E7D349BC10F886C4F4D85A8E /* IssueTranslation.swift in Sources */ = {isa = PBXBuildFile; fileRef = 099FDFBBED4F15803BBAC851 /* IssueTranslation.swift */; };
 		E906AAA5A7F1B49D767A3492 /* MailAccountLocalStateStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 93B756CB500E6F04BB86F616 /* MailAccountLocalStateStore.swift */; };
+		E95705FC9B9EB2905134E021 /* IOSEmailSourceForm.swift in Sources */ = {isa = PBXBuildFile; fileRef = DBC69742A3AD09BEEE72CA50 /* IOSEmailSourceForm.swift */; };
 		E9FFB4245CF39616224B9A2E /* TasksSectionSmokeTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2B1E39D284FE0DA4E3A8CAB6 /* TasksSectionSmokeTests.swift */; };
 		EA29D7D0BC140D0B14DDAAD6 /* GitHubAuthModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = DD959DEDBC95A458BAD75F14 /* GitHubAuthModels.swift */; };
 		EA7C912F6C5F6AF22E49EFB0 /* RepoFilterPreference.swift in Sources */ = {isa = PBXBuildFile; fileRef = 64BC6EB08A7AAC01AF6D8557 /* RepoFilterPreference.swift */; };
@@ -816,6 +818,7 @@
 		DA0B480EF5BCDAC2E1187B39 /* FeedbackAttachmentDownloader.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FeedbackAttachmentDownloader.swift; sourceTree = "<group>"; };
 		DA2585A8442E3BBFF49D6958 /* AddEditRepoView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AddEditRepoView.swift; sourceTree = "<group>"; };
 		DACBECD4E33FD29586CF8142 /* GitHubMilestoneReleaseClientTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GitHubMilestoneReleaseClientTests.swift; sourceTree = "<group>"; };
+		DBC69742A3AD09BEEE72CA50 /* IOSEmailSourceForm.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = IOSEmailSourceForm.swift; sourceTree = "<group>"; };
 		DC5896A20C92E40B2B0DDC2D /* TaskItemTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TaskItemTests.swift; sourceTree = "<group>"; };
 		DD959DEDBC95A458BAD75F14 /* GitHubAuthModels.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GitHubAuthModels.swift; sourceTree = "<group>"; };
 		DE72726765CDF1EE994A3080 /* SourceStatusTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SourceStatusTests.swift; sourceTree = "<group>"; };
@@ -1052,6 +1055,7 @@
 				B815A48424827C3B8720829C /* AppStoreSourceForm.swift */,
 				77DC8C04E5AC336B5E51BD72 /* AppStoreSourceFormModel.swift */,
 				624C330D11DEE4FCC974F782 /* EmailSourceForm.swift */,
+				DBC69742A3AD09BEEE72CA50 /* IOSEmailSourceForm.swift */,
 				37C7792A5B18A0B7B0B107BD /* SourceStatus.swift */,
 			);
 			path = Sources;
@@ -1580,6 +1584,7 @@
 				9E88186B266A34081A0BF2F5 /* IOSAddEmailAccountSheet.swift in Sources */,
 				EE286FC74959048F7DC74EF0 /* IOSEmailAccountEditor.swift in Sources */,
 				6E78B1AA147D194CDFF00D68 /* IOSEmailAccountList.swift in Sources */,
+				E95705FC9B9EB2905134E021 /* IOSEmailSourceForm.swift in Sources */,
 				BFAB198DF0E83A583F4660F8 /* IOSMailDefaultsView.swift in Sources */,
 				7247CD36D05C4A95A570F029 /* InboundNoiseFilter.swift in Sources */,
 				EAC5CD362385D4BF52088A3D /* InlineReplyView.swift in Sources */,
@@ -1865,6 +1870,7 @@
 				904DFD2356B0454FEA1EB789 /* IOSAddEmailAccountSheet.swift in Sources */,
 				E18DDC14372A1B013C7D3521 /* IOSEmailAccountEditor.swift in Sources */,
 				DE3593C7C342772A3EFD0A69 /* IOSEmailAccountList.swift in Sources */,
+				B32FC65E17DF4C5F94543D36 /* IOSEmailSourceForm.swift in Sources */,
 				2ADFCADACE15F9CED14427B1 /* IOSMailDefaultsView.swift in Sources */,
 				760B17C1ADA1EB937BE687A6 /* InboundNoiseFilter.swift in Sources */,
 				D5C176B9591FEBC55CB2C388 /* InlineReplyView.swift in Sources */,

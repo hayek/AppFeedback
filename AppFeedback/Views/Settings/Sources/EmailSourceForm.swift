@@ -72,14 +72,12 @@ final class EmailSourceFormModel {
     }
 }
 
-#if os(macOS)
 import SwiftUI
-import AppKit
 
 /// Configures (or edits) a product's email feedback inbox: a MailAccount with
 /// `feedbackProductID == product.id`, referenced by `Product.feedbackInboxAccountID`.
 /// Replaces the Phase-2 stub with the full form: IMAP host/port/user/password + Preset,
-/// Test Connection, create/edit/remove a feedback inbox account.
+/// Test Connection, create/edit/remove a feedback inbox account. Used on both macOS and iOS.
 struct EmailSourceForm: View {
     let product: ProductConfig
 
@@ -108,9 +106,15 @@ struct EmailSourceForm: View {
                 Picker("Service", selection: Binding(get: { model.preset }, set: { model.applyPresetDefaults($0) })) {
                     ForEach(SMTPCredentials.Preset.allCases) { Text($0.displayName).tag($0) }
                 }
-                TextField("Inbox address", text: Binding(get: { model.username }, set: { model.username = $0 }),
+                TextField("Inbox address",
+                          text: Binding(get: { model.username }, set: { model.username = $0 }),
                           prompt: Text("feedback@yourapp.com"))
                     .textContentType(.emailAddress)
+                    #if os(iOS)
+                    .keyboardType(.emailAddress)
+                    .textInputAutocapitalization(.never)
+                    .autocorrectionDisabled()
+                    #endif
                 SanitizedPasswordField(
                     title: "Password",
                     prompt: Text(model.preset.passwordPrompt),
@@ -120,17 +124,25 @@ struct EmailSourceForm: View {
                     MailProviderHintCard(preset: model.preset, help: help,
                                          appPasswordURL: model.preset.appPasswordsURL(forEmail: model.username))
                 }
-                TextField("Sender display name", text: Binding(get: { model.senderName }, set: { model.senderName = $0 }))
+                TextField("Sender display name",
+                          text: Binding(get: { model.senderName }, set: { model.senderName = $0 }))
             }
             if model.preset == .custom {
                 Section("Advanced") {
                     LabeledContent("IMAP host") {
                         TextField("", text: Binding(get: { model.imapHost }, set: { model.imapHost = $0 }))
                             .multilineTextAlignment(.trailing)
+                            #if os(iOS)
+                            .autocorrectionDisabled()
+                            .textInputAutocapitalization(.never)
+                            #endif
                     }
                     LabeledContent("IMAP port") {
                         TextField("", text: Binding(get: { model.imapPort }, set: { model.imapPort = $0 }))
                             .multilineTextAlignment(.trailing)
+                            #if os(iOS)
+                            .keyboardType(.numberPad)
+                            #endif
                     }
                 }
             }
@@ -147,7 +159,13 @@ struct EmailSourceForm: View {
                 }
             }
         }
+        #if os(macOS)
         .formStyle(.grouped)
+        #endif
+        #if os(iOS)
+        .navigationTitle("Email Feedback Inbox")
+        .navigationBarTitleDisplayMode(.inline)
+        #endif
         .task { await load() }
         .alert("Remove this email source?", isPresented: $showRemoveConfirm) {
             Button("Cancel", role: .cancel) { }
@@ -239,4 +257,3 @@ struct EmailSourceForm: View {
         dismiss()
     }
 }
-#endif
