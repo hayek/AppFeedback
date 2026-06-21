@@ -11,6 +11,7 @@ import SwiftUI
 struct ProductsSettingsTab: View {
     @Bindable var store: ProductStore
     @Bindable var navigation: SettingsNavigation
+    @State private var showAdd = false
 
     private var allDisplayNames: [String] { store.products.map(\.displayName).sorted() }
 
@@ -46,6 +47,16 @@ struct ProductsSettingsTab: View {
                     || !store.products.contains(where: { $0.id == navigation.selectedProductID }) {
                     navigation.selectedProductID = store.products.first?.id
                 }
+            }
+            .toolbar {
+                ToolbarItem {
+                    Button { showAdd = true } label: {
+                        Label("Add Product", systemImage: "plus")
+                    }
+                }
+            }
+            .sheet(isPresented: $showAdd) {
+                AddEditRepoView(store: store)
             }
         } detail: {
             if let product = selectedProduct {
