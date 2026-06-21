@@ -170,26 +170,26 @@ struct ProductSettingsView: View {
     @ViewBuilder
     private func chrome<C: View>(title: String, canAdd: Bool, add: Binding<Bool>, @ViewBuilder _ content: () -> C) -> some View {
         #if os(macOS)
-        VStack(spacing: 0) {
-            HStack(spacing: 10) {
-                Button { activeSheet = nil } label: { Image(systemName: "xmark") }
-                    .buttonStyle(.plain)
-                    .keyboardShortcut(.cancelAction)
-                Text(title).font(.headline)
-                Spacer()
+        NavigationStack {
+            VStack(spacing: 0) {
+                content()
+                Divider()
+                HStack {
+                    Spacer()
+                    Button("Add") { add.wrappedValue = true }
+                        .buttonStyle(.borderedProminent)
+                        .keyboardShortcut(.defaultAction)
+                        .disabled(!canAdd)
+                }
+                .padding()
             }
-            .padding()
-            Divider()
-            content()
-            Divider()
-            HStack {
-                Spacer()
-                Button("Add") { add.wrappedValue = true }
-                    .buttonStyle(.borderedProminent)
-                    .keyboardShortcut(.defaultAction)
-                    .disabled(!canAdd)
+            .navigationTitle(title)
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button { activeSheet = nil } label: { Image(systemName: "xmark") }
+                        .keyboardShortcut(.cancelAction)
+                }
             }
-            .padding()
         }
         .frame(minWidth: 520, idealWidth: 560, minHeight: 560, idealHeight: 640)
         #else
