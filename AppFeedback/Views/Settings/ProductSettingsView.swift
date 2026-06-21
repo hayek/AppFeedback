@@ -140,6 +140,7 @@ struct ProductSettingsView: View {
                 .foregroundStyle(status == .configured ? .green : .secondary)
             Image(systemName: "chevron.right").font(.caption2).foregroundStyle(.tertiary)
         }
+        .contentShape(Rectangle())   // make the whole row (incl. the Spacer) tappable
     }
 
     // MARK: - Source sheets
