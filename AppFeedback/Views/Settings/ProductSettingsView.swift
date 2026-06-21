@@ -5,7 +5,6 @@ import SwiftUI
 /// mirror/redact toggles) and a **Sources** section (SDK / App Store / Email).
 struct ProductSettingsView: View {
     @Environment(\.dismiss) private var dismiss
-    @Environment(\.openWindow) private var openWindow
     var store: ProductStore
     var product: ProductConfig
     var embedInNavigation: Bool = false
@@ -153,16 +152,10 @@ struct ProductSettingsView: View {
 
     // MARK: - Source sheets
 
-    /// macOS opens a real window (native chrome); iOS presents a sheet (which has a native nav bar).
-    private func openSource(_ kind: SourceEditorRequest.Kind) {
-        #if os(macOS)
-        openWindow(id: "source-editor", value: SourceEditorRequest(productID: product.id, kind: kind))
-        #else
-        // Reset chrome state so a reopened sheet never shows stale Add/Save button state.
+    private func openSource(_ sheet: SourceSheet) {
         appStoreSave = false; appStoreCanSave = false
         emailSave = false; emailCanSave = false
-        activeSheet = (kind == .appStore) ? .appStore : .email
-        #endif
+        activeSheet = sheet
     }
 
     @ViewBuilder
@@ -183,21 +176,25 @@ struct ProductSettingsView: View {
         }
     }
 
-    /// Modal chrome for a source form (iOS only): a NavigationStack with ✕ cancel and a primary
-    /// action button (Add when new, Save when already configured) that drives the form via its
-    /// external save trigger / validity bindings. macOS always opens a real SourceEditorWindow instead.
     @ViewBuilder
     private func chrome<C: View>(title: String, primaryTitle: String, canAdd: Bool, add: Binding<Bool>, @ViewBuilder _ content: () -> C) -> some View {
         NavigationStack {
             content()
+                .navigationTitle(title)
                 .toolbar {
                     ToolbarItem(placement: .cancellationAction) {
                         Button { activeSheet = nil } label: { Image(systemName: "xmark") }
+                            .keyboardShortcut(.cancelAction)
                     }
                     ToolbarItem(placement: .confirmationAction) {
-                        Button(primaryTitle) { add.wrappedValue = true }.disabled(!canAdd)
+                        Button(primaryTitle) { add.wrappedValue = true }
+                            .disabled(!canAdd)
+                            .keyboardShortcut(.defaultAction)
                     }
                 }
         }
+        #if os(macOS)
+        .frame(minWidth: 520, idealWidth: 560, minHeight: 560, idealHeight: 640)
+        #endif
     }
 }

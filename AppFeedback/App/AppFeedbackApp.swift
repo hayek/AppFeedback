@@ -316,7 +316,7 @@ struct AppFeedbackApp: App {
     }
 
     /// Injects the full set of shared environment objects into a view. Using one helper
-    /// ensures all three scenes (main WindowGroup, Settings Window, source-editor WindowGroup)
+    /// ensures all scenes (main WindowGroup, Activity window, Settings window)
     /// receive an identical, complete environment — no drift, no latent missing-@Environment crash.
     private func sharedEnvironment<V: View>(_ content: V) -> some View {
         content
@@ -420,11 +420,6 @@ struct AppFeedbackApp: App {
         }
         .defaultSize(width: 720, height: 620)
         .windowResizability(.contentMinSize)
-        WindowGroup(id: "source-editor", for: SourceEditorRequest.self) { $request in
-            sharedEnvironment(SourceEditorWindow(request: request))
-        }
-        .defaultSize(width: 560, height: 640)
-        .windowResizability(.contentSize)
         #endif
     }
 
