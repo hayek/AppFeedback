@@ -27,6 +27,11 @@ final class AppStoreReviewCoordinatorRegistry {
 
     private let factory: CoordinatorFactory
     private var coordinators: [UUID: AppStoreReviewCoordinator] = [:]
+    /// Tracks products whose key is known read-only, mirrored here synchronously on the MainActor
+    /// so `responderContext(productID:)` can short-circuit without an async hop to the coordinator.
+    /// This closes the race window where a concurrent `responderContext` call could read
+    /// `isReadOnly: false` before the fire-and-forget Task in `markReadOnly` has executed.
+    private var readOnlyProductIDs: Set<UUID> = []
 
     init(factory: @escaping CoordinatorFactory) { self.factory = factory }
 
@@ -40,9 +45,19 @@ final class AppStoreReviewCoordinatorRegistry {
     /// so subsequent controllers on the same product are seeded read-only.
     func responderContext(productID: UUID) async -> AppStoreResponderContext? {
         guard let coord = coordinators[productID] else { return nil }
+        // Short-circuit: if this product is already known read-only on the registry (set
+        // synchronously in markReadOnly before the async coordinator hop), skip the actor
+        // call for the flag. This closes the race window where a concurrent call could
+        // still see isReadOnly: false before the detached Task has run on the coordinator.
+        let isReadOnly: Bool
+        if readOnlyProductIDs.contains(productID) {
+            isReadOnly = true
+        } else {
+            isReadOnly = await coord.readOnly()
+        }
         return AppStoreResponderContext(
             client: await coord.responderClient,
-            isReadOnly: await coord.readOnly(),
+            isReadOnly: isReadOnly,
             owner: await coord.sinkOwner,
             repo: await coord.sinkRepo,
             onReadOnly: { [weak self] in self?.markReadOnly(productID: productID) })
@@ -52,6 +67,10 @@ final class AppStoreReviewCoordinatorRegistry {
     /// coordinator so `responderContext(productID:)` returns `isReadOnly: true` for any
     /// subsequently-built controller on the same product.
     func markReadOnly(productID: UUID) {
+        // Record immediately on the MainActor before any async hop so that a concurrent
+        // `responderContext(productID:)` call observes the read-only state right away,
+        // eliminating the race window that existed when only the coordinator actor held this flag.
+        readOnlyProductIDs.insert(productID)
         guard let coord = coordinators[productID] else { return }
         Task { await coord.markReadOnly() }
     }
@@ -87,11 +106,13 @@ final class AppStoreReviewCoordinatorRegistry {
     func stop() { for coord in coordinators.values { Task { await coord.stop() } } }
 
     /// Stops and restarts a single product's coordinator (used when its ASC credentials change).
+    /// Clears the read-only flag on the registry so the new coordinator starts writable.
     func restart(productID: UUID, configs: [ASCProductConfig]) {
         if let coord = coordinators[productID] {
             Task { await coord.stop() }
             coordinators[productID] = nil
         }
+        readOnlyProductIDs.remove(productID)
         syncWithProducts(configs)
     }
 }

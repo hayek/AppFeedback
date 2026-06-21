@@ -272,4 +272,50 @@ final class AppStoreReviewCoordinatorRegistryTests: XCTestCase {
         let ctx = await registry.responderContext(productID: a)
         XCTAssertEqual(ctx?.isReadOnly, true)
     }
+
+    // [race-window fix] markReadOnly records the flag synchronously on the MainActor registry
+    // before dispatching to the coordinator actor. A concurrent responderContext call must see
+    // isReadOnly: true immediately, even if the coordinator Task hasn't run yet.
+    func testMarkReadOnlyIsVisibleSynchronouslyOnRegistry() async throws {
+        let store = try makeStore()
+        let registry = AppStoreReviewCoordinatorRegistry { c in
+            AppStoreReviewCoordinator(
+                config: c, client: FakeAppStoreConnectClient(), issueWriter: FakeIssueWriting(),
+                commentPoster: GitHubCommentPoster(session: .mock), mirrorStore: store,
+                tokenLoader: { "tok" }, activityLog: nil, clock: { Date() })
+        }
+        let a = UUID()
+        registry.syncWithProducts([ASCProductConfig(id: a, owner: "o", repo: "r",
+                                                    issuerID: "i", keyID: "k", appAppleID: "1")])
+        // Call markReadOnly via the registry (not the coordinator directly) — this is the path
+        // Phase 4 uses via the onReadOnly callback. The flag must be recorded immediately, before
+        // any Task yields, so responderContext called right after returns isReadOnly: true.
+        registry.markReadOnly(productID: a)
+        let ctx = await registry.responderContext(productID: a)
+        XCTAssertEqual(ctx?.isReadOnly, true,
+                       "registry-level readOnlyProductIDs closes the race window")
+    }
+
+    // restart() clears the read-only flag so a replacement coordinator starts writable.
+    func testRestartClearsReadOnlyFlag() async throws {
+        let store = try makeStore()
+        let registry = AppStoreReviewCoordinatorRegistry { c in
+            AppStoreReviewCoordinator(
+                config: c, client: FakeAppStoreConnectClient(), issueWriter: FakeIssueWriting(),
+                commentPoster: GitHubCommentPoster(session: .mock), mirrorStore: store,
+                tokenLoader: { "tok" }, activityLog: nil, clock: { Date() })
+        }
+        let a = UUID()
+        let productCfg = ASCProductConfig(id: a, owner: "o", repo: "r",
+                                          issuerID: "i", keyID: "k", appAppleID: "1")
+        registry.syncWithProducts([productCfg])
+        registry.markReadOnly(productID: a)
+        // Verify it is read-only before restart.
+        var ctx = await registry.responderContext(productID: a)
+        XCTAssertEqual(ctx?.isReadOnly, true)
+        // Restart simulates a credential change — flag must be cleared so new controller is writable.
+        registry.restart(productID: a, configs: [productCfg])
+        ctx = await registry.responderContext(productID: a)
+        XCTAssertEqual(ctx?.isReadOnly, false, "restart clears the read-only flag on the registry")
+    }
 }
