@@ -58,6 +58,7 @@ struct AppFeedbackApp: App {
     @State private var downloaderHolder: AttachmentDownloaderHolder
     @State private var coordinatorRegistry: MailSyncCoordinatorRegistry?
     @State private var mirrorHolder: MailToGitHubMirrorHolder
+    @State private var feedbackMirrorHolder: MailToFeedbackMirrorHolder
     @State private var appStoreReviewMirrorStore: AppStoreReviewMirrorStore
     @State private var appStoreRegistry: AppStoreReviewCoordinatorRegistry
     @State private var mailLocalStateStore: MailAccountLocalStateStore
@@ -191,6 +192,13 @@ struct AppFeedbackApp: App {
         )
         _mirrorHolder = State(initialValue: MailToGitHubMirrorHolder(mirrorLocal))
 
+        let feedbackMirrorLocal = MailToFeedbackMirror(
+            context: ModelContext(container),
+            productStore: _store.wrappedValue,
+            activityLog: activityLogValue
+        )
+        _feedbackMirrorHolder = State(initialValue: MailToFeedbackMirrorHolder(feedbackMirrorLocal))
+
         // App Store Connect review registry: one coordinator per product that has ASC configured.
         let ascMirrorStore = AppStoreReviewMirrorStore(context: ModelContext(container))
         _appStoreReviewMirrorStore = State(initialValue: ascMirrorStore)
@@ -234,6 +242,7 @@ struct AppFeedbackApp: App {
         #if canImport(SwiftMail)
         let titlesContainer = container
         let mirrorRef = mirrorLocal
+        let feedbackMirrorRef = feedbackMirrorLocal
         let serviceRef = service
         let activityLogRef = activityLogValue
         let registryFactory: (UUID) -> MailSyncCoordinator = { id in
@@ -247,6 +256,7 @@ struct AppFeedbackApp: App {
                 localState: localStateStoreLocal,
                 activityLog: activityLogRef,
                 mirror: mirrorRef,
+                feedbackMirror: feedbackMirrorRef,
                 notificationService: serviceRef,
                 knownIssueTitlesProvider: { @Sendable in
                     await MainActor.run {
