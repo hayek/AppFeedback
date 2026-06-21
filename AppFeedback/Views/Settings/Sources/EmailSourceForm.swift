@@ -80,6 +80,9 @@ import SwiftUI
 /// Test Connection, create/edit/remove a feedback inbox account. Used on both macOS and iOS.
 struct EmailSourceForm: View {
     let product: ProductConfig
+    /// Optional external save trigger — set to `true` from outside (e.g. an iOS toolbar "Save" button
+    /// in `IOSEmailSourceForm`) to invoke `save()` on the form without duplicating logic.
+    var externalSaveTrigger: Binding<Bool>?
 
     @Environment(MailAccountStore.self) private var accountStore
     @Environment(ProductStore.self) private var productStore
@@ -92,8 +95,9 @@ struct EmailSourceForm: View {
     @State private var didLoad = false
     @State private var showRemoveConfirm = false
 
-    init(product: ProductConfig) {
+    init(product: ProductConfig, externalSaveTrigger: Binding<Bool>? = nil) {
         self.product = product
+        self.externalSaveTrigger = externalSaveTrigger
         _model = State(initialValue: EmailSourceFormModel(
             productID: product.id,
             existingAccountID: product.feedbackInboxAccountID
@@ -167,6 +171,12 @@ struct EmailSourceForm: View {
         .navigationBarTitleDisplayMode(.inline)
         #endif
         .task { await load() }
+        .onChange(of: externalSaveTrigger?.wrappedValue ?? false) { _, triggered in
+            if triggered {
+                externalSaveTrigger?.wrappedValue = false
+                Task { await save() }
+            }
+        }
         .alert("Remove this email source?", isPresented: $showRemoveConfirm) {
             Button("Cancel", role: .cancel) { }
             Button("Remove", role: .destructive) { Task { await remove() } }

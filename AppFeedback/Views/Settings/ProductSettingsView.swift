@@ -16,6 +16,9 @@ struct ProductSettingsView: View {
     @State private var mirrorEmailsToGitHub = true
     @State private var redactEmailAddresses = true
     @State private var isSaving = false
+    #if os(iOS)
+    @State private var showEmailSourceSheet = false
+    #endif
 
     var body: some View {
         platformContent
@@ -117,7 +120,22 @@ struct ProductSettingsView: View {
                 )
             }
 
-            // Email — Off / Configured → EmailSourceForm (Phase 5).
+            // Email — Off / Configured → EmailSourceForm (macOS NavigationLink push) or
+            // IOSEmailSourceForm (iOS sheet with Cancel/Save toolbar).
+            #if os(iOS)
+            Button {
+                showEmailSourceSheet = true
+            } label: {
+                sourceRow(
+                    title: "Email",
+                    systemImage: "envelope",
+                    status: product.emailSourceStatus
+                )
+            }
+            .sheet(isPresented: $showEmailSourceSheet) {
+                IOSEmailSourceForm(product: product)
+            }
+            #else
             NavigationLink {
                 EmailSourceForm(product: product)
             } label: {
@@ -127,6 +145,7 @@ struct ProductSettingsView: View {
                     status: product.emailSourceStatus
                 )
             }
+            #endif
         } header: {
             Text("Sources")
         } footer: {

@@ -12,12 +12,19 @@ struct IOSEmailSourceForm: View {
 
     @Environment(\.dismiss) private var dismiss
 
+    /// Flipped to `true` by the "Save" toolbar button; `EmailSourceForm` observes this via
+    /// `onChange` and calls its own `save()` (which has the necessary environment access).
+    @State private var saveTrigger = false
+
     var body: some View {
         NavigationStack {
-            EmailSourceForm(product: product)
+            EmailSourceForm(product: product, externalSaveTrigger: $saveTrigger)
                 .toolbar {
                     ToolbarItem(placement: .cancellationAction) {
                         Button("Cancel") { dismiss() }
+                    }
+                    ToolbarItem(placement: .confirmationAction) {
+                        Button("Save") { saveTrigger = true }
                     }
                 }
         }
