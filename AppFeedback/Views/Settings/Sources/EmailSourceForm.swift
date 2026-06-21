@@ -29,6 +29,14 @@ final class EmailSourceFormModel {
 
     var isEditing: Bool { existingAccountID != nil }
 
+    /// Resolves the account UUID that `remove()` should delete.
+    /// Checks `liveProductAccountID` first (covers accounts minted mid-session via
+    /// Test Connection whose UUID is not in `existingAccountID`), then falls back to
+    /// the id captured at form-init time.
+    func resolvedAccountID(liveProductAccountID: UUID?) -> UUID? {
+        liveProductAccountID ?? existingAccountID
+    }
+
     var canTest: Bool {
         !username.isEmpty && !imapHost.isEmpty && !password.isEmpty
     }
@@ -94,6 +102,9 @@ struct EmailSourceForm: View {
     @State private var testState: String = ""
     @State private var didLoad = false
     @State private var showRemoveConfirm = false
+    /// True once the form has been saved or explicitly removed in this session. Used by the
+    /// onDisappear cleanup to distinguish a deliberate save from a cancel/navigate-away dismiss.
+    @State private var didSaveOrRemove = false
 
     init(product: ProductConfig, externalSaveTrigger: Binding<Bool>? = nil) {
         self.product = product
@@ -102,6 +113,20 @@ struct EmailSourceForm: View {
             productID: product.id,
             existingAccountID: product.feedbackInboxAccountID
         ))
+    }
+
+    /// True when a Remove button should be shown. Covers two cases:
+    ///   1. Editing an existing inbox (model.isEditing): `existingAccountID` was non-nil at form init.
+    ///   2. A new-inbox session where Test Connection already minted a live account linkage: the
+    ///      product's `feedbackInboxAccountID` is now non-nil even though `model.existingAccountID` is nil.
+    private var showRemoveButton: Bool {
+        model.isEditing || liveAccountID != nil
+    }
+
+    /// The account ID currently live in the product store (may differ from model.existingAccountID
+    /// when Test Connection mints a new account during this form session).
+    private var liveAccountID: UUID? {
+        productStore.products.first(where: { $0.id == product.id })?.feedbackInboxAccountID
     }
 
     var body: some View {
@@ -157,7 +182,7 @@ struct EmailSourceForm: View {
                 Button("Save") { Task { await save() } }
                     .disabled(!model.canTest)
             }
-            if model.isEditing {
+            if showRemoveButton {
                 Section {
                     Button("Remove Email Source", role: .destructive) { showRemoveConfirm = true }
                 }
@@ -175,6 +200,19 @@ struct EmailSourceForm: View {
             if triggered {
                 externalSaveTrigger?.wrappedValue = false
                 Task { await save() }
+            }
+        }
+        .onDisappear {
+            // Cancel/navigate-away path: if a mid-session account was minted (Test Connection ran
+            // on a new-inbox form, which linked a new MailAccount to the product) but the user
+            // never hit Save or Remove, clean up the orphan now.
+            guard !didSaveOrRemove, model.existingAccountID == nil else { return }
+            if let orphanID = liveAccountID,
+               let acc = accountStore.account(id: orphanID) {
+                var cleared = product
+                cleared.feedbackInboxAccountID = nil
+                productStore.update(cleared)
+                Task { await accountStore.deleteWithCredentials(acc) }
             }
         }
         .alert("Remove this email source?", isPresented: $showRemoveConfirm) {
@@ -233,6 +271,7 @@ struct EmailSourceForm: View {
 
     @MainActor private func save() async {
         await persistAccount()
+        didSaveOrRemove = true
         testState = "Saved."
         dismiss()
     }
@@ -270,11 +309,10 @@ struct EmailSourceForm: View {
     }
 
     @MainActor private func remove() async {
-        // Resolve the account ID from the live product linkage first (covers accounts minted
-        // during this session via Test Connection whose UUID isn't in model.existingAccountID),
-        // then fall back to the id captured at form-init time.
-        let accountID = productStore.products.first(where: { $0.id == product.id })?.feedbackInboxAccountID
-                     ?? model.existingAccountID
+        // Resolve the account ID via the model helper: checks the live product linkage first
+        // (covers accounts minted mid-session by Test Connection whose UUID isn't in
+        // model.existingAccountID), then falls back to the id captured at form-init time.
+        let accountID = model.resolvedAccountID(liveProductAccountID: liveAccountID)
         var updated = product
         updated.feedbackInboxAccountID = nil
         productStore.update(updated)
@@ -282,6 +320,7 @@ struct EmailSourceForm: View {
             await accountStore.deleteWithCredentials(acc)
         }
         registry?.syncWithAccounts()
+        didSaveOrRemove = true
         dismiss()
     }
 }

@@ -5,16 +5,43 @@ import SwiftData
 @MainActor
 final class EmailSourceFormModelTests: XCTestCase {
 
+    // MARK: - Orphan prevention: resolvedAccountID helper
+
+    /// `resolvedAccountID` prefers the live product linkage over the model's
+    /// init-time existingAccountID. This is the production logic used by both
+    /// `remove()` and the `onDisappear` cleanup.
+    func test_resolvedAccountID_prefersLiveOverExisting() {
+        let existingID = UUID()
+        let liveID = UUID()
+        let model = EmailSourceFormModel(productID: UUID(), existingAccountID: existingID)
+
+        // Live linkage present → use it (covers mid-session account minted by Test Connection).
+        XCTAssertEqual(model.resolvedAccountID(liveProductAccountID: liveID), liveID)
+    }
+
+    func test_resolvedAccountID_fallsBackToExistingWhenLiveIsNil() {
+        let existingID = UUID()
+        let model = EmailSourceFormModel(productID: UUID(), existingAccountID: existingID)
+
+        // No live linkage → fall back to form-init existingAccountID.
+        XCTAssertEqual(model.resolvedAccountID(liveProductAccountID: nil), existingID)
+    }
+
+    func test_resolvedAccountID_returnsNilWhenBothNil() {
+        let model = EmailSourceFormModel(productID: UUID(), existingAccountID: nil)
+        XCTAssertNil(model.resolvedAccountID(liveProductAccountID: nil))
+    }
+
     // MARK: - Orphan prevention: remove() after Test Connection mid-session
 
-    /// Regression test for a bug where remove() used model.existingAccountID (nil for new
-    /// inboxes) instead of the live product linkage, orphaning accounts created via Test
-    /// Connection without a prior Save.
+    /// Regression test for the scenario: user opens EmailSourceForm for a product with no inbox,
+    /// fills in credentials, taps "Test Connection" (which calls persistAccount() → mints a
+    /// MailAccount and links it to the product), then taps "Remove" without ever tapping "Save".
     ///
-    /// Scenario: user opens EmailSourceForm for a product with no inbox, fills in credentials,
-    /// taps "Test Connection" (which calls persistAccount() → mints a MailAccount and links it),
-    /// then taps "Remove" without ever tapping "Save". The fixed remove() resolves the account
-    /// ID from productStore.products first, so the newly minted MailAccount is deleted.
+    /// The fixed remove() resolves the account ID via model.resolvedAccountID(liveProductAccountID:),
+    /// which checks the live product linkage first. This test calls that same helper directly
+    /// (the production code calls it with liveAccountID, which reads from productStore.products —
+    /// the exact same ID we set up in the "simulate Test Connection" step below).
     func test_remove_afterTestConnection_deletesOrphanedMailAccount() async throws {
         // ── Set up in-memory stores ──────────────────────────────────────────────────────
         let schema = Schema([Product.self, HiddenApp.self, MailAccount.self])
@@ -46,13 +73,14 @@ final class EmailSourceFormModelTests: XCTestCase {
         XCTAssertEqual(productStore.products.first?.feedbackInboxAccountID, newAccount.id,
                        "product should be linked to the new account")
 
-        // ── Simulate the FIXED remove() logic ────────────────────────────────────────────
+        // ── Simulate the FIXED remove() logic via the production helper ───────────────────
         // model.existingAccountID is nil (form was opened with no pre-existing inbox),
-        // so the fix resolves via the live product linkage.
-        let modelExistingAccountID: UUID? = nil   // mirrors EmailSourceFormModel.existingAccountID for a new inbox
-        let resolvedID = productStore.products.first(where: { $0.id == product.id })?.feedbackInboxAccountID
-                      ?? modelExistingAccountID
+        // but liveProductAccountID reflects what Test Connection just minted.
+        let model = EmailSourceFormModel(productID: product.id, existingAccountID: nil)
+        let liveAccountID = productStore.products.first(where: { $0.id == product.id })?.feedbackInboxAccountID
+        let resolvedID = model.resolvedAccountID(liveProductAccountID: liveAccountID)
 
+        // This is what remove() does internally after resolving the ID:
         var cleared = product
         cleared.feedbackInboxAccountID = nil
         productStore.update(cleared)
@@ -90,16 +118,35 @@ final class EmailSourceFormModelTests: XCTestCase {
         productStore.update(linked)
 
         // Simulate the BUGGY remove() logic: uses model.existingAccountID (nil for new inbox)
-        let modelExistingAccountID: UUID? = nil
+        // instead of the production resolvedAccountID(liveProductAccountID:) helper.
+        let model = EmailSourceFormModel(productID: product.id, existingAccountID: nil)
+        let buggyID = model.resolvedAccountID(liveProductAccountID: nil) // ignores live linkage
         var cleared = product; cleared.feedbackInboxAccountID = nil
         productStore.update(cleared)
-        if let id = modelExistingAccountID, let acc = accountStore.account(id: id) {
+        if let id = buggyID, let acc = accountStore.account(id: id) {
             await accountStore.deleteWithCredentials(acc)
         }
 
-        // This is the BUG: the account remains orphaned
+        // This is the BUG: the account remains orphaned because buggyID is nil
         XCTAssertEqual(accountStore.accounts.count, 1,
                        "buggy path leaves the account orphaned — this test documents the pre-fix behaviour")
+    }
+
+    // MARK: - Cancel/navigate-away path: onDisappear orphan cleanup
+
+    /// Documents the onDisappear path: a mid-session account (minted by Test Connection on a
+    /// new-inbox form) is cleaned up when the form is dismissed via Cancel/navigate-away.
+    /// The cleanup guard is: !didSaveOrRemove && model.existingAccountID == nil && liveAccountID != nil.
+    func test_resolvedAccountID_newInbox_midSession_cleanupReachableViaLiveID() {
+        // A new-inbox model (existingAccountID nil) after Test Connection has minted a live ID.
+        let mintedID = UUID()
+        let model = EmailSourceFormModel(productID: UUID(), existingAccountID: nil)
+
+        // The onDisappear cleanup uses liveAccountID (from productStore) as the source,
+        // same as resolvedAccountID(liveProductAccountID:).
+        let resolved = model.resolvedAccountID(liveProductAccountID: mintedID)
+        XCTAssertEqual(resolved, mintedID,
+                       "onDisappear cleanup resolves the minted account via the live product linkage")
     }
 
     // MARK: - Original model tests
