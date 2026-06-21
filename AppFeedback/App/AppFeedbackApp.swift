@@ -434,6 +434,32 @@ struct AppFeedbackApp: App {
         }
         .defaultSize(width: 720, height: 620)
         .windowResizability(.contentMinSize)
+        WindowGroup(id: "source-editor", for: SourceEditorRequest.self) { $request in
+            SourceEditorWindow(request: request)
+                .environment(store)
+                .environment(syncStatus)
+                .environment(activityLog)
+                .environment(mailAccountStore)
+                .environment(gitHubAccountStore)
+                .environment(mailSettingsStore)
+                .environment(threadStore)
+                .environment(replyTemplateStore)
+                .environment(outboundTracker)
+                .environment(outboundFailures)
+                .environment(settingsNavigation)
+                .environment(intelligenceSettings)
+                .environment(intelligenceService)
+                .environment(notificationSettings)
+                .environment(notificationRouter)
+                .environment(downloaderHolder)
+                .environment(\.mailSyncCoordinatorRegistry, coordinatorRegistry)
+                .environment(mirrorHolder)
+                .environment(mailLocalStateStore)
+                .environment(\.notificationService, notificationService)
+                .environment(appStoreRegistry)
+        }
+        .defaultSize(width: 560, height: 640)
+        .windowResizability(.contentSize)
         #endif
     }
 

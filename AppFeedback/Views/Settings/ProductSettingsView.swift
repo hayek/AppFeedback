@@ -5,6 +5,7 @@ import SwiftUI
 /// mirror/redact toggles) and a **Sources** section (SDK / App Store / Email).
 struct ProductSettingsView: View {
     @Environment(\.dismiss) private var dismiss
+    @Environment(\.openWindow) private var openWindow
     var store: ProductStore
     var product: ProductConfig
     var embedInNavigation: Bool = false
@@ -118,12 +119,12 @@ struct ProductSettingsView: View {
             // Form onto the NavigationStack nested in the Products NavigationSplitView detail triggers
             // an infinite AppKit relayout loop on macOS (NSView _layoutSubtreeWithOldSize ↔ NSHostingView
             // render), beachballing the app. A modal sheet renders in its own hosting context and avoids it.
-            Button { activeSheet = .appStore } label: {
+            Button { openSource(.appStore) } label: {
                 sourceRow(title: "App Store", systemImage: "apple.logo", status: product.appStoreSourceStatus)
             }
             .buttonStyle(.plain)
             .contentShape(Rectangle())
-            Button { activeSheet = .email } label: {
+            Button { openSource(.email) } label: {
                 sourceRow(title: "Email", systemImage: "envelope", status: product.emailSourceStatus)
             }
             .buttonStyle(.plain)
@@ -148,6 +149,15 @@ struct ProductSettingsView: View {
     }
 
     // MARK: - Source sheets
+
+    /// macOS opens a real window (native chrome); iOS presents a sheet (which has a native nav bar).
+    private func openSource(_ kind: SourceEditorRequest.Kind) {
+        #if os(macOS)
+        openWindow(id: "source-editor", value: SourceEditorRequest(productID: product.id, kind: kind))
+        #else
+        activeSheet = (kind == .appStore) ? .appStore : .email
+        #endif
+    }
 
     @ViewBuilder
     private func sheetContent(for sheet: SourceSheet) -> some View {
