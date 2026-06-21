@@ -21,6 +21,7 @@ actor MailSyncCoordinator {
         let pollIntervalSeconds: Int
         let pollingEnabled: Bool
         let backfillCompleted: Bool
+        let feedbackProductID: UUID?
     }
 
     private struct LocalStateSnapshot: Sendable {
@@ -49,6 +50,7 @@ actor MailSyncCoordinator {
     private let localState: MailAccountLocalStateStore // @MainActor
     private let activityLog: ActivityLog               // @MainActor
     private let mirror: MailToGitHubMirror?            // @MainActor
+    private let feedbackMirror: MailToFeedbackMirror?  // @MainActor
     private let notificationService: NotificationService? // @MainActor
     private let knownIssueTitlesProvider: @Sendable () async -> [(owner: String, repo: String, number: Int, title: String)]
     private let clock: @Sendable () -> Date
@@ -73,6 +75,7 @@ actor MailSyncCoordinator {
         localState: MailAccountLocalStateStore,
         activityLog: ActivityLog,
         mirror: MailToGitHubMirror? = nil,
+        feedbackMirror: MailToFeedbackMirror? = nil,
         notificationService: NotificationService? = nil,
         knownIssueTitlesProvider: @Sendable @escaping () async -> [(owner: String, repo: String, number: Int, title: String)],
         clock: @Sendable @escaping () -> Date = { Date() }
@@ -85,6 +88,7 @@ actor MailSyncCoordinator {
         self.localState = localState
         self.activityLog = activityLog
         self.mirror = mirror
+        self.feedbackMirror = feedbackMirror
         self.notificationService = notificationService
         self.knownIssueTitlesProvider = knownIssueTitlesProvider
         self.clock = clock
@@ -175,7 +179,8 @@ actor MailSyncCoordinator {
                 id: acc.id,
                 pollIntervalSeconds: self.settingsStore.settings.pollIntervalSeconds,
                 pollingEnabled: acc.pollingEnabled,
-                backfillCompleted: acc.backfillCompleted
+                backfillCompleted: acc.backfillCompleted,
+                feedbackProductID: acc.feedbackProductID
             )
         }
         guard let accountSnapshot else {
@@ -205,13 +210,23 @@ actor MailSyncCoordinator {
             await runBackfill(accountID: accountSnapshot.id)
         }
 
-        let fromAddresses = await MainActor.run { self.threadStore.outboundRecipients() }
+        let isFeedbackInbox = accountSnapshot.feedbackProductID != nil
         do {
-            let pollResult = try await client.listInbox(
-                sinceUID: localSnapshot.inboxLastUID,
-                expectedUIDValidity: localSnapshot.inboxUIDValidity,
-                fromAddresses: fromAddresses
-            )
+            let pollResult: InboxPollResult
+            if isFeedbackInbox {
+                // Feedback inboxes ingest ALL inbound — any sender may be a reporter.
+                pollResult = try await client.listAllInbox(
+                    sinceUID: localSnapshot.inboxLastUID,
+                    expectedUIDValidity: localSnapshot.inboxUIDValidity
+                )
+            } else {
+                let fromAddresses = await MainActor.run { self.threadStore.outboundRecipients() }
+                pollResult = try await client.listInbox(
+                    sinceUID: localSnapshot.inboxLastUID,
+                    expectedUIDValidity: localSnapshot.inboxUIDValidity,
+                    fromAddresses: fromAddresses
+                )
+            }
             let messages = pollResult.messages
             let observedUIDValidity = pollResult.uidValidity
             let validityChanged = observedUIDValidity != 0 && observedUIDValidity != localSnapshot.inboxUIDValidity
@@ -220,6 +235,8 @@ actor MailSyncCoordinator {
             let inserted: [NotificationService.InboundReply] = await MainActor.run {
                 var newOnes: [NotificationService.InboundReply] = []
                 for msg in messages {
+                    // Default-on noise filter for feedback inboxes: bounces/auto-replies never stored.
+                    if isFeedbackInbox && InboundNoiseFilter.isNoise(msg) { continue }
                     guard let stored = self.threadStore.recordInbound(message: msg, accountID: accountID) else { continue }
                     let issue: NotificationService.InboundReply.IssueRef? = {
                         guard let t = stored.thread, t.issueNumber > 0,
@@ -280,6 +297,11 @@ actor MailSyncCoordinator {
             // poll before this one finishes is safe.
             if let mirror {
                 Task.detached { await mirror.mirrorPendingInbound() }
+            }
+            // Parallel to MailToGitHubMirror: synthesize feedback issues/comments for feedback inboxes.
+            if isFeedbackInbox, let feedbackMirror {
+                let accID = accountSnapshot.id
+                Task.detached { await feedbackMirror.mirrorPendingFeedbackInbound(accountID: accID) }
             }
 
             // Best-effort: pull attachments for replies WE sent from the Sent folder. Runs after a

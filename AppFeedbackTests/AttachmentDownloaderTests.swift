@@ -9,6 +9,7 @@ final class MockIMAPClientForDownload: IMAPClientProtocol, @unchecked Sendable {
     var fetchCallCount = 0
 
     func listInbox(sinceUID: UInt32, expectedUIDValidity: UInt32, fromAddresses: [String]) async throws -> InboxPollResult { InboxPollResult(messages: [], uidValidity: 0) }
+    func listAllInbox(sinceUID: UInt32, expectedUIDValidity: UInt32) async throws -> InboxPollResult { InboxPollResult(messages: [], uidValidity: 0) }
     func listSent(sinceDate: Date) async throws -> [ParsedInboundMessage] { [] }
     func listSentForEnrichment(sinceDate: Date, messageIDs: Set<String>) async throws -> [ParsedInboundMessage] { [] }
     func fetchAttachmentBytes(uid: UInt32, folder: String, partID: String, expectedUIDValidity: UInt32) async throws -> Data {
