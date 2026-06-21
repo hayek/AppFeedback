@@ -170,29 +170,37 @@ struct ProductSettingsView: View {
     @ViewBuilder
     private func chrome<C: View>(title: String, canAdd: Bool, add: Binding<Bool>, @ViewBuilder _ content: () -> C) -> some View {
         #if os(macOS)
-        NavigationStack {
-            VStack(spacing: 0) {
-                content()
-                Divider()
+        // A macOS .sheet has no system window toolbar, so NavigationStack top toolbar items
+        // (.navigation/.primaryAction) are dropped. Build the navigation bar explicitly.
+        VStack(spacing: 0) {
+            ZStack {
+                Text(title).font(.headline)
                 HStack {
+                    Button { activeSheet = nil } label: {
+                        Image(systemName: "xmark")
+                            .font(.system(size: 13, weight: .semibold))
+                    }
+                    .buttonStyle(.borderless)
+                    .keyboardShortcut(.cancelAction)
+                    .help("Close")
                     Spacer()
-                    Button("Add") { add.wrappedValue = true }
-                        .buttonStyle(.borderedProminent)
-                        .keyboardShortcut(.defaultAction)
-                        .disabled(!canAdd)
-                }
-                .padding()
-            }
-            .navigationTitle(title)
-            // macOS renders trailing (.primaryAction) toolbar items in a sheet's nav bar;
-            // .navigation (leading) is dropped, and .cancellationAction goes to the bottom.
-            .toolbar {
-                ToolbarItem(placement: .primaryAction) {
-                    Button { activeSheet = nil } label: { Image(systemName: "xmark") }
-                        .keyboardShortcut(.cancelAction)
-                        .help("Close")
                 }
             }
+            .frame(maxWidth: .infinity)
+            .padding(.horizontal, 14)
+            .frame(height: 52)
+            .background(.bar)
+            Divider()
+            content()
+            Divider()
+            HStack {
+                Spacer()
+                Button("Add") { add.wrappedValue = true }
+                    .buttonStyle(.borderedProminent)
+                    .keyboardShortcut(.defaultAction)
+                    .disabled(!canAdd)
+            }
+            .padding()
         }
         .frame(minWidth: 520, idealWidth: 560, minHeight: 560, idealHeight: 640)
         #else
