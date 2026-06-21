@@ -321,6 +321,7 @@ struct AppFeedbackApp: App {
                 #if !os(macOS)
                 .overlay(QuickLookHost())
                 #endif
+                .environment(store)
                 .environment(syncStatus)
                 .environment(activityLog)
                 .environment(mailAccountStore)
@@ -409,6 +410,7 @@ struct AppFeedbackApp: App {
         }
         Window("Settings", id: "settings") {
             SettingsView(store: store)
+                .environment(store)
                 .environment(syncStatus)
                 .environment(activityLog)
                 .environment(mailAccountStore)
