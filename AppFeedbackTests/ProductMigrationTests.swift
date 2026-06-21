@@ -97,5 +97,7 @@ final class ProductMigrationTests: XCTestCase {
         ProductMigration.run(context: context, defaults: defaults)
 
         XCTAssertEqual(try context.fetch(FetchDescriptor<Product>()).count, 1)
+        // The legacy Repo row must also be retired even in the defensive-skip branch.
+        XCTAssertTrue(try context.fetch(FetchDescriptor<Repo>()).isEmpty, "legacy Repo must be deleted after run()")
     }
 }
