@@ -16,6 +16,7 @@ struct AppStoreSourceForm: View {
     @State private var lastSuccessAt: Date?
     @State private var lastError: String?
     @State private var saving = false
+    @State private var showKeyHelp = false
 
     // The `.p8` UTI — a PEM text file. `.data` is the safe superset that always lets the Files
     // picker surface a `.p8` on iOS; we also accept the explicit extension type when available.
@@ -86,7 +87,7 @@ struct AppStoreSourceForm: View {
     }
 
     @ViewBuilder private var howToGetKeys: some View {
-        DisclosureGroup("How do I get these keys?") {
+        DisclosureGroup(isExpanded: $showKeyHelp) {
             VStack(alignment: .leading, spacing: 10) {
                 keyStep(1, "Open App Store Connect → Users and Access → Integrations.")
                 Link(destination: URL(string: "https://appstoreconnect.apple.com/access/integrations/api")!) {
@@ -104,6 +105,11 @@ struct AppStoreSourceForm: View {
             }
             .font(.callout)
             .padding(.vertical, 4)
+        } label: {
+            Text("How do I get these keys?")
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .contentShape(Rectangle())
+                .onTapGesture { withAnimation { showKeyHelp.toggle() } }
         }
     }
 

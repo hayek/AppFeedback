@@ -102,6 +102,7 @@ struct EmailSourceForm: View {
     @State private var testState: String = ""
     @State private var didLoad = false
     @State private var showRemoveConfirm = false
+    @State private var showSetupHelp = false
     /// True once the form has been saved or explicitly removed in this session. Used by the
     /// onDisappear cleanup to distinguish a deliberate save from a cancel/navigate-away dismiss.
     @State private var didSaveOrRemove = false
@@ -155,6 +156,7 @@ struct EmailSourceForm: View {
                 }
                 TextField("Sender display name",
                           text: Binding(get: { model.senderName }, set: { model.senderName = $0 }))
+                howToSetUp
             }
             if model.preset == .custom {
                 Section("Advanced") {
@@ -322,5 +324,47 @@ struct EmailSourceForm: View {
         registry?.syncWithAccounts()
         didSaveOrRemove = true
         dismiss()
+    }
+
+    // MARK: - Setup help
+
+    @ViewBuilder private var howToSetUp: some View {
+        DisclosureGroup(isExpanded: $showSetupHelp) {
+            VStack(alignment: .leading, spacing: 10) {
+                mailStep(1, "Use a dedicated mailbox for feedback (e.g. feedback@yourapp.com, or a separate Gmail/iCloud address). Every email it receives becomes a feedback item; replies in the same thread attach as comments.")
+                mailStep(2, "Pick your provider in Service above — the IMAP host and port fill in automatically. Choose Custom to type them yourself.")
+                mailStep(3, "If the account uses two-factor sign-in, your normal password won't work over IMAP. Create an app-specific password:")
+                if let url = model.preset.appPasswordsURL(forEmail: model.username) {
+                    Link(destination: url) {
+                        Label("Create an app password for \(model.preset.displayName)", systemImage: "key.fill")
+                    }
+                } else {
+                    Text("Generate one in your email provider's account security settings.")
+                        .font(.callout).foregroundStyle(.secondary)
+                }
+                mailStep(4, "Enter the inbox address and paste the app password.")
+                mailStep(5, "Custom providers only: enter the IMAP host and port from your provider's help docs.")
+                mailStep(6, "Tap Test Connection to verify, then Save.")
+            }
+            .font(.callout)
+            .padding(.vertical, 4)
+        } label: {
+            Text("How do I set this up?")
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .contentShape(Rectangle())
+                .onTapGesture { withAnimation { showSetupHelp.toggle() } }
+        }
+    }
+
+    private func mailStep(_ n: Int, _ text: String) -> some View {
+        HStack(alignment: .firstTextBaseline, spacing: 8) {
+            Text("\(n).")
+                .font(.callout.monospacedDigit().weight(.semibold))
+                .foregroundStyle(.secondary)
+            Text(text)
+                .font(.callout)
+                .foregroundStyle(.secondary)
+                .fixedSize(horizontal: false, vertical: true)
+        }
     }
 }
