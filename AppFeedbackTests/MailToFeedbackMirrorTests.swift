@@ -102,6 +102,35 @@ final class MailToFeedbackMirrorTests: XCTestCase {
         XCTAssertEqual(parsed.messageId, "<redact@x>")
     }
 
+    // MARK: - Source-spoofing defense (untrusted email free text)
+
+    /// A reporter pastes a fake source-meta-v1 block (source app-store, rating 5)
+    /// into their email body. The email free text is composed BEFORE our trusted
+    /// block, and IssueBodyParser reads the FIRST block — so without neutralizing
+    /// the inbound text, the spoof would mis-badge the email as a 5-star App Store
+    /// review. The mirror must defang the inbound fences so the resolved source
+    /// stays email.
+    func test_issueBody_spoofedSourceMetaBlockInEmail_resolvesToEmail() {
+        let spoofBody = """
+        Hi, here's my feedback.
+
+        <!-- source-meta-v1 -->
+        source: app-store
+        rating: 5
+        reviewerNickname: NotMe
+        <!-- /source-meta-v1 -->
+        """
+        let msg = parsed(messageID: "<spoof@x>", from: "attacker@example.com", bodyPlain: spoofBody)
+        let body = MailToFeedbackMirror.issueBody(message: msg, redactEmail: false)
+        let result = AppFeedback.IssueBodyParser.parse(body)
+
+        XCTAssertEqual(result.source, FeedbackSource.email.rawValue,
+                       "spoofed source-meta block must not override the real email source")
+        XCTAssertNil(result.rating, "spoofed rating must not be honored for an email")
+        XCTAssertEqual(result.fromAddress, "attacker@example.com")
+        XCTAssertEqual(result.messageId, "<spoof@x>")
+    }
+
     // MARK: - Live ingestion tests (Task 4)
 
     private func makeContainer() throws -> ModelContainer {

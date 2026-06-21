@@ -113,7 +113,14 @@ final class MailToFeedbackMirror {
     /// ad-hoc `**Key:**` lines) — this is the same mechanism Phase 3's App Store synthesizer uses,
     /// and the format `IssueBodyParser` (and its SDK backing) actually reads back.
     static func issueBody(message: ParsedInboundMessage, redactEmail: Bool) -> String {
-        let bodyText = preferredBodyText(message: message)
+        // The email body is fully attacker-controlled and is composed BEFORE our
+        // trusted source-meta-v1 block. Since `IssueBodyParser` reads the FIRST
+        // source-meta-v1 block as authoritative, a reporter could paste a fake
+        // block (e.g. `source: app-store`, `rating: 5`) to mis-badge their email
+        // as a 5-star App Store review. Defang any such fences in the free text
+        // so only our appended trusted block parses back.
+        let bodyText = IssueBodyFormatter.neutralizeSourceMetaFences(
+            in: preferredBodyText(message: message))
         let from = redactEmail ? MailToGitHubMirror.redact(message.fromAddress) : message.fromAddress
         let block = IssueBodyFormatter.sourceMetadataBlock(
             source: FeedbackSource.email.rawValue,
