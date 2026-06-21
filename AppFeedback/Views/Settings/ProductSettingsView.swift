@@ -17,6 +17,10 @@ struct ProductSettingsView: View {
     @State private var redactEmailAddresses = true
     @State private var isSaving = false
     @State private var activeSheet: SourceSheet?
+    @State private var appStoreSave = false
+    @State private var appStoreCanSave = false
+    @State private var emailSave = false
+    @State private var emailCanSave = false
 
     private enum SourceSheet: Int, Identifiable { case appStore, email; var id: Int { rawValue } }
 
@@ -149,35 +153,56 @@ struct ProductSettingsView: View {
     private func sheetContent(for sheet: SourceSheet) -> some View {
         switch sheet {
         case .appStore:
-            sheetWrapper(title: "App Store") { AppStoreSourceForm(store: store, product: product) }
+            chrome(title: "App Store", canAdd: appStoreCanSave, add: $appStoreSave) {
+                AppStoreSourceForm(store: store, product: product,
+                                   externalSaveTrigger: $appStoreSave, externalCanSave: $appStoreCanSave)
+            }
         case .email:
-            #if os(iOS)
-            IOSEmailSourceForm(product: product)
-            #else
-            sheetWrapper(title: "Email Feedback Inbox") { EmailSourceForm(product: product) }
-            #endif
+            chrome(title: "Email Feedback Inbox", canAdd: emailCanSave, add: $emailSave) {
+                EmailSourceForm(product: product,
+                                externalSaveTrigger: $emailSave, externalCanSave: $emailCanSave)
+            }
         }
     }
 
+    /// Modal chrome for a source form: an ✕ close (top) and a pinned bottom-right **Add** button
+    /// that drives the form via its external save trigger / validity bindings.
     @ViewBuilder
-    private func sheetWrapper<C: View>(title: String, @ViewBuilder _ content: () -> C) -> some View {
+    private func chrome<C: View>(title: String, canAdd: Bool, add: Binding<Bool>, @ViewBuilder _ content: () -> C) -> some View {
         #if os(macOS)
         VStack(spacing: 0) {
-            HStack {
+            HStack(spacing: 10) {
+                Button { activeSheet = nil } label: { Image(systemName: "xmark") }
+                    .buttonStyle(.plain)
+                    .keyboardShortcut(.cancelAction)
                 Text(title).font(.headline)
                 Spacer()
-                Button("Done") { activeSheet = nil }
-                    .keyboardShortcut(.defaultAction)
             }
             .padding()
             Divider()
             content()
+            Divider()
+            HStack {
+                Spacer()
+                Button("Add") { add.wrappedValue = true }
+                    .buttonStyle(.borderedProminent)
+                    .keyboardShortcut(.defaultAction)
+                    .disabled(!canAdd)
+            }
+            .padding()
         }
-        .frame(minWidth: 520, idealWidth: 560, minHeight: 540, idealHeight: 620)
+        .frame(minWidth: 520, idealWidth: 560, minHeight: 560, idealHeight: 640)
         #else
         NavigationStack {
             content()
-                .toolbar { ToolbarItem(placement: .confirmationAction) { Button("Done") { activeSheet = nil } } }
+                .toolbar {
+                    ToolbarItem(placement: .cancellationAction) {
+                        Button { activeSheet = nil } label: { Image(systemName: "xmark") }
+                    }
+                    ToolbarItem(placement: .confirmationAction) {
+                        Button("Add") { add.wrappedValue = true }.disabled(!canAdd)
+                    }
+                }
         }
         #endif
     }

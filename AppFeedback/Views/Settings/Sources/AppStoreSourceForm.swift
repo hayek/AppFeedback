@@ -9,8 +9,11 @@ import UniformTypeIdentifiers
 struct AppStoreSourceForm: View {
     let store: ProductStore
     let product: ProductConfig
+    var externalSaveTrigger: Binding<Bool>? = nil
+    var externalCanSave: Binding<Bool>? = nil
 
     @Environment(AppStoreReviewCoordinatorRegistry.self) private var registry
+    @Environment(\.dismiss) private var dismiss
     @State private var model = AppStoreSourceFormModel()
     @State private var showImporter = false
     @State private var lastSuccessAt: Date?
@@ -45,7 +48,14 @@ struct AppStoreSourceForm: View {
         .task {
             loadFields()
             if let pem = await KeychainService.loadASCKey(for: product.id) { model.pemText = pem }
+            externalCanSave?.wrappedValue = model.canSave
             await refreshStatus()
+        }
+        .onChange(of: model.canSave) { _, can in externalCanSave?.wrappedValue = can }
+        .onChange(of: externalSaveTrigger?.wrappedValue ?? false) { _, triggered in
+            guard triggered else { return }
+            externalSaveTrigger?.wrappedValue = false
+            Task { await runSave(); dismiss() }
         }
     }
 
@@ -149,12 +159,6 @@ struct AppStoreSourceForm: View {
                     }
                 }
             }
-            Button {
-                Task { await runSave() }
-            } label: {
-                if saving { ProgressView() } else { Text("Save") }
-            }
-            .disabled(!model.canSave || saving)
         } header: {
             Text("App")
         }

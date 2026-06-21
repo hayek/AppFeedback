@@ -88,9 +88,12 @@ import SwiftUI
 /// Test Connection, create/edit/remove a feedback inbox account. Used on both macOS and iOS.
 struct EmailSourceForm: View {
     let product: ProductConfig
-    /// Optional external save trigger — set to `true` from outside (e.g. an iOS toolbar "Save" button
-    /// in `IOSEmailSourceForm`) to invoke `save()` on the form without duplicating logic.
+    /// Optional external save trigger — set to `true` from outside (the sheet's "Add" button) to
+    /// invoke `save()` on the form without duplicating logic.
     var externalSaveTrigger: Binding<Bool>?
+    /// Outward binding the form keeps in sync with its can-save validity, so the sheet's "Add"
+    /// button can enable/disable itself.
+    var externalCanSave: Binding<Bool>?
 
     @Environment(MailAccountStore.self) private var accountStore
     @Environment(ProductStore.self) private var productStore
@@ -107,9 +110,10 @@ struct EmailSourceForm: View {
     /// onDisappear cleanup to distinguish a deliberate save from a cancel/navigate-away dismiss.
     @State private var didSaveOrRemove = false
 
-    init(product: ProductConfig, externalSaveTrigger: Binding<Bool>? = nil) {
+    init(product: ProductConfig, externalSaveTrigger: Binding<Bool>? = nil, externalCanSave: Binding<Bool>? = nil) {
         self.product = product
         self.externalSaveTrigger = externalSaveTrigger
+        self.externalCanSave = externalCanSave
         _model = State(initialValue: EmailSourceFormModel(
             productID: product.id,
             existingAccountID: product.feedbackInboxAccountID
@@ -181,8 +185,6 @@ struct EmailSourceForm: View {
                 Button("Test Connection") { Task { await testConnection() } }
                     .disabled(!model.canTest)
                 if !testState.isEmpty { Text(testState).font(.caption).foregroundStyle(.secondary) }
-                Button("Save") { Task { await save() } }
-                    .disabled(!model.canTest)
             }
             if showRemoveButton {
                 Section {
@@ -197,7 +199,8 @@ struct EmailSourceForm: View {
         .navigationTitle("Email Feedback Inbox")
         .navigationBarTitleDisplayMode(.inline)
         #endif
-        .task { await load() }
+        .task { await load(); externalCanSave?.wrappedValue = model.canTest }
+        .onChange(of: model.canTest) { _, can in externalCanSave?.wrappedValue = can }
         .onChange(of: externalSaveTrigger?.wrappedValue ?? false) { _, triggered in
             if triggered {
                 externalSaveTrigger?.wrappedValue = false
