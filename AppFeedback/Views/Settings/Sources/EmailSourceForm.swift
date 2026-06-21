@@ -194,7 +194,9 @@ struct EmailSourceForm: View {
         didLoad = true
     }
 
-    @MainActor private func save() async {
+    /// Persists the account and product linkage WITHOUT dismissing the form.
+    /// Returns the persisted account UUID, or nil if nothing changed.
+    @MainActor @discardableResult private func persistAccount() async -> UUID? {
         let v = model.effectiveAccountValues()
         let accountID: UUID
         if let existing = model.existingAccountID {
@@ -211,6 +213,11 @@ struct EmailSourceForm: View {
         updated.feedbackInboxAccountID = accountID
         productStore.update(updated)
         registry?.syncWithAccounts()
+        return accountID
+    }
+
+    @MainActor private func save() async {
+        await persistAccount()
         testState = "Saved."
         dismiss()
     }
@@ -226,7 +233,8 @@ struct EmailSourceForm: View {
 
     @MainActor private func testConnection() async {
         // Persist creds to a (possibly new) account first so IMAPClientProvider can read them.
-        await save()
+        // Use persistAccount() (not save()) so the form stays open to display the test result.
+        await persistAccount()
         guard let id = productStore.products.first(where: { $0.id == product.id })?.feedbackInboxAccountID
                     ?? model.existingAccountID else { return }
         let logID = activityLog.start(kind: .testConnection, title: "\(model.imapHost):\(model.imapPort)")
