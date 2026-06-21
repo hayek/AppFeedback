@@ -290,6 +290,54 @@ actor IMAPClient: IMAPClientProtocol {
         return raw.decoded(for: part)
     }
 
+    func listAllInbox(sinceUID: UInt32, expectedUIDValidity: UInt32) async throws -> InboxPollResult {
+        let tag = "[IMAPClient \(username)]"
+        let server = IMAPServer(host: host, port: port)
+        try await connectAndLogin(server)
+        defer { Task.detached { try? await server.disconnect() } }
+
+        let selection = try await mapped { try await server.selectMailbox(imapInboxName) }
+        let folder = imapInboxName
+        let uidValidity = selection.uidValidity.value
+
+        // Apply the same UIDVALIDITY healing logic as listInbox.
+        let effectiveSinceUID: UInt32
+        if expectedUIDValidity != 0 && expectedUIDValidity != uidValidity {
+            print("\(tag) listAllInbox: UIDVALIDITY changed \(expectedUIDValidity) → \(uidValidity), resetting sinceUID from \(sinceUID) to 0")
+            effectiveSinceUID = 0
+        } else if expectedUIDValidity == 0 && sinceUID > 0 {
+            print("\(tag) listAllInbox: no stored UIDVALIDITY but sinceUID=\(sinceUID); resetting to 0")
+            effectiveSinceUID = 0
+        } else {
+            effectiveSinceUID = sinceUID
+        }
+
+        // Fetch all UIDs since the watermark — no FROM filter for feedback inboxes.
+        let allInfos: [MessageInfo] = try await mapped {
+            try await server.fetchMessageInfos(uidRange: UID(effectiveSinceUID + 1)...UID.latest)
+        }
+        let infos = allInfos.filter { ($0.uid?.value ?? 0) > effectiveSinceUID }
+        print("\(tag) listAllInbox: uidValidity=\(uidValidity), effectiveSinceUID=\(effectiveSinceUID), infos=\(infos.count)")
+
+        var results: [ParsedInboundMessage] = []
+        for info in infos {
+            do {
+                let base = try await fetchAndParse(server: server, info: info, folder: folder, uidValidity: uidValidity)
+                // Enrich with noise-filter headers from MessageInfo.additionalFields (populated
+                // by SwiftMail's FetchMessageInfoHandler from the raw IMAP HEADER block; keys are
+                // lowercased). No extra round-trip needed — the FETCH already read these headers.
+                let enriched = Self.withNoiseHeaders(base, from: info)
+                results.append(enriched)
+            } catch is CancellationError {
+                throw IMAPClientError.cancelled
+            } catch {
+                print("\(tag) listAllInbox: Skipping message uid=\(info.uid?.value ?? 0): \(error)")
+            }
+        }
+        print("\(tag) listAllInbox: returning \(results.count) parsed message(s), uidValidity=\(uidValidity)")
+        return InboxPollResult(messages: results, uidValidity: uidValidity)
+    }
+
     func testConnection() async throws {
         let server = IMAPServer(host: host, port: port)
         try await connectAndLogin(server)
@@ -440,6 +488,36 @@ actor IMAPClient: IMAPClientProtocol {
             bodyPlain: "",
             bodyHTML: nil,
             attachments: attachments
+        )
+    }
+
+    // MARK: - Noise-header enrichment
+
+    /// Returns a copy of `base` with the three noise-filter header fields populated from
+    /// `MessageInfo.additionalFields` (lowercased keys stored by SwiftMail's
+    /// `FetchMessageInfoHandler` during the FETCH HEADER round-trip — no extra RPC needed).
+    /// If the headers are absent (very old messages, atypical servers) the fields stay nil,
+    /// which the noise filter treats conservatively (not-noise) — regular sender checks still fire.
+    private static func withNoiseHeaders(_ base: ParsedInboundMessage, from info: MessageInfo) -> ParsedInboundMessage {
+        let fields = info.additionalFields
+        // Return-Path: strip surrounding angle brackets / whitespace (e.g. "<>" or "<addr>").
+        let rawRP = fields?["return-path"]
+        let returnPath = rawRP.map { $0.trimmingCharacters(in: CharacterSet(charactersIn: "<> ").union(.whitespaces)) }
+        let autoSubmitted = fields?["auto-submitted"]?.trimmingCharacters(in: .whitespaces).lowercased()
+        let precedence = fields?["precedence"]?.trimmingCharacters(in: .whitespaces).lowercased()
+
+        // If none of the three fields is present, return the original to avoid the allocation.
+        if returnPath == nil && autoSubmitted == nil && precedence == nil { return base }
+
+        return ParsedInboundMessage(
+            uid: base.uid, folder: base.folder, uidValidity: base.uidValidity,
+            messageID: base.messageID, inReplyTo: base.inReplyTo, references: base.references,
+            fromAddress: base.fromAddress, fromName: base.fromName,
+            toAddresses: base.toAddresses, ccAddresses: base.ccAddresses,
+            date: base.date, subject: base.subject,
+            bodyPlain: base.bodyPlain, bodyHTML: base.bodyHTML,
+            attachments: base.attachments,
+            returnPath: returnPath, autoSubmitted: autoSubmitted, precedence: precedence
         )
     }
 

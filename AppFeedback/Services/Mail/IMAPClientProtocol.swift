@@ -41,6 +41,11 @@ protocol IMAPClientProtocol: Sendable {
     /// throws rather than return bytes from an unrelated message.
     func fetchAttachmentBytes(uid: UInt32, folder: String, partID: String, expectedUIDValidity: UInt32) async throws -> Data
 
+    /// Like `listInbox` but WITHOUT the FROM filter — returns every INBOX message with UID
+    /// strictly greater than `sinceUID`. Used by feedback inboxes, where any sender may be a
+    /// reporter (not only people we previously wrote to). Same UIDVALIDITY semantics as `listInbox`.
+    func listAllInbox(sinceUID: UInt32, expectedUIDValidity: UInt32) async throws -> InboxPollResult
+
     /// Opens, authenticates, and immediately disconnects — useful for the "Test Connection" button.
     func testConnection() async throws
 }

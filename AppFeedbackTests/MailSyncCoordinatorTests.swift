@@ -50,6 +50,18 @@ final class MockIMAPClient: IMAPClientProtocol, @unchecked Sendable {
         Data()
     }
 
+    var allInboxResponses: [Result<[ParsedInboundMessage], Error>] = []
+    var allInboxCallCount = 0
+
+    func listAllInbox(sinceUID: UInt32, expectedUIDValidity: UInt32) async throws -> InboxPollResult {
+        allInboxCallCount += 1
+        guard !allInboxResponses.isEmpty else { return InboxPollResult(messages: [], uidValidity: 0) }
+        switch allInboxResponses.removeFirst() {
+        case .success(let msgs): return InboxPollResult(messages: msgs, uidValidity: 0)
+        case .failure(let err): throw err
+        }
+    }
+
     func testConnection() async throws { }
 }
 
@@ -526,5 +538,8 @@ actor SlowMockIMAPClient: IMAPClientProtocol {
     func listSent(sinceDate: Date) async throws -> [ParsedInboundMessage] { [] }
     func listSentForEnrichment(sinceDate: Date, messageIDs: Set<String>) async throws -> [ParsedInboundMessage] { [] }
     func fetchAttachmentBytes(uid: UInt32, folder: String, partID: String, expectedUIDValidity: UInt32) async throws -> Data { Data() }
+    func listAllInbox(sinceUID: UInt32, expectedUIDValidity: UInt32) async throws -> InboxPollResult {
+        InboxPollResult(messages: [], uidValidity: 0)
+    }
     func testConnection() async throws { }
 }
