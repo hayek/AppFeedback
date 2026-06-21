@@ -253,4 +253,35 @@ final class MailToFeedbackMirrorTests: XCTestCase {
         XCTAssertEqual(rec.createdTitles.count, 1)
         XCTAssertEqual(rec.createdLabels.first, ["source:email"])
     }
+
+    // MARK: - Task 10: Attachments via the existing mail-attachment path (verify + guard)
+
+    func test_rootWithAttachment_createsOneIssue_andPersistsAttachmentRow() async throws {
+        let container = try makeContainer()
+        let ctx = ModelContext(container)
+        let threadStore = MailThreadStore(context: ctx)
+        let store = seededProductStore(ctx)
+        let inboxID = store.products[0].feedbackInboxAccountID!
+        let rec = WriteRecorder()
+        let mirror = MailToFeedbackMirror(
+            context: ctx, productStore: store, activityLog: ActivityLog(persistenceURL: nil),
+            createIssue: { _, _, t, _, l, _ in rec.createdTitles.append(t); rec.createdLabels.append(l); return 77 },
+            postComment: { _, _, n, b, _ in rec.comments.append((n, b)); return 1 },
+            tokenLoader: { _ in "tok" }
+        )
+        let withAttachment = ParsedInboundMessage(
+            uid: 20, folder: "INBOX", uidValidity: 1, messageID: "<att@x>",
+            inReplyTo: nil, references: [], fromAddress: "user@x.com", fromName: "U",
+            toAddresses: ["feedback@dev.com"], ccAddresses: [], date: Date(),
+            subject: "Screenshot of bug", bodyPlain: "see attached", bodyHTML: nil,
+            attachments: [ParsedAttachmentMeta(partID: "2", filename: "bug.png", mimeType: "image/png", sizeBytes: 1234)]
+        )
+        _ = threadStore.recordInbound(message: withAttachment, accountID: inboxID)
+        await mirror.mirrorPendingFeedbackInbound(accountID: inboxID)
+
+        XCTAssertEqual(rec.createdTitles, ["Screenshot of bug"])
+        let atts = try ctx.fetch(FetchDescriptor<MailAttachment>())
+        XCTAssertEqual(atts.count, 1)
+        XCTAssertEqual(atts.first?.filename, "bug.png")
+    }
 }
