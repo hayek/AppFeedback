@@ -270,10 +270,15 @@ struct EmailSourceForm: View {
     }
 
     @MainActor private func remove() async {
+        // Resolve the account ID from the live product linkage first (covers accounts minted
+        // during this session via Test Connection whose UUID isn't in model.existingAccountID),
+        // then fall back to the id captured at form-init time.
+        let accountID = productStore.products.first(where: { $0.id == product.id })?.feedbackInboxAccountID
+                     ?? model.existingAccountID
         var updated = product
         updated.feedbackInboxAccountID = nil
         productStore.update(updated)
-        if let id = model.existingAccountID, let acc = accountStore.account(id: id) {
+        if let id = accountID, let acc = accountStore.account(id: id) {
             await accountStore.deleteWithCredentials(acc)
         }
         registry?.syncWithAccounts()
