@@ -23,6 +23,7 @@
 		0746E055C9889BF43CA5F9F2 /* SwiftMail in Frameworks */ = {isa = PBXBuildFile; productRef = ADE324139D9B2D3ABE7C0ED2 /* SwiftMail */; };
 		079102AD9481DF2B30D20DAE /* SourceStatusTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = DE72726765CDF1EE994A3080 /* SourceStatusTests.swift */; };
 		07A066660322FA58AA6F6598 /* ProductStoreTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 52AF9D8BAD3E184E471BA942 /* ProductStoreTests.swift */; };
+		08963C0BD725331CC45580D5 /* EmailSourceFormModelTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8882FC95CD9D711D088A5AA7 /* EmailSourceFormModelTests.swift */; };
 		0899566DE225846D3FD10FBD /* IssueBodyParserTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1E82DAEA39278D09C6F83D6A /* IssueBodyParserTests.swift */; };
 		08CD239BC4F0BBCAC87C7EAB /* ThumbnailCache.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9B1D056814058B6F13C1468B /* ThumbnailCache.swift */; };
 		092F4068627B8F3FB89C49E3 /* AppStoreConnectModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = 63765B8118024D3C8541DCDB /* AppStoreConnectModels.swift */; };
@@ -458,6 +459,7 @@
 		CFB7DFF1613F2110DBC69959 /* AppFeedbackCore in Frameworks */ = {isa = PBXBuildFile; productRef = D03D6AD2C9193D81AD3AE68C /* AppFeedbackCore */; };
 		D104F981DAC28D4538ED955C /* MailTypes.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0D96B99A93590344411F42CD /* MailTypes.swift */; };
 		D11BAB9700062D5C711C2F8F /* FeedbackAttachmentDownloaderTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5A1D13BE3354A212421BD0EA /* FeedbackAttachmentDownloaderTests.swift */; };
+		D1D70665BAC71671C325E2D3 /* EmailSourceFormModelTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8882FC95CD9D711D088A5AA7 /* EmailSourceFormModelTests.swift */; };
 		D21C6687459573203D428F72 /* MailComposerAttachmentsTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0CAF8EE65467794F8593A379 /* MailComposerAttachmentsTests.swift */; };
 		D2AAD0F221FFFD10CE096AFC /* FeedbackAttachmentDownloaderTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5A1D13BE3354A212421BD0EA /* FeedbackAttachmentDownloaderTests.swift */; };
 		D38AA4167A78B8BD640F5F0C /* ActivityWindow.swift in Sources */ = {isa = PBXBuildFile; fileRef = A3CCABE70C4F9C2F242C34A3 /* ActivityWindow.swift */; };
@@ -727,6 +729,7 @@
 		864A8D0AB787A3FE8CA251F6 /* ActivityLog.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ActivityLog.swift; sourceTree = "<group>"; };
 		86D913610C499CDB7C15463E /* MailAccountStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MailAccountStore.swift; sourceTree = "<group>"; };
 		8817C9FD52303F29DDC181C1 /* RepoFetchState.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RepoFetchState.swift; sourceTree = "<group>"; };
+		8882FC95CD9D711D088A5AA7 /* EmailSourceFormModelTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EmailSourceFormModelTests.swift; sourceTree = "<group>"; };
 		8A172DC491C08B2B19321D90 /* GitHubIssueWriterTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GitHubIssueWriterTests.swift; sourceTree = "<group>"; };
 		8B91F454579F86D9B14B7FD4 /* MacBackgroundRefreshDriver.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MacBackgroundRefreshDriver.swift; sourceTree = "<group>"; };
 		8DB079FE7FC9682D40F89BC7 /* ReleaseEmailTemplate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ReleaseEmailTemplate.swift; sourceTree = "<group>"; };
@@ -1204,6 +1207,7 @@
 				BBD948EB35D428BC8AD5D517 /* ColorPaletteTests.swift */,
 				44217CE722F7BB9B95104162 /* ComposeMailViewModelTests.swift */,
 				DF888428018779D447A80538 /* DeviceNameTests.swift */,
+				8882FC95CD9D711D088A5AA7 /* EmailSourceFormModelTests.swift */,
 				5A1D13BE3354A212421BD0EA /* FeedbackAttachmentDownloaderTests.swift */,
 				B3220BD03FCDBA819DFBE9FD /* FeedbackClipboardTests.swift */,
 				0CE81E22CEEE88BFCA7DB820 /* FeedbackSourceTests.swift */,
@@ -1712,6 +1716,7 @@
 				83CECBE7C21FE854EA0AC18A /* ColorPaletteTests.swift in Sources */,
 				BD8D747D2BEDD8B474FBE101 /* ComposeMailViewModelTests.swift in Sources */,
 				4D25325DA9600FA052B60990 /* DeviceNameTests.swift in Sources */,
+				D1D70665BAC71671C325E2D3 /* EmailSourceFormModelTests.swift in Sources */,
 				DC7F79956663143262AE31CF /* FakeAppStoreConnectClient.swift in Sources */,
 				A20B9D8ADA54451B54D46FDC /* FakeIssueWriting.swift in Sources */,
 				D2AAD0F221FFFD10CE096AFC /* FeedbackAttachmentDownloaderTests.swift in Sources */,
@@ -1996,6 +2001,7 @@
 				1FFBC02E1CD2B43D200270EF /* ColorPaletteTests.swift in Sources */,
 				511E4FABEC0FCAB412BC471E /* ComposeMailViewModelTests.swift in Sources */,
 				6E2CC5710A0BEC93EF54BAF0 /* DeviceNameTests.swift in Sources */,
+				08963C0BD725331CC45580D5 /* EmailSourceFormModelTests.swift in Sources */,
 				1301BBB9DC6CF71D43B6A9D5 /* FakeAppStoreConnectClient.swift in Sources */,
 				74010AEAC7AB74FE50FDDA83 /* FakeIssueWriting.swift in Sources */,
 				D11BAB9700062D5C711C2F8F /* FeedbackAttachmentDownloaderTests.swift in Sources */,

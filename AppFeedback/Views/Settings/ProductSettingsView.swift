@@ -117,9 +117,9 @@ struct ProductSettingsView: View {
                 )
             }
 
-            // Email — Off / Configured → EmailSourceForm (stub; Phase 5 fills in).
+            // Email — Off / Configured → EmailSourceForm (Phase 5).
             NavigationLink {
-                EmailSourceForm(store: store, product: product)
+                EmailSourceForm(product: product)
             } label: {
                 sourceRow(
                     title: "Email",
