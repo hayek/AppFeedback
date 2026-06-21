@@ -55,12 +55,16 @@ final class MailToFeedbackMirror {
     }
 
     /// Production convenience init: wires the real GitHub actors + Keychain token loader.
+    /// The `tokenLoader` parameter is exposed so callers (integration tests, alternative Keychain
+    /// paths, Task 8/Task 9 wiring) can inject a custom loader without spelling out the full
+    /// designated init. Defaults to the standard Keychain-backed loader.
     convenience init(
         context: ModelContext,
         productStore: ProductStore,
         activityLog: ActivityLog,
         issueWriter: GitHubIssueWriter = GitHubIssueWriter(),
-        commentPoster: GitHubCommentPoster = GitHubCommentPoster()
+        commentPoster: GitHubCommentPoster = GitHubCommentPoster(),
+        tokenLoader: @Sendable @escaping (ProductConfig) async -> String? = { await KeychainService.load(for: $0) }
     ) {
         self.init(
             context: context,
@@ -75,7 +79,7 @@ final class MailToFeedbackMirror {
                 try await commentPoster.postComment(
                     owner: owner, repo: repo, issueNumber: number, body: body, token: token)
             },
-            tokenLoader: { @Sendable config in await KeychainService.load(for: config) }
+            tokenLoader: tokenLoader
         )
     }
 
