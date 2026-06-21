@@ -41,8 +41,11 @@ struct AppStoreSourceForm: View {
             // iOS Files returns a security-scoped URL; the model handles start/stopAccessing.
             if case .success(let url) = result { model.importPEM(from: url) }
         }
-        .task { await refreshStatus() }
-        .onAppear(perform: loadExisting)
+        .task {
+            loadFields()
+            if let pem = await KeychainService.loadASCKey(for: product.id) { model.pemText = pem }
+            await refreshStatus()
+        }
     }
 
     private var credentialsSection: some View {
@@ -130,11 +133,10 @@ struct AppStoreSourceForm: View {
 
     // MARK: - Actions
 
-    private func loadExisting() {
+    private func loadFields() {
         model.issuerID = product.appStoreIssuerID ?? ""
         model.keyID = product.appStoreKeyID ?? ""
         model.manualAppID = product.appStoreAppAppleID ?? ""
-        if let pem = KeychainService.loadASCKeySync(for: product.id) { model.pemText = pem }
     }
 
     private func runTest() async {
