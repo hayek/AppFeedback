@@ -170,32 +170,29 @@ struct ProductSettingsView: View {
     @ViewBuilder
     private func chrome<C: View>(title: String, canAdd: Bool, add: Binding<Bool>, @ViewBuilder _ content: () -> C) -> some View {
         #if os(macOS)
-        // macOS sheets have no native window toolbar, so top toolbar placements are dropped.
-        // A custom top header bar is the standard way to put a close control at the top of a sheet.
-        VStack(spacing: 0) {
-            HStack(spacing: 12) {
-                Button { activeSheet = nil } label: {
-                    Image(systemName: "xmark").font(.system(size: 12, weight: .bold))
+        NavigationStack {
+            VStack(spacing: 0) {
+                content()
+                Divider()
+                HStack {
+                    Spacer()
+                    Button("Add") { add.wrappedValue = true }
+                        .buttonStyle(.borderedProminent)
+                        .keyboardShortcut(.defaultAction)
+                        .disabled(!canAdd)
                 }
-                .buttonStyle(.borderless)
-                .keyboardShortcut(.cancelAction)
-                .help("Close")
-                Text(title).font(.headline)
-                Spacer()
+                .padding()
             }
-            .padding(.horizontal, 16)
-            .padding(.vertical, 12)
-            Divider()
-            content()
-            Divider()
-            HStack {
-                Spacer()
-                Button("Add") { add.wrappedValue = true }
-                    .buttonStyle(.borderedProminent)
-                    .keyboardShortcut(.defaultAction)
-                    .disabled(!canAdd)
+            .navigationTitle(title)
+            // macOS renders trailing (.primaryAction) toolbar items in a sheet's nav bar;
+            // .navigation (leading) is dropped, and .cancellationAction goes to the bottom.
+            .toolbar {
+                ToolbarItem(placement: .primaryAction) {
+                    Button { activeSheet = nil } label: { Image(systemName: "xmark") }
+                        .keyboardShortcut(.cancelAction)
+                        .help("Close")
+                }
             }
-            .padding()
         }
         .frame(minWidth: 520, idealWidth: 560, minHeight: 560, idealHeight: 640)
         #else
