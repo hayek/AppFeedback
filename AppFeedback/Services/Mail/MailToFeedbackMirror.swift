@@ -16,6 +16,69 @@ import AppFeedbackCore
 @Observable
 final class MailToFeedbackMirror {
 
+    // MARK: - Closure type aliases (injected write operations)
+
+    typealias CreateIssue = @Sendable (
+        _ owner: String, _ repo: String, _ title: String, _ body: String,
+        _ labels: [String], _ token: String
+    ) async throws -> Int
+
+    typealias PostComment = @Sendable (
+        _ owner: String, _ repo: String, _ number: Int, _ body: String, _ token: String
+    ) async throws -> Int
+
+    // MARK: - Stored dependencies
+
+    private let context: ModelContext
+    private let productStore: ProductStore
+    private let activityLog: ActivityLog
+    private let createIssueOp: CreateIssue
+    private let postCommentOp: PostComment
+    private let tokenLoader: @Sendable (ProductConfig) async -> String?
+
+    // MARK: - Designated init (closure-injected writes for testability)
+
+    init(
+        context: ModelContext,
+        productStore: ProductStore,
+        activityLog: ActivityLog,
+        createIssue: @escaping CreateIssue,
+        postComment: @escaping PostComment,
+        tokenLoader: @Sendable @escaping (ProductConfig) async -> String?
+    ) {
+        self.context = context
+        self.productStore = productStore
+        self.activityLog = activityLog
+        self.createIssueOp = createIssue
+        self.postCommentOp = postComment
+        self.tokenLoader = tokenLoader
+    }
+
+    /// Production convenience init: wires the real GitHub actors + Keychain token loader.
+    convenience init(
+        context: ModelContext,
+        productStore: ProductStore,
+        activityLog: ActivityLog,
+        issueWriter: GitHubIssueWriter = GitHubIssueWriter(),
+        commentPoster: GitHubCommentPoster = GitHubCommentPoster()
+    ) {
+        self.init(
+            context: context,
+            productStore: productStore,
+            activityLog: activityLog,
+            createIssue: { owner, repo, title, body, labels, token in
+                try await issueWriter.createIssue(
+                    owner: owner, repo: repo, title: title, body: body,
+                    labels: labels, milestoneNumber: nil, token: token)
+            },
+            postComment: { owner, repo, number, body, token in
+                try await commentPoster.postComment(
+                    owner: owner, repo: repo, issueNumber: number, body: body, token: token)
+            },
+            tokenLoader: { @Sendable config in await KeychainService.load(for: config) }
+        )
+    }
+
     // MARK: - Contract constants
 
     /// The Phase-1 GitHub label string for email-sourced feedback.
@@ -57,6 +120,131 @@ final class MailToFeedbackMirror {
             return block
         }
         return bodyText + "\n\n" + block
+    }
+
+    // MARK: - Live ingestion
+
+    /// The product whose feedback inbox is `accountID`, or nil if none is registered.
+    func product(forInbox accountID: UUID) -> ProductConfig? {
+        productStore.products.first(where: { $0.feedbackInboxAccountID == accountID })
+    }
+
+    /// Processes every not-yet-synthesized inbound message for this feedback inbox:
+    /// thread root → create issue; reply in a synthesized thread → comment.
+    ///
+    /// Idempotent: a synthesized root sets `MailThread.issueNumber`, and a mirrored message sets
+    /// `MailMessage.githubCommentID`, so re-entry on the next poll is safe.
+    ///
+    /// NOTE: noise filtering is NOT done here — the coordinator applies `InboundNoiseFilter`
+    /// on the full `ParsedInboundMessage` BEFORE `recordInbound` (Task 6). By the time this
+    /// method runs, the store contains only legitimate feedback.
+    func mirrorPendingFeedbackInbound(accountID: UUID) async {
+        guard let product = product(forInbox: accountID) else { return }
+        guard let token = await tokenLoader(product), !token.isEmpty else { return }
+
+        let inboundRaw = MailMessage.Direction.inbound.rawValue
+        let descriptor = FetchDescriptor<MailMessage>(
+            predicate: #Predicate { $0.directionRaw == inboundRaw && $0.accountID == accountID },
+            sortBy: [SortDescriptor(\.date, order: .forward)]
+        )
+        let pending = (try? context.fetch(descriptor)) ?? []
+
+        for message in pending {
+            guard let thread = message.thread else { continue }
+
+            // ROOT (brand-new thread not yet synthesized): create an issue.
+            if thread.issueNumber == 0 && thread.messageIDRoot == message.messageID {
+                await createIssue(forRoot: message, thread: thread, product: product, token: token)
+                continue
+            }
+
+            // REPLY into a synthesized thread: post a comment (once per message).
+            if thread.issueNumber > 0, message.githubCommentID == nil {
+                // The thread root itself IS the issue body — never re-post it as a comment.
+                if thread.messageIDRoot == message.messageID { continue }
+                await postComment(forReply: message, thread: thread, product: product, token: token)
+                continue
+            }
+            // else: reply whose root hasn't been synthesized yet → wait for the next poll.
+        }
+    }
+
+    // MARK: - Private helpers
+
+    private func createIssue(
+        forRoot message: MailMessage,
+        thread: MailThread,
+        product: ProductConfig,
+        token: String
+    ) async {
+        // Reconstruct a ParsedInboundMessage view ONLY to drive the body/title builders from
+        // the stored row. Noise filtering is NOT done here (see mirrorPendingFeedbackInbound) —
+        // a rebuilt view has nil returnPath/autoSubmitted/precedence, so re-filtering is both
+        // redundant and unable to catch vacation auto-replies. Anything in the store is feedback.
+        let parsed = Self.parsedView(of: message)
+        let title = Self.issueTitle(subject: message.subject)
+        let body = Self.issueBody(message: parsed, redactEmail: product.redactEmailAddresses)
+        let logID = activityLog.start(kind: .createIssue, title: "\(product.owner)/\(product.repo) ← email")
+        do {
+            let number = try await createIssueOp(
+                product.owner, product.repo, title, body, [Self.sourceEmailLabel], token)
+            thread.issueRepoOwner = product.owner
+            thread.issueRepoName = product.repo
+            thread.issueNumber = number
+            // Sentinel: the root message IS the issue body; mark it so it's never re-posted as a comment.
+            message.githubCommentID = -1
+            try? context.save()
+            activityLog.finish(logID, status: .success, detail: "issue #\(number)")
+        } catch {
+            activityLog.finish(logID, status: .failure, detail: error.localizedDescription)
+        }
+    }
+
+    private func postComment(
+        forReply message: MailMessage,
+        thread: MailThread,
+        product: ProductConfig,
+        token: String
+    ) async {
+        // No re-filtering here either — coordinator is the single filtering point (see above).
+        let commentBody = MailToGitHubMirror.buildCommentBody(
+            message: message, redactEmail: product.redactEmailAddresses)
+        let logID = activityLog.start(
+            kind: .postComment,
+            title: "\(product.owner)/\(product.repo)#\(thread.issueNumber)")
+        do {
+            let id = try await postCommentOp(
+                product.owner, product.repo, thread.issueNumber, commentBody, token)
+            message.githubCommentID = id
+            try? context.save()
+            activityLog.finish(logID, status: .success, detail: "comment #\(id)")
+        } catch {
+            activityLog.finish(logID, status: .failure, detail: error.localizedDescription)
+        }
+    }
+
+    /// Rebuilds the subset of `ParsedInboundMessage` that the body/title builders need,
+    /// from a stored `MailMessage`. The noise-header fields (returnPath/autoSubmitted/precedence)
+    /// are NOT persisted on `MailMessage`, so they read as nil here — which is exactly why this
+    /// rebuilt view is never the noise-filtering point.
+    private static func parsedView(of message: MailMessage) -> ParsedInboundMessage {
+        ParsedInboundMessage(
+            uid: UInt32(max(0, message.uid)),
+            folder: message.folder,
+            uidValidity: UInt32(max(0, message.uidValidity)),
+            messageID: message.messageID,
+            inReplyTo: message.inReplyTo,
+            references: [],
+            fromAddress: message.fromAddress,
+            fromName: message.fromName,
+            toAddresses: message.toAddresses,
+            ccAddresses: message.ccAddresses,
+            date: message.date,
+            subject: message.subject,
+            bodyPlain: message.bodyPlain,
+            bodyHTML: message.bodyHTML,
+            attachments: []
+        )
     }
 }
 

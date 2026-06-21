@@ -1,4 +1,5 @@
 import XCTest
+import SwiftData
 import AppFeedbackCore
 @testable import AppFeedback
 
@@ -99,5 +100,157 @@ final class MailToFeedbackMirrorTests: XCTestCase {
         XCTAssertEqual(parsed.fromAddress, "a***@example.com",
                        "redacted address must survive the round-trip through IssueBodyParser")
         XCTAssertEqual(parsed.messageId, "<redact@x>")
+    }
+
+    // MARK: - Live ingestion tests (Task 4)
+
+    private func makeContainer() throws -> ModelContainer {
+        let config = ModelConfiguration(isStoredInMemoryOnly: true, cloudKitDatabase: .none)
+        return try ModelContainer(
+            for: Product.self,
+                MailThread.self, MailMessage.self, MailAttachment.self,
+                MailAttachmentLocal.self, MailAccountLocalState.self, MailAccount.self,
+                MailSettings.self,
+            configurations: config
+        )
+    }
+
+    /// Shared test seed: an in-memory ProductStore with exactly one product
+    /// (owner "acme", repo "app", redactEmailAddresses == true) whose feedback inbox is `inboxID`.
+    private func seededProductStore(_ ctx: ModelContext, inboxID: UUID = UUID()) -> ProductStore {
+        let store = ProductStore(context: ctx)
+        store.add(ProductConfig(
+            displayName: "Acme",
+            owner: "acme",
+            repo: "app",
+            mirrorEmailsToGitHub: true,
+            redactEmailAddresses: true,
+            feedbackInboxAccountID: inboxID
+        ))
+        return store
+    }
+
+    /// Records create/comment calls so tests can assert at the (sync) store level.
+    private final class WriteRecorder: @unchecked Sendable {
+        var createdTitles: [String] = []
+        var createdBodies: [String] = []
+        var createdLabels: [[String]] = []
+        var comments: [(number: Int, body: String)] = []
+        var nextIssueNumber = 42
+    }
+
+    func test_root_createsIssue_withEmailLabelAndMarkers() async throws {
+        let container = try makeContainer()
+        let ctx = ModelContext(container)
+        let threadStore = MailThreadStore(context: ctx)
+        let store = seededProductStore(ctx)
+        let inboxID = store.products[0].feedbackInboxAccountID!
+        let log = ActivityLog(persistenceURL: nil)
+        let rec = WriteRecorder()
+
+        let mirror = MailToFeedbackMirror(
+            context: ctx,
+            productStore: store,
+            activityLog: log,
+            createIssue: { owner, repo, title, body, labels, token in
+                rec.createdTitles.append(title)
+                rec.createdBodies.append(body)
+                rec.createdLabels.append(labels)
+                let n = rec.nextIssueNumber; rec.nextIssueNumber += 1
+                return n
+            },
+            postComment: { owner, repo, number, body, token in
+                rec.comments.append((number, body)); return 1
+            },
+            tokenLoader: { _ in "tok" }
+        )
+
+        // Ingest a root message.
+        _ = threadStore.recordInbound(message: parsed(messageID: "<root@x>"), accountID: inboxID)
+        await mirror.mirrorPendingFeedbackInbound(accountID: inboxID)
+
+        XCTAssertEqual(rec.createdTitles, ["App crashes on launch"])
+        XCTAssertEqual(rec.createdLabels.first, ["source:email"])
+        // ★ MARKER FORMAT CORRECTION: body uses sourceMetadataBlock (source-meta-v1), not **Key:** lines.
+        XCTAssertTrue(rec.createdBodies.first?.contains("<!-- source-meta-v1 -->") == true,
+                      "issue body must use SDK sourceMetadataBlock marker block")
+        XCTAssertTrue(rec.createdBodies.first?.contains("source: email") == true)
+        XCTAssertTrue(rec.comments.isEmpty)
+
+        // Sync store-level assertion: the thread now carries the synthesized issue number.
+        let threads = try ctx.fetch(FetchDescriptor<MailThread>())
+        let root = try XCTUnwrap(threads.first { $0.messageIDRoot == "<root@x>" })
+        XCTAssertEqual(root.issueNumber, 42)
+        XCTAssertEqual(root.issueRepoOwner, "acme")
+        XCTAssertEqual(root.issueRepoName, "app")
+    }
+
+    func test_replyInKnownThread_postsComment_noNewIssue() async throws {
+        let container = try makeContainer()
+        let ctx = ModelContext(container)
+        let threadStore = MailThreadStore(context: ctx)
+        let store = seededProductStore(ctx)
+        let inboxID = store.products[0].feedbackInboxAccountID!
+        let rec = WriteRecorder()
+        let mirror = MailToFeedbackMirror(
+            context: ctx, productStore: store, activityLog: ActivityLog(persistenceURL: nil),
+            createIssue: { _, _, t, b, l, _ in
+                rec.createdTitles.append(t); rec.createdLabels.append(l)
+                let n = rec.nextIssueNumber; rec.nextIssueNumber += 1; return n
+            },
+            postComment: { _, _, number, body, _ in rec.comments.append((number, body)); return 7 },
+            tokenLoader: { _ in "tok" }
+        )
+
+        // Root → create.
+        _ = threadStore.recordInbound(message: parsed(messageID: "<root@x>"), accountID: inboxID)
+        await mirror.mirrorPendingFeedbackInbound(accountID: inboxID)
+        XCTAssertEqual(rec.createdTitles.count, 1)
+
+        // Reply (inReplyTo root) → comment, no new issue.
+        let reply = ParsedInboundMessage(
+            uid: 11, folder: "INBOX", uidValidity: 1, messageID: "<reply@x>",
+            inReplyTo: "<root@x>", references: ["<root@x>"],
+            fromAddress: "alice@example.com", fromName: "Alice",
+            toAddresses: ["feedback@dev.com"], ccAddresses: [],
+            date: Date(timeIntervalSince1970: 1_714_480_000),
+            subject: "Re: App crashes on launch", bodyPlain: "Still crashing on 2.1.", bodyHTML: nil,
+            attachments: []
+        )
+        _ = threadStore.recordInbound(message: reply, accountID: inboxID)
+        await mirror.mirrorPendingFeedbackInbound(accountID: inboxID)
+
+        XCTAssertEqual(rec.createdTitles.count, 1, "no second issue")
+        XCTAssertEqual(rec.comments.count, 1)
+        XCTAssertEqual(rec.comments.first?.number, 42)
+        XCTAssertTrue(rec.comments.first?.body.contains("Still crashing on 2.1.") == true)
+    }
+
+    func test_onlyStoredThreads_areSynthesized_mirrorDoesNotReFilter() async throws {
+        // The mirror runs AFTER the coordinator's pre-store noise filter (Task 6), so by the time
+        // it sees a thread the noise is already gone. This test pins that the mirror synthesizes
+        // exactly the threads present in the store and nothing more.
+        let container = try makeContainer()
+        let ctx = ModelContext(container)
+        let threadStore = MailThreadStore(context: ctx)
+        let store = seededProductStore(ctx)
+        let inboxID = store.products[0].feedbackInboxAccountID!
+        let rec = WriteRecorder()
+        let mirror = MailToFeedbackMirror(
+            context: ctx, productStore: store, activityLog: ActivityLog(persistenceURL: nil),
+            createIssue: { _, _, t, _, l, _ in rec.createdTitles.append(t); rec.createdLabels.append(l); return 99 },
+            postComment: { _, _, n, b, _ in rec.comments.append((n, b)); return 1 },
+            tokenLoader: { _ in "tok" }
+        )
+
+        // Empty store → nothing to synthesize.
+        await mirror.mirrorPendingFeedbackInbound(accountID: inboxID)
+        XCTAssertTrue(rec.createdTitles.isEmpty)
+
+        // One clean root recorded (the coordinator would have filtered noise upstream) → one issue.
+        _ = threadStore.recordInbound(message: parsed(messageID: "<clean@x>"), accountID: inboxID)
+        await mirror.mirrorPendingFeedbackInbound(accountID: inboxID)
+        XCTAssertEqual(rec.createdTitles.count, 1)
+        XCTAssertEqual(rec.createdLabels.first, ["source:email"])
     }
 }
