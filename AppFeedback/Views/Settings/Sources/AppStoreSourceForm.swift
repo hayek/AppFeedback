@@ -77,10 +77,45 @@ struct AppStoreSourceForm: View {
                 .disabled(model.issuerID.isEmpty || model.keyID.isEmpty || model.pemText.isEmpty
                           || model.phase == .testing)
             testResultRow
+            howToGetKeys
         } header: {
             Text("Private Key (.p8)")
         } footer: {
-            Text("Download the API key from App Store Connect → Users and Access → Integrations. The .p8 is stored in your Keychain, never synced to GitHub.")
+            Text("Your .p8 is stored only in your Keychain — never synced to GitHub.")
+        }
+    }
+
+    @ViewBuilder private var howToGetKeys: some View {
+        DisclosureGroup("How do I get these keys?") {
+            VStack(alignment: .leading, spacing: 10) {
+                keyStep(1, "Open App Store Connect → Users and Access → Integrations.")
+                Link(destination: URL(string: "https://appstoreconnect.apple.com/access/integrations/api")!) {
+                    Label("Open Integrations in App Store Connect", systemImage: "arrow.up.right.square")
+                }
+                keyStep(2, "First time only: click Request Access, agree to the terms, and Submit. The Account Holder must do this, then wait for approval.")
+                keyStep(3, "With Team Keys selected, copy the Issuer ID shown above the keys table (it's the same for your whole team) and paste it into Issuer ID above.")
+                keyStep(4, "Click Generate API Key (the ＋). Name it, and under Access choose Admin (or Customer Support) so it can read reviews and post your responses. Then Generate.")
+                keyStep(5, "Copy the new key's Key ID from its row and paste it into Key ID.")
+                keyStep(6, "Click Download API Key to save the .p8 file — Apple lets you download it only once. Then tap “Import .p8 Key…” above.")
+                keyStep(7, "Back here, tap Test to validate and load your apps, pick the app, and Save.")
+                Link(destination: URL(string: "https://developer.apple.com/documentation/appstoreconnectapi/creating-api-keys-for-app-store-connect-api")!) {
+                    Label("Apple's guide: Creating API keys", systemImage: "book")
+                }
+            }
+            .font(.callout)
+            .padding(.vertical, 4)
+        }
+    }
+
+    private func keyStep(_ n: Int, _ text: String) -> some View {
+        HStack(alignment: .firstTextBaseline, spacing: 8) {
+            Text("\(n).")
+                .font(.callout.monospacedDigit().weight(.semibold))
+                .foregroundStyle(.secondary)
+            Text(text)
+                .font(.callout)
+                .foregroundStyle(.secondary)
+                .fixedSize(horizontal: false, vertical: true)
         }
     }
 
