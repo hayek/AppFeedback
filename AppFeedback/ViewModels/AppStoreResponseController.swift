@@ -43,6 +43,9 @@ final class AppStoreResponseController {
     private let commentPoster: GitHubCommentPoster
     private let tokenLoader: @Sendable () async -> String?
     private let initialReadOnly: Bool
+    /// Called once when a live 403 is discovered, so the coordinator/registry can persist
+    /// the read-only flag across controller lifetimes. `nil` ⇒ no propagation (tests / legacy).
+    private let onReadOnly: (@Sendable @MainActor () -> Void)?
 
     init(
         reviewId: String,
@@ -54,7 +57,8 @@ final class AppStoreResponseController {
         mirrorStore: AppStoreReviewMirrorStore,
         commentPoster: GitHubCommentPoster,
         tokenLoader: @escaping @Sendable () async -> String?,
-        readOnly: Bool
+        readOnly: Bool,
+        onReadOnly: (@Sendable @MainActor () -> Void)? = nil
     ) {
         self.reviewId = reviewId
         self.productID = productID
@@ -66,6 +70,7 @@ final class AppStoreResponseController {
         self.commentPoster = commentPoster
         self.tokenLoader = tokenLoader
         self.initialReadOnly = readOnly
+        self.onReadOnly = onReadOnly
         // Seed the editor from any existing response state isn't possible from the mirror
         // (it stores id/state, not the body); the editor starts empty and the existing
         // response body, when present, is shown read-only beside the editor by the panel.
@@ -161,16 +166,22 @@ extension AppStoreResponseController {
     /// two ways: a direct `AppStoreConnectError.forbidden` case (belt) AND any
     /// `StatusCarryingError` whose `statusCode == 403` (suspenders) — so the read-only
     /// disable fires for the real Phase-3 error and any other status-carrying error alike.
+    /// When a 403 is detected, `onReadOnly` is invoked so the coordinator/registry can
+    /// persist the flag: controllers built later for the same product will be seeded
+    /// `readOnly: true` and won't retry a doomed write.
     private func applyWriteError(_ error: Error) {
         // Belt: the concrete Phase-3 forbidden case.
         if case AppStoreConnectError.forbidden = error {
             discoveredReadOnly = true                  // read-only key → disable the panel
+            onReadOnly?()                              // propagate to coordinator/registry
             return
         }
         // Suspenders: any status-carrying error (incl. AppStoreConnectError via its conformance).
         if let coded = error as? StatusCarryingError {
             switch coded.statusCode {
-            case 403: discoveredReadOnly = true        // read-only key → disable the panel
+            case 403:
+                discoveredReadOnly = true              // read-only key → disable the panel
+                onReadOnly?()                          // propagate to coordinator/registry
             case 409: lastError = .conflict
             case 422: lastError = .validation("App Store rejected the response text.")
             default:  lastError = .api(coded.statusCode, nil)

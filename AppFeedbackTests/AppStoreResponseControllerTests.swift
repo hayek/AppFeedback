@@ -136,6 +136,41 @@ final class AppStoreResponseControllerTests: XCTestCase {
         XCTAssertNil(store.mirror(reviewId: "rev-1")?.responseId)  // nothing persisted on a real 403
     }
 
+    // A 403 on one controller must propagate through onReadOnly so a SUBSEQUENTLY-built
+    // controller for the same product is seeded isReadOnly=true (coordinator flag persists).
+    func test403PropagatesViaOnReadOnlyToSubsequentController() async throws {
+        let pid = UUID()
+        let store = try seededStore(reviewId: "rev-1", responseId: nil, state: nil,
+                                    productID: pid, issueNumber: 1)
+        let client = RecordingASCClient()
+        await client.setUpsert { throw StubStatusError(statusCode: 403) }
+
+        // The coordinator's isReadOnly flag — simulated by a shared Bool that onReadOnly flips.
+        var coordinatorIsReadOnly = false
+
+        let firstController = AppStoreResponseController(
+            reviewId: "rev-1", productID: pid, issueNumber: 1, repoOwner: "o", repoName: "r",
+            client: client, mirrorStore: store, commentPoster: GitHubCommentPoster(),
+            tokenLoader: { nil }, readOnly: false,
+            onReadOnly: { coordinatorIsReadOnly = true })
+        firstController.draft = "Thanks!"
+
+        await firstController.submit()
+
+        // First controller is locally disabled.
+        XCTAssertEqual(firstController.mode, .disabledReadOnly)
+        // The onReadOnly callback flipped the shared flag.
+        XCTAssertTrue(coordinatorIsReadOnly, "onReadOnly must have been called after a 403")
+
+        // Build a second controller for the same product seeded from the (now-flipped) flag.
+        let secondController = AppStoreResponseController(
+            reviewId: "rev-2", productID: pid, issueNumber: 2, repoOwner: "o", repoName: "r",
+            client: client, mirrorStore: store, commentPoster: GitHubCommentPoster(),
+            tokenLoader: { nil }, readOnly: coordinatorIsReadOnly)
+        XCTAssertEqual(secondController.mode, .disabledReadOnly,
+                       "subsequent controller must be seeded read-only from coordinator flag")
+    }
+
     func testSubmit422SurfacesValidationError() async throws {
         let pid = UUID()
         let store = try seededStore(reviewId: "rev-1", responseId: nil, state: nil,

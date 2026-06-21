@@ -2,13 +2,19 @@ import Foundation
 import Observation
 
 /// What Phase 4's "Respond on App Store" panel needs to act on a review: the authenticated client,
-/// whether the key is read-only (a 403 on a prior write flips this), and the GitHub sink coordinates
-/// for the "responded" record comment. Defined here (Phase 3 owns it); Phase 4 only consumes it.
+/// whether the key is read-only (a 403 on a prior write flips this), the GitHub sink coordinates
+/// for the "responded" record comment, and a callback to propagate a newly-discovered 403 back to
+/// the coordinator so subsequent controllers on the same product are seeded read-only.
+/// Defined here (Phase 3 owns it); Phase 4 only consumes it.
 struct AppStoreResponderContext: Sendable {
     let client: any AppStoreConnectClientProtocol
     let isReadOnly: Bool
     let owner: String
     let repo: String
+    /// Called on the MainActor when a live 403 is observed by a response controller. Propagates
+    /// the read-only flag to the coordinator so later-built controllers inherit it. `nil` in
+    /// contexts where no coordinator is available (e.g. tests).
+    let onReadOnly: (@Sendable @MainActor () -> Void)?
 }
 
 /// Owns one `AppStoreReviewCoordinator` per product that has App Store Connect configured.
@@ -29,14 +35,25 @@ final class AppStoreReviewCoordinatorRegistry {
 
     /// [responderContext] The seam Phase 4 consumes. Reads the live coordinator's client + read-only
     /// flag + sink coordinates. `async` because the coordinator is an actor. nil when the product has
-    /// no live coordinator (ASC not configured).
+    /// no live coordinator (ASC not configured). The returned context embeds an `onReadOnly` callback
+    /// that, when invoked by a response controller after a live 403, calls `markReadOnly(productID:)`
+    /// so subsequent controllers on the same product are seeded read-only.
     func responderContext(productID: UUID) async -> AppStoreResponderContext? {
         guard let coord = coordinators[productID] else { return nil }
         return AppStoreResponderContext(
             client: await coord.responderClient,
             isReadOnly: await coord.readOnly(),
             owner: await coord.sinkOwner,
-            repo: await coord.sinkRepo)
+            repo: await coord.sinkRepo,
+            onReadOnly: { [weak self] in self?.markReadOnly(productID: productID) })
+    }
+
+    /// Called by a response controller when a live 403 is received. Forwards to the
+    /// coordinator so `responderContext(productID:)` returns `isReadOnly: true` for any
+    /// subsequently-built controller on the same product.
+    func markReadOnly(productID: UUID) {
+        guard let coord = coordinators[productID] else { return }
+        Task { await coord.markReadOnly() }
     }
 
     /// [F] Per-source status for the App Store settings form. nil when no live coordinator.

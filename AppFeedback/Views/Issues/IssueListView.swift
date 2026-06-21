@@ -274,7 +274,8 @@ struct IssueListView: View {
                 tokenLoader: { [owner = context.owner, repo = context.repo] in
                     await KeychainService.load(for: ProductConfig(displayName: repo, owner: owner, repo: repo))
                 },
-                readOnly: context.isReadOnly)
+                readOnly: context.isReadOnly,
+                onReadOnly: context.onReadOnly)
             responseControllers[issueNumber] = controller
         }
         return nil
