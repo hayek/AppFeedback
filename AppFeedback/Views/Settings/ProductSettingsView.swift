@@ -16,9 +16,9 @@ struct ProductSettingsView: View {
     @State private var mirrorEmailsToGitHub = true
     @State private var redactEmailAddresses = true
     @State private var isSaving = false
-    #if os(iOS)
-    @State private var showEmailSourceSheet = false
-    #endif
+    @State private var activeSheet: SourceSheet?
+
+    private enum SourceSheet: Int, Identifiable { case appStore, email; var id: Int { rawValue } }
 
     var body: some View {
         platformContent
@@ -44,6 +44,7 @@ struct ProductSettingsView: View {
             sourcesSection
         }
         .formStyle(.grouped)
+        .sheet(item: $activeSheet) { sheetContent(for: $0) }
         #if os(iOS)
         .navigationTitle(displayName.isEmpty ? "Product" : displayName)
         .navigationBarTitleDisplayMode(.inline)
@@ -109,43 +110,20 @@ struct ProductSettingsView: View {
                     .truncationMode(.middle)
             }
 
-            // App Store — Off / Configured → AppStoreSourceForm (stub; Phase 3 fills in).
-            NavigationLink {
-                AppStoreSourceForm(store: store, product: product)
-            } label: {
-                sourceRow(
-                    title: "App Store",
-                    systemImage: "apple.logo",
-                    status: product.appStoreSourceStatus
-                )
+            // App Store / Email — presented as SHEETS, not NavigationLink pushes. Pushing a grouped
+            // Form onto the NavigationStack nested in the Products NavigationSplitView detail triggers
+            // an infinite AppKit relayout loop on macOS (NSView _layoutSubtreeWithOldSize ↔ NSHostingView
+            // render), beachballing the app. A modal sheet renders in its own hosting context and avoids it.
+            Button { activeSheet = .appStore } label: {
+                sourceRow(title: "App Store", systemImage: "apple.logo", status: product.appStoreSourceStatus)
             }
-
-            // Email — Off / Configured → EmailSourceForm (macOS NavigationLink push) or
-            // IOSEmailSourceForm (iOS sheet with Cancel/Save toolbar).
-            #if os(iOS)
-            Button {
-                showEmailSourceSheet = true
-            } label: {
-                sourceRow(
-                    title: "Email",
-                    systemImage: "envelope",
-                    status: product.emailSourceStatus
-                )
+            .buttonStyle(.plain)
+            .contentShape(Rectangle())
+            Button { activeSheet = .email } label: {
+                sourceRow(title: "Email", systemImage: "envelope", status: product.emailSourceStatus)
             }
-            .sheet(isPresented: $showEmailSourceSheet) {
-                IOSEmailSourceForm(product: product)
-            }
-            #else
-            NavigationLink {
-                EmailSourceForm(product: product)
-            } label: {
-                sourceRow(
-                    title: "Email",
-                    systemImage: "envelope",
-                    status: product.emailSourceStatus
-                )
-            }
-            #endif
+            .buttonStyle(.plain)
+            .contentShape(Rectangle())
         } header: {
             Text("Sources")
         } footer: {
@@ -160,6 +138,46 @@ struct ProductSettingsView: View {
             Text(status == .configured ? "Configured" : "Off")
                 .font(.footnote)
                 .foregroundStyle(status == .configured ? .green : .secondary)
+            Image(systemName: "chevron.right").font(.caption2).foregroundStyle(.tertiary)
         }
+    }
+
+    // MARK: - Source sheets
+
+    @ViewBuilder
+    private func sheetContent(for sheet: SourceSheet) -> some View {
+        switch sheet {
+        case .appStore:
+            sheetWrapper(title: "App Store") { AppStoreSourceForm(store: store, product: product) }
+        case .email:
+            #if os(iOS)
+            IOSEmailSourceForm(product: product)
+            #else
+            sheetWrapper(title: "Email Feedback Inbox") { EmailSourceForm(product: product) }
+            #endif
+        }
+    }
+
+    @ViewBuilder
+    private func sheetWrapper<C: View>(title: String, @ViewBuilder _ content: () -> C) -> some View {
+        #if os(macOS)
+        VStack(spacing: 0) {
+            HStack {
+                Text(title).font(.headline)
+                Spacer()
+                Button("Done") { activeSheet = nil }
+                    .keyboardShortcut(.defaultAction)
+            }
+            .padding()
+            Divider()
+            content()
+        }
+        .frame(minWidth: 520, idealWidth: 560, minHeight: 540, idealHeight: 620)
+        #else
+        NavigationStack {
+            content()
+                .toolbar { ToolbarItem(placement: .confirmationAction) { Button("Done") { activeSheet = nil } } }
+        }
+        #endif
     }
 }
