@@ -293,9 +293,7 @@ struct EmailSourceForm: View {
     @MainActor private func testConnection() async {
         // Persist creds to a (possibly new) account first so IMAPClientProvider can read them.
         // Use persistAccount() (not save()) so the form stays open to display the test result.
-        await persistAccount()
-        guard let id = productStore.products.first(where: { $0.id == product.id })?.feedbackInboxAccountID
-                    ?? model.existingAccountID else { return }
+        guard let id = await persistAccount() ?? model.existingAccountID else { return }
         let logID = activityLog.start(kind: .testConnection, title: "\(model.imapHost):\(model.imapPort)")
         #if canImport(SwiftMail)
         do {
@@ -334,9 +332,9 @@ struct EmailSourceForm: View {
     @ViewBuilder private var howToSetUp: some View {
         DisclosureGroup(isExpanded: $showSetupHelp) {
             VStack(alignment: .leading, spacing: 10) {
-                mailStep(1, "Use a dedicated mailbox for feedback (e.g. feedback@yourapp.com, or a separate Gmail/iCloud address). Every email it receives becomes a feedback item; replies in the same thread attach as comments.")
-                mailStep(2, "Pick your provider in Service above — the IMAP host and port fill in automatically. Choose Custom to type them yourself.")
-                mailStep(3, "If the account uses two-factor sign-in, your normal password won't work over IMAP. Create an app-specific password:")
+                SourceHelpStepRow(number: 1, text: "Use a dedicated mailbox for feedback (e.g. feedback@yourapp.com, or a separate Gmail/iCloud address). Every email it receives becomes a feedback item; replies in the same thread attach as comments.")
+                SourceHelpStepRow(number: 2, text: "Pick your provider in Service above — the IMAP host and port fill in automatically. Choose Custom to type them yourself.")
+                SourceHelpStepRow(number: 3, text: "If the account uses two-factor sign-in, your normal password won't work over IMAP. Create an app-specific password:")
                 if let url = model.preset.appPasswordsURL(forEmail: model.username) {
                     Link(destination: url) {
                         Label("Create an app password for \(model.preset.displayName)", systemImage: "key.fill")
@@ -345,9 +343,9 @@ struct EmailSourceForm: View {
                     Text("Generate one in your email provider's account security settings.")
                         .font(.callout).foregroundStyle(.secondary)
                 }
-                mailStep(4, "Enter the inbox address and paste the app password.")
-                mailStep(5, "Custom providers only: enter the IMAP host and port from your provider's help docs.")
-                mailStep(6, "Tap Test Connection to verify, then Save.")
+                SourceHelpStepRow(number: 4, text: "Enter the inbox address and paste the app password.")
+                SourceHelpStepRow(number: 5, text: "Custom providers only: enter the IMAP host and port from your provider's help docs.")
+                SourceHelpStepRow(number: 6, text: "Tap Test Connection to verify, then Save.")
             }
             .font(.callout)
             .padding(.vertical, 4)
@@ -356,18 +354,6 @@ struct EmailSourceForm: View {
                 .frame(maxWidth: .infinity, alignment: .leading)
                 .contentShape(Rectangle())
                 .onTapGesture { withAnimation { showSetupHelp.toggle() } }
-        }
-    }
-
-    private func mailStep(_ n: Int, _ text: String) -> some View {
-        HStack(alignment: .firstTextBaseline, spacing: 8) {
-            Text("\(n).")
-                .font(.callout.monospacedDigit().weight(.semibold))
-                .foregroundStyle(.secondary)
-            Text(text)
-                .font(.callout)
-                .foregroundStyle(.secondary)
-                .fixedSize(horizontal: false, vertical: true)
         }
     }
 }

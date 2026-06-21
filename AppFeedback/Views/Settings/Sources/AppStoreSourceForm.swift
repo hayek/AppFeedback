@@ -18,7 +18,6 @@ struct AppStoreSourceForm: View {
     @State private var showImporter = false
     @State private var lastSuccessAt: Date?
     @State private var lastError: String?
-    @State private var saving = false
     @State private var showKeyHelp = false
 
     // The `.p8` UTI — a PEM text file. `.data` is the safe superset that always lets the Files
@@ -99,16 +98,16 @@ struct AppStoreSourceForm: View {
     @ViewBuilder private var howToGetKeys: some View {
         DisclosureGroup(isExpanded: $showKeyHelp) {
             VStack(alignment: .leading, spacing: 10) {
-                keyStep(1, "Open App Store Connect → Users and Access → Integrations.")
+                SourceHelpStepRow(number: 1, text: "Open App Store Connect → Users and Access → Integrations.")
                 Link(destination: URL(string: "https://appstoreconnect.apple.com/access/integrations/api")!) {
                     Label("Open Integrations in App Store Connect", systemImage: "arrow.up.right.square")
                 }
-                keyStep(2, "First time only: click Request Access, agree to the terms, and Submit. The Account Holder must do this, then wait for approval.")
-                keyStep(3, "With Team Keys selected, copy the Issuer ID shown above the keys table (it's the same for your whole team) and paste it into Issuer ID above.")
-                keyStep(4, "Click Generate API Key (the ＋). Name it, and under Access choose Admin (or Customer Support) so it can read reviews and post your responses. Then Generate.")
-                keyStep(5, "Copy the new key's Key ID from its row and paste it into Key ID.")
-                keyStep(6, "Click Download API Key to save the .p8 file — Apple lets you download it only once. Then tap “Import .p8 Key…” above.")
-                keyStep(7, "Back here, tap Test to validate and load your apps, pick the app, and Save.")
+                SourceHelpStepRow(number: 2, text: "First time only: click Request Access, agree to the terms, and Submit. The Account Holder must do this, then wait for approval.")
+                SourceHelpStepRow(number: 3, text: "With Team Keys selected, copy the Issuer ID shown above the keys table (it's the same for your whole team) and paste it into Issuer ID above.")
+                SourceHelpStepRow(number: 4, text: "Click Generate API Key (the ＋). Name it, and under Access choose Admin (or Customer Support) so it can read reviews and post your responses. Then Generate.")
+                SourceHelpStepRow(number: 5, text: "Copy the new key's Key ID from its row and paste it into Key ID.")
+                SourceHelpStepRow(number: 6, text: "Click Download API Key to save the .p8 file — Apple lets you download it only once. Then tap \u{201C}Import .p8 Key\u{2026}\u{201D} above.")
+                SourceHelpStepRow(number: 7, text: "Back here, tap Test to validate and load your apps, pick the app, and Save.")
                 Link(destination: URL(string: "https://developer.apple.com/documentation/appstoreconnectapi/creating-api-keys-for-app-store-connect-api")!) {
                     Label("Apple's guide: Creating API keys", systemImage: "book")
                 }
@@ -120,18 +119,6 @@ struct AppStoreSourceForm: View {
                 .frame(maxWidth: .infinity, alignment: .leading)
                 .contentShape(Rectangle())
                 .onTapGesture { withAnimation { showKeyHelp.toggle() } }
-        }
-    }
-
-    private func keyStep(_ n: Int, _ text: String) -> some View {
-        HStack(alignment: .firstTextBaseline, spacing: 8) {
-            Text("\(n).")
-                .font(.callout.monospacedDigit().weight(.semibold))
-                .foregroundStyle(.secondary)
-            Text(text)
-                .font(.callout)
-                .foregroundStyle(.secondary)
-                .fixedSize(horizontal: false, vertical: true)
         }
     }
 
@@ -191,8 +178,6 @@ struct AppStoreSourceForm: View {
     }
 
     private func runSave() async {
-        saving = true
-        defer { saving = false }
         await model.save(productID: product.id, into: store)
         // Restart the coordinator so the new credentials take effect immediately.
         let configs = store.products.compactMap {

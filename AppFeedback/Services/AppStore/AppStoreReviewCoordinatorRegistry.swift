@@ -87,6 +87,7 @@ final class AppStoreReviewCoordinatorRegistry {
         for (id, coord) in coordinators where !currentIDs.contains(id) {
             Task { await coord.stop() }
             coordinators[id] = nil
+            readOnlyProductIDs.remove(id)
         }
         for cfg in configs where coordinators[cfg.id] == nil {
             let coord = factory(cfg)

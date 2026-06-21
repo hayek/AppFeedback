@@ -23,6 +23,12 @@ struct SourceEditorWindow: View {
     var body: some View {
         Group {
             if let request, let product = store.products.first(where: { $0.id == request.productID }) {
+                let primaryTitle: String = {
+                    switch request.kind {
+                    case .appStore: return product.appStoreSourceStatus == .configured ? "Save" : "Add"
+                    case .email:    return product.emailSourceStatus    == .configured ? "Save" : "Add"
+                    }
+                }()
                 VStack(spacing: 0) {
                     switch request.kind {
                     case .appStore:
@@ -35,7 +41,7 @@ struct SourceEditorWindow: View {
                     Divider()
                     HStack {
                         Spacer()
-                        Button("Add") { save = true }
+                        Button(primaryTitle) { save = true }
                             .buttonStyle(.borderedProminent)
                             .keyboardShortcut(.defaultAction)
                             .disabled(!canSave)

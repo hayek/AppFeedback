@@ -25,6 +25,9 @@ struct ProductSettingsView: View {
 
     private enum SourceSheet: Int, Identifiable { case appStore, email; var id: Int { rawValue } }
 
+    /// Returns the live version of `product` from the store so reactive reads pick up saved changes.
+    private var liveProduct: ProductConfig { store.products.first(where: { $0.id == product.id }) ?? product }
+
     var body: some View {
         platformContent
             .task { await populateFromExisting() }
@@ -120,12 +123,12 @@ struct ProductSettingsView: View {
             // an infinite AppKit relayout loop on macOS (NSView _layoutSubtreeWithOldSize ↔ NSHostingView
             // render), beachballing the app. A modal sheet renders in its own hosting context and avoids it.
             Button { openSource(.appStore) } label: {
-                sourceRow(title: "App Store", systemImage: "apple.logo", status: product.appStoreSourceStatus)
+                sourceRow(title: "App Store", systemImage: "apple.logo", status: liveProduct.appStoreSourceStatus)
             }
             .buttonStyle(.plain)
             .contentShape(Rectangle())
             Button { openSource(.email) } label: {
-                sourceRow(title: "Email", systemImage: "envelope", status: product.emailSourceStatus)
+                sourceRow(title: "Email", systemImage: "envelope", status: liveProduct.emailSourceStatus)
             }
             .buttonStyle(.plain)
             .contentShape(Rectangle())
@@ -155,6 +158,9 @@ struct ProductSettingsView: View {
         #if os(macOS)
         openWindow(id: "source-editor", value: SourceEditorRequest(productID: product.id, kind: kind))
         #else
+        // Reset chrome state so a reopened sheet never shows stale Add/Save button state.
+        appStoreSave = false; appStoreCanSave = false
+        emailSave = false; emailCanSave = false
         activeSheet = (kind == .appStore) ? .appStore : .email
         #endif
     }
@@ -163,57 +169,25 @@ struct ProductSettingsView: View {
     private func sheetContent(for sheet: SourceSheet) -> some View {
         switch sheet {
         case .appStore:
-            chrome(title: "App Store", canAdd: appStoreCanSave, add: $appStoreSave) {
+            let primaryTitle = liveProduct.appStoreSourceStatus == .configured ? "Save" : "Add"
+            chrome(title: "App Store", primaryTitle: primaryTitle, canAdd: appStoreCanSave, add: $appStoreSave) {
                 AppStoreSourceForm(store: store, product: product,
                                    externalSaveTrigger: $appStoreSave, externalCanSave: $appStoreCanSave)
             }
         case .email:
-            chrome(title: "Email Feedback Inbox", canAdd: emailCanSave, add: $emailSave) {
+            let primaryTitle = liveProduct.emailSourceStatus == .configured ? "Save" : "Add"
+            chrome(title: "Email Feedback Inbox", primaryTitle: primaryTitle, canAdd: emailCanSave, add: $emailSave) {
                 EmailSourceForm(product: product,
                                 externalSaveTrigger: $emailSave, externalCanSave: $emailCanSave)
             }
         }
     }
 
-    /// Modal chrome for a source form: an ✕ close (top) and a pinned bottom-right **Add** button
-    /// that drives the form via its external save trigger / validity bindings.
+    /// Modal chrome for a source form (iOS only): a NavigationStack with ✕ cancel and a primary
+    /// action button (Add when new, Save when already configured) that drives the form via its
+    /// external save trigger / validity bindings. macOS always opens a real SourceEditorWindow instead.
     @ViewBuilder
-    private func chrome<C: View>(title: String, canAdd: Bool, add: Binding<Bool>, @ViewBuilder _ content: () -> C) -> some View {
-        #if os(macOS)
-        // A macOS .sheet has no system window toolbar, so NavigationStack top toolbar items
-        // (.navigation/.primaryAction) are dropped. Build the navigation bar explicitly.
-        VStack(spacing: 0) {
-            ZStack {
-                Text(title).font(.headline)
-                HStack {
-                    Button { activeSheet = nil } label: {
-                        Image(systemName: "xmark")
-                            .font(.system(size: 13, weight: .semibold))
-                    }
-                    .buttonStyle(.borderless)
-                    .keyboardShortcut(.cancelAction)
-                    .help("Close")
-                    Spacer()
-                }
-            }
-            .frame(maxWidth: .infinity)
-            .padding(.horizontal, 14)
-            .frame(height: 52)
-            .background(.bar)
-            Divider()
-            content()
-            Divider()
-            HStack {
-                Spacer()
-                Button("Add") { add.wrappedValue = true }
-                    .buttonStyle(.borderedProminent)
-                    .keyboardShortcut(.defaultAction)
-                    .disabled(!canAdd)
-            }
-            .padding()
-        }
-        .frame(minWidth: 520, idealWidth: 560, minHeight: 560, idealHeight: 640)
-        #else
+    private func chrome<C: View>(title: String, primaryTitle: String, canAdd: Bool, add: Binding<Bool>, @ViewBuilder _ content: () -> C) -> some View {
         NavigationStack {
             content()
                 .toolbar {
@@ -221,10 +195,9 @@ struct ProductSettingsView: View {
                         Button { activeSheet = nil } label: { Image(systemName: "xmark") }
                     }
                     ToolbarItem(placement: .confirmationAction) {
-                        Button("Add") { add.wrappedValue = true }.disabled(!canAdd)
+                        Button(primaryTitle) { add.wrappedValue = true }.disabled(!canAdd)
                     }
                 }
         }
-        #endif
     }
 }
