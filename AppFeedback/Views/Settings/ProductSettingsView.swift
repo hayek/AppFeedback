@@ -183,7 +183,7 @@ struct ProductSettingsView: View {
                 .navigationTitle(title)
                 .toolbar {
                     ToolbarItem(placement: .cancellationAction) {
-                        Button { activeSheet = nil } label: { Image(systemName: "xmark") }
+                        Button("Cancel") { activeSheet = nil }
                             .keyboardShortcut(.cancelAction)
                     }
                     ToolbarItem(placement: .confirmationAction) {
