@@ -10,10 +10,10 @@ struct IssueSummary: Equatable, Sendable {
     @Guide(description: "One headline sentence on overall feedback tone and focus for this period.")
     var headline: String
 
-    @Guide(description: "2-4 concise sentences of factual prose naming what delighted users or worked well — praise, stable areas, positives. Mention rough frequencies when clear. Plain sentences only.")
+    @Guide(description: "Genuine praise only: things users explicitly liked, complimented, or reported as stable / working well. Plain sentences, no fixed length. If there is no real positive feedback this period, return an empty string. NEVER restate problems, bugs, regressions, frustrations, or feature requests here — those belong in `cons`.")
     var pros: String
 
-    @Guide(description: "2-4 concise sentences of factual prose naming problems — bugs, regressions, pain points, frustrations. Mention rough frequencies when clear. Plain sentences only.")
+    @Guide(description: "2-4 concise sentences of factual prose naming what needs attention — bugs, regressions, pain points, frustrations, plus unmet needs and feature requests. Mention rough frequencies when clear. Plain sentences only.")
     var cons: String
 }
 #endif

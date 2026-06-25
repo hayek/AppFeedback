@@ -60,8 +60,8 @@ struct UnreadSummaryView: View {
 
                     if !collapsed {
                         VStack(alignment: .leading, spacing: 12) {
-                            prosConsSection(title: "Pros", text: summary.pros, tint: Color.green.opacity(0.82))
-                            prosConsSection(title: "Cons", text: summary.cons, tint: Color.red.opacity(0.78))
+                            prosConsSection(title: "What's working", text: summary.pros, tint: Color.green.opacity(0.82))
+                            prosConsSection(title: "Needs attention", text: summary.cons, tint: Color.orange.opacity(0.9))
                         }
                         .transition(.opacity.combined(with: .move(edge: .top)))
                     }

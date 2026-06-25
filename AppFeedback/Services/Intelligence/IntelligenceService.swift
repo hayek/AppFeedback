@@ -11,8 +11,8 @@ final class IntelligenceService: IntelligenceProvider {
     Summarize rolling 30-day user feedback tickets for a PM audience.
     Output:
       headline — one concise sentence capturing overall posture (volume, moods, hotspots).
-      pros — factual positives/praise/stable areas drawn from explicit reports (2–4 short sentences).
-      cons — factual problems/friction/bugs (2–4 short sentences).
+      pros — genuine praise only: what users explicitly liked or reported as working / stable. Leave empty if there is none. Never reword complaints, bugs, or feature requests as positives.
+      cons — problems, friction, bugs, plus unmet needs and feature requests (2–4 short sentences).
     Ground every claim in the provided issues; note rough frequencies when justified. Combine duplicates; skip speculation.
     No bullets, numbering, or markdown inside prose fields.
     Respond only in the requested target language.
@@ -21,8 +21,8 @@ final class IntelligenceService: IntelligenceProvider {
     Summarize currently new / unread user feedback tickets the reviewer hasn't opened yet (short backlog snapshot).
     Output:
       headline — one concise sentence on what jumped out recently (volume + tone).
-      pros — factual positives surfaced in those unread items (2–4 short sentences).
-      cons — factual problems surfaced in those unread items (2–4 short sentences).
+      pros — genuine praise only: positives explicitly surfaced in those unread items. Leave empty if there is none. Never reword complaints, bugs, or feature requests as positives.
+      cons — problems surfaced in those unread items, plus unmet needs and feature requests (2–4 short sentences).
     Ground claims only in the provided issues; note rough repetition when justified. Combine duplicates; skip speculation.
     No bullets, numbering, or markdown inside prose fields.
     Respond only in the requested target language.

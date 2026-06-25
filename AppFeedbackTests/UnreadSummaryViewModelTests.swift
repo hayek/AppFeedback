@@ -121,7 +121,7 @@ final class UnreadSummaryViewModelTests: XCTestCase {
         let rows = try binding.context.fetch(FetchDescriptor<IssueSummaryCache>())
         XCTAssertEqual(rows.count, 1)
         XCTAssertEqual(rows.first?.headline, "2 issues (stub)")
-        XCTAssertEqual(rows.first?.inputFingerprint, "1,2")
+        XCTAssertEqual(rows.first?.inputFingerprint, "v2:1,2")
     }
 
     func test_rollingMode_hydratesFromCacheWhenProviderUnavailable() async throws {
@@ -129,7 +129,7 @@ final class UnreadSummaryViewModelTests: XCTestCase {
         binding.context.insert(IssueSummaryCache(
             repoOwner: "o", repoName: "r", targetLanguage: "en",
             headline: "cached headline", pros: "cached pros", cons: "cached cons",
-            inputFingerprint: "1,2"
+            inputFingerprint: "v2:1,2"
         ))
         try binding.context.save()
 
@@ -154,7 +154,7 @@ final class UnreadSummaryViewModelTests: XCTestCase {
         binding.context.insert(IssueSummaryCache(
             repoOwner: "o", repoName: "r", targetLanguage: "en",
             headline: "cached", pros: "p", cons: "c",
-            inputFingerprint: "1,2"
+            inputFingerprint: "v2:1,2"
         ))
         try binding.context.save()
 
@@ -180,7 +180,7 @@ final class UnreadSummaryViewModelTests: XCTestCase {
         binding.context.insert(IssueSummaryCache(
             repoOwner: "o", repoName: "r", targetLanguage: "en",
             headline: "stale", pros: "p", cons: "c",
-            inputFingerprint: "1,2"
+            inputFingerprint: "v2:1,2"
         ))
         try binding.context.save()
 
@@ -206,7 +206,7 @@ final class UnreadSummaryViewModelTests: XCTestCase {
         }
         XCTAssertEqual(dto.headline, "3 issues (stub)")
         let rows = try binding.context.fetch(FetchDescriptor<IssueSummaryCache>())
-        XCTAssertEqual(rows.first?.inputFingerprint, "1,2,3")
+        XCTAssertEqual(rows.first?.inputFingerprint, "v2:1,2,3")
     }
 
     func test_unreadMode_doesNotTouchCache() async throws {

@@ -112,10 +112,17 @@ final class UnreadSummaryViewModel {
         state = .idle
     }
 
-    /// Sorted, comma-joined issue numbers — stable identity for a set of issues.
+    /// Bumped whenever the summary's *meaning* changes (e.g. `pros` reframed to
+    /// genuine-praise-only) so already-cached rows recompute once on upgrade instead
+    /// of rendering stale content under new labels.
+    static let summaryFormatVersion = 2
+
+    /// Sorted, comma-joined issue numbers, prefixed with the format version — a stable
+    /// identity for a set of issues *under the current summary semantics*.
     /// Shared so cache-fingerprint and SwiftUI task-id derive from the same source.
     static func issueNumbersFingerprint(_ issues: [FeedbackIssue]) -> String {
-        issues.map(\.number).sorted().map(String.init).joined(separator: ",")
+        let numbers = issues.map(\.number).sorted().map(String.init).joined(separator: ",")
+        return "v\(summaryFormatVersion):\(numbers)"
     }
 
     private func fetchSummaryRow(binding: SummaryCacheBinding) -> IssueSummaryCache? {

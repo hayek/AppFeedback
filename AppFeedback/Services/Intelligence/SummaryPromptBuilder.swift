@@ -34,7 +34,7 @@ enum SummaryPromptBuilder {
             lines.append("Summarize what's fresh for the reviewer: themes, urgency, standout praise vs pain.")
         case .rollingLastThirtyDays:
             lines.append("Each issue below was filed within roughly the past 30 days (newest first).")
-            lines.append("Write a factual headline plus pros vs cons prose as instructed.")
+            lines.append("Write a factual headline, then what's working vs what needs attention as instructed.")
         }
         lines.append("Target output language: \(languageDisplayName(targetLanguage)).")
         lines.append("")
@@ -42,8 +42,9 @@ enum SummaryPromptBuilder {
             """
             Constraints:
               • Mention patterns and approximate counts grounded in these issues only.
-              • Keep pros and cons in plain prose (no bullets, lists, headings, markdown).
-              • If positives or negatives look thin, briefly say volumes are uneven rather than guessing.
+              • Keep both sections in plain prose (no bullets, lists, headings, markdown).
+              • Put only genuine praise under pros; if there is none, leave it empty rather than restating complaints or listing requests.
+              • Feature requests and unmet needs belong under cons, not pros.
             """
         )
         lines.append("")
