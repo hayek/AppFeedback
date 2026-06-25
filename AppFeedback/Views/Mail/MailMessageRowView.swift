@@ -38,7 +38,9 @@ struct MailMessageRowView: View {
         Circle()
             .fill(Color.accentColor)
             .frame(width: 8, height: 8)
+            .opacity(isUnread ? 1 : 0)
             .accessibilityLabel("New message")
+            .accessibilityHidden(!isUnread)
     }
 
     private var senderLine: String {
@@ -51,6 +53,11 @@ struct MailMessageRowView: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 4) {
             header
+                .overlay(alignment: .leading) {
+                    unreadDot
+                        .offset(x: -12)
+                        .allowsHitTesting(false)
+                }
             bodyView
             if !attachments.isEmpty {
                 attachmentsRow
@@ -68,7 +75,6 @@ struct MailMessageRowView: View {
 
     private var header: some View {
         HStack {
-            if isUnread { unreadDot }
             Menu {
                 Button("Copy address") { copyFromAddress() }
             } label: {

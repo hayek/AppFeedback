@@ -224,13 +224,6 @@ struct IssueCardView: View {
                 ))
 
             HStack(alignment: .top, spacing: 8) {
-                if effectiveUnread {
-                    Circle()
-                        .fill(Color.accentColor)
-                        .frame(width: 8, height: 8)
-                        .padding(.top, 6)
-                        .accessibilityLabel("Unread")
-                }
                 VStack(alignment: .leading, spacing: 8) {
                     let titleText = issue.displayedTitle(translated: translationVisible)
                     let bodyText = issue.displayedBody(translated: translationVisible)
@@ -408,6 +401,17 @@ struct IssueCardView: View {
             }
             .padding(.horizontal, 16)
             .padding(.vertical, 14)
+            .overlay(alignment: .topLeading) {
+                Circle()
+                    .fill(Color.accentColor)
+                    .frame(width: 8, height: 8)
+                    .opacity(effectiveUnread ? 1 : 0)
+                    .padding(.leading, 4)
+                    .padding(.top, 20)
+                    .allowsHitTesting(false)
+                    .accessibilityLabel("Unread")
+                    .accessibilityHidden(!effectiveUnread)
+            }
         }
         .background(.background)
         .background(
