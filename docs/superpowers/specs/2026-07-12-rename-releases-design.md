@@ -184,6 +184,26 @@ directly.
 - **`TaskDetailView` milestone regression** — a task whose `milestoneTitle` matches no known
   version does not send `milestone: NSNull()` on Apply.
 
+## Accepted gap: a renaming device heals itself; a *peer* device does not
+
+`ProjectVersion`, `SentReleaseNotification`, and `RepoFilterPreference` are in the CloudKit
+schema, but **`CachedIssue` is local-only** (`AppFeedbackApp.swift:96-97`,
+`cloudKitDatabase: .none`). So when device A renames `1.2.0` → `1.3.0`, device B receives the new
+`ProjectVersion.name` over CloudKit — but its own `CachedIssue.milestoneTitle` rows still say
+`1.2.0`, and nothing rewrites them.
+
+B cannot recover on its own from an ordinary refresh, either: the default load is incremental
+(`since:`-filtered), and renaming a GitHub milestone does not bump its issues' `updated_at`, so the
+query returns nothing for them. Until the user pull-to-refreshes (the only `fullReconcile: true`
+path), device B shows the version with **zero tasks**, a 0/0 progress bar, a `.new` state, and task
+cards wearing a `1.2.0` chip that maps to no version.
+
+This is display-only, not data loss — the `.leaveAlone` fix below means device B will not clear any
+milestone on GitHub — and it heals on the next full refresh. Fixing it properly means forcing a
+full reconcile on CloudKit import (a broad behaviour change with performance implications beyond
+this feature) or, better, the durable fix in *Out of scope*: fetch `milestone { number }` and stop
+keying on the name at all.
+
 ## Out of scope
 
 - Renaming a published release (blocked by design, above).
