@@ -82,6 +82,24 @@ final class VersionStore {
         context.insert(v); save(); reload(); return v
     }
 
+    /// Renames `version` and re-points the sent-email rows that belong to it.
+    ///
+    /// Local only — the caller is responsible for having already PATCHed the GitHub milestone title
+    /// (see `VersionService.rename`), because `TaskItem.milestoneTitle` is sourced *from* GitHub and
+    /// a local-only rename would be reverted by the next sync.
+    ///
+    /// The rows are resolved *before* the name changes, so legacy rows (which match by name) are
+    /// still found; each is then stamped with the version's id so it will never need the name again.
+    func rename(_ version: ProjectVersion, to newName: String) {
+        let rows = sentAll.filter { matches($0, version) }
+        version.name = newName
+        for row in rows {
+            row.versionID = version.id
+            row.versionName = newName
+        }
+        saveAndReload()
+    }
+
     func save() { try? context.save() }   // call after mutating a ProjectVersion in place, then reload()
     func saveAndReload() { save(); reload() }
 
