@@ -84,7 +84,7 @@ final class ReleaseNotificationService {
 
             guard let chosen = Self.chooseFeedbackNumber(candidates: recipient.feedbackNumbers, lastActivityByFeedback: lastActivity),
                   let chosenFeedback = feedbackByNumber[chosen] else {
-                versionStore.recordSent(repoOwner: repo.owner, repoName: repo.repo, versionName: version.name,
+                versionStore.recordSent(version: version,
                     recipientEmail: recipient.email, feedbackNumbers: recipient.feedbackNumbers,
                     threadIssueNumber: 0, status: .failed, errorDetail: "No feedback to thread into")
                 continue
@@ -115,7 +115,7 @@ final class ReleaseNotificationService {
             vm.body = NSAttributedString(string: rendered.body)
             let didSend = await vm.send()
 
-            versionStore.recordSent(repoOwner: repo.owner, repoName: repo.repo, versionName: version.name,
+            versionStore.recordSent(version: version,
                 recipientEmail: recipient.email, feedbackNumbers: recipient.feedbackNumbers,
                 threadIssueNumber: chosen, status: didSend ? .sent : .failed,
                 errorDetail: didSend ? nil : "Email send failed")

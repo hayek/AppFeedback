@@ -45,16 +45,33 @@ final class VersionStore {
             .sorted { $0.createdAt > $1.createdAt }
     }
 
-    func alreadyNotifiedEmails(owner: String, repo: String, versionName: String) -> Set<String> {
+    /// Emails already successfully notified for `version` — the only guard against re-emailing a
+    /// user on a second release pass.
+    func alreadyNotifiedEmails(for version: ProjectVersion) -> Set<String> {
         Set(sentAll
-            .filter { $0.repoOwner == owner && $0.repoName == repo && $0.versionName == versionName && $0.status == .sent }
+            .filter { matches($0, version) && $0.status == .sent }
             .map(\.recipientEmail))
     }
 
-    func sentNotifications(owner: String, repo: String, versionName: String) -> [SentReleaseNotification] {
+    func sentNotifications(for version: ProjectVersion) -> [SentReleaseNotification] {
         sentAll
-            .filter { $0.repoOwner == owner && $0.repoName == repo && $0.versionName == versionName }
+            .filter { matches($0, version) }
             .sorted { $0.sentAt > $1.sentAt }
+    }
+
+    /// Does `row` belong to `version`?
+    ///
+    /// Stamped rows match by UUID, so a rename can never hide them. Only rows *unclaimed* by any
+    /// version (legacy rows from builds before `versionID` existed) fall back to matching by name —
+    /// and `rename` stamps those as it rewrites them, so the fallback shrinks to nothing over time.
+    ///
+    /// Deliberately side-effect-free: `VersionDetailView` calls `sentNotifications` from a computed
+    /// property during view body evaluation, so stamping here would mutate models mid-update.
+    private func matches(_ row: SentReleaseNotification, _ version: ProjectVersion) -> Bool {
+        if let rowVersionID = row.versionID { return rowVersionID == version.id }
+        return row.repoOwner == version.repoOwner
+            && row.repoName == version.repoName
+            && row.versionName == version.name
     }
 
     // MARK: Mutations
@@ -68,12 +85,14 @@ final class VersionStore {
     func save() { try? context.save() }   // call after mutating a ProjectVersion in place, then reload()
     func saveAndReload() { save(); reload() }
 
-    func recordSent(repoOwner: String, repoName: String, versionName: String, recipientEmail: String,
+    func recordSent(version: ProjectVersion, recipientEmail: String,
                     feedbackNumbers: [Int], threadIssueNumber: Int, status: SentReleaseNotification.Status,
                     errorDetail: String? = nil) {
-        let row = SentReleaseNotification(repoOwner: repoOwner, repoName: repoName, versionName: versionName,
-            recipientEmail: recipientEmail, feedbackNumbers: feedbackNumbers, threadIssueNumber: threadIssueNumber,
-            status: status, errorDetail: errorDetail)
+        let row = SentReleaseNotification(
+            repoOwner: version.repoOwner, repoName: version.repoName,
+            versionID: version.id, versionName: version.name,
+            recipientEmail: recipientEmail, feedbackNumbers: feedbackNumbers,
+            threadIssueNumber: threadIssueNumber, status: status, errorDetail: errorDetail)
         context.insert(row); save(); reload()
     }
 

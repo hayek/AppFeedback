@@ -21,9 +21,7 @@ struct VersionDetailView: View {
     private var tasks: [TaskItem] { inspector.tasks(forVersionNamed: version.name) }
     private var doneCount: Int { tasks.filter(\.isCompleted).count }
     private var state: VersionState { version.derivedState(anyTaskStarted: inspector.anyTaskStarted(versionNamed: version.name)) }
-    private var sent: [SentReleaseNotification] {
-        versionStore.sentNotifications(owner: repo.owner, repo: repo.repo, versionName: version.name)
-    }
+    private var sent: [SentReleaseNotification] { versionStore.sentNotifications(for: version) }
     private var dirty: Bool { title != version.releaseTitle || changelog != version.changelog }
 
     var body: some View {

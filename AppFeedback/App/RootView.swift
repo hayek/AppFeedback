@@ -202,7 +202,7 @@ struct RootView: View {
                     versionNamed: version.name, tasks: viewModel.tasks, feedback: viewModel.allIssues)
                 ReleaseRecipientsSheet(
                     repo: repo, version: version, recipients: recipients,
-                    alreadySent: versionStore.alreadyNotifiedEmails(owner: repo.owner, repo: repo.repo, versionName: version.name),
+                    alreadySent: versionStore.alreadyNotifiedEmails(for: version),
                     appName: repo.displayName,
                     makeService: { ReleaseNotificationService(versionStore: versionStore, deps: releaseDeps()) },
                     feedback: viewModel.allIssues,
