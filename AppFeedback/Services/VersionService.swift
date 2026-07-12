@@ -9,11 +9,13 @@ final class VersionService {
         case noToken
         case noCommitForRelease
         case duplicateName(String)
+        case alreadyPublished
         var errorDescription: String? {
             switch self {
             case .noToken: return "No GitHub token for this repo. Re-authenticate in Settings."
             case .noCommitForRelease: return "The target repo has no commit to tag. The version was released as a milestone only."
             case .duplicateName(let name): return "GitHub already has a milestone named “\(name)”."
+            case .alreadyPublished: return "This version is already released, so it can't be renamed — its git tag and release emails are public."
             }
         }
     }
@@ -57,10 +59,13 @@ final class VersionService {
     /// version in the meantime. Committing locally only after GitHub accepts keeps the two in step.
     ///
     /// Blocked once the version is published: the git tag and the release emails are already public,
-    /// and a published Release's name cannot be PATCHed by this client anyway.
+    /// and a published Release's name cannot be PATCHed by this client anyway. That block *throws*
+    /// rather than returning: a caller that got a silent `return` would report "renamed!" with
+    /// nothing renamed. Unreachable from the UI — `VersionDetailView` makes the name field
+    /// read-only once published, and every caller commits its pending rename *before* releasing.
     func rename(repo: ProductConfig, version: ProjectVersion, to proposed: String,
                 cascade: VersionRenameCascade) async throws {
-        guard !version.releasePublished else { return }
+        guard !version.releasePublished else { throw ServiceError.alreadyPublished }
 
         let existing = store.versions(owner: version.repoOwner, repo: version.repoName)
         let newName = try VersionNameValidator.validate(proposed, existing: existing, renaming: version)
@@ -77,6 +82,12 @@ final class VersionService {
                                                      title: newName, token: token)
             } catch GitHubMilestoneReleaseClient.ClientError.apiError(422, _) {
                 throw ServiceError.duplicateName(newName)
+            } catch GitHubMilestoneReleaseClient.ClientError.apiError(404, _) {
+                // The milestone is gone (deleted on GitHub). There is nothing left to PATCH, so fall
+                // through to the same purely-local rename taken when `milestoneNumber == nil` —
+                // otherwise a deleted milestone would wedge the version at its old name forever.
+                // The stale number is deliberately *not* cleared: GitHub also 404s a repo the token
+                // can't see, and dropping the link on what may be an auth blip is unrecoverable.
             }
         }
 

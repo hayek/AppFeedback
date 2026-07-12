@@ -58,12 +58,6 @@ final class TaskService {
         try await writer.updateIssue(owner: repo.owner, repo: repo.repo, number: task.number, body: newBody, token: token)
     }
 
-    func assignVersion(repo: ProductConfig, task: TaskItem, milestoneNumber: Int?) async throws {
-        guard let token = KeychainService.loadSync(for: repo) else { throw ServiceError.noToken }
-        try await writer.updateIssue(owner: repo.owner, repo: repo.repo, number: task.number,
-            milestoneNumber: .some(milestoneNumber), token: token)
-    }
-
     /// Updates the task's title and notes, preserving the machine-managed feedback-refs block.
     func updateContent(repo: ProductConfig, task: TaskItem, title: String, prose: String) async throws {
         guard let token = KeychainService.loadSync(for: repo) else { throw ServiceError.noToken }
