@@ -219,16 +219,35 @@ struct VersionDetailView: View {
 
     // MARK: Actions
 
+    /// Commits everything the user has typed into this sheet — the title/changelog edit first, then
+    /// any pending rename — and returns only once GitHub has accepted both. Throws on the first
+    /// failure, so a caller that goes on to release will not release on a stale name.
+    ///
+    /// Shared by every action that leaves the editor, because they all need exactly this: `Apply`,
+    /// `Release…`, and `Mark released (no email)`. The two release paths *must* run it before
+    /// releasing — the git tag is derived from `version.name`, and releasing sets
+    /// `releasePublished`, which makes the version un-renameable for good.
+    ///
+    /// The pending values are snapshotted up front so the awaits can't race a re-render.
+    private func commitPendingEdits(using service: VersionService) async throws {
+        let newTitle = title, newChangelog = changelog, newName = trimmedName
+        let mustRename = nameChanged
+        let detailsChanged = newTitle != version.releaseTitle || newChangelog != version.changelog
+
+        if detailsChanged {
+            try await service.updateDetails(repo: repo, version: version, title: newTitle, changelog: newChangelog)
+        }
+        if mustRename { try await onRename(newName) }
+    }
+
     /// Title/changelog keep their fire-and-forget behaviour (dismiss, write in the background). A
     /// rename does not: it holds the sheet open and surfaces failures, because a rename that
     /// silently failed looks exactly like one that succeeded.
     private func applyDetails() {
         let service = VersionService(store: versionStore)
-        let newTitle = title, newChangelog = changelog, newName = trimmedName
-        let mustRename = nameChanged
-        let detailsChanged = newTitle != version.releaseTitle || newChangelog != version.changelog
 
-        guard mustRename else {
+        guard nameChanged else {
+            let newTitle = title, newChangelog = changelog
             dismiss()
             Task { try? await service.updateDetails(repo: repo, version: version, title: newTitle, changelog: newChangelog) }
             return
@@ -237,10 +256,7 @@ struct VersionDetailView: View {
         working = true; errorMessage = nil
         Task {
             do {
-                if detailsChanged {
-                    try await service.updateDetails(repo: repo, version: version, title: newTitle, changelog: newChangelog)
-                }
-                try await onRename(newName)
+                try await commitPendingEdits(using: service)
                 working = false
                 dismiss()
             } catch {
@@ -257,15 +273,10 @@ struct VersionDetailView: View {
     /// while unpublished, i.e. exactly when a rename is still possible.
     private func releaseFlow() {
         let service = VersionService(store: versionStore)
-        let newTitle = title, newChangelog = changelog, newName = trimmedName
-        let mustRename = nameChanged
         working = true; errorMessage = nil
         Task {
             do {
-                if newTitle != version.releaseTitle || newChangelog != version.changelog {
-                    try await service.updateDetails(repo: repo, version: version, title: newTitle, changelog: newChangelog)
-                }
-                if mustRename { try await onRename(newName) }
+                try await commitPendingEdits(using: service)
                 working = false
                 onRelease()
             } catch {
@@ -275,13 +286,23 @@ struct VersionDetailView: View {
         }
     }
 
+    /// The no-mail-account twin of `releaseFlow`, and it needs the *same* pre-release commit: this
+    /// button publishes directly, so an uncommitted rename would be tagged and published under the
+    /// old name — and `releasePublished` would then lock the name read-only, stranding it forever.
+    /// The rename is committed first and a failure aborts the release.
     private func markReleasedNoEmail() {
         working = true; errorMessage = nil
         let service = VersionService(store: versionStore)
-        let tag = version.releaseTag ?? "v\(version.name)"
         Task {
-            do { _ = try await service.release(repo: repo, version: version, tag: tag, target: nil, publishRelease: false, now: Date()) }
-            catch { errorMessage = error.localizedDescription }
+            do {
+                try await commitPendingEdits(using: service)
+                // Read the tag *after* the commit: `version.name` is now the new name.
+                let tag = version.releaseTag ?? "v\(version.name)"
+                _ = try await service.release(repo: repo, version: version, tag: tag, target: nil,
+                                              publishRelease: false, now: Date())
+            } catch {
+                errorMessage = error.localizedDescription
+            }
             working = false
         }
     }
