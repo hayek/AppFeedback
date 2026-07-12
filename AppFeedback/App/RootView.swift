@@ -49,8 +49,10 @@ struct RootView: View {
     /// Serializes feedback-ref writes per task issue so two rapid attach/detach gestures on the
     /// same task can't race to a PATCH that lands out of order and drops a ref.
     @State private var refWriteChain: [Int: Task<Void, Never>] = [:]
-    /// Surfaces a failed attach/detach write so the optimistic tag doesn't just silently revert.
-    @State private var taskWriteError: String?
+    /// Surfaces a failed write (a task attach/detach or delete, a rejected version create) so an
+    /// optimistic change that didn't stick never reverts — or vanishes — without explanation. Each
+    /// message names its own subject, so one alert covers them all.
+    @State private var writeError: String?
     @State private var showCreateVersion = false
     @State private var showCreateTask = false
     @State private var columnVisibility: NavigationSplitViewVisibility = .automatic
@@ -181,13 +183,13 @@ struct RootView: View {
             }
         }
         #endif
-        .alert("Couldn't update task", isPresented: Binding(
-            get: { taskWriteError != nil },
-            set: { if !$0 { taskWriteError = nil } }
+        .alert("Couldn't complete", isPresented: Binding(
+            get: { writeError != nil },
+            set: { if !$0 { writeError = nil } }
         )) {
-            Button("OK", role: .cancel) { taskWriteError = nil }
+            Button("OK", role: .cancel) { writeError = nil }
         } message: {
-            Text(taskWriteError ?? "")
+            Text(writeError ?? "")
         }
         .sheet(item: $taskFromFeedback) { task in
             if let repo = store.repos.first(where: { $0.id == selection?.repoId }) {
@@ -198,8 +200,13 @@ struct RootView: View {
         }
         .sheet(item: $versionToRelease) { version in
             if let repo = store.repos.first(where: { $0.id == selection?.repoId }) {
+                // `inspector.tasks` — NOT `viewModel.tasks`. The calculator matches tasks by
+                // `milestoneTitle == version.name`, and a rename only re-points the inspector's
+                // list (`inspector.renameVersion`); `viewModel.tasks` is a separate struct-copied
+                // snapshot still carrying the OLD name. Feeding it here would match nothing after a
+                // rename and publish the release having emailed no one, silently.
                 let recipients = ReleaseRecipientCalculator.recipients(
-                    versionNamed: version.name, tasks: viewModel.tasks, feedback: viewModel.allIssues)
+                    versionNamed: version.name, tasks: inspector.tasks, feedback: viewModel.allIssues)
                 ReleaseRecipientsSheet(
                     repo: repo, version: version, recipients: recipients,
                     alreadySent: versionStore.alreadyNotifiedEmails(for: version),
@@ -349,7 +356,8 @@ struct RootView: View {
         }
         .sheet(isPresented: $showCreateVersion) {
             if let repo = store.repos.first(where: { $0.id == selection.repoId }) {
-                NewVersionSheet(onSubmit: { draft in createVersion(repo: repo, draft: draft) })
+                NewVersionSheet(existing: versionStore.versions(owner: repo.owner, repo: repo.repo),
+                                onSubmit: { draft in createVersion(repo: repo, draft: draft) })
             }
         }
     }
@@ -540,7 +548,7 @@ struct RootView: View {
                     inspector.removeTask(number: task.number)
                     loaders[repo.id]?.purgeFromCache(number: task.number)
                 } else {
-                    taskWriteError = "Task #\(task.number): \(error.localizedDescription)"
+                    writeError = "Task #\(task.number): \(error.localizedDescription)"
                 }
             }
         }
@@ -565,7 +573,7 @@ struct RootView: View {
                     // Already deleted on GitHub (a stale phantom) — purge it so it stops coming back.
                     loaders[repo.id]?.purgeFromCache(number: task.number)
                 } else {
-                    taskWriteError = "Couldn't delete task #\(task.number): \(error.localizedDescription)"
+                    writeError = "Couldn't delete task #\(task.number): \(error.localizedDescription)"
                     await refreshSelectedRepo()   // it wasn't deleted — bring it back
                 }
             }
@@ -618,13 +626,21 @@ struct RootView: View {
     /// Creates a version optimistically: the local record appears at once (with a "Creating…"
     /// badge), then the GitHub milestone is provisioned in the background — green checkmark on
     /// success (clearing after a few seconds), or a "Failed" card with Retry / Dismiss.
+    ///
+    /// `versionStore.create` rejects an empty or duplicate name. `NewVersionSheet` already blocks
+    /// both without dismissing, so this catch is the backstop — but it surfaces rather than
+    /// swallows, because a create that produced nothing must never look like it worked.
     private func createVersion(repo: ProductConfig, draft: VersionDraft) {
-        let version = withAnimation(.spring(response: 0.35, dampingFraction: 0.82)) {
-            versionStore.create(repoOwner: repo.owner, repoName: repo.repo,
-                                name: draft.name, releaseTitle: draft.releaseTitle, changelog: draft.changelog)
+        do {
+            let version = try withAnimation(.spring(response: 0.35, dampingFraction: 0.82)) {
+                try versionStore.create(repoOwner: repo.owner, repoName: repo.repo,
+                                        name: draft.name, releaseTitle: draft.releaseTitle, changelog: draft.changelog)
+            }
+            versionCreations.begin(version.id)
+            provisionVersion(repo: repo, version: version)
+        } catch {
+            writeError = "Couldn't create version: \(error.localizedDescription)"
         }
-        versionCreations.begin(version.id)
-        provisionVersion(repo: repo, version: version)
     }
 
     /// Re-attempts a failed version provision, reusing the same card. The `retry` guard returns

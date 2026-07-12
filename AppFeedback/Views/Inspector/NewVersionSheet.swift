@@ -1,6 +1,9 @@
 import SwiftUI
 
 struct NewVersionSheet: View {
+    /// Every version already in this product — the duplicate check reads it. A version's name is the
+    /// foreign key that joins its tasks and release emails, so two versions may not share one.
+    var existing: [ProjectVersion]
     /// Hands the entered values back so the caller can create the version optimistically and
     /// provision the GitHub milestone in the background (mirrors `CreateTaskSheet.onSubmit`).
     var onSubmit: (VersionDraft) -> Void
@@ -11,6 +14,7 @@ struct NewVersionSheet: View {
     @State private var changelog = ""
     /// Guards a fast double-tap of Create from submitting the same version twice.
     @State private var submitted = false
+    @State private var errorMessage: String?
 
     var body: some View {
         NavigationStack {
@@ -26,6 +30,13 @@ struct NewVersionSheet: View {
                                 .font(.title2.weight(.semibold))
                         }
                         Rectangle().fill(Color.primary.opacity(0.08)).frame(height: 1)
+                        // Sits directly under the name field the user has to fix, and the sheet
+                        // stays up so their typing survives the rejection.
+                        if let errorMessage {
+                            Label(errorMessage, systemImage: "exclamationmark.triangle.fill")
+                                .font(.footnote).foregroundStyle(.red)
+                                .padding(.top, 2)
+                        }
                     }
 
                     field("Release title") {
@@ -80,11 +91,16 @@ struct NewVersionSheet: View {
 
     private func create() {
         guard !submitted else { return }
-        submitted = true
-        onSubmit(VersionDraft(
-            name: name.trimmingCharacters(in: .whitespacesAndNewlines),
-            releaseTitle: title,
-            changelog: changelog))
-        dismiss()
+        do {
+            // Reject a duplicate *before* dismissing — the caller creates optimistically, so a name
+            // that can't be created has to be caught while the user is still looking at the field.
+            let validated = try VersionNameValidator.validate(name, existing: existing)
+            submitted = true
+            errorMessage = nil
+            onSubmit(VersionDraft(name: validated, releaseTitle: title, changelog: changelog))
+            dismiss()
+        } catch {
+            errorMessage = error.localizedDescription
+        }
     }
 }

@@ -76,9 +76,18 @@ final class VersionStore {
 
     // MARK: Mutations
 
+    /// Creates a version, rejecting an empty or duplicate name.
+    ///
+    /// Validation lives here, not just in the sheet, because `name` is the foreign key that joins
+    /// tasks, sent release emails, and saved filters to a version. Two versions sharing a name
+    /// inside one product silently merge each other's task lists — and a rename of either one
+    /// rewrites *both* versions' cached issues, migrating the other's tasks away. `rename` has
+    /// always validated; create is the door that was left open.
     @discardableResult
-    func create(repoOwner: String, repoName: String, name: String, releaseTitle: String = "", changelog: String) -> ProjectVersion {
-        let v = ProjectVersion(repoOwner: repoOwner, repoName: repoName, name: name, releaseTitle: releaseTitle, changelog: changelog)
+    func create(repoOwner: String, repoName: String, name: String, releaseTitle: String = "", changelog: String) throws -> ProjectVersion {
+        let validated = try VersionNameValidator.validate(
+            name, existing: versions(owner: repoOwner, repo: repoName))
+        let v = ProjectVersion(repoOwner: repoOwner, repoName: repoName, name: validated, releaseTitle: releaseTitle, changelog: changelog)
         context.insert(v); save(); reload(); return v
     }
 
