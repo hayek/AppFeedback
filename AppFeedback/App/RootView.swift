@@ -548,7 +548,7 @@ struct RootView: View {
                     inspector.removeTask(number: task.number)
                     loaders[repo.id]?.purgeFromCache(number: task.number)
                 } else {
-                    writeError = "Task #\(task.number): \(error.localizedDescription)"
+                    writeError = "Couldn't update task #\(task.number): \(error.localizedDescription)"
                 }
             }
         }

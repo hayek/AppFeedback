@@ -82,12 +82,28 @@ final class VersionService {
                                                      title: newName, token: token)
             } catch GitHubMilestoneReleaseClient.ClientError.apiError(422, _) {
                 throw ServiceError.duplicateName(newName)
-            } catch GitHubMilestoneReleaseClient.ClientError.apiError(404, _) {
-                // The milestone is gone (deleted on GitHub). There is nothing left to PATCH, so fall
-                // through to the same purely-local rename taken when `milestoneNumber == nil` —
-                // otherwise a deleted milestone would wedge the version at its old name forever.
-                // The stale number is deliberately *not* cleared: GitHub also 404s a repo the token
-                // can't see, and dropping the link on what may be an auth blip is unrecoverable.
+            } catch GitHubMilestoneReleaseClient.ClientError.apiError(404, let message) {
+                // A 404 here is ambiguous: GitHub returns it both when the milestone was deleted
+                // (nothing left to PATCH — safe to fall through to a local-only rename) AND when
+                // the token can no longer see the repo at all (lapsed PAT scope, revoked access —
+                // the milestone is still there, under its old title). Treating every 404 as
+                // "deleted" would commit `store.rename` + `cascade.apply` in the second case too,
+                // and that's exactly the hazard the GitHub-first ordering above exists to avoid:
+                // once access is restored, the next reconcile rewrites `CachedIssue.milestoneTitle`
+                // back to the old name and every task silently detaches from the renamed version.
+                //
+                // Disambiguate by re-querying the milestone list: a repo-invisible token 404s that
+                // call too, so its failure means "can't confirm deletion" — rethrow the original
+                // error rather than guess. Only a successful list that plainly omits this milestone
+                // number confirms a genuine deletion.
+                let originalError = GitHubMilestoneReleaseClient.ClientError.apiError(404, message: message)
+                guard let milestones = try? await client.listMilestones(owner: repo.owner, repo: repo.repo, token: token),
+                      !milestones.contains(where: { $0.number == number }) else {
+                    throw originalError
+                }
+                // Confirmed gone from GitHub's own list — fall through to the local-only rename
+                // below. The stale number is deliberately *not* cleared here either way: GitHub
+                // also 404s an invisible repo, so clearing on an auth blip would be unrecoverable.
             }
         }
 

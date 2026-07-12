@@ -28,6 +28,24 @@ final class GitHubMilestoneReleaseClientTests: XCTestCase {
         XCTAssertEqual(all.map(\.number), [1, 2])
     }
 
+    /// `VersionService.rename` disambiguates a milestone-PATCH 404 (deleted milestone vs. a repo
+    /// the token can no longer see) by re-querying this list — pin that a repo-invisible 404
+    /// surfaces here too, rather than being swallowed into an empty array, since that's what makes
+    /// the disambiguation trustworthy.
+    func testListMilestonesSurfaces404WhenRepoIsInvisible() async throws {
+        MockURLProtocol.requestHandler = { req in
+            (HTTPURLResponse(url: req.url!, statusCode: 404, httpVersion: nil, headerFields: nil)!,
+             #"{"message":"Not Found"}"#.data(using: .utf8)!)
+        }
+        let client = GitHubMilestoneReleaseClient(session: .mock)
+        do {
+            _ = try await client.listMilestones(owner: "o", repo: "r", token: "t")
+            XCTFail("expected a 404 to throw")
+        } catch let GitHubMilestoneReleaseClient.ClientError.apiError(code, _) {
+            XCTAssertEqual(code, 404)
+        }
+    }
+
     func testCreateReleaseDraftThenPublishFlags() async throws {
         var capturedBody: [String: Any]?
         MockURLProtocol.requestHandler = { req in
