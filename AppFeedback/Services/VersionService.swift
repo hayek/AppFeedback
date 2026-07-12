@@ -8,10 +8,12 @@ final class VersionService {
     enum ServiceError: LocalizedError {
         case noToken
         case noCommitForRelease
+        case duplicateName(String)
         var errorDescription: String? {
             switch self {
             case .noToken: return "No GitHub token for this repo. Re-authenticate in Settings."
             case .noCommitForRelease: return "The target repo has no commit to tag. The version was released as a milestone only."
+            case .duplicateName(let name): return "GitHub already has a milestone named “\(name)”."
             }
         }
     }
@@ -44,6 +46,42 @@ final class VersionService {
             _ = try await client.updateMilestone(owner: repo.owner, repo: repo.repo, number: number,
                 description: changelog, token: token)
         }
+    }
+
+    /// Renames a version: validates, PATCHes the GitHub milestone title, then commits locally and
+    /// cascades the local copies of the old name.
+    ///
+    /// GitHub goes **first**, inverting `updateDetails`'s local-then-remote order. That matters here:
+    /// `TaskItem.milestoneTitle` is sourced *from* GitHub, so a local-first rename that then failed
+    /// remotely would be silently reverted by the next sync — and every task would detach from the
+    /// version in the meantime. Committing locally only after GitHub accepts keeps the two in step.
+    ///
+    /// Blocked once the version is published: the git tag and the release emails are already public,
+    /// and a published Release's name cannot be PATCHed by this client anyway.
+    func rename(repo: ProductConfig, version: ProjectVersion, to proposed: String,
+                cascade: VersionRenameCascade) async throws {
+        guard !version.releasePublished else { return }
+
+        let existing = store.versions(owner: version.repoOwner, repo: version.repoName)
+        let newName = try VersionNameValidator.validate(proposed, existing: existing, renaming: version)
+
+        let oldName = version.name
+        guard newName != oldName else { return }
+
+        // A version whose milestone was never provisioned (offline create, or a failed provision)
+        // has nothing to PATCH — the rename is a pure local edit.
+        if let number = version.milestoneNumber {
+            guard let token = KeychainService.loadSync(for: repo) else { throw ServiceError.noToken }
+            do {
+                _ = try await client.updateMilestone(owner: repo.owner, repo: repo.repo, number: number,
+                                                     title: newName, token: token)
+            } catch GitHubMilestoneReleaseClient.ClientError.apiError(422, _) {
+                throw ServiceError.duplicateName(newName)
+            }
+        }
+
+        store.rename(version, to: newName)
+        cascade.apply(owner: version.repoOwner, repo: version.repoName, from: oldName, to: newName)
     }
 
     /// Deletes the version: removes the GitHub milestone (if any) and the local record.
