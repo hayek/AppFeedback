@@ -399,6 +399,55 @@ final class ProjectInspectorModelTests: XCTestCase {
         XCTAssertFalse(m.versionMatches(name: "2.0.0", releaseTitle: "x", state: .new))
     }
 
+    // MARK: - Version rename (in-memory re-point)
+
+    func testRenameVersionRepointsLoadedTasks() {
+        let model = ProjectInspectorModel()
+        model.setTasks([
+            makeTask(1, milestone: "1.2.0"),
+            makeTask(2, milestone: "9.9"),
+            makeTask(3, milestone: nil),
+        ])
+
+        model.renameVersion(from: "1.2.0", to: "1.3.0")
+
+        XCTAssertEqual(model.tasks(forVersionNamed: "1.3.0").map(\.number), [1])
+        XCTAssertTrue(model.tasks(forVersionNamed: "1.2.0").isEmpty)
+        XCTAssertEqual(model.tasks(forVersionNamed: "9.9").map(\.number), [2])
+        XCTAssertNil(model.task(number: 3)?.milestoneTitle, "an unassigned task must stay unassigned")
+    }
+
+    func testRenameVersionMovesTheActiveVersionFilter() {
+        let model = ProjectInspectorModel()
+        model.taskFilters.versionScope = .versions(["1.2.0", "1.1.0"])
+
+        model.renameVersion(from: "1.2.0", to: "1.3.0")
+
+        XCTAssertEqual(model.taskFilters.versionScope, .versions(["1.3.0", "1.1.0"]))
+    }
+
+    func testRenameVersionMovesTheDerivedStateEntry() {
+        let model = ProjectInspectorModel()
+        model.versionStates = ["1.2.0": .wip, "9.9": .new]
+
+        model.renameVersion(from: "1.2.0", to: "1.3.0")
+
+        XCTAssertEqual(model.versionStates["1.3.0"], .wip)
+        XCTAssertNil(model.versionStates["1.2.0"])
+        XCTAssertEqual(model.versionStates["9.9"], .new)
+    }
+
+    func testRenameVersionToSameNameIsNoOp() {
+        let model = ProjectInspectorModel()
+        model.setTasks([makeTask(1, milestone: "1.2.0")])
+        model.versionStates = ["1.2.0": .wip]
+
+        model.renameVersion(from: "1.2.0", to: "1.2.0")
+
+        XCTAssertEqual(model.tasks(forVersionNamed: "1.2.0").map(\.number), [1])
+        XCTAssertEqual(model.versionStates["1.2.0"], .wip)
+    }
+
     // MARK: - Clearing
 
     func testClearFiltersResetsEverything() {

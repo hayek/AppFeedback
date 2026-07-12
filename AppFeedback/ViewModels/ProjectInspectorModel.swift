@@ -325,6 +325,25 @@ final class ProjectInspectorModel {
         return previous
     }
 
+    /// Re-points the in-memory view state from `oldName` to `newName` after a version rename, so the
+    /// UI updates immediately instead of waiting for a GitHub round-trip. GitHub is already correct
+    /// — its issues are attached to the milestone by number, which a rename doesn't change.
+    func renameVersion(from oldName: String, to newName: String) {
+        guard oldName != newName else { return }
+
+        for (index, task) in tasks.enumerated() where task.milestoneTitle == oldName {
+            tasks[index] = task.with(milestone: .some(newName))
+        }
+        if case .versions(var names) = taskFilters.versionScope, names.contains(oldName) {
+            names.remove(oldName)
+            names.insert(newName)
+            taskFilters.versionScope = .versions(names)
+        }
+        if let state = versionStates.removeValue(forKey: oldName) {
+            versionStates[newName] = state
+        }
+    }
+
     /// Roll an optimistic change back to a previously-captured value (used when the write fails).
     func restore(_ task: TaskItem) {
         guard let index = tasks.firstIndex(where: { $0.number == task.number }) else { return }

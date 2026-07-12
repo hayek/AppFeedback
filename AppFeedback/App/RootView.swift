@@ -320,6 +320,7 @@ struct RootView: View {
             onCreateTask: { showCreateTask = true },
             onCreateVersion: { showCreateVersion = true },
             onRelease: { startRelease($0) },
+            onRename: { version, newName in try await renameVersion(version, to: newName) },
             onDeleteTask: { deleteTask($0) },
             onOpenFeedback: { openFeedback($0) },
             onRetryCreation: { retryCreation($0) },
@@ -468,6 +469,17 @@ struct RootView: View {
         showInspector = false
         #endif
         versionToRelease = version
+    }
+
+    /// Renames a version end-to-end: GitHub milestone PATCH → local record + sent-email rows →
+    /// cached issues + saved filters → the in-memory task list. Throws so the sheet can show why it
+    /// failed and keep the user's typing.
+    private func renameVersion(_ version: ProjectVersion, to newName: String) async throws {
+        guard let repo = store.repos.first(where: { $0.id == selection?.repoId }) else { return }
+        let oldName = version.name
+        let cascade = VersionRenameCascade(cacheContext: cacheContext, filterStore: filterStore)
+        try await VersionService(store: versionStore).rename(repo: repo, version: version, to: newName, cascade: cascade)
+        inspector.renameVersion(from: oldName, to: version.name)
     }
 
     /// Tasks attached to each feedback (by feedback number) — drives the clickable task tags.

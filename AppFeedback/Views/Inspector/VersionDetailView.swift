@@ -6,6 +6,9 @@ struct VersionDetailView: View {
     var inspector: ProjectInspectorModel
     var versionStore: VersionStore
     var onRelease: () -> Void
+    /// Renames the version: PATCHes the GitHub milestone, then cascades the local copies of the old
+    /// name. Supplied by `RootView`, which owns the cache context and the filter store.
+    var onRename: (String) async throws -> Void
     var onDeleteTask: (TaskItem) -> Void
     var onOpenFeedback: (Int) -> Void
     let canEmail: Bool
@@ -13,6 +16,7 @@ struct VersionDetailView: View {
     @Environment(\.dismiss) private var dismiss
     @State private var title: String = ""          // release title
     @State private var changelog: String = ""
+    @State private var name: String = ""           // version number — the identity key
     @State private var working = false
     @State private var errorMessage: String?
     @State private var taskToOpen: TaskItem?
@@ -22,7 +26,17 @@ struct VersionDetailView: View {
     private var doneCount: Int { tasks.filter(\.isCompleted).count }
     private var state: VersionState { version.derivedState(anyTaskStarted: inspector.anyTaskStarted(versionNamed: version.name)) }
     private var sent: [SentReleaseNotification] { versionStore.sentNotifications(for: version) }
-    private var dirty: Bool { title != version.releaseTitle || changelog != version.changelog }
+
+    /// A published version cannot be renamed: its git tag and release emails are already public.
+    private var canRename: Bool { !version.releasePublished }
+    private var trimmedName: String { name.trimmingCharacters(in: .whitespacesAndNewlines) }
+    private var nameChanged: Bool { canRename && trimmedName != version.name }
+    private var dirty: Bool {
+        title != version.releaseTitle || changelog != version.changelog || nameChanged
+    }
+    /// Apply is blocked on an empty name — but only when the name is what's being edited, so a
+    /// published version (whose name field is read-only) can still have its changelog applied.
+    private var canApply: Bool { dirty && !(canRename && trimmedName.isEmpty) }
 
     var body: some View {
         ScrollView {
@@ -55,7 +69,7 @@ struct VersionDetailView: View {
                 Button("Apply") { applyDetails() }
                     .buttonStyle(.borderedProminent)
                     .fontWeight(.semibold)
-                    .disabled(!dirty)
+                    .disabled(!canApply || working)
             }
         }
         .confirmationDialog("Delete version \(version.name)?", isPresented: $showDeleteConfirm, titleVisibility: .visible) {
@@ -63,7 +77,7 @@ struct VersionDetailView: View {
         } message: {
             Text("This removes the milestone on GitHub and the version here. Tasks are not deleted.")
         }
-        .onAppear { changelog = version.changelog; title = version.releaseTitle }
+        .onAppear { changelog = version.changelog; title = version.releaseTitle; name = version.name }
         .sheet(item: $taskToOpen) { task in
             TaskDetailView(repo: repo, task: task, inspector: inspector, versionStore: versionStore,
                            onDelete: { taskToOpen = nil; onDeleteTask(task) },
@@ -76,8 +90,17 @@ struct VersionDetailView: View {
     private var header: some View {
         VStack(alignment: .leading, spacing: 12) {
             HStack(alignment: .firstTextBaseline, spacing: 10) {
-                Text(version.name).font(.largeTitle.weight(.bold))
+                if canRename {
+                    TextField("1.2.0", text: $name)
+                        .textFieldStyle(.plain)
+                        .font(.largeTitle.weight(.bold))
+                        .disabled(working)
+                } else {
+                    Text(version.name).font(.largeTitle.weight(.bold))
+                }
                 Spacer(minLength: 8)
+                // The rename holds the sheet open while GitHub is PATCHed, so show it's working.
+                if working { ProgressView().controlSize(.small) }
                 VersionStatePill(state: state)
             }
             if !tasks.isEmpty {
@@ -194,22 +217,59 @@ struct VersionDetailView: View {
 
     // MARK: Actions
 
+    /// Title/changelog keep their fire-and-forget behaviour (dismiss, write in the background). A
+    /// rename does not: it holds the sheet open and surfaces failures, because a rename that
+    /// silently failed looks exactly like one that succeeded.
     private func applyDetails() {
         let service = VersionService(store: versionStore)
-        let t = title, c = changelog
-        dismiss()
-        Task { try? await service.updateDetails(repo: repo, version: version, title: t, changelog: c) }
+        let newTitle = title, newChangelog = changelog, newName = trimmedName
+        let mustRename = nameChanged
+        let detailsChanged = newTitle != version.releaseTitle || newChangelog != version.changelog
+
+        guard mustRename else {
+            dismiss()
+            Task { try? await service.updateDetails(repo: repo, version: version, title: newTitle, changelog: newChangelog) }
+            return
+        }
+
+        working = true; errorMessage = nil
+        Task {
+            do {
+                if detailsChanged {
+                    try await service.updateDetails(repo: repo, version: version, title: newTitle, changelog: newChangelog)
+                }
+                try await onRename(newName)
+                working = false
+                dismiss()
+            } catch {
+                // Keep the sheet up: the name field still holds what the user typed, so they can fix
+                // a duplicate and retry rather than lose the edit to a silent failure.
+                errorMessage = error.localizedDescription
+                working = false
+            }
+        }
     }
 
-    /// Persist the edited title/changelog before opening the release flow, so the release uses them.
+    /// Persist the edited title/changelog — and any pending rename — before opening the release
+    /// flow, so the tag and the release emails carry the new name. A version can only be released
+    /// while unpublished, i.e. exactly when a rename is still possible.
     private func releaseFlow() {
         let service = VersionService(store: versionStore)
-        let t = title, c = changelog
+        let newTitle = title, newChangelog = changelog, newName = trimmedName
+        let mustRename = nameChanged
+        working = true; errorMessage = nil
         Task {
-            if t != version.releaseTitle || c != version.changelog {
-                try? await service.updateDetails(repo: repo, version: version, title: t, changelog: c)
+            do {
+                if newTitle != version.releaseTitle || newChangelog != version.changelog {
+                    try await service.updateDetails(repo: repo, version: version, title: newTitle, changelog: newChangelog)
+                }
+                if mustRename { try await onRename(newName) }
+                working = false
+                onRelease()
+            } catch {
+                errorMessage = error.localizedDescription
+                working = false
             }
-            onRelease()
         }
     }
 
