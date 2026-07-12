@@ -58,4 +58,47 @@ final class GitHubIssueWriterTests: XCTestCase {
         while stream.hasBytesAvailable { let n = stream.read(&buf, maxLength: size); if n > 0 { data.append(buf, count: n) } else { break } }
         return (try? JSONSerialization.jsonObject(with: data)) as? [String: Any]
     }
+
+    // MARK: - milestoneNumber: Int?? contract (updateIssue's PATCH body)
+    //
+    // These pin the writer's existing (correct) behavior: the OUTER optional decides whether the
+    // "milestone" key appears in the PATCH at all, and the INNER optional decides what it says.
+    // `nil` (outer)      -> key omitted entirely -> GitHub leaves the milestone untouched.
+    // `.some(nil)`       -> key present as NSNull -> GitHub clears the milestone.
+    // `.some(n)`         -> key present as the number -> GitHub sets the milestone.
+    // TaskService/TaskDetailView must preserve this distinction rather than collapsing an
+    // unresolvable version into `.some(nil)`, which would silently clear a task's milestone.
+
+    private func capturedPatchBody(milestoneNumber: Int??) async throws -> [String: Any]? {
+        var captured: [String: Any]?
+        MockURLProtocol.requestHandler = { req in
+            if let stream = req.httpBodyStream { captured = Self.readJSON(stream) }
+            else if let d = req.httpBody { captured = try? JSONSerialization.jsonObject(with: d) as? [String: Any] }
+            return (HTTPURLResponse(url: req.url!, statusCode: 200, httpVersion: nil, headerFields: nil)!,
+                    #"{"number":1}"#.data(using: .utf8)!)
+        }
+        let writer = GitHubIssueWriter(session: .mock)
+        try await writer.updateIssue(owner: "o", repo: "r", number: 1, title: "t",
+                                     milestoneNumber: milestoneNumber, token: "tok")
+        return captured
+    }
+
+    /// `nil` (the outer optional) means "say nothing about the milestone" — the key must be absent,
+    /// so GitHub leaves the task's existing milestone alone.
+    func testOuterNilOmitsTheMilestoneKeyEntirely() async throws {
+        let body = try await capturedPatchBody(milestoneNumber: nil)
+        XCTAssertFalse(body?.keys.contains("milestone") ?? true,
+                       "an unresolvable version must not touch the milestone")
+    }
+
+    /// `.some(nil)` is the explicit "None" choice — that, and only that, clears the milestone.
+    func testSomeNilClearsTheMilestone() async throws {
+        let body = try await capturedPatchBody(milestoneNumber: .some(nil))
+        XCTAssertTrue(body?["milestone"] is NSNull)
+    }
+
+    func testSomeNumberSetsTheMilestone() async throws {
+        let body = try await capturedPatchBody(milestoneNumber: .some(7))
+        XCTAssertEqual(body?["milestone"] as? Int, 7)
+    }
 }

@@ -188,16 +188,46 @@ struct TaskDetailView: View {
 
     // MARK: Actions (dismiss immediately, write in the background)
 
+    /// What Apply should do to the task's milestone.
+    ///
+    /// The third case is the one that matters: if the task names a version we can't resolve — its
+    /// `ProjectVersion` hasn't synced from CloudKit yet, or it was renamed on GitHub behind our back —
+    /// we must say *nothing* about the milestone. Collapsing that into "clear it" silently wipes the
+    /// task's milestone on GitHub on any Apply, even one that only changed priority.
+    private enum MilestoneUpdate {
+        case clear                 // the user explicitly picked "None"
+        case set(Int)              // resolved to a real milestone
+        case leaveAlone            // unresolvable — don't touch it
+    }
+
+    private var milestoneUpdate: MilestoneUpdate {
+        guard let versionName else { return .clear }
+        guard let number = versions.first(where: { $0.name == versionName })?.milestoneNumber else {
+            return .leaveAlone
+        }
+        return .set(number)
+    }
+
     private func apply() {
-        let milestoneNumber = versions.first { $0.name == versionName }?.milestoneNumber
+        let milestoneArgument: Int??
+        let optimisticMilestone: String??
+        switch milestoneUpdate {
+        case .clear:
+            milestoneArgument = .some(nil); optimisticMilestone = .some(nil)
+        case .set(let number):
+            milestoneArgument = .some(number); optimisticMilestone = .some(versionName)
+        case .leaveAlone:
+            milestoneArgument = nil; optimisticMilestone = nil
+        }
+
         let newBody = FeedbackTaskRefParser.upsert(into: notes, refs: task.feedbackRefs)
         let previous = inspector.applyOptimistic(number: task.number, status: status, priority: priority,
-                                                 title: title, body: newBody, milestone: .some(versionName))
+                                                 title: title, body: newBody, milestone: optimisticMilestone)
         dismiss()
         Task {
             do {
                 try await service.applyEdits(repo: repo, task: task, title: title, prose: notes,
-                                             status: status, priority: priority, milestoneNumber: milestoneNumber)
+                                             status: status, priority: priority, milestoneNumber: milestoneArgument)
             } catch {
                 if let previous { inspector.restore(previous) }   // revert on failure (panel flips back)
             }

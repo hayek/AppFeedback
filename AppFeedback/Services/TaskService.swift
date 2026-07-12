@@ -74,15 +74,20 @@ final class TaskService {
 
     /// Applies a full set of edits (title, notes, status, priority, version) in a single PATCH.
     /// Used by the task detail's Apply action so everything commits atomically.
+    ///
+    /// `milestoneNumber` is a double optional and the distinction is load-bearing:
+    /// `.some(n)` sets the milestone, `.some(nil)` clears it, and `nil` leaves it untouched.
+    /// Never collapse an unresolvable version into `.some(nil)` — that silently clears the task's
+    /// milestone on GitHub.
     func applyEdits(repo: ProductConfig, task: TaskItem, title: String, prose: String,
-                    status: TaskStatus, priority: TaskPriority, milestoneNumber: Int?) async throws {
+                    status: TaskStatus, priority: TaskPriority, milestoneNumber: Int??) async throws {
         guard let token = KeychainService.loadSync(for: repo) else { throw ServiceError.noToken }
         try await ensureLabels(repo: repo, token: token)
         let body = FeedbackTaskRefParser.upsert(into: prose, refs: task.feedbackRefs)
         let state = (status == .done) ? "closed" : "open"
         try await writer.updateIssue(owner: repo.owner, repo: repo.repo, number: task.number,
             title: title, body: body, labels: Self.labels(status: status, priority: priority),
-            milestoneNumber: .some(milestoneNumber), state: state, token: token)
+            milestoneNumber: milestoneNumber, state: state, token: token)
     }
 
     /// Permanently deletes the task's GitHub issue.
