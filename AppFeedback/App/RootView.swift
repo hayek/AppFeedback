@@ -320,7 +320,7 @@ struct RootView: View {
             onCreateTask: { showCreateTask = true },
             onCreateVersion: { showCreateVersion = true },
             onRelease: { startRelease($0) },
-            onRename: { version, newName in try await renameVersion(version, to: newName) },
+            onRename: { repo, version, newName in try await renameVersion(repo: repo, version: version, to: newName) },
             onDeleteTask: { deleteTask($0) },
             onOpenFeedback: { openFeedback($0) },
             onRetryCreation: { retryCreation($0) },
@@ -473,9 +473,10 @@ struct RootView: View {
 
     /// Renames a version end-to-end: GitHub milestone PATCH → local record + sent-email rows →
     /// cached issues + saved filters → the in-memory task list. Throws so the sheet can show why it
-    /// failed and keep the user's typing.
-    private func renameVersion(_ version: ProjectVersion, to newName: String) async throws {
-        guard let repo = store.repos.first(where: { $0.id == selection?.repoId }) else { return }
+    /// failed and keep the user's typing. `repo` is supplied by the caller (which already holds it
+    /// as a non-optional) rather than re-resolved from `selection` here — there is no "repo not
+    /// found" case left to silently swallow.
+    private func renameVersion(repo: ProductConfig, version: ProjectVersion, to newName: String) async throws {
         let oldName = version.name
         let cascade = VersionRenameCascade(cacheContext: cacheContext, filterStore: filterStore)
         try await VersionService(store: versionStore).rename(repo: repo, version: version, to: newName, cascade: cascade)

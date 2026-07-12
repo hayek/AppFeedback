@@ -42,16 +42,18 @@ struct VersionDetailView: View {
         ScrollView {
             VStack(alignment: .leading, spacing: 24) {
                 header
+                // Rendered right below the header — right where the name field the user is fixing
+                // sits — so a rename failure is never scrolled out of view by tasks/emails below.
+                if let errorMessage {
+                    Label(errorMessage, systemImage: "exclamationmark.triangle.fill")
+                        .font(.footnote).foregroundStyle(.red)
+                }
                 titleSection
                 changelogSection
                 tasksSection
                 releaseSection
                 sentSection
                 deleteButton
-                if let errorMessage {
-                    Label(errorMessage, systemImage: "exclamationmark.triangle.fill")
-                        .font(.footnote).foregroundStyle(.red)
-                }
             }
             .padding(20)
         }

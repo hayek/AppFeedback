@@ -9,8 +9,10 @@ struct ProjectInspectorPanel: View {
     var onCreateVersion: () -> Void
     var onRelease: (ProjectVersion) -> Void
     /// Renames a version end-to-end (GitHub milestone → local record → cascade). Throws so the
-    /// detail sheet can hold itself open and show why it failed.
-    var onRename: (ProjectVersion, String) async throws -> Void
+    /// detail sheet can hold itself open and show why it failed. The repo is threaded through here
+    /// (rather than re-resolved from `selection` upstream) because this panel already has it as a
+    /// non-optional `let` — there is nothing to fall back to if it were missing.
+    var onRename: (ProductConfig, ProjectVersion, String) async throws -> Void
     var onDeleteTask: (TaskItem) -> Void
     var onOpenFeedback: (Int) -> Void
     var onRetryCreation: (UUID) -> Void = { _ in }
@@ -67,7 +69,7 @@ struct ProjectInspectorPanel: View {
                         VersionDetailView(repo: repo, version: version, inspector: inspector,
                                           versionStore: versionStore,
                                           onRelease: { versionToOpen = nil; onRelease(version) },
-                                          onRename: { newName in try await onRename(version, newName) },
+                                          onRename: { newName in try await onRename(repo, version, newName) },
                                           onDeleteTask: onDeleteTask,
                                           onOpenFeedback: onOpenFeedback,
                                           canEmail: canEmail)
