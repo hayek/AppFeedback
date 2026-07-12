@@ -95,21 +95,27 @@ which means re-emailing users.
 So: add `versionID: UUID?` to `SentReleaseNotification`, with `versionName` retained for display.
 `ReleaseNotificationService.recordSent` stamps it on every new row.
 
-**Backfill and lookup.** The property is nullable because CloudKit requires it, so existing rows
-arrive with `versionID == nil` and rows may keep arriving from un-upgraded peers. Rather than a
-one-shot migration, `VersionStore` resolves a version's notifications as:
+**Lookup.** The property is nullable because CloudKit requires it, so existing rows arrive with
+`versionID == nil`. `VersionStore` resolves a version's notifications with a **pure** matcher:
 
-> rows where `versionID == version.id`, **plus** rows where `versionID == nil` and
-> `(repoOwner, repoName, versionName)` matches — and it stamps `version.id` onto those legacy
-> rows as it finds them.
+> a row belongs to a version if `row.versionID == version.id` — or, when the row has no
+> `versionID` at all, if `(repoOwner, repoName, versionName)` matches.
 
-This is self-healing (an old row is upgraded the first time it's read), correct during the
-transition, and — crucially — the name-based half only ever applies to rows that have *not* been
-claimed by a UUID, so a rename can never make a stamped row invisible.
+The name-based half only ever applies to rows *unclaimed* by a UUID, so a rename can never make a
+stamped row invisible. `alreadyNotifiedEmails` and `sentNotifications` both go through it.
 
-`alreadyNotifiedEmails` and `sentNotifications` both go through this resolution, which is what
-makes the "already emailed" guard immune to this rename and every future one. A rename still
-rewrites `versionName` on the matching rows so the display string stays truthful.
+**Stamping happens on write, never on read.** `recordSent` stamps `versionID` on every new row,
+and `rename` stamps it on the rows it rewrites — so after a version is renamed once, all of its
+rows are UUID-keyed. The matcher must stay side-effect-free because `VersionDetailView` calls
+`sentNotifications` from a computed property *during view body evaluation*; mutating models and
+saving there would be a SwiftUI re-entrancy hazard.
+
+A rename also rewrites `versionName` on the matching rows, so legacy rows stay attached and the
+display string stays truthful.
+
+Residual gap, accepted: a row synced from an *un-upgraded peer* after a rename carries the old
+name and no `versionID`, so it would be orphaned. That is inherent to running mixed app versions,
+and it is strictly better than today, where every rename orphans every row.
 
 ### Lifecycle gate
 
