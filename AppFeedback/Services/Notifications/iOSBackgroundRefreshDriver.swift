@@ -1,32 +1,25 @@
 #if os(iOS)
 import Foundation
 import BackgroundTasks
-import SwiftData
 
+/// BGTaskScheduler glue for background refresh. The actual fetch + notification diff is
+/// `IssueLoaderRegistry.refreshTick()` — the same code path as the foreground poll loop —
+/// so background-fetched data lands in the UI's own loaders.
 @MainActor
 final class iOSBackgroundRefreshDriver {
     static let taskIdentifier = "com.amirhayek.AppFeedback.refresh"
 
-    private let store: ProductStore
-    private let cacheContext: ModelContext
-    private let notificationService: NotificationService
+    private let registry: IssueLoaderRegistry
     private let settings: NotificationSettings
-    private let activityLog: ActivityLog
     private let appStoreRegistry: AppStoreReviewCoordinatorRegistry
 
     init(
-        store: ProductStore,
-        cacheContext: ModelContext,
-        notificationService: NotificationService,
+        registry: IssueLoaderRegistry,
         settings: NotificationSettings,
-        activityLog: ActivityLog,
         appStoreRegistry: AppStoreReviewCoordinatorRegistry
     ) {
-        self.store = store
-        self.cacheContext = cacheContext
-        self.notificationService = notificationService
+        self.registry = registry
         self.settings = settings
-        self.activityLog = activityLog
         self.appStoreRegistry = appStoreRegistry
     }
 
@@ -49,7 +42,7 @@ final class iOSBackgroundRefreshDriver {
     func scheduleNextRefresh() {
         guard settings.isEnabled else { return }
         let request = BGAppRefreshTaskRequest(identifier: Self.taskIdentifier)
-        request.earliestBeginDate = Date().addingTimeInterval(15 * 60)
+        request.earliestBeginDate = Date().addingTimeInterval(IssueLoaderRegistry.pollInterval)
         try? BGTaskScheduler.shared.submit(request)
     }
 
@@ -59,19 +52,10 @@ final class iOSBackgroundRefreshDriver {
 
     private func runRefresh() async {
         guard settings.isEnabled else { return }
-        var loaded: [NotificationService.RepoIssues] = []
-        for repo in store.repos {
-            guard let token = await KeychainService.load(for: repo) else { continue }
-            let loader = IssueLoader(
-                config: repo, activityLog: activityLog, cacheContext: cacheContext
-            )
-            await loader.load(token: token)
-            if case .loaded(let issues, _) = loader.state {
-                loaded.append((repo.owner, repo.repo, issues))
-            }
-        }
+        await registry.refreshTick()
+        // The App Store registry's own poll loop is suspended while backgrounded, so this
+        // background window must poll it explicitly.
         await appStoreRegistry.pollNow()
-        await notificationService.diffAndNotify(loadedByRepo: loaded)
     }
 }
 #endif

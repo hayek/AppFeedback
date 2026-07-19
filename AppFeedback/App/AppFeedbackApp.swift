@@ -300,11 +300,8 @@ struct AppFeedbackApp: App {
 
         #if os(iOS)
         let driver = iOSBackgroundRefreshDriver(
-            store: _store.wrappedValue,
-            cacheContext: _cacheContext.wrappedValue,
-            notificationService: service,
+            registry: issueRegistry,
             settings: settings,
-            activityLog: activityLogValue,
             appStoreRegistry: ascRegistry
         )
         driver.register()
