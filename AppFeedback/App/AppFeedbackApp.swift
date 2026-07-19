@@ -290,7 +290,7 @@ struct AppFeedbackApp: App {
         #endif
 
         // GitHub issue loaders: one registry owning the UI's loaders + the 15-min foreground
-        // refresh loop (replaces MacBackgroundRefreshDriver's private, UI-invisible loaders).
+        // refresh loop, so periodic refreshes land in the loaders the UI actually renders.
         let cacheCtx = _cacheContext.wrappedValue
         let issueRegistry = IssueLoaderRegistry(
             factory: { cfg in IssueLoader(config: cfg, activityLog: activityLogValue, cacheContext: cacheCtx) },

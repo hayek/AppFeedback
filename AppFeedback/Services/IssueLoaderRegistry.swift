@@ -7,9 +7,9 @@ import SwiftData
 /// `AppStoreReviewCoordinatorRegistry`: spin-up creates loaders, tear-down drops them,
 /// `start()` runs the poll loop, `pollIfStale()` catches up after suspension.
 ///
-/// Replaces `MacBackgroundRefreshDriver`: because this registry owns the UI's actual
-/// loaders, its refreshes are visible in the app, and it runs regardless of whether
-/// notifications are enabled (`diffAndNotify` self-gates on that).
+/// Because this registry owns the UI's actual loaders, its refreshes are visible in the
+/// app, and the loop runs regardless of whether notifications are enabled
+/// (`diffAndNotify` self-gates on that).
 @Observable @MainActor
 final class IssueLoaderRegistry {
     private(set) var loaders: [UUID: IssueLoader] = [:]
