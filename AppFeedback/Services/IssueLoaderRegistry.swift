@@ -100,6 +100,27 @@ final class IssueLoaderRegistry {
         if fullReconcile { lastFullReconcileAt = clock() }
     }
 
+    /// Loads one product's issues (e.g. after creating a task so the new issue appears,
+    /// even if the user has since switched projects). Does not stamp the refresh clocks.
+    func load(productID: UUID, fullReconcile: Bool = false) async {
+        guard let repo = products.first(where: { $0.id == productID }) else { return }
+        await load([repo], fullReconcile: fullReconcile)
+    }
+
+    /// Re-dispatches loads for loaders that are idle or failed (scene re-activation,
+    /// CloudKit import landing).
+    func retryStuck() {
+        let stuck = products.filter { repo in
+            guard let loader = loaders[repo.id] else { return false }
+            switch loader.state {
+            case .idle, .failed: return true
+            case .loading, .loaded: return false
+            }
+        }
+        guard !stuck.isEmpty else { return }
+        Task { await self.load(stuck, fullReconcile: false) }
+    }
+
     /// All currently-loaded (owner, repo, issues) groups — the notification differ's input.
     var loadedGroups: [NotificationService.RepoIssues] {
         products.compactMap { repo in

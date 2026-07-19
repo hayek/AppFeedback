@@ -116,4 +116,68 @@ final class IssueLoaderRegistryTests: XCTestCase {
         await registry.pollIfStale()
         XCTAssertNotNil(registry.lastRefreshAt)
     }
+
+    // MARK: retryStuck / single-product load
+
+    func testRetryStuckReloadsIdleAndFailedButNotLoaded() async throws {
+        let idle = makeConfig("idle"); let failed = makeConfig("failed"); let loaded = makeConfig("loaded")
+        let recorder = TokenRequestRecorder()
+        let registry = makeRegistry(tokenProvider: { repo in
+            await recorder.record(repo.id)
+            return "tok"   // non-nil → loader.load runs against the mock session and fails fast
+        })
+        registry.syncWithProducts([idle, failed, loaded])
+
+        // Wait for the initial-load dispatch to settle: all loaders leave .idle via the
+        // mock session (→ .failed).
+        try await waitUntil { registry.loaders.values.allSatisfy { if case .failed = $0.state { return true }; return false } }
+
+        registry.loaders[idle.id]?.state = .idle
+        registry.loaders[loaded.id]?.state = .loaded([], Self.epoch)
+        // failed's loader stays .failed
+        await recorder.startRecording()
+
+        registry.retryStuck()
+        try await waitUntil { await recorder.recorded.count >= 2 }
+        try? await Task.sleep(for: .milliseconds(50))   // settle window for a spurious third load
+        let recorded = await recorder.recorded
+        XCTAssertTrue(recorded.contains(idle.id))
+        XCTAssertTrue(recorded.contains(failed.id))
+        XCTAssertFalse(recorded.contains(loaded.id), "a loaded repo must not be re-fetched")
+    }
+
+    func testLoadProductIDLoadsOnlyThatProduct() async throws {
+        let a = makeConfig("a"); let b = makeConfig("b")
+        let recorder = TokenRequestRecorder()
+        let registry = makeRegistry(tokenProvider: { repo in
+            await recorder.record(repo.id)
+            return "tok"
+        })
+        registry.syncWithProducts([a, b])
+        // Recorder is off during the initial-load dispatch, so settle on loader state instead.
+        try await waitUntil { registry.loaders.values.allSatisfy { if case .failed = $0.state { return true }; return false } }
+        await recorder.startRecording()
+
+        await registry.load(productID: a.id)
+        let recorded = await recorder.recorded
+        XCTAssertEqual(recorded, [a.id])
+    }
+
+    /// Polls `condition` every 10ms until true or ~2s elapse.
+    private func waitUntil(_ condition: @MainActor () async -> Bool) async throws {
+        for _ in 0..<200 {
+            if await condition() { return }
+            try await Task.sleep(for: .milliseconds(10))
+        }
+        XCTFail("condition not met within timeout")
+    }
+}
+
+/// Records tokenProvider calls, but only after `startRecording()` — lets tests ignore the
+/// initial-load dispatch from syncWithProducts.
+private actor TokenRequestRecorder {
+    private(set) var recorded: [UUID] = []
+    private var recording = false
+    func startRecording() { recorded = []; recording = true }
+    func record(_ id: UUID) { if recording { recorded.append(id) } }
 }
