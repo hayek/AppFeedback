@@ -69,8 +69,6 @@ struct AppFeedbackApp: App {
     @State private var feedbackAttachmentDownloaderHolder: FeedbackAttachmentDownloaderHolder
     #if os(iOS)
     @State private var iosRefreshDriver: iOSBackgroundRefreshDriver
-    #elseif os(macOS)
-    @State private var macRefreshDriver: MacBackgroundRefreshDriver
     #endif
 
     init() {
@@ -311,17 +309,6 @@ struct AppFeedbackApp: App {
         )
         driver.register()
         _iosRefreshDriver = State(initialValue: driver)
-        #elseif os(macOS)
-        let driver = MacBackgroundRefreshDriver(
-            store: _store.wrappedValue,
-            cacheContext: _cacheContext.wrappedValue,
-            notificationService: service,
-            settings: settings,
-            activityLog: activityLogValue,
-            appStoreRegistry: ascRegistry
-        )
-        driver.startIfEnabled()
-        _macRefreshDriver = State(initialValue: driver)
         #endif
     }
 
@@ -375,15 +362,12 @@ struct AppFeedbackApp: App {
                     coordinatorRegistry?.start()
                     #endif
                     appStoreRegistry.start()
-                }
-                .onChange(of: notificationSettings.isEnabled) { _, isOn in
-                    #if os(macOS)
-                    if isOn { macRefreshDriver.startIfEnabled() } else { macRefreshDriver.stop() }
-                    #else
-                    if isOn { iosRefreshDriver.scheduleNextRefresh() } else { iosRefreshDriver.cancelPending() }
-                    #endif
+                    issueLoaderRegistry.start()
                 }
                 #if os(iOS)
+                .onChange(of: notificationSettings.isEnabled) { _, isOn in
+                    if isOn { iosRefreshDriver.scheduleNextRefresh() } else { iosRefreshDriver.cancelPending() }
+                }
                 .onChange(of: scenePhase) { _, phase in
                     #if canImport(SwiftMail)
                     if phase == .active {
@@ -392,6 +376,7 @@ struct AppFeedbackApp: App {
                     #endif
                     if phase == .active {
                         Task { await appStoreRegistry.pollNow() }
+                        Task { await issueLoaderRegistry.pollIfStale() }
                     }
                     if phase == .background { iosRefreshDriver.scheduleNextRefresh() }
                 }
@@ -404,6 +389,7 @@ struct AppFeedbackApp: App {
                     #endif
                     if phase == .active {
                         Task { await appStoreRegistry.pollNow() }
+                        Task { await issueLoaderRegistry.pollIfStale() }
                     }
                 }
                 #endif
