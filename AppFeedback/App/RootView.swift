@@ -8,22 +8,25 @@ struct RootView: View {
     var cacheContext: ModelContext
     var versionStore: VersionStore
     var filterStore: FilterPreferenceStore
+    /// App-level owner of the GitHub issue loaders + the foreground refresh loop. RootView
+    /// reads loaders through it so background/foreground refreshes update the visible UI.
+    var issueLoaderRegistry: IssueLoaderRegistry
     /// Phase 3's CloudKit-synced mirror store — threaded in from AppFeedbackApp so Phase 4's
     /// "Respond on App Store" panel can read response state + persist write-back.
     var appStoreReviewMirrorStore: AppStoreReviewMirrorStore? = nil
 
-    init(store: ProductStore, seenStore: SeenIssueStore, cacheContext: ModelContext, versionStore: VersionStore, filterStore: FilterPreferenceStore, appStoreReviewMirrorStore: AppStoreReviewMirrorStore? = nil) {
+    init(store: ProductStore, seenStore: SeenIssueStore, cacheContext: ModelContext, versionStore: VersionStore, filterStore: FilterPreferenceStore, issueLoaderRegistry: IssueLoaderRegistry, appStoreReviewMirrorStore: AppStoreReviewMirrorStore? = nil) {
         self.store = store
         self.seenStore = seenStore
         self.cacheContext = cacheContext
         self.versionStore = versionStore
         self.filterStore = filterStore
+        self.issueLoaderRegistry = issueLoaderRegistry
         self.appStoreReviewMirrorStore = appStoreReviewMirrorStore
         // Seed the selection so the iPhone opens to the detail (feedback) rather than the sidebar.
         _selection = State(initialValue: store.repos.first.map { SidebarSelection.allIssues(repoId: $0.id) })
     }
 
-    @State private var loaders: [UUID: IssueLoader] = [:]
     @State private var selection: SidebarSelection?
     @State private var viewModel = IssueListViewModel()
     @State private var summaryVM: UnreadSummaryViewModel?
@@ -86,7 +89,7 @@ struct RootView: View {
 
     var body: some View {
         NavigationSplitView(columnVisibility: $columnVisibility, preferredCompactColumn: $preferredColumn) {
-            SidebarView(store: store, loaders: loaders, seenStore: seenStore, selection: $selection,
+            SidebarView(store: store, loaders: issueLoaderRegistry.loaders, seenStore: seenStore, selection: $selection,
                         onAddRepo: { showAddRepo = true },
                         onOpenProductSettings: { id in openProductSettings(id) })
                 .toolbar {
@@ -110,14 +113,14 @@ struct RootView: View {
                     let name = repo?.repo ?? ""
                     IssueListView(
                         viewModel: viewModel,
-                        loader: loaders[selection.repoId],
+                        loader: issueLoaderRegistry.loaders[selection.repoId],
                         allApps: allApps(for: selection.repoId),
                         onRefresh: {
                             async let mailPoll: Void = coordinatorRegistry?.pollNow() ?? ()
                             // Refresh every repo (not just the selected one) so all sidebar unread
                             // badges update together. Full reconcile so deletions upstream are
                             // detected and stale phantom issues are pruned from each cache.
-                            await loadRepos(store.repos, fullReconcile: true)
+                            await issueLoaderRegistry.loadAll(fullReconcile: true)
                             await mailPoll
                         },
                         onDropTask: { attachTask(taskNumber: $0, toFeedback: $1) },
@@ -237,7 +240,7 @@ struct RootView: View {
         }
         .onChange(of: filterPersistenceSignature) { _, _ in savePersistedFilters() }
         .onChange(of: store.repos) { _, newRepos in
-            syncLoaders(repos: newRepos)
+            issueLoaderRegistry.syncWithProducts(newRepos)
             autoSelectIfNeeded(repos: newRepos)
         }
         .onChange(of: store.hiddenApps) { _, _ in
@@ -252,11 +255,11 @@ struct RootView: View {
                 settings: intelligenceSettings,
                 cacheContext: cacheContext
             )
-            // syncLoaders dispatches a load for each newly-added repo, so a separate
-            // loadAllRepos here would race the syncLoaders task and double-fetch. On first
-            // launch every repo is newly-added, so syncLoaders alone covers it. Re-fetching
-            // existing repos happens via pull-to-refresh, scenePhase, or background drivers.
-            syncLoaders(repos: store.repos)
+            // syncWithProducts dispatches a load for each newly-added repo, so a separate
+            // loadAll here would race that task and double-fetch. On first launch every repo
+            // is newly-added, so syncWithProducts alone covers it. Re-fetching existing repos
+            // happens via pull-to-refresh, scenePhase, or the registry's poll loop.
+            issueLoaderRegistry.syncWithProducts(store.repos)
             autoSelectIfNeeded(repos: store.repos)
             Task.detached(priority: .utility) { @MainActor in
                 intelligenceService.recomputeAvailability()
@@ -286,11 +289,11 @@ struct RootView: View {
             if isOn { maybeSnapshotBacklog() }
         }
         .onChange(of: scenePhase) { _, phase in
-            if phase == .active { retryStuckLoaders() }
+            if phase == .active { issueLoaderRegistry.retryStuck() }
         }
         .task {
             for await _ in NotificationCenter.cloudKitImportSucceeded {
-                retryStuckLoaders()
+                issueLoaderRegistry.retryStuck()
                 if let repoId = selection?.repoId { loadPersistedFilters(repoId: repoId) }
             }
         }
@@ -312,7 +315,7 @@ struct RootView: View {
     #endif
 
     private func allApps(for repoId: UUID) -> [String] {
-        guard let loader = loaders[repoId],
+        guard let loader = issueLoaderRegistry.loaders[repoId],
               case .loaded(let issues, _) = loader.state else { return [] }
         return Array(Set(issues.compactMap(\.appName))).sorted()
     }
@@ -338,9 +341,7 @@ struct RootView: View {
             onRefresh: {
                 // Full reconcile so tasks update and any deleted upstream are pruned (mirrors the
                 // main issue list's pull-to-refresh). Versions are local/CloudKit-synced.
-                guard let repo = store.repos.first(where: { $0.id == selection.repoId }),
-                      let token = await KeychainService.load(for: repo) else { return }
-                await loaders[selection.repoId]?.load(token: token, fullReconcile: true)
+                await issueLoaderRegistry.load(productID: selection.repoId, fullReconcile: true)
             }
         )
         .inspectorColumnWidth(min: 260, ideal: 340, max: 480)
@@ -389,7 +390,7 @@ struct RootView: View {
     }
 
     private func updateViewModel(for selection: SidebarSelection) {
-        guard let loader = loaders[selection.repoId],
+        guard let loader = issueLoaderRegistry.loaders[selection.repoId],
               case .loaded(let issues, _) = loader.state else { return }
         let owner = store.repos.first(where: { $0.id == selection.repoId })?.owner ?? ""
         let repoName = store.repos.first(where: { $0.id == selection.repoId })?.repo  ?? ""
@@ -421,7 +422,7 @@ struct RootView: View {
 
     private var selectedLoadedSignature: String {
         guard let selection,
-              let loader = loaders[selection.repoId],
+              let loader = issueLoaderRegistry.loaders[selection.repoId],
               case .loaded(let issues, let date) = loader.state else { return "" }
         return "\(selection.repoId)-\(issues.count)-\(date.timeIntervalSince1970)"
     }
@@ -436,23 +437,6 @@ struct RootView: View {
         }
     }
 
-    private func syncLoaders(repos: [ProductConfig]) {
-        var newlyAdded: [ProductConfig] = []
-        for repo in repos where loaders[repo.id] == nil {
-            loaders[repo.id] = IssueLoader(
-                config: repo,
-                activityLog: activityLog,
-                cacheContext: cacheContext
-            )
-            newlyAdded.append(repo)
-        }
-        let ids = Set(repos.map(\.id))
-        loaders = loaders.filter { ids.contains($0.key) }
-        if !newlyAdded.isEmpty {
-            Task { await loadRepos(newlyAdded) }
-        }
-    }
-
     private func releaseDeps() -> ReleaseNotificationService.Dependencies {
         ReleaseNotificationService.Dependencies(
             accountStore: mailAccountStore,
@@ -464,10 +448,6 @@ struct RootView: View {
             activityLog: activityLog,
             mirror: mirrorHolder?.mirror
         )
-    }
-
-    private func loadAllRepos() async {
-        await loadRepos(store.repos)
     }
 
     /// Opens the release recipients flow for a version. On iOS the inspector is presented as a
@@ -546,7 +526,7 @@ struct RootView: View {
                 if (error as? GitHubIssueWriter.WriteError)?.isNotFound == true {
                     // The task issue no longer exists on GitHub — drop the phantom from the list/cache.
                     inspector.removeTask(number: task.number)
-                    loaders[repo.id]?.purgeFromCache(number: task.number)
+                    issueLoaderRegistry.loaders[repo.id]?.purgeFromCache(number: task.number)
                 } else {
                     writeError = "Couldn't update task #\(task.number): \(error.localizedDescription)"
                 }
@@ -567,11 +547,11 @@ struct RootView: View {
         Task {
             do {
                 try await TaskService().deleteTask(repo: repo, task: task)
-                loaders[repo.id]?.purgeFromCache(number: task.number)
+                issueLoaderRegistry.loaders[repo.id]?.purgeFromCache(number: task.number)
             } catch {
                 if (error as? GitHubIssueWriter.WriteError)?.isNotFound == true {
                     // Already deleted on GitHub (a stale phantom) — purge it so it stops coming back.
-                    loaders[repo.id]?.purgeFromCache(number: task.number)
+                    issueLoaderRegistry.loaders[repo.id]?.purgeFromCache(number: task.number)
                 } else {
                     writeError = "Couldn't delete task #\(task.number): \(error.localizedDescription)"
                     await refreshSelectedRepo()   // it wasn't deleted — bring it back
@@ -679,60 +659,16 @@ struct RootView: View {
     /// Reloads a specific repo's loader (used after creating a task so the new issue appears even
     /// if the user has since switched projects).
     private func refresh(repo: ProductConfig) async {
-        guard let token = await KeychainService.load(for: repo) else { return }
-        await loaders[repo.id]?.load(token: token)
+        await issueLoaderRegistry.load(productID: repo.id)
     }
 
     /// Reloads the currently-selected repo so a freshly-created task issue appears.
-    /// Mirrors the `IssueListView(onRefresh:)` closure: load the token, then `load`.
     private func refreshSelectedRepo() async {
-        guard let selection,
-              let repo = store.repos.first(where: { $0.id == selection.repoId }),
-              let token = await KeychainService.load(for: repo) else { return }
-        await loaders[selection.repoId]?.load(token: token)
-    }
-
-    private func loadRepos(_ repos: [ProductConfig], fullReconcile: Bool = false) async {
-        await withTaskGroup(of: Void.self) { group in
-            for repo in repos {
-                guard let loader = loaders[repo.id] else { continue }
-                group.addTask {
-                    // iCloud Keychain may not have synced this token yet on a fresh device;
-                    // one short retry catches that without blocking the happy path.
-                    for attempt in 0..<2 {
-                        if attempt > 0 { try? await Task.sleep(for: .seconds(2)) }
-                        if let token = await KeychainService.load(for: repo) {
-                            await loader.load(token: token, fullReconcile: fullReconcile)
-                            return
-                        }
-                    }
-                }
-            }
-        }
-    }
-
-    private func retryStuckLoaders() {
-        let stuck = store.repos.filter { repo in
-            guard let loader = loaders[repo.id] else { return false }
-            switch loader.state {
-            case .idle, .failed: return true
-            case .loading, .loaded: return false
-            }
-        }
-        guard !stuck.isEmpty else { return }
-        Task { await loadRepos(stuck) }
+        guard let selection else { return }
+        await issueLoaderRegistry.load(productID: selection.repoId)
     }
 
     // MARK: - Notification Tap Routing
-
-    /// All currently-loaded (owner, repo, issues) groups across every repo.
-    private var allLoadedRepoGroups: [NotificationService.RepoIssues] {
-        store.repos.compactMap { repo -> NotificationService.RepoIssues? in
-            guard let loader = loaders[repo.id],
-                  case .loaded(let issues, _) = loader.state else { return nil }
-            return (owner: repo.owner, repo: repo.repo, issues: issues)
-        }
-    }
 
     /// Find a FeedbackIssue matching `"owner/repo#number"` across all loaded loaders.
     private func findIssue(for key: String) -> (repoId: UUID, issue: FeedbackIssue)? {
@@ -743,7 +679,7 @@ struct RootView: View {
         let ownerRepo = String(parts[0]) // "owner/repo"
 
         for repo in store.repos where "\(repo.owner)/\(repo.repo)" == ownerRepo {
-            if let loader = loaders[repo.id],
+            if let loader = issueLoaderRegistry.loaders[repo.id],
                case .loaded(let issues, _) = loader.state,
                let issue = issues.first(where: { $0.number == number }) {
                 return (repo.id, issue)
@@ -760,7 +696,7 @@ struct RootView: View {
         }
 
         // Not found — trigger a full refresh then retry once
-        await loadAllRepos()
+        await issueLoaderRegistry.loadAll()
         if let match = findIssue(for: key) {
             selectIssue(repoId: match.repoId, issue: match.issue)
         }
@@ -798,7 +734,7 @@ struct RootView: View {
     /// Signature that changes whenever a loaded repo's issue count changes.
     /// Using "owner/repo:count" strings to make the trigger Equatable and content-sensitive.
     private var repoGroupSignature: [String] {
-        allLoadedRepoGroups.map { "\($0.owner)/\($0.repo):\($0.issues.count)" }.sorted()
+        issueLoaderRegistry.loadedGroups.map { "\($0.owner)/\($0.repo):\($0.issues.count)" }.sorted()
     }
 
     private func maybeSnapshotBacklog() {
@@ -812,7 +748,7 @@ struct RootView: View {
         // currently-loaded repos so we don't flood them with old-backlog notifications.
         if defaults.bool(forKey: Self.legacyBacklogSnapshotKey) {
             var seeded = snapshottedRepos()
-            for group in allLoadedRepoGroups {
+            for group in issueLoaderRegistry.loadedGroups {
                 seeded.insert("\(group.owner)/\(group.repo)")
             }
             save(snapshottedRepos: seeded)
@@ -820,7 +756,7 @@ struct RootView: View {
         }
 
         var alreadySnapshotted = snapshottedRepos()
-        let groups = allLoadedRepoGroups
+        let groups = issueLoaderRegistry.loadedGroups
         guard !groups.isEmpty else { return }
 
         for group in groups {

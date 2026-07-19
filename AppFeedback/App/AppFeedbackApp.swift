@@ -61,6 +61,7 @@ struct AppFeedbackApp: App {
     @State private var feedbackMirrorHolder: MailToFeedbackMirrorHolder
     @State private var appStoreReviewMirrorStore: AppStoreReviewMirrorStore
     @State private var appStoreRegistry: AppStoreReviewCoordinatorRegistry
+    @State private var issueLoaderRegistry: IssueLoaderRegistry
     @State private var mailLocalStateStore: MailAccountLocalStateStore
     @State private var mailDraftStore = MailDraftStore()
     @State private var quickLook = QuickLookPresenter()
@@ -290,6 +291,15 @@ struct AppFeedbackApp: App {
         _downloaderHolder = State(initialValue: AttachmentDownloaderHolder(nil))
         #endif
 
+        // GitHub issue loaders: one registry owning the UI's loaders + the 15-min foreground
+        // refresh loop (replaces MacBackgroundRefreshDriver's private, UI-invisible loaders).
+        let cacheCtx = _cacheContext.wrappedValue
+        let issueRegistry = IssueLoaderRegistry(
+            factory: { cfg in IssueLoader(config: cfg, activityLog: activityLogValue, cacheContext: cacheCtx) },
+            notificationService: service
+        )
+        _issueLoaderRegistry = State(initialValue: issueRegistry)
+
         #if os(iOS)
         let driver = iOSBackgroundRefreshDriver(
             store: _store.wrappedValue,
@@ -349,10 +359,12 @@ struct AppFeedbackApp: App {
 
     var body: some Scene {
         WindowGroup {
-            sharedEnvironment(RootView(store: store, seenStore: seenStore, cacheContext: cacheContext, versionStore: versionStore, filterStore: filterStore, appStoreReviewMirrorStore: appStoreReviewMirrorStore))
-                #if !os(macOS)
-                .overlay(QuickLookHost())
-                #endif
+            sharedEnvironment(
+                RootView(store: store, seenStore: seenStore, cacheContext: cacheContext, versionStore: versionStore, filterStore: filterStore, issueLoaderRegistry: issueLoaderRegistry, appStoreReviewMirrorStore: appStoreReviewMirrorStore)
+                    #if !os(macOS)
+                    .overlay(QuickLookHost())
+                    #endif
+            )
                 .task { await notificationService.requestAuthorizationIfNeeded() }
                 .task(id: store.repos.map(\.id)) {
                     repoConfigSnapshot.update(store.repos)
