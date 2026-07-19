@@ -82,7 +82,8 @@ struct IssueListView: View {
         VStack(spacing: 0) {
             Group {
                 switch loaderState {
-                case .idle, .loading where viewModel.allIssues.isEmpty:
+                case .idle where viewModel.allIssues.isEmpty,
+                     .loading where viewModel.allIssues.isEmpty:
                     ProgressView("Loading…")
                         .frame(maxWidth: .infinity, maxHeight: .infinity)
                 case .failed(let error):

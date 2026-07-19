@@ -215,7 +215,7 @@ actor AppStoreReviewCoordinator: FeedbackSourceIngestor {
             labels: AppStoreReviewSynthesizer.labels(for: review),
             milestoneNumber: nil, token: token)
         await MainActor.run {
-            mirrorStore.upsert(reviewId: review.id, productID: config.id, issueNumber: number, contentHash: hash)
+            _ = mirrorStore.upsert(reviewId: review.id, productID: config.id, issueNumber: number, contentHash: hash)
         }
         await reconcileDuplicates(reviewId: review.id, token: token)
     }
@@ -230,7 +230,7 @@ actor AppStoreReviewCoordinator: FeedbackSourceIngestor {
             labels: AppStoreReviewSynthesizer.labels(for: review),
             milestoneNumber: nil, state: nil, token: token)
         await MainActor.run {
-            mirrorStore.upsert(reviewId: review.id, productID: config.id, issueNumber: issueNumber, contentHash: hash)
+            _ = mirrorStore.upsert(reviewId: review.id, productID: config.id, issueNumber: issueNumber, contentHash: hash)
         }
     }
 
