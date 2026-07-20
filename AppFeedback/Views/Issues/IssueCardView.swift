@@ -86,6 +86,11 @@ struct IssueCardView: View {
     /// Passing it in — rather than constructing it in `body` — keeps the draft alive across
     /// re-renders (e.g. when `mirrorStore.version` bumps on a CloudKit import).
     var responseController: AppStoreResponseController? = nil
+    /// Pending AI triage suggestion for this feedback (nil when triage is off, not yet run,
+    /// or already resolved). Renders `TriageSuggestionChip` at the bottom of the card.
+    var triageSuggestion: TriageVerdictRecord? = nil
+    var onAcceptSuggestion: (() -> Void)? = nil
+    var onDismissSuggestion: (() -> Void)? = nil
 
     @Environment(MailThreadStore.self) private var threadStore
     @Environment(ReplyTemplateStore.self) private var replyTemplateStore
@@ -397,6 +402,15 @@ struct IssueCardView: View {
                         .padding(.top, 8)
                     }
                     #endif
+
+                    if let triageSuggestion {
+                        TriageSuggestionChip(
+                            record: triageSuggestion,
+                            onAccept: { onAcceptSuggestion?() },
+                            onDismiss: { onDismissSuggestion?() }
+                        )
+                        .padding(.top, 8)
+                    }
                 }
             }
             .padding(.horizontal, 16)

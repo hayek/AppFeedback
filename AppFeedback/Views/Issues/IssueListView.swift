@@ -34,6 +34,16 @@ struct IssueListView: View {
     /// Issue numbers for which a controller-build Task is already in flight. Guards against
     /// spawning multiple concurrent Tasks for the same issue across rapid render passes.
     @State private var buildingControllers: Set<Int> = []
+    /// This repo's config, used for the AI triage backfill action and accepting suggestions.
+    /// `nil` when the caller hasn't resolved the selected product yet.
+    var repoConfig: ProductConfig? = nil
+    /// Invoked after a triage suggestion is accepted (assign/create), mirroring the refresh
+    /// RootView performs after any other task creation so the change appears in the list.
+    var onTriageApplied: (() async -> Void)? = nil
+
+    @Environment(FeedbackTriageCoordinator.self) private var triageCoordinator
+    @Environment(TriageSettings.self) private var triageSettings
+    @Environment(IntelligenceService.self) private var intelligenceService
 
     @AppStorage private var summaryCollapsed: Bool
 
@@ -57,7 +67,9 @@ struct IssueListView: View {
         summaryVM: UnreadSummaryViewModel,
         summaryCollapseKey: String,
         mirrorStore: AppStoreReviewMirrorStore? = nil,
-        appStoreResponder: ((UUID) async -> AppStoreResponderContext?)? = nil
+        appStoreResponder: ((UUID) async -> AppStoreResponderContext?)? = nil,
+        repoConfig: ProductConfig? = nil,
+        onTriageApplied: (() async -> Void)? = nil
     ) {
         self.viewModel = viewModel
         self.loader = loader
@@ -75,6 +87,8 @@ struct IssueListView: View {
         self.summaryCollapseKey = summaryCollapseKey
         self.mirrorStore = mirrorStore
         self.appStoreResponder = appStoreResponder
+        self.repoConfig = repoConfig
+        self.onTriageApplied = onTriageApplied
         self._summaryCollapsed = AppStorage(wrappedValue: false, "summary.collapsed.\(summaryCollapseKey)")
     }
 
@@ -133,6 +147,35 @@ struct IssueListView: View {
             }
         }
         #endif
+        .toolbar {
+            ToolbarItem(placement: .primaryAction) {
+                Button {
+                    guard let repoConfig else { return }
+                    Task { await triageCoordinator.runBackfill(repo: repoConfig, issues: viewModel.allIssues) }
+                } label: {
+                    if triageCoordinator.isProcessing {
+                        HStack(spacing: 4) {
+                            ProgressView()
+                                .controlSize(.small)
+                            if let progress = triageCoordinator.progress {
+                                Text("\(progress.done)/\(progress.total)")
+                                    .font(.caption)
+                                    .foregroundStyle(.secondary)
+                            }
+                        }
+                    } else {
+                        Image(systemName: "sparkles")
+                    }
+                }
+                .disabled(
+                    repoConfig == nil
+                        || triageSettings.mode == .off
+                        || !intelligenceService.availability.isReady
+                        || triageCoordinator.isProcessing
+                )
+                .help("Triage Feedback with AI")
+            }
+        }
     }
 
     @ViewBuilder
@@ -325,7 +368,21 @@ struct IssueListView: View {
             versionStates: versionStates,
             onOpenTask: onOpenTask,
             onRemoveTask: onRemoveTaskFromFeedback.map { remove in { task in remove(task.number, issue.number) } },
-            responseController: responseController(for: issue)
+            responseController: responseController(for: issue),
+            triageSuggestion: triageCoordinator.pendingSuggestion(owner: repoOwner, repo: repoName, number: issue.number),
+            onAcceptSuggestion: repoConfig.map { config in
+                {
+                    guard let record = triageCoordinator.pendingSuggestion(owner: repoOwner, repo: repoName, number: issue.number) else { return }
+                    Task {
+                        try? await triageCoordinator.accept(record: record, repo: config, issues: viewModel.allIssues)
+                        await onTriageApplied?()
+                    }
+                }
+            },
+            onDismissSuggestion: {
+                guard let record = triageCoordinator.pendingSuggestion(owner: repoOwner, repo: repoName, number: issue.number) else { return }
+                triageCoordinator.dismiss(record: record)
+            }
         )
     }
 

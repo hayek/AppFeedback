@@ -4,6 +4,7 @@ struct IntelligenceSettingsSection: View {
     @Bindable var settings: IntelligenceSettings
     let availability: IntelligenceAvailability
     var onOpenSystemSettings: () -> Void = {}
+    @Bindable var triageSettings: TriageSettings
 
     var body: some View {
         Form {
@@ -41,6 +42,18 @@ struct IntelligenceSettingsSection: View {
                 .pickerStyle(.menu)
                 .disabled(!settings.translationEnabled)
                 Text("Uses Apple's on-device translation — no Apple Intelligence required. Each language downloads the first time it's needed. Changing the target re-translates issues as you view them.")
+                    .font(.system(size: 11))
+                    .foregroundStyle(.secondary)
+            }
+            Section("Feedback Triage") {
+                Picker("Auto-triage new feedback", selection: $triageSettings.mode) {
+                    ForEach(TriageMode.allCases, id: \.self) { mode in
+                        Text(mode.displayName).tag(mode)
+                    }
+                }
+                .pickerStyle(.menu)
+                .disabled(!availability.isReady)
+                Text("On-device AI decides whether new feedback is task-worthy, then assigns it to an existing task or proposes a new one. Nothing leaves this device until a task is created or assigned.")
                     .font(.system(size: 11))
                     .foregroundStyle(.secondary)
             }

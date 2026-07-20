@@ -238,6 +238,8 @@ struct TaskCard: View {
     /// When set, a just-created task shows its creation badge (a green "Created ✓") in the
     /// trailing slot for a few seconds before reverting to the normal chevron.
     var creationBadge: CreationPhase? = nil
+    /// True when AI triage created this task — shows a small sparkles marker next to the title.
+    var isAICreated: Bool = false
     @State private var hovering = false
 
     var body: some View {
@@ -250,6 +252,12 @@ struct TaskCard: View {
                     .font(.subheadline.weight(.medium))
                     .foregroundStyle(.primary)
                     .lineLimit(2)
+                if isAICreated {
+                    Image(systemName: "sparkles")
+                        .font(.system(size: 9))
+                        .foregroundStyle(.secondary)
+                        .help("Created by AI triage")
+                }
                 Spacer(minLength: 4)
                 if let creationBadge {
                     CreationBadge(phase: creationBadge)

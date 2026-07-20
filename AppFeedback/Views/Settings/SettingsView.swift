@@ -29,6 +29,7 @@ struct SettingsView: View {
     @Environment(CloudSyncStatus.self) private var syncStatus
     @Environment(IntelligenceSettings.self) private var intelligenceSettings
     @Environment(IntelligenceService.self) private var intelligenceService
+    @Environment(TriageSettings.self) private var triageSettings
     @Environment(NotificationSettings.self) private var notificationSettings
     @Environment(\.notificationService) private var notificationService
     @Environment(SettingsNavigation.self) private var navigation
@@ -81,7 +82,8 @@ struct SettingsView: View {
                     if let url = URL(string: "x-apple.systempreferences:com.apple.AppleIntelligenceSettings") {
                         NSWorkspace.shared.open(url)
                     }
-                }
+                },
+                triageSettings: triageSettings
             )
         case .notifications:
             if let notificationService {

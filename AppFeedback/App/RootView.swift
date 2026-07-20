@@ -139,6 +139,10 @@ struct RootView: View {
                             // the AppStoreReviewCoordinatorRegistry; resolve through it. When the
                             // product has no App Store source, this returns nil and the panel hides.
                             await registry?.responderContext(productID: productID)
+                        },
+                        repoConfig: repo,
+                        onTriageApplied: {
+                            if let repo { await refresh(repo: repo) }
                         }
                     )
                     #if os(iOS)

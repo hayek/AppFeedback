@@ -29,6 +29,8 @@ struct ProjectInspectorPanel: View {
     @State private var versionToDelete: ProjectVersion?
     private let taskService = TaskService()
 
+    @Environment(FeedbackTriageCoordinator.self) private var triageCoordinator
+
     var body: some View {
         Group {
             if let repo {
@@ -140,6 +142,7 @@ struct ProjectInspectorPanel: View {
 
     @ViewBuilder private func taskRows(repo: ProductConfig) -> some View {
         let rows = taskRowItems
+        let aiCreatedTaskNumbers = triageCoordinator.aiCreatedTaskNumbers(owner: repo.owner, repo: repo.repo)
         // Keep the ForEach unconditional (no enclosing if/else) so List sees a stable ForEach and
         // animates row insert/remove; the empty state is a separate trailing row.
         ForEach(rows) { row in
@@ -150,7 +153,8 @@ struct ProjectInspectorPanel: View {
                     onStatus: { changeStatus(repo: repo, task: task, status: $0) },
                     onPriority: { changePriority(repo: repo, task: task, priority: $0) },
                     onOpen: { taskToOpen = task },
-                    creationBadge: badge
+                    creationBadge: badge,
+                    isAICreated: aiCreatedTaskNumbers.contains(task.number)
                 )
                 .cardRow()
                 .swipeActions(edge: .trailing, allowsFullSwipe: false) {
