@@ -10,4 +10,10 @@ protocol IntelligenceProvider: AnyObject, Sendable {
         targetLanguage: String,
         promptContext: AISummaryPromptContext
     ) async throws -> IssueSummaryDTO
+    /// Stage 1: is this single feedback item task-worthy, and what's the signal?
+    func triageClassify(issue: FeedbackIssue) async throws -> TriageClassificationDTO
+    /// Stage 2: assign to one of `roster` or propose a new task. Returned `.assign`
+    /// numbers are guaranteed to be members of `roster`.
+    func triageMatch(signal: String, kind: TriageKind,
+                     roster: [TriageTaskRosterEntry]) async throws -> TriageDecisionDTO
 }

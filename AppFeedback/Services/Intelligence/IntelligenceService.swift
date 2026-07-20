@@ -27,6 +27,24 @@ final class IntelligenceService: IntelligenceProvider {
     No bullets, numbering, or markdown inside prose fields.
     Respond only in the requested target language.
     """
+    private let triageClassifyInstructions = """
+    You triage a single piece of app-user feedback for a developer.
+    Actionable means a developer could work on it: a bug, crash, or regression; a \
+    concrete feature request; or a usability complaint (confusing, hard to find, \
+    too many steps).
+    Not actionable: praise ("the app works great"), content-free negativity \
+    ("don't like it"), and questions or support requests.
+    kind must be exactly one of: bug, featureRequest, usability, none.
+    signal: one short factual sentence naming what is broken or wanted; empty when \
+    not actionable. No markdown.
+    """
+    private let triageMatchInstructions = """
+    You match an actionable piece of user feedback against a list of existing \
+    development tasks. Choose an existing task ONLY when it covers the same \
+    underlying problem or request — do not stretch. Otherwise answer taskNumber 0 \
+    with a short imperative newTaskTitle and a 1-2 sentence newTaskSummary grounded \
+    in the feedback. No markdown.
+    """
 
     init() {}
 
@@ -69,15 +87,37 @@ final class IntelligenceService: IntelligenceProvider {
         throw IntelligenceError.unavailable
     }
 
+    nonisolated func triageClassify(issue: FeedbackIssue) async throws -> TriageClassificationDTO {
+        try await MainActor.run { try checkAvailable() }
+        #if canImport(FoundationModels)
+        if #available(macOS 26, iOS 26, *) {
+            return try await runTriageClassify(issue: issue)
+        }
+        #endif
+        throw IntelligenceError.unavailable
+    }
+
+    nonisolated func triageMatch(signal: String, kind: TriageKind,
+                                 roster: [TriageTaskRosterEntry]) async throws -> TriageDecisionDTO {
+        try await MainActor.run { try checkAvailable() }
+        #if canImport(FoundationModels)
+        if #available(macOS 26, iOS 26, *) {
+            return try await runTriageMatch(signal: signal, kind: kind, roster: roster)
+        }
+        #endif
+        throw IntelligenceError.unavailable
+    }
+
     @MainActor
     private func checkAvailable() throws {
         if !availability.isReady { throw IntelligenceError.unavailable }
     }
 }
 
-enum IntelligenceError: Error {
+enum IntelligenceError: Error, Equatable {
     case unavailable
     case empty
+    case guardrailBlocked
 }
 
 #if canImport(FoundationModels)
@@ -124,6 +164,49 @@ extension IntelligenceService {
                     lastBudgetError = error
                     continue
                 }
+                throw error
+            }
+        }
+        throw lastBudgetError ?? IntelligenceError.unavailable
+    }
+
+    fileprivate func runTriageClassify(issue: FeedbackIssue) async throws -> TriageClassificationDTO {
+        let instructions = await MainActor.run { triageClassifyInstructions }
+        let model = SystemLanguageModel(guardrails: .permissiveContentTransformations)
+        var lastBudgetError: Error?
+        for bodyCharCap in TriagePromptBuilder.classifyConfigs() {
+            let prompt = TriagePromptBuilder.buildClassifyPrompt(issue: issue, bodyCharCap: bodyCharCap)
+            let session = LanguageModelSession(model: model, instructions: instructions)
+            do {
+                let response = try await session.respond(to: prompt, generating: TriageClassification.self)
+                return TriageClassificationDTO(response.content)
+            } catch let error as LanguageModelSession.GenerationError {
+                if case .guardrailViolation = error { throw IntelligenceError.guardrailBlocked }
+                if case .exceededContextWindowSize = error { lastBudgetError = error; continue }
+                throw error
+            }
+        }
+        throw lastBudgetError ?? IntelligenceError.unavailable
+    }
+
+    fileprivate func runTriageMatch(signal: String, kind: TriageKind,
+                                    roster: [TriageTaskRosterEntry]) async throws -> TriageDecisionDTO {
+        let instructions = await MainActor.run { triageMatchInstructions }
+        let model = SystemLanguageModel(guardrails: .permissiveContentTransformations)
+        let fallbackTitle = String(signal.prefix(72))
+        var lastBudgetError: Error?
+        for rosterCap in TriagePromptBuilder.matchConfigs() {
+            let (prompt, includedNumbers) = TriagePromptBuilder.buildMatchPrompt(
+                signal: signal, kind: kind, roster: roster, rosterCap: rosterCap)
+            let session = LanguageModelSession(model: model, instructions: instructions)
+            do {
+                let response = try await session.respond(to: prompt, generating: TriageMatchDecision.self)
+                return TriageDecisionDTO(response.content, fallbackTitle: fallbackTitle, fallbackSummary: signal)
+                    .validated(againstRoster: includedNumbers,
+                               fallbackTitle: fallbackTitle, fallbackSummary: signal)
+            } catch let error as LanguageModelSession.GenerationError {
+                if case .guardrailViolation = error { throw IntelligenceError.guardrailBlocked }
+                if case .exceededContextWindowSize = error { lastBudgetError = error; continue }
                 throw error
             }
         }

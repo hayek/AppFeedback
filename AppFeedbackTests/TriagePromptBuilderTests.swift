@@ -2,19 +2,9 @@ import Testing
 @testable import AppFeedback
 
 struct TriagePromptBuilderTests {
-    private func issue(number: Int = 1, title: String = "Crash", body: String = "It crashes") -> FeedbackIssue {
-        // Use the same fixture helper style as SummaryPromptBuilderTests; if a shared
-        // fixture exists in Fakes/, reuse it instead of this local builder.
-        FeedbackIssue(number: number, title: title, createdAt: .now, rawBody: body,
-                      appName: "MyApp", appVersion: "2.3", device: nil, osVersion: "iOS 26",
-                      email: nil, description: body, labels: [], updatedAt: nil, state: .open,
-                      milestoneTitle: nil, detectedLanguageCode: nil,
-                      attachments: [], source: .appStore, rating: 2)
-    }
-
     @Test func classifyPromptTruncatesBodyAndIncludesMetadata() {
         let long = String(repeating: "x", count: 2_000)
-        let p = TriagePromptBuilder.buildClassifyPrompt(issue: issue(body: long), bodyCharCap: 300)
+        let p = TriagePromptBuilder.buildClassifyPrompt(issue: .triageTestFixture(body: long), bodyCharCap: 300)
         #expect(!p.contains(String(repeating: "x", count: 301)))
         #expect(p.contains("MyApp"))
         #expect(p.contains("2.3"))
