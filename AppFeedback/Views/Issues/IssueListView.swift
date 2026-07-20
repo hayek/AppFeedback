@@ -10,6 +10,10 @@ struct IssueListView: View {
     /// Attach a task to a feedback by dragging a task card onto a feedback row: (taskNumber, feedbackNumber).
     var onDropTask: ((Int, Int) -> Void)? = nil
     @State private var dropTargetNumber: Int?
+    /// Surfaces a failed triage-accept write (offline, expired token) so the failure isn't silent —
+    /// the record stays `.pending` on failure, so the chip remains for retry. Mirrors RootView's
+    /// `writeError` pattern for other GitHub write failures.
+    @State private var triageAcceptError: String?
     /// Tasks attached to each feedback (by feedback number), shown as clickable tags.
     var attachedTasksByFeedback: [Int: [TaskItem]] = [:]
     /// Release state per version name, used to color the version badge on task tags.
@@ -127,6 +131,14 @@ struct IssueListView: View {
         #endif
         .refreshable {
             await onRefresh?()
+        }
+        .alert("Couldn't complete", isPresented: Binding(
+            get: { triageAcceptError != nil },
+            set: { if !$0 { triageAcceptError = nil } }
+        )) {
+            Button("OK", role: .cancel) { triageAcceptError = nil }
+        } message: {
+            Text(triageAcceptError ?? "")
         }
         #if os(macOS)
         .toolbar {
@@ -374,8 +386,13 @@ struct IssueListView: View {
             onAcceptSuggestion: (repoConfig.flatMap { config in suggestion.map { (config, $0) } }).map { config, record in
                 {
                     Task {
-                        try? await triageCoordinator.accept(record: record, repo: config, issues: viewModel.allIssues)
-                        await onTriageApplied?()
+                        do {
+                            try await triageCoordinator.accept(record: record, repo: config, issues: viewModel.allIssues)
+                            await onTriageApplied?()
+                        } catch {
+                            // Record stays .pending on failure — leave the chip in place for retry.
+                            triageAcceptError = "Couldn't accept suggestion for #\(record.feedbackNumber): \(error.localizedDescription)"
+                        }
                     }
                 }
             },
