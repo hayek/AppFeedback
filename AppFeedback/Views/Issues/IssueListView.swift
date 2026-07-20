@@ -327,6 +327,7 @@ struct IssueListView: View {
 
     @ViewBuilder
     private func issueCard(for issue: FeedbackIssue) -> some View {
+        let suggestion = triageCoordinator.pendingSuggestion(owner: repoOwner, repo: repoName, number: issue.number)
         IssueCardView(
             issue: issue,
             repoOwner: repoOwner,
@@ -369,19 +370,17 @@ struct IssueListView: View {
             onOpenTask: onOpenTask,
             onRemoveTask: onRemoveTaskFromFeedback.map { remove in { task in remove(task.number, issue.number) } },
             responseController: responseController(for: issue),
-            triageSuggestion: triageCoordinator.pendingSuggestion(owner: repoOwner, repo: repoName, number: issue.number),
-            onAcceptSuggestion: repoConfig.map { config in
+            triageSuggestion: suggestion,
+            onAcceptSuggestion: (repoConfig.flatMap { config in suggestion.map { (config, $0) } }).map { config, record in
                 {
-                    guard let record = triageCoordinator.pendingSuggestion(owner: repoOwner, repo: repoName, number: issue.number) else { return }
                     Task {
                         try? await triageCoordinator.accept(record: record, repo: config, issues: viewModel.allIssues)
                         await onTriageApplied?()
                     }
                 }
             },
-            onDismissSuggestion: {
-                guard let record = triageCoordinator.pendingSuggestion(owner: repoOwner, repo: repoName, number: issue.number) else { return }
-                triageCoordinator.dismiss(record: record)
+            onDismissSuggestion: suggestion.map { record in
+                { triageCoordinator.dismiss(record: record) }
             }
         )
     }
