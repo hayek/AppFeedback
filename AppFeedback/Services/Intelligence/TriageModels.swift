@@ -1,0 +1,104 @@
+import Foundation
+#if canImport(FoundationModels)
+import FoundationModels
+#endif
+
+/// What kind of actionable feedback this is. Praise, content-free negativity,
+/// and questions/support requests are not task-worthy and have no kind.
+enum TriageKind: String, Sendable, CaseIterable {
+    case bug
+    case featureRequest
+    case usability
+
+    /// Lenient parse of free-form model output ("Bug Report", "feature request", …).
+    init?(modelOutput: String) {
+        let folded = modelOutput.lowercased().filter(\.isLetter)
+        switch folded {
+        case "bug", "bugreport", "crash", "regression": self = .bug
+        case "featurerequest", "feature": self = .featureRequest
+        case "usability", "usabilitycomplaint", "friction": self = .usability
+        default: return nil
+        }
+    }
+}
+
+/// Plain-Swift stage-1 verdict mirror (views/tests don't need FoundationModels).
+struct TriageClassificationDTO: Equatable, Sendable {
+    var isActionable: Bool
+    var kind: TriageKind?
+    var signal: String
+}
+
+/// A candidate task the stage-2 matcher may assign feedback to.
+struct TriageTaskRosterEntry: Equatable, Sendable {
+    let number: Int
+    let title: String
+}
+
+/// Plain-Swift stage-2 decision mirror.
+enum TriageDecisionDTO: Equatable, Sendable {
+    case assign(taskNumber: Int)
+    case createNew(title: String, summary: String)
+
+    /// Hallucination guard: an `assign` whose number was not in the roster actually
+    /// sent to the model demotes to `createNew` with the fallback content.
+    func validated(againstRoster rosterNumbers: [Int],
+                   fallbackTitle: String, fallbackSummary: String) -> TriageDecisionDTO {
+        guard case .assign(let number) = self, !rosterNumbers.contains(number) else { return self }
+        return .createNew(title: fallbackTitle, summary: fallbackSummary)
+    }
+}
+
+#if canImport(FoundationModels)
+@available(macOS 26, iOS 26, *)
+@Generable
+struct TriageClassification: Equatable, Sendable {
+    @Guide(description: "true only when the feedback describes something a developer can act on: a bug, crash, or regression; a concrete feature request; or a usability complaint (confusing, hard to find, too many steps). false for praise, content-free negativity ('don't like it'), and questions or support requests.")
+    var isActionable: Bool
+
+    @Guide(description: "Exactly one of: bug, featureRequest, usability. Use none when not actionable.")
+    var kind: String
+
+    @Guide(description: "One short sentence naming the actionable signal — what is broken or wanted, plus platform/version when stated. Empty when not actionable.")
+    var signal: String
+}
+
+@available(macOS 26, iOS 26, *)
+extension TriageClassificationDTO {
+    init(_ c: TriageClassification) {
+        let kind = TriageKind(modelOutput: c.kind)
+        // An "actionable" verdict without a recognizable kind is demoted — garbage
+        // kinds must not produce tasks.
+        self.isActionable = c.isActionable && kind != nil
+        self.kind = c.isActionable ? kind : nil
+        self.signal = c.signal
+    }
+}
+
+@available(macOS 26, iOS 26, *)
+@Generable
+struct TriageMatchDecision: Equatable, Sendable {
+    @Guide(description: "The number of the existing task that covers the same underlying problem or request, or 0 when none of the listed tasks match and a new task is needed.")
+    var taskNumber: Int
+
+    @Guide(description: "When taskNumber is 0: a short imperative task title, e.g. 'Fix crash when exporting on iPad'. Empty otherwise.")
+    var newTaskTitle: String
+
+    @Guide(description: "When taskNumber is 0: one or two plain sentences describing the task, grounded in the feedback. Empty otherwise.")
+    var newTaskSummary: String
+}
+
+@available(macOS 26, iOS 26, *)
+extension TriageDecisionDTO {
+    init(_ d: TriageMatchDecision, fallbackTitle: String, fallbackSummary: String) {
+        if d.taskNumber > 0 {
+            self = .assign(taskNumber: d.taskNumber)
+        } else {
+            let title = d.newTaskTitle.trimmingCharacters(in: .whitespacesAndNewlines)
+            let summary = d.newTaskSummary.trimmingCharacters(in: .whitespacesAndNewlines)
+            self = .createNew(title: title.isEmpty ? fallbackTitle : title,
+                              summary: summary.isEmpty ? fallbackSummary : summary)
+        }
+    }
+}
+#endif
