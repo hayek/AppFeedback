@@ -89,6 +89,9 @@ struct IssueCardView: View {
     /// Pending AI triage suggestion for this feedback (nil when triage is off, not yet run,
     /// or already resolved). Renders `TriageSuggestionChip` at the bottom of the card.
     var triageSuggestion: TriageVerdictRecord? = nil
+    /// True while this suggestion's accept is in flight; disables the chip's Add
+    /// button so a double-tap can't fire two GitHub creates/assigns.
+    var isAcceptingSuggestion: Bool = false
     var onAcceptSuggestion: (() -> Void)? = nil
     var onDismissSuggestion: (() -> Void)? = nil
 
@@ -406,6 +409,7 @@ struct IssueCardView: View {
                     if let triageSuggestion {
                         TriageSuggestionChip(
                             record: triageSuggestion,
+                            isAccepting: isAcceptingSuggestion,
                             onAccept: { onAcceptSuggestion?() },
                             onDismiss: { onDismissSuggestion?() }
                         )

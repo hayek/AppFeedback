@@ -315,6 +315,29 @@ struct FeedbackTriageCoordinatorTests {
         #expect(assignRecord.state == TriageState.accepted.rawValue)
     }
 
+    // MARK: 12b. acceptWithoutTaskUniverseThrows
+    //
+    // Pins the seam contract between `applyLoaded` (which splits task issues out of
+    // `allIssues`) and `accept`/`runBackfill` (which need the COMBINED universe to
+    // build their task roster). Passing a taskless `issues` list for an assign
+    // suggestion must throw rather than silently no-op — this is what caught the
+    // final-review bug where the UI passed `viewModel.allIssues` (feedback-only).
+
+    @Test func acceptWithoutTaskUniverseThrows() async throws {
+        let h = try Harness(mode: .suggest)
+        let assignRecord = h.store.upsert(owner: "o", repo: "r", number: 52) {
+            $0.state = TriageState.pending.rawValue
+            $0.suggestedTaskNumber = 42
+        }
+        // No task issues in `issues` — the roster the coordinator builds from it is empty,
+        // so the target task #42 can't be found and there's no title to fall back to.
+        await #expect(throws: IntelligenceError.empty) {
+            try await h.coordinator.accept(record: assignRecord, repo: h.repo, issues: [])
+        }
+        #expect(h.applier.assigns.isEmpty)
+        #expect(assignRecord.state == TriageState.pending.rawValue)
+    }
+
     // MARK: 13. dismissMarksDismissed
 
     @Test func dismissMarksDismissed() throws {

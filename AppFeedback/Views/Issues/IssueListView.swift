@@ -14,6 +14,9 @@ struct IssueListView: View {
     /// the record stays `.pending` on failure, so the chip remains for retry. Mirrors RootView's
     /// `writeError` pattern for other GitHub write failures.
     @State private var triageAcceptError: String?
+    /// Feedback numbers with an in-flight accept, guarding the chip's Add button
+    /// against a double-tap firing two GitHub creates/assigns for the same suggestion.
+    @State private var acceptingFeedbackNumbers: Set<Int> = []
     /// Tasks attached to each feedback (by feedback number), shown as clickable tags.
     var attachedTasksByFeedback: [Int: [TaskItem]] = [:]
     /// Release state per version name, used to color the version badge on task tags.
@@ -159,11 +162,12 @@ struct IssueListView: View {
             }
         }
         #endif
+        #if os(macOS)
         .toolbar {
             ToolbarItem(placement: .primaryAction) {
                 Button {
-                    guard let repoConfig else { return }
-                    Task { await triageCoordinator.runBackfill(repo: repoConfig, issues: viewModel.allIssues) }
+                    guard let repoConfig, let loadedIssues else { return }
+                    Task { await triageCoordinator.runBackfill(repo: repoConfig, issues: loadedIssues) }
                 } label: {
                     if triageCoordinator.isProcessing {
                         HStack(spacing: 4) {
@@ -181,6 +185,7 @@ struct IssueListView: View {
                 }
                 .disabled(
                     repoConfig == nil
+                        || loadedIssues == nil
                         || triageSettings.mode == .off
                         || !intelligenceService.availability.isReady
                         || triageCoordinator.isProcessing
@@ -188,6 +193,7 @@ struct IssueListView: View {
                 .help("Triage Feedback with AI")
             }
         }
+        #endif
     }
 
     @ViewBuilder
@@ -383,11 +389,19 @@ struct IssueListView: View {
             onRemoveTask: onRemoveTaskFromFeedback.map { remove in { task in remove(task.number, issue.number) } },
             responseController: responseController(for: issue),
             triageSuggestion: suggestion,
+            isAcceptingSuggestion: suggestion.map { acceptingFeedbackNumbers.contains($0.feedbackNumber) } ?? false,
             onAcceptSuggestion: (repoConfig.flatMap { config in suggestion.map { (config, $0) } }).map { config, record in
                 {
+                    guard !acceptingFeedbackNumbers.contains(record.feedbackNumber) else { return }
+                    guard let loadedIssues else {
+                        triageAcceptError = "Couldn't accept suggestion for #\(record.feedbackNumber): issues are still loading."
+                        return
+                    }
+                    acceptingFeedbackNumbers.insert(record.feedbackNumber)
                     Task {
+                        defer { acceptingFeedbackNumbers.remove(record.feedbackNumber) }
                         do {
-                            try await triageCoordinator.accept(record: record, repo: config, issues: viewModel.allIssues)
+                            try await triageCoordinator.accept(record: record, repo: config, issues: loadedIssues)
                             await onTriageApplied?()
                         } catch {
                             // Record stays .pending on failure — leave the chip in place for retry.
@@ -403,6 +417,15 @@ struct IssueListView: View {
     }
 
     private var loaderState: IssueLoader.State { loader?.state ?? .idle }
+
+    /// The loader's combined issue universe (feedback + tasks), as needed by
+    /// `FeedbackTriageCoordinator` to build its task roster and linked-refs set.
+    /// `viewModel.allIssues` is feedback-only (tasks are split out in `applyLoaded`)
+    /// and must never be passed to the coordinator's `accept`/`runBackfill`.
+    private var loadedIssues: [FeedbackIssue]? {
+        if case .loaded(let issues, _) = loaderState { return issues }
+        return nil
+    }
 
     private var showsRefreshSpinner: Bool {
         loader?.isInFlight == true

@@ -4,6 +4,9 @@ import SwiftUI
 /// task or create a proposed one. Pending records only.
 struct TriageSuggestionChip: View {
     let record: TriageVerdictRecord
+    /// True while this suggestion's accept is in flight; disables Add and shows a spinner
+    /// in its place so a double-tap can't fire two GitHub creates/assigns.
+    var isAccepting: Bool = false
     let onAccept: () -> Void
     let onDismiss: () -> Void
 
@@ -22,9 +25,14 @@ struct TriageSuggestionChip: View {
                 .font(.system(size: 12))
                 .lineLimit(1)
             Spacer(minLength: 4)
-            Button("Add", action: onAccept)
-                .buttonStyle(.borderedProminent)
-                .controlSize(.mini)
+            if isAccepting {
+                ProgressView()
+                    .controlSize(.mini)
+            } else {
+                Button("Add", action: onAccept)
+                    .buttonStyle(.borderedProminent)
+                    .controlSize(.mini)
+            }
             Button {
                 onDismiss()
             } label: {
@@ -32,6 +40,7 @@ struct TriageSuggestionChip: View {
             }
             .buttonStyle(.borderless)
             .controlSize(.mini)
+            .disabled(isAccepting)
             .help("Dismiss suggestion")
         }
         .padding(.horizontal, 8)

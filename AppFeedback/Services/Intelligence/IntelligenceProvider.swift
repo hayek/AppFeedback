@@ -1,8 +1,10 @@
 import Foundation
 
-/// On-device intelligence used for AI summaries. Translation no longer lives here —
-/// it runs through Apple's Translation framework (`TranslationHost`), which needs no
-/// Apple Intelligence. This provider gates and produces the rolling/unread summaries only.
+/// On-device intelligence used for AI summaries and two-stage feedback triage
+/// (classify, then match to an existing task or propose a new one). Translation no
+/// longer lives here — it runs through Apple's Translation framework (`TranslationHost`),
+/// which needs no Apple Intelligence. This provider gates and produces the
+/// rolling/unread summaries plus the triage classify/match calls.
 protocol IntelligenceProvider: AnyObject, Sendable {
     @MainActor var availability: IntelligenceAvailability { get }
     func summarize(
