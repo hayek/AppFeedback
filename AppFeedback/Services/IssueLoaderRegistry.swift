@@ -30,6 +30,11 @@ final class IssueLoaderRegistry {
     private let notificationService: NotificationService?
     private let clock: () -> Date
 
+    /// Invoked after each refresh tick with every loaded product's issues —
+    /// the AI triage entry point. Optional and fire-and-forget like the
+    /// notification differ; triage self-gates on its own settings.
+    var triageSink: (([(repo: ProductConfig, issues: [FeedbackIssue])]) async -> Void)?
+
     init(
         factory: @escaping (ProductConfig) -> IssueLoader,
         tokenProvider: @escaping @Sendable (ProductConfig) async -> String? = { await KeychainService.load(for: $0) },
@@ -82,6 +87,7 @@ final class IssueLoaderRegistry {
             .map { clock().timeIntervalSince($0) >= Self.fullReconcileInterval } ?? true
         await loadAll(fullReconcile: needsFull)
         await notificationService?.diffAndNotify(loadedByRepo: loadedGroups)
+        await triageSink?(loadedProductGroups)
     }
 
     /// Catch-up poll after suspension (scene re-activation): a full tick, but only when the
@@ -127,6 +133,16 @@ final class IssueLoaderRegistry {
             guard let loader = loaders[repo.id],
                   case .loaded(let issues, _) = loader.state else { return nil }
             return (owner: repo.owner, repo: repo.repo, issues: issues)
+        }
+    }
+
+    /// Like `loadedGroups` but keyed by full ProductConfig (triage needs owner,
+    /// repo, and the config for TaskService writes).
+    var loadedProductGroups: [(repo: ProductConfig, issues: [FeedbackIssue])] {
+        products.compactMap { repo in
+            guard let loader = loaders[repo.id],
+                  case .loaded(let issues, _) = loader.state else { return nil }
+            return (repo: repo, issues: issues)
         }
     }
 

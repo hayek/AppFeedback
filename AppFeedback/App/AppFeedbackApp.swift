@@ -52,6 +52,8 @@ struct AppFeedbackApp: App {
     @State private var cacheContext: ModelContext
     @State private var intelligenceSettings: IntelligenceSettings
     @State private var intelligenceService: IntelligenceService
+    @State private var triageSettings: TriageSettings
+    @State private var triageCoordinator: FeedbackTriageCoordinator
     @State private var notificationSettings: NotificationSettings
     @State private var notificationService: NotificationService
     @State private var notificationRouter: NotificationRouter
@@ -89,11 +91,12 @@ struct AppFeedbackApp: App {
                         ReplyTemplate.self,
                         RepoFilterPreference.self,
                         AppStoreReviewMirror.self,
+                        TriageVerdictRecord.self,
                     configurations: testConfig
                 )
             } else {
                 let cloudSchema = Schema([Product.self, Repo.self, SeenIssue.self, HiddenApp.self, MailAccount.self, GitHubAccount.self, MailSettings.self, MailThread.self, MailMessage.self, MailAttachment.self, IssueTranslation.self, IssueSummaryCache.self, ProjectVersion.self, SentReleaseNotification.self, ReplyTemplate.self, RepoFilterPreference.self, AppStoreReviewMirror.self])
-                let localSchema = Schema([CachedIssue.self, MailAttachmentLocal.self, MailAccountLocalState.self, RepoFetchState.self, FeedbackAttachmentLocal.self])
+                let localSchema = Schema([CachedIssue.self, MailAttachmentLocal.self, MailAccountLocalState.self, RepoFetchState.self, FeedbackAttachmentLocal.self, TriageVerdictRecord.self])
                 let cloudConfig = ModelConfiguration(
                     "cloud",
                     schema: cloudSchema,
@@ -112,6 +115,7 @@ struct AppFeedbackApp: App {
                         ReplyTemplate.self,
                         RepoFilterPreference.self,
                         AppStoreReviewMirror.self,
+                        TriageVerdictRecord.self,
                     configurations: cloudConfig, localConfig
                 )
             }
@@ -165,6 +169,16 @@ struct AppFeedbackApp: App {
         _outboundFailures = State(initialValue: OutboundFailureStore(persistenceURL: failureStoreURL))
         _intelligenceSettings = State(initialValue: IntelligenceSettings())
         _intelligenceService = State(initialValue: IntelligenceService())
+
+        let triageSettingsLocal = TriageSettings()
+        _triageSettings = State(initialValue: triageSettingsLocal)
+        let triageCoordinatorLocal = FeedbackTriageCoordinator(
+            provider: _intelligenceService.wrappedValue,
+            store: TriageVerdictStore(context: ModelContext(container)),
+            settings: triageSettingsLocal,
+            applier: TaskServiceTriageApplier()
+        )
+        _triageCoordinator = State(initialValue: triageCoordinatorLocal)
 
         let settings = NotificationSettings()
         let router = NotificationRouter()
@@ -296,6 +310,9 @@ struct AppFeedbackApp: App {
             factory: { cfg in IssueLoader(config: cfg, activityLog: activityLogValue, cacheContext: cacheCtx) },
             notificationService: service
         )
+        issueRegistry.triageSink = { groups in
+            await triageCoordinatorLocal.processLoaded(groups)
+        }
         _issueLoaderRegistry = State(initialValue: issueRegistry)
 
         #if os(iOS)
@@ -327,6 +344,8 @@ struct AppFeedbackApp: App {
             .environment(settingsNavigation)
             .environment(intelligenceSettings)
             .environment(intelligenceService)
+            .environment(triageSettings)
+            .environment(triageCoordinator)
             .environment(notificationSettings)
             .environment(notificationRouter)
             .environment(downloaderHolder)

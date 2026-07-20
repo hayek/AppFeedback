@@ -163,6 +163,22 @@ final class IssueLoaderRegistryTests: XCTestCase {
         XCTAssertEqual(recorded, [a.id])
     }
 
+    // MARK: triageSink
+
+    func testRefreshTickInvokesTriageSinkWithLoadedGroups() async {
+        let registry = makeRegistry()
+        let a = makeConfig("a")
+        registry.syncWithProducts([a])
+        registry.loaders[a.id]?.state = .loaded([makeIssue(1)], Self.epoch)
+
+        var received: [(repo: ProductConfig, issues: [FeedbackIssue])] = []
+        registry.triageSink = { groups in received = groups }
+        await registry.refreshTick()
+
+        XCTAssertEqual(received.map(\.repo.repo), ["a"])
+        XCTAssertEqual(received.first?.issues.map(\.number), [1])
+    }
+
     /// Polls `condition` every 10ms until true or ~2s elapse.
     private func waitUntil(_ condition: @MainActor () async -> Bool) async throws {
         for _ in 0..<200 {
