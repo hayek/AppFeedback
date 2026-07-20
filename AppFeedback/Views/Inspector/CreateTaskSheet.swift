@@ -115,6 +115,10 @@ struct CreateTaskSheet: View {
         }
         #if os(macOS)
         .frame(width: 440, height: 560)
+        #else
+        // A drag on the ScrollView content can otherwise pull the whole sheet down; entering a
+        // task is too easy to lose that way. Dismissal stays explicit via Cancel/Create.
+        .interactiveDismissDisabled()
         #endif
     }
 
