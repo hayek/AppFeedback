@@ -42,7 +42,7 @@ enum TriageDecisionDTO: Equatable, Sendable {
 
     /// Hallucination guard: an `assign` whose number was not in the roster actually
     /// sent to the model demotes to `createNew` with the fallback content.
-    func validated(againstRoster rosterNumbers: [Int],
+    func validated(againstRoster rosterNumbers: Set<Int>,
                    fallbackTitle: String, fallbackSummary: String) -> TriageDecisionDTO {
         guard case .assign(let number) = self, !rosterNumbers.contains(number) else { return self }
         return .createNew(title: fallbackTitle, summary: fallbackSummary)
