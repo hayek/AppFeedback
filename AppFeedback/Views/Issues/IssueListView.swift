@@ -346,6 +346,9 @@ struct IssueListView: View {
     @ViewBuilder
     private func issueCard(for issue: FeedbackIssue) -> some View {
         let suggestion = triageCoordinator.pendingSuggestion(owner: repoOwner, repo: repoName, number: issue.number)
+        let suggestedTask = suggestion?.suggestedTaskNumber.flatMap { n in
+            viewModel.tasks.first(where: { $0.number == n })
+        }
         IssueCardView(
             issue: issue,
             repoOwner: repoOwner,
@@ -412,6 +415,10 @@ struct IssueListView: View {
             },
             onDismissSuggestion: suggestion.map { record in
                 { triageCoordinator.dismiss(record: record) }
+            },
+            suggestedTaskTitle: suggestedTask?.title,
+            onOpenSuggestedTask: suggestedTask.flatMap { task in
+                onOpenTask.map { open in { open(task) } }
             }
         )
     }

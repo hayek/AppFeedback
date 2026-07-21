@@ -94,6 +94,10 @@ struct IssueCardView: View {
     var isAcceptingSuggestion: Bool = false
     var onAcceptSuggestion: (() -> Void)? = nil
     var onDismissSuggestion: (() -> Void)? = nil
+    /// Title of the suggestion's assign-target task (shown inline in the chip).
+    var suggestedTaskTitle: String? = nil
+    /// Opens the suggestion's assign-target task; nil hides the chip's open button.
+    var onOpenSuggestedTask: (() -> Void)? = nil
 
     @Environment(MailThreadStore.self) private var threadStore
     @Environment(ReplyTemplateStore.self) private var replyTemplateStore
@@ -409,9 +413,13 @@ struct IssueCardView: View {
                     if let triageSuggestion {
                         TriageSuggestionChip(
                             record: triageSuggestion,
+                            taskTitle: suggestedTaskTitle,
                             isAccepting: isAcceptingSuggestion,
                             onAccept: { onAcceptSuggestion?() },
-                            onDismiss: { onDismissSuggestion?() }
+                            onDismiss: { onDismissSuggestion?() },
+                            onOpenTask: onOpenSuggestedTask.map { open in
+                                { onInteract?(); open() }
+                            }
                         )
                         .padding(.top, 8)
                     }
