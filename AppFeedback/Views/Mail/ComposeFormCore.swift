@@ -124,7 +124,7 @@ struct ComposeFormCore: View {
             .frame(maxWidth: .infinity, alignment: .leading)
             #if os(macOS)
             Button {
-                settingsNavigation.selectedTab = .email
+                settingsNavigation.selection = .email
                 openWindow(id: "settings")
             } label: {
                 Label("Edit", systemImage: "pencil").labelStyle(.titleAndIcon)

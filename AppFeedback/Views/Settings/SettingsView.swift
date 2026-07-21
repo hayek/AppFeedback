@@ -3,24 +3,44 @@ import SwiftUI
 import AppKit
 #endif
 
-enum SettingsTab: String, Hashable, CaseIterable {
-    case products
+/// One selected pane in the macOS Settings window's unified sidebar.
+/// Unfenced: a plain Hashable enum is harmless on iOS, which doesn't use it.
+enum SettingsSelection: Hashable {
+    case product(UUID)
     case email
     case intelligence
     case notifications
+
+    var productID: UUID? {
+        if case .product(let id) = self { return id }
+        return nil
+    }
 }
 
 @Observable
 final class SettingsNavigation {
-    var selectedTab: SettingsTab = .products
-    /// The product whose detail the Products tab should focus. nil ⇒ no/first selection.
-    var selectedProductID: UUID?
+    /// The unified sidebar selection (macOS). nil ⇒ resolve via `normalizedSelection`.
+    var selection: SettingsSelection?
 
-    /// Focus the Products tab on a specific product (used by the sidebar "Settings…" item
-    /// and the macOS Settings window, which share this object via the environment).
+    /// Focus the Settings window on a specific product (used by the sidebar
+    /// "Settings…" item, which shares this object via the environment).
     func focus(productID: UUID) {
-        selectedTab = .products
-        selectedProductID = productID
+        selection = .product(productID)
+    }
+
+    /// The selection to actually show for the given products: a valid product or
+    /// non-product selection is kept; a deleted/nil product selection falls back
+    /// to the first product, else Email.
+    func normalizedSelection(productIDs: [UUID]) -> SettingsSelection {
+        if let selection {
+            if let id = selection.productID {
+                if productIDs.contains(id) { return selection }
+            } else {
+                return selection
+            }
+        }
+        if let first = productIDs.first { return .product(first) }
+        return .email
     }
 }
 
@@ -51,26 +71,18 @@ struct SettingsView: View {
 
     #if os(macOS)
     private var macBody: some View {
-        @Bindable var nav = navigation
-        return tabContent(selection: nav.selectedTab)
+        tabContent(selection: navigation.selection ?? .email)
             .frame(maxWidth: .infinity, maxHeight: .infinity)
             .frame(
                 minWidth: 480, idealWidth: 720, maxWidth: .infinity,
                 minHeight: 320, idealHeight: 620, maxHeight: .infinity
             )
-            .background(
-                SettingsToolbarAccessor(
-                    selection: $nav.selectedTab,
-                    hasNotifications: notificationService != nil
-                )
-                .frame(width: 0, height: 0)
-            )
     }
 
     @ViewBuilder
-    private func tabContent(selection: SettingsTab) -> some View {
+    private func tabContent(selection: SettingsSelection) -> some View {
         switch selection {
-        case .products:
+        case .product:
             ProductsSettingsTab(store: store, navigation: navigation)
         case .email:
             EmailSettingsView()

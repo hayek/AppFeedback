@@ -3,7 +3,7 @@ import SwiftUI
 
 /// macOS master-detail for the Products settings tab: a product list on the left and the
 /// selected product's `ProductSettingsView` on the right. Selection is bound to
-/// `SettingsNavigation.selectedProductID` so the sidebar "Settings…" item can focus a product
+/// `SettingsNavigation.selection` so the sidebar "Settings…" item can focus a product
 /// in this (separate) Settings window.
 ///
 /// The `.onAppear` guard in the sidebar resolves or falls back when the focused product is
@@ -16,7 +16,7 @@ struct ProductsSettingsTab: View {
     private var allDisplayNames: [String] { store.products.map(\.displayName).sorted() }
 
     private var selectedProduct: ProductConfig? {
-        store.products.first(where: { $0.id == navigation.selectedProductID })
+        store.products.first(where: { $0.id == navigation.selection?.productID })
             ?? store.products.first
     }
 
@@ -24,7 +24,7 @@ struct ProductsSettingsTab: View {
         NavigationSplitView {
             List(selection: Binding(
                 get: { selectedProduct?.id },
-                set: { navigation.selectedProductID = $0 }
+                set: { if let id = $0 { navigation.selection = .product(id) } }
             )) {
                 ForEach(store.products) { product in
                     HStack(spacing: 8) {
@@ -43,9 +43,11 @@ struct ProductsSettingsTab: View {
             }
             .navigationSplitViewColumnWidth(min: 180, ideal: 220, max: 300)
             .onAppear {
-                if navigation.selectedProductID == nil
-                    || !store.products.contains(where: { $0.id == navigation.selectedProductID }) {
-                    navigation.selectedProductID = store.products.first?.id
+                if navigation.selection?.productID == nil
+                    || !store.products.contains(where: { $0.id == navigation.selection?.productID }) {
+                    if let first = store.products.first {
+                        navigation.selection = .product(first.id)
+                    }
                 }
             }
             .toolbar {
