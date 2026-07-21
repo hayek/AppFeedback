@@ -71,19 +71,78 @@ struct SettingsView: View {
 
     #if os(macOS)
     private var macBody: some View {
-        tabContent(selection: navigation.selection ?? .email)
-            .frame(maxWidth: .infinity, maxHeight: .infinity)
-            .frame(
-                minWidth: 480, idealWidth: 720, maxWidth: .infinity,
-                minHeight: 320, idealHeight: 620, maxHeight: .infinity
-            )
+        @Bindable var nav = navigation
+        return NavigationSplitView {
+            List(selection: $nav.selection) {
+                Section {
+                    ForEach(store.products) { product in
+                        HStack(spacing: 8) {
+                            Circle()
+                                .fill(ColorPalette.color(for: product.displayName, in: allDisplayNames))
+                                .frame(width: 8, height: 8)
+                            VStack(alignment: .leading, spacing: 1) {
+                                Text(product.displayName)
+                                Text("\(product.owner)/\(product.repo)")
+                                    .font(.caption.monospaced())
+                                    .foregroundStyle(.secondary)
+                            }
+                        }
+                        .tag(SettingsSelection.product(product.id))
+                    }
+                } header: {
+                    HStack {
+                        Text("Products")
+                        Spacer()
+                        Button { showAdd = true } label: {
+                            Image(systemName: "plus")
+                        }
+                        .buttonStyle(.borderless)
+                        .help("Add Product")
+                    }
+                }
+
+                Section {
+                    SettingsIconRow(title: "Email", systemImage: "envelope.fill", tileColor: .blue)
+                        .tag(SettingsSelection.email)
+                    SettingsIconRow(title: "Intelligence", systemImage: "sparkles", tileColor: .purple)
+                        .tag(SettingsSelection.intelligence)
+                    if notificationService != nil {
+                        SettingsIconRow(title: "Notifications", systemImage: "bell.badge.fill", tileColor: .red)
+                            .tag(SettingsSelection.notifications)
+                    }
+                }
+            }
+            .navigationSplitViewColumnWidth(min: 180, ideal: 220, max: 300)
+            .onAppear {
+                navigation.selection = navigation.normalizedSelection(productIDs: store.products.map(\.id))
+            }
+            .onChange(of: store.products.map(\.id)) { _, ids in
+                navigation.selection = navigation.normalizedSelection(productIDs: ids)
+            }
+            .sheet(isPresented: $showAdd) {
+                AddEditRepoView(store: store)
+            }
+        } detail: {
+            detailContent(selection: navigation.selection)
+        }
+        .frame(
+            minWidth: 480, idealWidth: 720, maxWidth: .infinity,
+            minHeight: 320, idealHeight: 620, maxHeight: .infinity
+        )
     }
 
     @ViewBuilder
-    private func tabContent(selection: SettingsSelection) -> some View {
+    private func detailContent(selection: SettingsSelection?) -> some View {
         switch selection {
-        case .product:
-            ProductsSettingsTab(store: store, navigation: navigation)
+        case .product(let id):
+            if let product = store.products.first(where: { $0.id == id }) {
+                NavigationStack {
+                    ProductSettingsView(store: store, product: product)
+                }
+                .id(product.id)   // rebuild the detail when the selected product changes
+            } else {
+                noProductsView
+            }
         case .email:
             EmailSettingsView()
         case .intelligence:
@@ -101,9 +160,15 @@ struct SettingsView: View {
             if let notificationService {
                 NotificationsSettingsView(settings: notificationSettings, service: notificationService)
             }
+        case nil:
+            noProductsView
         }
     }
 
+    private var noProductsView: some View {
+        ContentUnavailableView("No Products", systemImage: "shippingbox",
+            description: Text("Add a product to configure its feedback sources."))
+    }
     #endif
 
     #if os(iOS)
