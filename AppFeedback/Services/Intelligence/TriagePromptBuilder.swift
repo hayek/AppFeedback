@@ -1,7 +1,7 @@
 import Foundation
 
 /// Prompts for the two triage stages, with shrinking-size ladders for the
-/// 4096-token session ceiling (TN3193). Stage 2 returns the set of task numbers
+/// 4096-token session ceiling (TN3193). Stage 2 returns the roster entries
 /// actually embedded so the caller can validate the model's answer against
 /// exactly what it saw.
 enum TriagePromptBuilder {
@@ -33,7 +33,7 @@ enum TriagePromptBuilder {
     static func buildMatchPrompt(
         signal: String, kind: TriageKind,
         roster: [TriageTaskRosterEntry], rosterCap: Int
-    ) -> (prompt: String, includedNumbers: Set<Int>) {
+    ) -> (prompt: String, included: [TriageTaskRosterEntry]) {
         let included = Array(roster.prefix(max(rosterCap, 0)))
         var lines: [String] = []
         lines.append("A new \(kindNoun(kind)) came in from user feedback:")
@@ -44,16 +44,16 @@ enum TriagePromptBuilder {
         } else {
             lines.append("Existing open tasks:")
             for entry in included {
-                lines.append("- #\(entry.number) \(entry.title)")
+                lines.append("- #\(entry.number): \"\(entry.title)\"")
             }
             lines.append("")
             lines.append("""
-            If one of these tasks covers the same underlying problem or request, answer \
-            with its number. Otherwise answer taskNumber 0 and propose a new task title \
-            and summary.
+            If one of these tasks covers the same specific problem or request, answer \
+            with its number and copy its exact title. Otherwise answer taskNumber 0 and \
+            propose a new task title and summary.
             """)
         }
-        return (lines.joined(separator: "\n"), Set(included.map(\.number)))
+        return (lines.joined(separator: "\n"), included)
     }
 
     private static func kindNoun(_ kind: TriageKind) -> String {

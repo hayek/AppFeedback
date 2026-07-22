@@ -14,10 +14,11 @@ struct TriagePromptBuilderTests {
         let roster = (1...50).map { TriageTaskRosterEntry(number: $0, title: "Task \($0)") }
         let (prompt, included) = TriagePromptBuilder.buildMatchPrompt(
             signal: "Crash when exporting", kind: .bug, roster: roster, rosterCap: 10)
-        #expect(included.count == 10)
-        #expect(included.contains(1) && included.contains(10) && !included.contains(11))
-        #expect(prompt.contains("#10 Task 10"))
-        #expect(!prompt.contains("#11 Task 11"))
+        let numbers = included.map(\.number)
+        #expect(numbers.count == 10)
+        #expect(numbers.contains(1) && numbers.contains(10) && !numbers.contains(11))
+        #expect(prompt.contains("#10: \"Task 10\""))
+        #expect(!prompt.contains("#11: \"Task 11\""))
         #expect(prompt.contains("Crash when exporting"))
     }
 

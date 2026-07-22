@@ -27,4 +27,45 @@ struct TriageModelsTests {
         let d = TriageDecisionDTO.createNew(title: "a", summary: "b")
         #expect(d.validated(againstRoster: [], fallbackTitle: "t", fallbackSummary: "s") == d)
     }
+
+    private static let roster: [TriageTaskRosterEntry] = [
+        .init(number: 503, title: "Fix login detection callback"),
+        .init(number: 511, title: "Weekly in all dashboard history graph"),
+    ]
+
+    @Test func matchClaimValidWhenTitleCopiedExactly() {
+        #expect(TriageDecisionDTO.matchClaimIsValid(
+            claimedNumber: 503, claimedTitle: "Fix login detection callback",
+            includedRoster: Self.roster))
+    }
+
+    @Test func matchClaimValidIgnoringCaseAndSurroundingWhitespace() {
+        #expect(TriageDecisionDTO.matchClaimIsValid(
+            claimedNumber: 503, claimedTitle: "  fix LOGIN detection callback  ",
+            includedRoster: Self.roster))
+    }
+
+    @Test func matchClaimInvalidWhenTitleHasNumberPrefix() {
+        #expect(!TriageDecisionDTO.matchClaimIsValid(
+            claimedNumber: 503, claimedTitle: "#503 Fix login detection callback",
+            includedRoster: Self.roster))
+    }
+
+    @Test func matchClaimInvalidWhenNumberNotInRoster() {
+        #expect(!TriageDecisionDTO.matchClaimIsValid(
+            claimedNumber: 999, claimedTitle: "Fix login detection callback",
+            includedRoster: Self.roster))
+    }
+
+    @Test func matchClaimInvalidWhenTitleBelongsToDifferentEntry() {
+        #expect(!TriageDecisionDTO.matchClaimIsValid(
+            claimedNumber: 511, claimedTitle: "Fix login detection callback",
+            includedRoster: Self.roster))
+    }
+
+    @Test func matchClaimInvalidForEmptyRoster() {
+        #expect(!TriageDecisionDTO.matchClaimIsValid(
+            claimedNumber: 503, claimedTitle: "Fix login detection callback",
+            includedRoster: []))
+    }
 }

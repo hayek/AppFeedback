@@ -40,10 +40,12 @@ final class IntelligenceService: IntelligenceProvider {
     """
     private let triageMatchInstructions = """
     You match an actionable piece of user feedback against a list of existing \
-    development tasks. Choose an existing task ONLY when it covers the same \
-    underlying problem or request — do not stretch. Otherwise answer taskNumber 0 \
-    with a short imperative newTaskTitle and a 1-2 sentence newTaskSummary grounded \
-    in the feedback. No markdown.
+    development tasks. Most feedback is about something new: matching NO existing \
+    task is the common, correct outcome. Say a task matches ONLY when it describes \
+    the same specific feature or problem — a shared app area or vague similarity is \
+    NOT a match. When a task matches, copy its exact title. When nothing matches, \
+    propose a new task with a short imperative newTaskTitle and a 1-2 sentence \
+    newTaskSummary grounded in the feedback. No markdown.
     """
 
     init() {}
@@ -196,14 +198,13 @@ extension IntelligenceService {
         let fallbackTitle = String(signal.prefix(72))
         var lastBudgetError: Error?
         for rosterCap in TriagePromptBuilder.matchConfigs() {
-            let (prompt, includedNumbers) = TriagePromptBuilder.buildMatchPrompt(
+            let (prompt, included) = TriagePromptBuilder.buildMatchPrompt(
                 signal: signal, kind: kind, roster: roster, rosterCap: rosterCap)
             let session = LanguageModelSession(model: model, instructions: instructions)
             do {
                 let response = try await session.respond(to: prompt, generating: TriageMatchDecision.self)
-                return TriageDecisionDTO(response.content, fallbackTitle: fallbackTitle, fallbackSummary: signal)
-                    .validated(againstRoster: includedNumbers,
-                               fallbackTitle: fallbackTitle, fallbackSummary: signal)
+                return TriageDecisionDTO(response.content, includedRoster: included,
+                                         fallbackTitle: fallbackTitle, fallbackSummary: signal)
             } catch let error as LanguageModelSession.GenerationError {
                 if case .guardrailViolation = error { throw IntelligenceError.guardrailBlocked }
                 if case .exceededContextWindowSize = error { lastBudgetError = error; continue }

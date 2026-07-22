@@ -246,6 +246,7 @@
 		6388F3ED429A58E19B91DBD6 /* MailMessageHeaders.swift in Sources */ = {isa = PBXBuildFile; fileRef = 392F2952F0E1656AED728FE5 /* MailMessageHeaders.swift */; };
 		63F02A0EA217240DEF51BB90 /* MailAttachment.swift in Sources */ = {isa = PBXBuildFile; fileRef = 74EEB069BDE0A64E29F975A5 /* MailAttachment.swift */; };
 		64EC38217CE11BA070E828CC /* GitHubIssueWriterTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8A172DC491C08B2B19321D90 /* GitHubIssueWriterTests.swift */; };
+		655EE9ED390AAE34933BFCCE /* TriageMatchDiagnostics.swift in Sources */ = {isa = PBXBuildFile; fileRef = 05FCE09B6F3AE6F03C728047 /* TriageMatchDiagnostics.swift */; };
 		6604F5C9B9D507FABADF9B32 /* MailSettingsStoreTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 41A259F8580D4738755D4CC2 /* MailSettingsStoreTests.swift */; };
 		6645EA25CABF717B2D1B6E09 /* IssueCardView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7B47F8578C6AACFA2B16D08C /* IssueCardView.swift */; };
 		666FEC2518C0B07F2367EE8C /* InspectorFilterBars.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA9230F8F5C542709BB4BE44 /* InspectorFilterBars.swift */; };
@@ -297,6 +298,7 @@
 		7773EB64C16C1D2247565481 /* AppStoreReviewSynthesizer.swift in Sources */ = {isa = PBXBuildFile; fileRef = 53BD13F7DE54AF178FD78E84 /* AppStoreReviewSynthesizer.swift */; };
 		77DBB28FD76501D3A2ECC9D3 /* NotificationSettingsTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 222848512444018A588E6833 /* NotificationSettingsTests.swift */; };
 		782DFA0D5F5B0CB20163FCBA /* GitHubLoginView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8179D7E75894D24AAF1B685B /* GitHubLoginView.swift */; };
+		7880CFE2DA60C443B0612FC5 /* TriageMatchDiagnostics.swift in Sources */ = {isa = PBXBuildFile; fileRef = 05FCE09B6F3AE6F03C728047 /* TriageMatchDiagnostics.swift */; };
 		79081346B12D94B6E60A2D42 /* FilterBarView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A5A00E7444118AEC76580EAB /* FilterBarView.swift */; };
 		7916238A040FF477CB3CECC6 /* AppStoreSourceForm.swift in Sources */ = {isa = PBXBuildFile; fileRef = B815A48424827C3B8720829C /* AppStoreSourceForm.swift */; };
 		791E846B8373C93B660F1B98 /* TaskServiceTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = E1E35810A479EEB454382191 /* TaskServiceTests.swift */; };
@@ -630,6 +632,7 @@
 		037248630ABDD42BE4DC6D3C /* IssueSummary.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = IssueSummary.swift; sourceTree = "<group>"; };
 		0376C061DCE08A242E9B349A /* ModelsTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ModelsTests.swift; sourceTree = "<group>"; };
 		045F23BFBB1098F6C074B29F /* FilterPreferenceStoreTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FilterPreferenceStoreTests.swift; sourceTree = "<group>"; };
+		05FCE09B6F3AE6F03C728047 /* TriageMatchDiagnostics.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TriageMatchDiagnostics.swift; sourceTree = "<group>"; };
 		0653CBDD9DD6D65B6990CC0C /* ReplyTemplatePickerView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ReplyTemplatePickerView.swift; sourceTree = "<group>"; };
 		067DE9EAC993F3796314B998 /* IMAPSyntheticIDTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = IMAPSyntheticIDTests.swift; sourceTree = "<group>"; };
 		06966BDC1078923389E15249 /* GitHubAuthService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GitHubAuthService.swift; sourceTree = "<group>"; };
@@ -1355,6 +1358,7 @@
 				2B1E39D284FE0DA4E3A8CAB6 /* TasksSectionSmokeTests.swift */,
 				D401262A71F92B8C6945160B /* TaskVersionFilterTests.swift */,
 				3E56A2C1F952B2C77D48F835 /* ThreadMatcherTests.swift */,
+				05FCE09B6F3AE6F03C728047 /* TriageMatchDiagnostics.swift */,
 				20D50CD278A09894470F4297 /* TriageModelsTests.swift */,
 				DDE1AF13B1065053919A9E20 /* TriagePromptBuilderTests.swift */,
 				76F5F20356A3B2446A3106E5 /* TriageSettingsTests.swift */,
@@ -1888,6 +1892,7 @@
 				DE70BDA9D52783F61D9DAEDB /* TaskVersionFilterTests.swift in Sources */,
 				9742A250579CBA86C5F64F71 /* TasksSectionSmokeTests.swift in Sources */,
 				D6EAE984B424A7CA175C7BB6 /* ThreadMatcherTests.swift in Sources */,
+				7880CFE2DA60C443B0612FC5 /* TriageMatchDiagnostics.swift in Sources */,
 				348DC1A57E43FE2804F133C4 /* TriageModelsTests.swift in Sources */,
 				4343D27AA01A49B30678896F /* TriagePromptBuilderTests.swift in Sources */,
 				4DC8997D0AEE4B567CB01AF3 /* TriageSettingsTests.swift in Sources */,
@@ -2195,6 +2200,7 @@
 				3082458977E942FD89EB3FA4 /* TaskVersionFilterTests.swift in Sources */,
 				E9FFB4245CF39616224B9A2E /* TasksSectionSmokeTests.swift in Sources */,
 				C825F03F97CD650744494EE6 /* ThreadMatcherTests.swift in Sources */,
+				655EE9ED390AAE34933BFCCE /* TriageMatchDiagnostics.swift in Sources */,
 				ADC2D35C04314C6F58AA6BA3 /* TriageModelsTests.swift in Sources */,
 				48338D8D795DBB5C9E0E9D19 /* TriagePromptBuilderTests.swift in Sources */,
 				4C64D55B3442ADEF80EA47EC /* TriageSettingsTests.swift in Sources */,

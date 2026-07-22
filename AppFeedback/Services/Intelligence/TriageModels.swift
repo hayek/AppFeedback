@@ -49,6 +49,21 @@ enum TriageDecisionDTO: Equatable, Sendable {
     }
 }
 
+extension TriageDecisionDTO {
+    /// True when a claimed match names a task that was actually in the prompt AND
+    /// reproduces its exact title (case-insensitive, whitespace-trimmed). Strictness
+    /// is deliberate: diagnostics showed the model claims matches eagerly, and
+    /// failing to reproduce the title is the reliable tell. A '#N '-prefixed copy
+    /// intentionally fails.
+    static func matchClaimIsValid(claimedNumber: Int, claimedTitle: String,
+                                  includedRoster: [TriageTaskRosterEntry]) -> Bool {
+        guard let entry = includedRoster.first(where: { $0.number == claimedNumber }) else { return false }
+        return entry.title.trimmingCharacters(in: .whitespacesAndNewlines)
+            .compare(claimedTitle.trimmingCharacters(in: .whitespacesAndNewlines),
+                     options: [.caseInsensitive]) == .orderedSame
+    }
+}
+
 #if canImport(FoundationModels)
 @available(macOS 26, iOS 26, *)
 @Generable
@@ -78,20 +93,30 @@ extension TriageClassificationDTO {
 @available(macOS 26, iOS 26, *)
 @Generable
 struct TriageMatchDecision: Equatable, Sendable {
-    @Guide(description: "The number of the existing task that covers the same underlying problem or request, or 0 when none of the listed tasks match and a new task is needed.")
+    @Guide(description: "Does one of the listed tasks describe the SAME specific feature or problem as this feedback? Most feedback does not match any existing task — false is the common, correct answer. Only true when the task is clearly about the same thing.")
+    var anExistingTaskMatches: Bool
+
+    @Guide(description: "When anExistingTaskMatches is true: the EXACT title of that task, copied verbatim from the list (without the #number). Empty string otherwise.")
+    var matchedTaskTitle: String
+
+    @Guide(description: "When anExistingTaskMatches is true: that task's number. 0 otherwise.")
     var taskNumber: Int
 
-    @Guide(description: "When taskNumber is 0: a short imperative task title, e.g. 'Fix crash when exporting on iPad'. Empty otherwise.")
+    @Guide(description: "When anExistingTaskMatches is false: a short imperative title for a new task, e.g. 'Fix crash when exporting on iPad'. Empty otherwise.")
     var newTaskTitle: String
 
-    @Guide(description: "When taskNumber is 0: one or two plain sentences describing the task, grounded in the feedback. Empty otherwise.")
+    @Guide(description: "When anExistingTaskMatches is false: one or two plain sentences describing the new task, grounded in the feedback. Empty otherwise.")
     var newTaskSummary: String
 }
 
 @available(macOS 26, iOS 26, *)
 extension TriageDecisionDTO {
-    init(_ d: TriageMatchDecision, fallbackTitle: String, fallbackSummary: String) {
-        if d.taskNumber > 0 {
+    /// Converts a raw model decision, demoting unverifiable match claims to createNew.
+    init(_ d: TriageMatchDecision, includedRoster: [TriageTaskRosterEntry],
+         fallbackTitle: String, fallbackSummary: String) {
+        if d.anExistingTaskMatches,
+           Self.matchClaimIsValid(claimedNumber: d.taskNumber, claimedTitle: d.matchedTaskTitle,
+                                  includedRoster: includedRoster) {
             self = .assign(taskNumber: d.taskNumber)
         } else {
             let title = d.newTaskTitle.trimmingCharacters(in: .whitespacesAndNewlines)
