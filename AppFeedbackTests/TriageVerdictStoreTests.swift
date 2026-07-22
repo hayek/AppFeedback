@@ -57,6 +57,24 @@ struct TriageVerdictStoreTests {
         #expect(!store.hasRecord(owner: "o", repo: "other", number: 2))
     }
 
+    @Test func pendingCreateSuggestionsFiltersAndOrdersNewestFirst() throws {
+        let store = try makeStore()
+        store.upsert(owner: "o", repo: "r", number: 1) {
+            $0.state = TriageState.pending.rawValue; $0.suggestedTitle = "Older"
+        }
+        store.upsert(owner: "o", repo: "r", number: 2) {
+            $0.state = TriageState.pending.rawValue; $0.suggestedTitle = "Newer"
+        }
+        store.upsert(owner: "o", repo: "r", number: 3) {   // pending ASSIGN — excluded
+            $0.state = TriageState.pending.rawValue; $0.suggestedTaskNumber = 42
+        }
+        store.upsert(owner: "o", repo: "r", number: 4) {   // accepted — excluded
+            $0.state = TriageState.accepted.rawValue; $0.suggestedTitle = "Done"
+        }
+        let result = store.pendingCreateSuggestions(owner: "o", repo: "r")
+        #expect(result.map(\.suggestedTitle) == ["Newer", "Older"])
+    }
+
     @Test func deletePendingLeavesOtherStates() throws {
         let store = try makeStore()
         store.upsert(owner: "o", repo: "r", number: 1) { $0.state = TriageState.pending.rawValue }

@@ -17,8 +17,10 @@ final class MockIntelligenceProvider: IntelligenceProvider, @unchecked Sendable 
     var triageMatchHandler: (String, String, TriageKind, [TriageTaskRosterEntry]) async throws -> TriageDecisionDTO = { _, signal, _, _ in
         .createNew(title: String(signal.prefix(72)), summary: signal)
     }
+    var triageVerifyHandler: (String, String, TriageKind, TriageTaskRosterEntry) async throws -> Bool = { _, _, _, _ in false }
     private(set) var triageClassifyCalls: [FeedbackIssue] = []
     private(set) var triageMatchCalls: [(feedbackTitle: String, signal: String, kind: TriageKind, roster: [TriageTaskRosterEntry])] = []
+    private(set) var triageVerifyCalls: [(feedbackTitle: String, candidate: TriageTaskRosterEntry)] = []
 
     func summarize(
         issues: [FeedbackIssue],
@@ -39,5 +41,11 @@ final class MockIntelligenceProvider: IntelligenceProvider, @unchecked Sendable 
                      roster: [TriageTaskRosterEntry]) async throws -> TriageDecisionDTO {
         await MainActor.run { self.triageMatchCalls.append((feedbackTitle, signal, kind, roster)) }
         return try await triageMatchHandler(feedbackTitle, signal, kind, roster)
+    }
+
+    func triageVerify(feedbackTitle: String, signal: String, kind: TriageKind,
+                      candidate: TriageTaskRosterEntry) async throws -> Bool {
+        await MainActor.run { self.triageVerifyCalls.append((feedbackTitle, candidate)) }
+        return try await triageVerifyHandler(feedbackTitle, signal, kind, candidate)
     }
 }

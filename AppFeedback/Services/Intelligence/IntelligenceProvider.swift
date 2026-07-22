@@ -18,4 +18,8 @@ protocol IntelligenceProvider: AnyObject, Sendable {
     /// numbers are guaranteed to be members of `roster`.
     func triageMatch(feedbackTitle: String, signal: String, kind: TriageKind,
                      roster: [TriageTaskRosterEntry]) async throws -> TriageDecisionDTO
+    /// Pairwise dedup check: is this feedback the same specific problem as `candidate`
+    /// (an existing task or a pending task proposal)?
+    func triageVerify(feedbackTitle: String, signal: String, kind: TriageKind,
+                      candidate: TriageTaskRosterEntry) async throws -> Bool
 }

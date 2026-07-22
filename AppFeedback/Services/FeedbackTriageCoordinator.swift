@@ -86,14 +86,19 @@ final class FeedbackTriageCoordinator {
         let tasks = issues.filter(TaskItem.isTask).map(TaskItem.init(issue:))
         if let n = record.suggestedTaskNumber, let task = tasks.first(where: { $0.number == n }) {
             try await applier.assign(feedbackNumber: record.feedbackNumber, to: task, in: repo)
+            store.setState(record, .accepted)
         } else if let title = record.suggestedTitle {
-            record.createdTaskNumber = try await applier.createTask(
+            let created = try await applier.createTask(
                 in: repo, title: title, summary: record.suggestedSummary ?? "",
                 feedbackNumber: record.feedbackNumber)
+            record.createdTaskNumber = created
+            store.setState(record, .accepted)
+            await mergeSameTitlePending(intoTask: created, title: title,
+                                        summary: record.suggestedSummary ?? "",
+                                        acceptedFeedback: record.feedbackNumber, repo: repo)
         } else {
             throw IntelligenceError.empty   // malformed record: nothing to apply
         }
-        store.setState(record, .accepted)
     }
 
     func dismiss(record: TriageVerdictRecord) {
@@ -223,6 +228,16 @@ final class FeedbackTriageCoordinator {
                        roster: inout [TriageTaskRosterEntry],
                        taskByNumber: inout [Int: TaskItem],
                        linked: inout Set<Int>) async {
+        var decision = decision
+        // Suggestion dedup: a createNew that will land as a pending suggestion first
+        // checks the repo's existing pending proposals; the same problem reuses the
+        // existing title VERBATIM (identical title = accept-time merge grouping key).
+        if case .createNew(_, let summary) = decision, settings.mode != .fullAuto {
+            if let reused = await dedupCandidate(for: issue, repo: repo,
+                                                 classification: classification, kind: kind) {
+                decision = .createNew(title: reused.title, summary: reused.summary ?? summary)
+            }
+        }
         func recordSuggestion(_ state: TriageState) {
             store.upsert(owner: repo.owner, repo: repo.repo, number: issue.number) { rec in
                 rec.state = state.rawValue
@@ -283,6 +298,56 @@ final class FeedbackTriageCoordinator {
         default:
             // Suggest mode entirely, and hybrid's createNew.
             recordSuggestion(.pending)
+        }
+    }
+
+    /// Returns an existing pending proposal the verifier judges to be the same
+    /// problem, capped at the 5 most recent. Verification errors skip the candidate
+    /// (worst case: a duplicate suggestion — the old behavior).
+    private func dedupCandidate(for issue: FeedbackIssue, repo: ProductConfig,
+                                classification: TriageClassificationDTO,
+                                kind: TriageKind) async -> (title: String, summary: String?)? {
+        let candidates = store.pendingCreateSuggestions(owner: repo.owner, repo: repo.repo)
+            .filter { $0.feedbackNumber != issue.number }
+            .prefix(5)
+        for candidate in candidates {
+            guard let title = candidate.suggestedTitle else { continue }
+            let entry = TriageTaskRosterEntry(
+                number: 0, title: title,
+                coveredFeedbackTitles: candidate.suggestedSummary.map { [String($0.prefix(60))] } ?? [])
+            if (try? await provider.triageVerify(feedbackTitle: issue.title,
+                                                 signal: classification.signal,
+                                                 kind: kind, candidate: entry)) == true {
+                return (title, candidate.suggestedSummary)
+            }
+        }
+        return nil
+    }
+
+    /// Accept-time merge: every other pending record sharing the accepted proposal's
+    /// exact title is attached to the created task. A failed attach leaves the record
+    /// pending but pointed at the created task — its chip becomes a retryable assign.
+    private func mergeSameTitlePending(intoTask created: Int, title: String, summary: String,
+                                       acceptedFeedback: Int, repo: ProductConfig) async {
+        let sameTitle = store.pendingCreateSuggestions(owner: repo.owner, repo: repo.repo)
+            .filter { $0.suggestedTitle == title && $0.feedbackNumber != acceptedFeedback }
+        guard !sameTitle.isEmpty else { return }
+        var refs = [acceptedFeedback]   // accumulate so each attach carries prior ones
+        for other in sameTitle {
+            let optimistic = TaskItem(
+                number: created, title: title,
+                body: TaskService.body(prose: summary, feedbackRefs: refs),
+                feedbackRefs: refs, status: .todo, priority: .med,
+                milestoneTitle: nil, isClosed: false)
+            do {
+                try await applier.assign(feedbackNumber: other.feedbackNumber, to: optimistic, in: repo)
+                refs.append(other.feedbackNumber)
+                other.createdTaskNumber = created
+                store.setState(other, .accepted)
+            } catch {
+                other.suggestedTaskNumber = created
+                store.setState(other, .pending)
+            }
         }
     }
 }

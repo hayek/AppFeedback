@@ -32,6 +32,20 @@ final class TriageVerdictStore {
         return (try? context.fetch(descriptor)) ?? []
     }
 
+    /// Pending create-suggestions (no target task, has a proposed title), newest
+    /// first — the dedup candidates for a newly proposed task.
+    func pendingCreateSuggestions(owner: String, repo: String) -> [TriageVerdictRecord] {
+        let raw = TriageState.pending.rawValue
+        let descriptor = FetchDescriptor<TriageVerdictRecord>(
+            predicate: #Predicate {
+                $0.repoOwner == owner && $0.repoName == repo && $0.state == raw
+                    && $0.suggestedTaskNumber == nil && $0.suggestedTitle != nil
+            },
+            sortBy: [SortDescriptor(\.updatedAt, order: .reverse)]
+        )
+        return (try? context.fetch(descriptor)) ?? []
+    }
+
     /// Numbers of tasks that were created by AI (accepted or auto-applied creates).
     func aiCreatedTaskNumbers(owner: String, repo: String) -> Set<Int> {
         let descriptor = FetchDescriptor<TriageVerdictRecord>(predicate: #Predicate {

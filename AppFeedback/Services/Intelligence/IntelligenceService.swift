@@ -119,6 +119,18 @@ final class IntelligenceService: IntelligenceProvider {
         throw IntelligenceError.unavailable
     }
 
+    nonisolated func triageVerify(feedbackTitle: String, signal: String, kind: TriageKind,
+                                  candidate: TriageTaskRosterEntry) async throws -> Bool {
+        try await MainActor.run { try checkAvailable() }
+        #if canImport(FoundationModels)
+        if #available(macOS 26, iOS 26, *) {
+            return await runTriageVerify(feedbackTitle: feedbackTitle, signal: signal,
+                                         kind: kind, candidate: candidate)
+        }
+        #endif
+        throw IntelligenceError.unavailable
+    }
+
     @MainActor
     private func checkAvailable() throws {
         if !availability.isReady { throw IntelligenceError.unavailable }
@@ -219,8 +231,8 @@ extension IntelligenceService {
                 // Any verification failure (refusal, guardrail, budget) demotes conservatively
                 // to createNew rather than risking a wrong assign.
                 if case .assign(let n) = decision, let task = included.first(where: { $0.number == n }) {
-                    return try await verifyAssign(
-                        decision, task: task, model: model, feedbackTitle: feedbackTitle,
+                    return await verifyAssign(
+                        decision, task: task, feedbackTitle: feedbackTitle,
                         signal: signal, kind: kind, fallbackTitle: fallbackTitle)
                 }
                 return decision
@@ -233,21 +245,32 @@ extension IntelligenceService {
         throw lastBudgetError ?? IntelligenceError.unavailable
     }
 
+    /// Shared pairwise-verification core. Returns false on ANY generation failure —
+    /// callers treat verification errors as "no match" (conservative for assigns,
+    /// opportunistic for dedup).
+    fileprivate func runTriageVerify(feedbackTitle: String, signal: String, kind: TriageKind,
+                                     candidate: TriageTaskRosterEntry) async -> Bool {
+        let instructions = await MainActor.run { triageVerifyInstructions }
+        let model = SystemLanguageModel(guardrails: .permissiveContentTransformations)
+        let prompt = TriagePromptBuilder.buildVerifyPrompt(
+            feedbackTitle: feedbackTitle, signal: signal, kind: kind, task: candidate)
+        let session = LanguageModelSession(model: model, instructions: instructions)
+        do {
+            return try await session.respond(to: prompt, generating: TriagePairVerifyDecision.self)
+                .content.isSameProblem
+        } catch {
+            return false
+        }
+    }
+
     /// Runs the fresh-session pairwise verification for an `.assign` claim. Returns the
     /// assign only when the verifier confirms the same problem; on a negative verdict OR
     /// any thrown error (refusal, guardrail, budget) demotes to createNew.
     private func verifyAssign(_ decision: TriageDecisionDTO, task: TriageTaskRosterEntry,
-                              model: SystemLanguageModel, feedbackTitle: String, signal: String,
-                              kind: TriageKind, fallbackTitle: String) async throws -> TriageDecisionDTO {
-        let instructions = await MainActor.run { triageVerifyInstructions }
-        let prompt = TriagePromptBuilder.buildVerifyPrompt(
-            feedbackTitle: feedbackTitle, signal: signal, kind: kind, task: task)
-        let session = LanguageModelSession(model: model, instructions: instructions)
-        do {
-            let verdict = try await session.respond(to: prompt, generating: TriagePairVerifyDecision.self)
-            if verdict.content.isSameProblem { return decision }
-        } catch {
-            // Fall through to conservative demotion on any verify failure.
+                              feedbackTitle: String, signal: String,
+                              kind: TriageKind, fallbackTitle: String) async -> TriageDecisionDTO {
+        if await runTriageVerify(feedbackTitle: feedbackTitle, signal: signal, kind: kind, candidate: task) {
+            return decision
         }
         return .createNew(title: fallbackTitle, summary: signal)
     }

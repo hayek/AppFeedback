@@ -364,6 +364,97 @@ struct FeedbackTriageCoordinatorTests {
         #expect(h.coordinator.isProcessing == false)
     }
 
+    // MARK: 16. dedup
+
+    @Test func dedupReusesPendingSuggestionTitleWhenVerifierAgrees() async throws {
+        let h = try Harness(mode: .suggest)
+        h.markSnapshotted()
+        h.store.upsert(owner: "o", repo: "r", number: 1) {
+            $0.state = TriageState.pending.rawValue
+            $0.suggestedTitle = "Add Claude Design usage"
+            $0.suggestedSummary = "Show Claude Design usage in the app."
+        }
+        h.provider.triageClassifyHandler = { _ in
+            TriageClassificationDTO(isActionable: true, kind: .featureRequest, signal: "wants design tokens usage")
+        }
+        h.provider.triageMatchHandler = { _, _, _, _ in .createNew(title: "Add Design tokens usage", summary: "s") }
+        h.provider.triageVerifyHandler = { _, _, _, _ in true }
+        let feedback = FeedbackIssue.triageTestFixture(number: 2, title: "Design tokens", body: "add design tokens usage")
+        await h.coordinator.processLoaded([(repo: h.repo, issues: [feedback])])
+        let rec = h.store.record(owner: "o", repo: "r", number: 2)
+        #expect(rec?.suggestedTitle == "Add Claude Design usage")   // verbatim reuse
+        #expect(rec?.state == TriageState.pending.rawValue)
+    }
+
+    @Test func dedupKeepsOwnTitleWhenVerifierDisagrees() async throws {
+        let h = try Harness(mode: .suggest)
+        h.markSnapshotted()
+        h.store.upsert(owner: "o", repo: "r", number: 1) {
+            $0.state = TriageState.pending.rawValue
+            $0.suggestedTitle = "Add Claude Design usage"
+        }
+        h.provider.triageClassifyHandler = { _ in
+            TriageClassificationDTO(isActionable: true, kind: .featureRequest, signal: "s")
+        }
+        h.provider.triageMatchHandler = { _, _, _, _ in .createNew(title: "Own title", summary: "s") }
+        h.provider.triageVerifyHandler = { _, _, _, _ in false }
+        let feedback = FeedbackIssue.triageTestFixture(number: 2, title: "t", body: "b")
+        await h.coordinator.processLoaded([(repo: h.repo, issues: [feedback])])
+        #expect(h.store.record(owner: "o", repo: "r", number: 2)?.suggestedTitle == "Own title")
+    }
+
+    @Test func dedupCapsCandidatesAtFiveAndSkipsOnError() async throws {
+        let h = try Harness(mode: .suggest)
+        h.markSnapshotted()
+        for n in 1...7 {
+            h.store.upsert(owner: "o", repo: "r", number: n) {
+                $0.state = TriageState.pending.rawValue; $0.suggestedTitle = "P\(n)"
+            }
+        }
+        h.provider.triageClassifyHandler = { _ in
+            TriageClassificationDTO(isActionable: true, kind: .bug, signal: "s")
+        }
+        h.provider.triageMatchHandler = { _, _, _, _ in .createNew(title: "Own", summary: "s") }
+        h.provider.triageVerifyHandler = { _, _, _, _ in throw IntelligenceError.guardrailBlocked }
+        let feedback = FeedbackIssue.triageTestFixture(number: 99, title: "t", body: "b")
+        await h.coordinator.processLoaded([(repo: h.repo, issues: [feedback])])
+        #expect(h.provider.triageVerifyCalls.count == 5)   // capped
+        #expect(h.store.record(owner: "o", repo: "r", number: 99)?.suggestedTitle == "Own")   // errors skip
+    }
+
+    @Test func acceptMergesSameTitlePendingRecords() async throws {
+        let h = try Harness(mode: .suggest)
+        let title = "Add Claude Design usage"
+        let rec1 = h.store.upsert(owner: "o", repo: "r", number: 1) {
+            $0.state = TriageState.pending.rawValue; $0.suggestedTitle = title; $0.suggestedSummary = "s"
+        }
+        h.store.upsert(owner: "o", repo: "r", number: 2) {
+            $0.state = TriageState.pending.rawValue; $0.suggestedTitle = title
+        }
+        try await h.coordinator.accept(record: rec1, repo: h.repo, issues: [])
+        #expect(h.applier.creates.count == 1)
+        #expect(h.applier.assigns.map(\.feedback) == [2])
+        let rec2 = h.store.record(owner: "o", repo: "r", number: 2)
+        #expect(rec2?.state == TriageState.accepted.rawValue)
+        #expect(rec2?.createdTaskNumber == h.applier.nextCreatedNumber)
+    }
+
+    @Test func acceptMergeFailureLeavesRetryableAssign() async throws {
+        let h = try Harness(mode: .suggest)
+        let title = "Add Claude Design usage"
+        let rec1 = h.store.upsert(owner: "o", repo: "r", number: 1) {
+            $0.state = TriageState.pending.rawValue; $0.suggestedTitle = title
+        }
+        h.store.upsert(owner: "o", repo: "r", number: 2) {
+            $0.state = TriageState.pending.rawValue; $0.suggestedTitle = title
+        }
+        h.applier.assignErrorToThrow = IntelligenceError.empty
+        try await h.coordinator.accept(record: rec1, repo: h.repo, issues: [])
+        let rec2 = h.store.record(owner: "o", repo: "r", number: 2)
+        #expect(rec2?.state == TriageState.pending.rawValue)
+        #expect(rec2?.suggestedTaskNumber == h.applier.nextCreatedNumber)   // retryable assign chip
+    }
+
     // MARK: 15. rosterCarriesCoveredFeedbackTitles
 
     @Test func rosterCarriesCoveredFeedbackTitles() async throws {
