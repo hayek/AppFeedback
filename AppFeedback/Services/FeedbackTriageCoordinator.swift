@@ -302,13 +302,16 @@ final class FeedbackTriageCoordinator {
     }
 
     /// Returns an existing pending proposal the verifier judges to be the same
-    /// problem, capped at the 5 most recent. Verification errors skip the candidate
-    /// (worst case: a duplicate suggestion — the old behavior).
+    /// problem, capped at the 5 most recent. Candidates are first gated to the same
+    /// `kind` as the new feedback — a bug and a feature request are never the same
+    /// problem, so this avoids wasted (and occasionally false-positive) verifier calls.
+    /// Verification errors skip the candidate (worst case: a duplicate suggestion —
+    /// the old behavior).
     private func dedupCandidate(for issue: FeedbackIssue, repo: ProductConfig,
                                 classification: TriageClassificationDTO,
                                 kind: TriageKind) async -> (title: String, summary: String?)? {
         let candidates = store.pendingCreateSuggestions(owner: repo.owner, repo: repo.repo)
-            .filter { $0.feedbackNumber != issue.number }
+            .filter { $0.feedbackNumber != issue.number && $0.kind == kind.rawValue }
             .prefix(5)
         for candidate in candidates {
             guard let title = candidate.suggestedTitle else { continue }

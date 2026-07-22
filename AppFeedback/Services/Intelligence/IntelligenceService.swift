@@ -235,6 +235,13 @@ extension IntelligenceService {
                         decision, task: task, feedbackTitle: feedbackTitle,
                         signal: signal, kind: kind, fallbackTitle: fallbackTitle)
                 }
+                // The DTO init demotes an invalid/empty-title match claim to the raw-signal
+                // fallbackTitle. Complaint-shaped fallback titles poison downstream pairwise
+                // dedup, so re-propose a clean imperative title. The happy path (model gave
+                // its own newTaskTitle) is untouched — no extra call there.
+                if case .createNew(let t, _) = decision, t == fallbackTitle {
+                    return await reproposeNewTask(signal: signal, kind: kind, fallbackTitle: fallbackTitle)
+                }
                 return decision
             } catch let error as LanguageModelSession.GenerationError {
                 if case .guardrailViolation = error { throw IntelligenceError.guardrailBlocked }
@@ -271,6 +278,30 @@ extension IntelligenceService {
                               kind: TriageKind, fallbackTitle: String) async -> TriageDecisionDTO {
         if await runTriageVerify(feedbackTitle: feedbackTitle, signal: signal, kind: kind, candidate: task) {
             return decision
+        }
+        return await reproposeNewTask(signal: signal, kind: kind, fallbackTitle: fallbackTitle)
+    }
+
+    /// Demotion re-proposal: asks the model for a clean imperative task proposal with
+    /// an empty roster. Complaint-shaped fallback titles (raw signal text) measurably
+    /// poison downstream pairwise-verification — see 2026-07-22 dedup diagnostics.
+    /// Falls back to the signal-derived title only if this call itself fails.
+    fileprivate func reproposeNewTask(signal: String, kind: TriageKind,
+                                      fallbackTitle: String) async -> TriageDecisionDTO {
+        let instructions = await MainActor.run { triageMatchInstructions }
+        let model = SystemLanguageModel(guardrails: .permissiveContentTransformations)
+        let (prompt, _) = TriagePromptBuilder.buildMatchPrompt(
+            signal: signal, kind: kind, roster: [], rosterCap: 0)
+        let session = LanguageModelSession(model: model, instructions: instructions)
+        do {
+            let response = try await session.respond(to: prompt, generating: TriageMatchDecision.self)
+            let title = response.content.newTaskTitle.trimmingCharacters(in: .whitespacesAndNewlines)
+            let summary = response.content.newTaskSummary.trimmingCharacters(in: .whitespacesAndNewlines)
+            if !title.isEmpty {
+                return .createNew(title: title, summary: summary.isEmpty ? signal : summary)
+            }
+        } catch {
+            // Fall through to the signal-derived fallback.
         }
         return .createNew(title: fallbackTitle, summary: signal)
     }

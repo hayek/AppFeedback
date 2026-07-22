@@ -61,6 +61,52 @@ struct TriageMatchDiagnostics {
          540),
     ]
 
+    @Test func dedupVerifierEvidence() async throws {
+        guard ProcessInfo.processInfo.environment["TRIAGE_DIAG"] == "1" else {
+            print("TRIAGE-DEDUP skipped (set TRIAGE_DIAG=1 to run against the real model)")
+            return
+        }
+        let service = IntelligenceService()
+        service.recomputeAvailability()
+        guard service.availability.isReady else {
+            print("TRIAGE-DEDUP model unavailable")
+            return
+        }
+        // The black-hole candidate from the user's screenshots: a pending suggestion
+        // whose title is a signal-style complaint sentence (the raw-signal fallback the
+        // fix now avoids). Kept to demonstrate the collapse it used to cause.
+        let blackHole = TriageTaskRosterEntry(
+            number: 0, title: "manual refreshing is not working, it shows 2 hours old data",
+            coveredFeedbackTitles: ["manual refreshing is not working, it shows 2 hours old"])
+        // The re-proposed, imperative-shaped version of the SAME suggestion — what the
+        // demotion re-proposal now produces. Verdicts against this measure the fix.
+        let imperative = TriageTaskRosterEntry(
+            number: 0, title: "Fix manual refresh showing stale data",
+            coveredFeedbackTitles: ["manual refreshing is not working, it shows 2 hours old"])
+        // A terse, real-task-style control candidate for comparison.
+        let terse = TriageTaskRosterEntry(number: 0, title: "faq redesign",
+                                          coveredFeedbackTitles: ["FAQ layout"])
+        let pairs: [(title: String, signal: String, kind: TriageKind, expected: Bool)] = [
+            ("Android App", "wants the app as an android app/widget", .featureRequest, false),
+            ("pro", "keeps getting signed out and restore purchase won't restore pro features", .bug, false),
+            ("Add the time or the countdown for the session reset to the mc-book widget.",
+             "wants session reset countdown in the macbook widget", .featureRequest, false),
+            ("The plan name shows Free on the Teams plan", "plan label shows Free for Teams plan", .bug, false),
+            ("refresh button stuck on old data", "manual refresh shows hours-old data", .bug, true),
+        ]
+        for (index, p) in pairs.enumerated() {
+            for attempt in 1...3 {
+                let vBlackHole = (try? await service.triageVerify(
+                    feedbackTitle: p.title, signal: p.signal, kind: p.kind, candidate: blackHole)) ?? false
+                let vImperative = (try? await service.triageVerify(
+                    feedbackTitle: p.title, signal: p.signal, kind: p.kind, candidate: imperative)) ?? false
+                let vTerse = (try? await service.triageVerify(
+                    feedbackTitle: p.title, signal: p.signal, kind: p.kind, candidate: terse)) ?? false
+                print("TRIAGE-DEDUP pair=\(index) attempt=\(attempt) expected=\(p.expected) blackHole=\(vBlackHole)\(vBlackHole == p.expected ? "✓" : "✗") imperative=\(vImperative)\(vImperative == p.expected ? "✓" : "✗") terse=\(vTerse)")
+            }
+        }
+    }
+
     @Test func matcherEvidence() async throws {
         guard ProcessInfo.processInfo.environment["TRIAGE_DIAG"] == "1" else {
             print("TRIAGE-DIAG skipped (set TRIAGE_DIAG=1 to run against the real model)")

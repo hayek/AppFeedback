@@ -371,6 +371,7 @@ struct FeedbackTriageCoordinatorTests {
         h.markSnapshotted()
         h.store.upsert(owner: "o", repo: "r", number: 1) {
             $0.state = TriageState.pending.rawValue
+            $0.kind = TriageKind.featureRequest.rawValue
             $0.suggestedTitle = "Add Claude Design usage"
             $0.suggestedSummary = "Show Claude Design usage in the app."
         }
@@ -391,6 +392,7 @@ struct FeedbackTriageCoordinatorTests {
         h.markSnapshotted()
         h.store.upsert(owner: "o", repo: "r", number: 1) {
             $0.state = TriageState.pending.rawValue
+            $0.kind = TriageKind.featureRequest.rawValue
             $0.suggestedTitle = "Add Claude Design usage"
         }
         h.provider.triageClassifyHandler = { _ in
@@ -403,12 +405,37 @@ struct FeedbackTriageCoordinatorTests {
         #expect(h.store.record(owner: "o", repo: "r", number: 2)?.suggestedTitle == "Own title")
     }
 
+    @Test func dedupSkipsCandidatesOfDifferentKind() async throws {
+        let h = try Harness(mode: .suggest)
+        h.markSnapshotted()
+        // A pending create-suggestion classified as a bug.
+        h.store.upsert(owner: "o", repo: "r", number: 1) {
+            $0.state = TriageState.pending.rawValue
+            $0.kind = TriageKind.bug.rawValue
+            $0.suggestedTitle = "Fix stale data on refresh"
+        }
+        // New feedback is a feature request — even though the verifier WOULD agree,
+        // the kind gate must skip the bug candidate entirely (no verifier call).
+        h.provider.triageClassifyHandler = { _ in
+            TriageClassificationDTO(isActionable: true, kind: .featureRequest, signal: "wants dark mode")
+        }
+        h.provider.triageMatchHandler = { _, _, _, _ in .createNew(title: "Add dark mode", summary: "s") }
+        h.provider.triageVerifyHandler = { _, _, _, _ in true }
+        let feedback = FeedbackIssue.triageTestFixture(number: 2, title: "t", body: "b")
+        await h.coordinator.processLoaded([(repo: h.repo, issues: [feedback])])
+
+        #expect(h.store.record(owner: "o", repo: "r", number: 2)?.suggestedTitle == "Add dark mode")   // own title kept
+        #expect(h.provider.triageVerifyCalls.isEmpty)   // gated out before verification
+    }
+
     @Test func dedupCapsCandidatesAtFiveAndSkipsOnError() async throws {
         let h = try Harness(mode: .suggest)
         h.markSnapshotted()
         for n in 1...7 {
             h.store.upsert(owner: "o", repo: "r", number: n) {
-                $0.state = TriageState.pending.rawValue; $0.suggestedTitle = "P\(n)"
+                $0.state = TriageState.pending.rawValue
+                $0.kind = TriageKind.bug.rawValue
+                $0.suggestedTitle = "P\(n)"
             }
         }
         h.provider.triageClassifyHandler = { _ in
