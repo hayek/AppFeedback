@@ -47,6 +47,14 @@ final class IntelligenceService: IntelligenceProvider {
     propose a new task with a short imperative newTaskTitle and a 1-2 sentence \
     newTaskSummary grounded in the feedback. No markdown.
     """
+    private let triageVerifyInstructions = """
+    You verify a proposed link between one piece of app-user feedback and one \
+    existing development task. Answer isSameProblem true ONLY when the task — \
+    including the feedback it already covers — clearly refers to the same \
+    specific feature or problem the new feedback describes. Shared words or a \
+    shared app area alone is NOT the same problem. When unsure, answer false. \
+    No markdown.
+    """
 
     init() {}
 
@@ -99,12 +107,13 @@ final class IntelligenceService: IntelligenceProvider {
         throw IntelligenceError.unavailable
     }
 
-    nonisolated func triageMatch(signal: String, kind: TriageKind,
+    nonisolated func triageMatch(feedbackTitle: String, signal: String, kind: TriageKind,
                                  roster: [TriageTaskRosterEntry]) async throws -> TriageDecisionDTO {
         try await MainActor.run { try checkAvailable() }
         #if canImport(FoundationModels)
         if #available(macOS 26, iOS 26, *) {
-            return try await runTriageMatch(signal: signal, kind: kind, roster: roster)
+            return try await runTriageMatch(feedbackTitle: feedbackTitle, signal: signal,
+                                            kind: kind, roster: roster)
         }
         #endif
         throw IntelligenceError.unavailable
@@ -191,7 +200,7 @@ extension IntelligenceService {
         throw lastBudgetError ?? IntelligenceError.unavailable
     }
 
-    fileprivate func runTriageMatch(signal: String, kind: TriageKind,
+    fileprivate func runTriageMatch(feedbackTitle: String, signal: String, kind: TriageKind,
                                     roster: [TriageTaskRosterEntry]) async throws -> TriageDecisionDTO {
         let instructions = await MainActor.run { triageMatchInstructions }
         let model = SystemLanguageModel(guardrails: .permissiveContentTransformations)
@@ -203,8 +212,18 @@ extension IntelligenceService {
             let session = LanguageModelSession(model: model, instructions: instructions)
             do {
                 let response = try await session.respond(to: prompt, generating: TriageMatchDecision.self)
-                return TriageDecisionDTO(response.content, includedRoster: included,
-                                         fallbackTitle: fallbackTitle, fallbackSummary: signal)
+                let decision = TriageDecisionDTO(response.content, includedRoster: included,
+                                                 fallbackTitle: fallbackTitle, fallbackSummary: signal)
+                // Pairwise verification: a fresh session judges just this pair. Catches the
+                // dominant failure mode — a false match claim with a verbatim title copy.
+                // Any verification failure (refusal, guardrail, budget) demotes conservatively
+                // to createNew rather than risking a wrong assign.
+                if case .assign(let n) = decision, let task = included.first(where: { $0.number == n }) {
+                    return try await verifyAssign(
+                        decision, task: task, model: model, feedbackTitle: feedbackTitle,
+                        signal: signal, kind: kind, fallbackTitle: fallbackTitle)
+                }
+                return decision
             } catch let error as LanguageModelSession.GenerationError {
                 if case .guardrailViolation = error { throw IntelligenceError.guardrailBlocked }
                 if case .exceededContextWindowSize = error { lastBudgetError = error; continue }
@@ -212,6 +231,25 @@ extension IntelligenceService {
             }
         }
         throw lastBudgetError ?? IntelligenceError.unavailable
+    }
+
+    /// Runs the fresh-session pairwise verification for an `.assign` claim. Returns the
+    /// assign only when the verifier confirms the same problem; on a negative verdict OR
+    /// any thrown error (refusal, guardrail, budget) demotes to createNew.
+    private func verifyAssign(_ decision: TriageDecisionDTO, task: TriageTaskRosterEntry,
+                              model: SystemLanguageModel, feedbackTitle: String, signal: String,
+                              kind: TriageKind, fallbackTitle: String) async throws -> TriageDecisionDTO {
+        let instructions = await MainActor.run { triageVerifyInstructions }
+        let prompt = TriagePromptBuilder.buildVerifyPrompt(
+            feedbackTitle: feedbackTitle, signal: signal, kind: kind, task: task)
+        let session = LanguageModelSession(model: model, instructions: instructions)
+        do {
+            let verdict = try await session.respond(to: prompt, generating: TriagePairVerifyDecision.self)
+            if verdict.content.isSameProblem { return decision }
+        } catch {
+            // Fall through to conservative demotion on any verify failure.
+        }
+        return .createNew(title: fallbackTitle, summary: signal)
     }
 }
 #endif

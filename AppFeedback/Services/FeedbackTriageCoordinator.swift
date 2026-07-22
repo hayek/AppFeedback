@@ -148,8 +148,16 @@ final class FeedbackTriageCoordinator {
             return
         }
 
+        // A task's linked feedback conveys its real meaning — task titles are often too
+        // terse for the pairwise verifier to judge alone. Resolve up to 3 from this pass.
+        let feedbackTitleByNumber = Dictionary(
+            feedback.map { ($0.number, $0.title) }, uniquingKeysWith: { first, _ in first })
         var roster = tasks.filter { !$0.isCompleted }
-            .map { TriageTaskRosterEntry(number: $0.number, title: $0.title) }
+            .map { task in
+                let covered = task.feedbackRefs.prefix(3).compactMap { feedbackTitleByNumber[$0] }
+                return TriageTaskRosterEntry(number: task.number, title: task.title,
+                                             coveredFeedbackTitles: Array(covered))
+            }
         var taskByNumber = Dictionary(uniqueKeysWithValues: tasks.map { ($0.number, $0) })
 
         let candidates = feedback.filter { issue in
@@ -197,7 +205,7 @@ final class FeedbackTriageCoordinator {
         let decision: TriageDecisionDTO
         do {
             decision = try await provider.triageMatch(
-                signal: classification.signal, kind: kind, roster: roster)
+                feedbackTitle: issue.title, signal: classification.signal, kind: kind, roster: roster)
         } catch {
             store.upsert(owner: repo.owner, repo: repo.repo, number: issue.number) {
                 $0.state = TriageState.skipped.rawValue
@@ -252,7 +260,8 @@ final class FeedbackTriageCoordinator {
                 let created = try await applier.createTask(
                     in: repo, title: title, summary: summary, feedbackNumber: issue.number)
                 linked.insert(issue.number)
-                roster.append(TriageTaskRosterEntry(number: created, title: title))
+                roster.append(TriageTaskRosterEntry(number: created, title: title,
+                                                    coveredFeedbackTitles: [issue.title]))
                 taskByNumber[created] = TaskItem(
                     number: created, title: title,
                     body: TaskService.body(prose: summary, feedbackRefs: [issue.number]),

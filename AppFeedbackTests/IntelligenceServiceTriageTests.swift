@@ -10,7 +10,7 @@ struct IntelligenceServiceTriageTests {
             _ = try await service.triageClassify(issue: issue)
         }
         await #expect(throws: IntelligenceError.unavailable) {
-            _ = try await service.triageMatch(signal: "s", kind: .bug, roster: [])
+            _ = try await service.triageMatch(feedbackTitle: "t", signal: "s", kind: .bug, roster: [])
         }
     }
 }

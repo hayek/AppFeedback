@@ -16,6 +16,6 @@ protocol IntelligenceProvider: AnyObject, Sendable {
     func triageClassify(issue: FeedbackIssue) async throws -> TriageClassificationDTO
     /// Stage 2: assign to one of `roster` or propose a new task. Returned `.assign`
     /// numbers are guaranteed to be members of `roster`.
-    func triageMatch(signal: String, kind: TriageKind,
+    func triageMatch(feedbackTitle: String, signal: String, kind: TriageKind,
                      roster: [TriageTaskRosterEntry]) async throws -> TriageDecisionDTO
 }

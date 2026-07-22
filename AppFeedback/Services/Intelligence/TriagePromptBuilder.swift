@@ -56,6 +56,27 @@ enum TriagePromptBuilder {
         return (lines.joined(separator: "\n"), included)
     }
 
+    /// Pairwise verification prompt: one feedback vs the single task the matcher
+    /// claimed. Includes up to three linked-feedback titles — task titles are often
+    /// too terse to judge alone, and the feedback a task already covers is its
+    /// real meaning.
+    static func buildVerifyPrompt(feedbackTitle: String, signal: String, kind: TriageKind,
+                                  task: TriageTaskRosterEntry) -> String {
+        var lines: [String] = []
+        lines.append("Feedback (\(kindNoun(kind))):")
+        lines.append("  Title: \(feedbackTitle)")
+        lines.append("  Detail: \(signal)")
+        lines.append("")
+        lines.append("Existing task: \"\(task.title)\"")
+        let covered = task.coveredFeedbackTitles.prefix(3).map { String($0.prefix(60)) }
+        if !covered.isEmpty {
+            lines.append("It already covers feedback titled: \(covered.joined(separator: "; "))")
+        }
+        lines.append("")
+        lines.append("Is this task about the same specific problem or request as the feedback?")
+        return lines.joined(separator: "\n")
+    }
+
     private static func kindNoun(_ kind: TriageKind) -> String {
         switch kind {
         case .bug: return "bug report"

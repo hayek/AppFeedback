@@ -33,6 +33,9 @@ struct TriageClassificationDTO: Equatable, Sendable {
 struct TriageTaskRosterEntry: Equatable, Sendable {
     let number: Int
     let title: String
+    /// Up to a few titles of feedback this task already covers — task titles are
+    /// often too terse to judge alone, so the linked feedback conveys its real meaning.
+    var coveredFeedbackTitles: [String] = []
 }
 
 /// Plain-Swift stage-2 decision mirror.
@@ -99,6 +102,16 @@ struct TriageMatchDecision: Equatable, Sendable {
 
     @Guide(description: "When anExistingTaskMatches is false: one or two plain sentences describing the new task, grounded in the feedback. Empty otherwise.")
     var newTaskSummary: String
+}
+
+@available(macOS 26, iOS 26, *)
+@Generable
+struct TriagePairVerifyDecision: Equatable, Sendable {
+    @Guide(description: "true ONLY when the development task clearly refers to the same specific feature or problem the feedback describes. Shared words, a shared app area, or vague similarity is NOT the same problem — answer false then. When unsure, answer false.")
+    var isSameProblem: Bool
+
+    @Guide(description: "One short sentence explaining the answer.")
+    var reason: String
 }
 
 @available(macOS 26, iOS 26, *)

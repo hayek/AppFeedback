@@ -29,6 +29,39 @@ struct TriagePromptBuilderTests {
         #expect(prompt.contains("no existing tasks"))
     }
 
+    @Test func verifyPromptIncludesFeedbackSignalAndQuotedTaskTitle() {
+        let task = TriageTaskRosterEntry(number: 7, title: "Fix export crash")
+        let p = TriagePromptBuilder.buildVerifyPrompt(
+            feedbackTitle: "App crashes on export", signal: "Crash when exporting PDF",
+            kind: .bug, task: task)
+        #expect(p.contains("App crashes on export"))
+        #expect(p.contains("Crash when exporting PDF"))
+        #expect(p.contains("\"Fix export crash\""))
+        #expect(!p.contains("already covers"))
+    }
+
+    @Test func verifyPromptCapsCoveredTitlesAtThreeAndSixtyChars() {
+        let long = String(repeating: "y", count: 100)
+        let task = TriageTaskRosterEntry(
+            number: 7, title: "Task",
+            coveredFeedbackTitles: ["first", "second", "third", "fourth", long])
+        let p = TriagePromptBuilder.buildVerifyPrompt(
+            feedbackTitle: "T", signal: "S", kind: .featureRequest, task: task)
+        #expect(p.contains("already covers"))
+        #expect(p.contains("first") && p.contains("second") && p.contains("third"))
+        // Fourth (and beyond) dropped by the prefix(3) cap.
+        #expect(!p.contains("fourth"))
+        // 60-char cap on each title.
+        #expect(!p.contains(String(repeating: "y", count: 61)))
+    }
+
+    @Test func verifyPromptOmitsCoversLineWhenNoLinkedFeedback() {
+        let task = TriageTaskRosterEntry(number: 7, title: "Task", coveredFeedbackTitles: [])
+        let p = TriagePromptBuilder.buildVerifyPrompt(
+            feedbackTitle: "T", signal: "S", kind: .usability, task: task)
+        #expect(!p.contains("already covers"))
+    }
+
     @Test func configLaddersShrink() {
         let c = TriagePromptBuilder.classifyConfigs()
         let m = TriagePromptBuilder.matchConfigs()

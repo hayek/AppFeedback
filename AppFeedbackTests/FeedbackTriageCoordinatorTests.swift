@@ -93,7 +93,7 @@ struct FeedbackTriageCoordinatorTests {
 
         // Assign case: roster contains open task 42.
         let task42 = FeedbackIssue.triageTaskFixture(number: 42, title: "Existing task")
-        h.provider.triageMatchHandler = { _, _, _ in .assign(taskNumber: 42) }
+        h.provider.triageMatchHandler = { _, _, _, _ in .assign(taskNumber: 42) }
         let assignFeedback = FeedbackIssue.triageTestFixture(number: 10)
         await h.coordinator.processLoaded([(repo: h.repo, issues: [task42, assignFeedback])])
 
@@ -104,7 +104,7 @@ struct FeedbackTriageCoordinatorTests {
         #expect(h.applier.creates.isEmpty)
 
         // Create case.
-        h.provider.triageMatchHandler = { _, _, _ in .createNew(title: "New task", summary: "Summary") }
+        h.provider.triageMatchHandler = { _, _, _, _ in .createNew(title: "New task", summary: "Summary") }
         let createFeedback = FeedbackIssue.triageTestFixture(number: 11)
         await h.coordinator.processLoaded([(repo: h.repo, issues: [task42, createFeedback])])
 
@@ -124,7 +124,7 @@ struct FeedbackTriageCoordinatorTests {
         h.provider.triageClassifyHandler = { _ in
             TriageClassificationDTO(isActionable: true, kind: .bug, signal: "crash signal")
         }
-        h.provider.triageMatchHandler = { _, _, _ in .assign(taskNumber: 42) }
+        h.provider.triageMatchHandler = { _, _, _, _ in .assign(taskNumber: 42) }
 
         let task42 = FeedbackIssue.triageTaskFixture(number: 42, title: "Existing task")
         let feedback = FeedbackIssue.triageTestFixture(number: 7)
@@ -144,7 +144,7 @@ struct FeedbackTriageCoordinatorTests {
         h.provider.triageClassifyHandler = { _ in
             TriageClassificationDTO(isActionable: true, kind: .featureRequest, signal: "feature signal")
         }
-        h.provider.triageMatchHandler = { _, _, _ in .createNew(title: "New feature", summary: "Detail") }
+        h.provider.triageMatchHandler = { _, _, _, _ in .createNew(title: "New feature", summary: "Detail") }
 
         let feedback = FeedbackIssue.triageTestFixture(number: 8)
         await h.coordinator.processLoaded([(repo: h.repo, issues: [feedback])])
@@ -166,7 +166,7 @@ struct FeedbackTriageCoordinatorTests {
         }
 
         var matchCallCount = 0
-        h.provider.triageMatchHandler = { _, _, roster in
+        h.provider.triageMatchHandler = { _, _, _, roster in
             matchCallCount += 1
             if matchCallCount == 1 {
                 return .createNew(title: "Crash on export", summary: "Details")
@@ -223,7 +223,7 @@ struct FeedbackTriageCoordinatorTests {
         h.provider.triageClassifyHandler = { _ in
             TriageClassificationDTO(isActionable: true, kind: .bug, signal: "crash sig")
         }
-        h.provider.triageMatchHandler = { _, _, _ in .assign(taskNumber: 42) }
+        h.provider.triageMatchHandler = { _, _, _, _ in .assign(taskNumber: 42) }
         h.applier.errorToThrow = TriageTestError()
 
         let task42 = FeedbackIssue.triageTaskFixture(number: 42, title: "Existing task")
@@ -362,5 +362,29 @@ struct FeedbackTriageCoordinatorTests {
         #expect(h.store.record(owner: "o", repo: "r", number: 70) == nil)
         #expect(h.settings.hasSnapshotted(owner: "o", repo: "r") == false)
         #expect(h.coordinator.isProcessing == false)
+    }
+
+    // MARK: 15. rosterCarriesCoveredFeedbackTitles
+
+    @Test func rosterCarriesCoveredFeedbackTitles() async throws {
+        let h = try Harness(mode: .suggest)
+        h.markSnapshotted()
+        h.provider.triageClassifyHandler = { issue in
+            TriageClassificationDTO(isActionable: true, kind: .bug, signal: "signal \(issue.number)")
+        }
+        // Default match handler returns createNew — we only care about the roster passed in.
+
+        // Task #100 links two feedback items present in this pass.
+        let task100 = FeedbackIssue.triageTaskFixture(number: 100, title: "Existing task", refs: [10, 11])
+        let f10 = FeedbackIssue.triageTestFixture(number: 10, title: "Feedback ten")
+        let f11 = FeedbackIssue.triageTestFixture(number: 11, title: "Feedback eleven")
+        // A separate unlinked candidate triggers the match call.
+        let candidate = FeedbackIssue.triageTestFixture(number: 12, title: "New candidate")
+        await h.coordinator.processLoaded([(repo: h.repo, issues: [task100, f10, f11, candidate])])
+
+        let call = try #require(h.provider.triageMatchCalls.first)
+        let entry = try #require(call.roster.first { $0.number == 100 })
+        #expect(entry.coveredFeedbackTitles.contains("Feedback ten"))
+        #expect(entry.coveredFeedbackTitles.contains("Feedback eleven"))
     }
 }

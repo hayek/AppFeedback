@@ -14,11 +14,11 @@ final class MockIntelligenceProvider: IntelligenceProvider, @unchecked Sendable 
     var triageClassifyHandler: (FeedbackIssue) async throws -> TriageClassificationDTO = { _ in
         TriageClassificationDTO(isActionable: false, kind: nil, signal: "")
     }
-    var triageMatchHandler: (String, TriageKind, [TriageTaskRosterEntry]) async throws -> TriageDecisionDTO = { signal, _, _ in
+    var triageMatchHandler: (String, String, TriageKind, [TriageTaskRosterEntry]) async throws -> TriageDecisionDTO = { _, signal, _, _ in
         .createNew(title: String(signal.prefix(72)), summary: signal)
     }
     private(set) var triageClassifyCalls: [FeedbackIssue] = []
-    private(set) var triageMatchCalls: [(signal: String, kind: TriageKind, roster: [TriageTaskRosterEntry])] = []
+    private(set) var triageMatchCalls: [(feedbackTitle: String, signal: String, kind: TriageKind, roster: [TriageTaskRosterEntry])] = []
 
     func summarize(
         issues: [FeedbackIssue],
@@ -35,9 +35,9 @@ final class MockIntelligenceProvider: IntelligenceProvider, @unchecked Sendable 
         return try await triageClassifyHandler(issue)
     }
 
-    func triageMatch(signal: String, kind: TriageKind,
+    func triageMatch(feedbackTitle: String, signal: String, kind: TriageKind,
                      roster: [TriageTaskRosterEntry]) async throws -> TriageDecisionDTO {
-        await MainActor.run { self.triageMatchCalls.append((signal, kind, roster)) }
-        return try await triageMatchHandler(signal, kind, roster)
+        await MainActor.run { self.triageMatchCalls.append((feedbackTitle, signal, kind, roster)) }
+        return try await triageMatchHandler(feedbackTitle, signal, kind, roster)
     }
 }
