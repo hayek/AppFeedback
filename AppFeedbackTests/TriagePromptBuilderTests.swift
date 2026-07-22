@@ -10,7 +10,7 @@ struct TriagePromptBuilderTests {
         #expect(p.contains("2.3"))
     }
 
-    @Test func matchPromptCapsRosterAndReportsIncludedNumbers() {
+    @Test func matchPromptCapsRosterAndReportsIncludedEntries() {
         let roster = (1...50).map { TriageTaskRosterEntry(number: $0, title: "Task \($0)") }
         let (prompt, included) = TriagePromptBuilder.buildMatchPrompt(
             signal: "Crash when exporting", kind: .bug, roster: roster, rosterCap: 10)
