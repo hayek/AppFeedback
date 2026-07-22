@@ -42,11 +42,11 @@ item that shares it.
 ## Components
 
 - `IntelligenceProvider`: new method
-  `triageVerify(feedbackTitle: String, signal: String, kind: TriageKind, taskTitle: String, coveredTitles: [String]) async throws -> Bool`
+  `triageVerify(feedbackTitle: String, signal: String, kind: TriageKind, candidate: TriageTaskRosterEntry) async throws -> Bool`
   — exposes the existing pairwise verification session (same instructions and
-  `@Generable` verdict as the assign-claim verify; `coveredTitles` carries the
-  candidate suggestion's summary line). `MockIntelligenceProvider` gains a
-  handler + call record.
+  `@Generable` verdict as the assign-claim verify; the candidate entry's
+  `coveredFeedbackTitles` carries the suggestion's summary line).
+  `MockIntelligenceProvider` gains a handler + call record.
 - `IntelligenceService`: implementation reusing `buildVerifyPrompt` and
   `triageVerifyInstructions`; internal assign-claim verification refactors to
   call the same core.
