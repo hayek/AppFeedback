@@ -73,4 +73,20 @@ final class TriageVerdictStore {
         record.updatedAt = Date()
         try? context.save()
     }
+
+    /// DEBUG re-test aid: forgets every verdict across all repos. Snapshot markers
+    /// are untouched, so the next pass re-triages instead of re-snapshotting.
+    func deleteAll() {
+        let all = (try? context.fetch(FetchDescriptor<TriageVerdictRecord>())) ?? []
+        for record in all { context.delete(record) }
+        try? context.save()
+    }
+
+    /// DEBUG re-test aid: forgets only pending suggestions (the visible chips).
+    func deletePending() {
+        let raw = TriageState.pending.rawValue
+        let descriptor = FetchDescriptor<TriageVerdictRecord>(predicate: #Predicate { $0.state == raw })
+        for record in (try? context.fetch(descriptor)) ?? [] { context.delete(record) }
+        try? context.save()
+    }
 }

@@ -50,6 +50,7 @@ struct SettingsView: View {
     @Environment(IntelligenceSettings.self) private var intelligenceSettings
     @Environment(IntelligenceService.self) private var intelligenceService
     @Environment(TriageSettings.self) private var triageSettings
+    @Environment(FeedbackTriageCoordinator.self) private var triageCoordinator
     @Environment(NotificationSettings.self) private var notificationSettings
     @Environment(\.notificationService) private var notificationService
     @Environment(SettingsNavigation.self) private var navigation
@@ -154,7 +155,9 @@ struct SettingsView: View {
                         NSWorkspace.shared.open(url)
                     }
                 },
-                triageSettings: triageSettings
+                triageSettings: triageSettings,
+                onClearPendingTriage: { triageCoordinator.clearPendingSuggestions() },
+                onClearAllTriage: { triageCoordinator.clearAllVerdicts() }
             )
         case .notifications:
             if let notificationService {

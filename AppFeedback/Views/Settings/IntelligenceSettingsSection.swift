@@ -5,6 +5,9 @@ struct IntelligenceSettingsSection: View {
     let availability: IntelligenceAvailability
     var onOpenSystemSettings: () -> Void = {}
     @Bindable var triageSettings: TriageSettings
+    /// DEBUG-only triage re-test hooks; buttons render only when non-nil.
+    var onClearPendingTriage: (() -> Void)? = nil
+    var onClearAllTriage: (() -> Void)? = nil
 
     var body: some View {
         Form {
@@ -56,6 +59,17 @@ struct IntelligenceSettingsSection: View {
                 Text("On-device AI decides whether new feedback is task-worthy, then assigns it to an existing task or proposes a new one. Nothing leaves this device until a task is created or assigned.")
                     .font(.system(size: 11))
                     .foregroundStyle(.secondary)
+                #if DEBUG
+                if let onClearPendingTriage, let onClearAllTriage {
+                    HStack {
+                        Button("Clear Pending Suggestions", action: onClearPendingTriage)
+                        Button("Clear All Triage Verdicts", role: .destructive, action: onClearAllTriage)
+                    }
+                    Text("Debug: forgets AI triage verdicts so feedback gets triaged again.")
+                        .font(.system(size: 11))
+                        .foregroundStyle(.secondary)
+                }
+                #endif
             }
         }
         .formStyle(.grouped)

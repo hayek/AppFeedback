@@ -47,4 +47,24 @@ struct TriageVerdictStoreTests {
         store.upsert(owner: "o", repo: "r", number: 2) { $0.state = TriageState.accepted.rawValue }
         #expect(store.aiCreatedTaskNumbers(owner: "o", repo: "r") == [90])
     }
+
+    @Test func deleteAllRemovesEverything() throws {
+        let store = try makeStore()
+        store.upsert(owner: "o", repo: "r", number: 1) { $0.state = TriageState.pending.rawValue }
+        store.upsert(owner: "o", repo: "other", number: 2) { $0.state = TriageState.autoApplied.rawValue }
+        store.deleteAll()
+        #expect(!store.hasRecord(owner: "o", repo: "r", number: 1))
+        #expect(!store.hasRecord(owner: "o", repo: "other", number: 2))
+    }
+
+    @Test func deletePendingLeavesOtherStates() throws {
+        let store = try makeStore()
+        store.upsert(owner: "o", repo: "r", number: 1) { $0.state = TriageState.pending.rawValue }
+        store.upsert(owner: "o", repo: "r", number: 2) { $0.state = TriageState.dismissed.rawValue }
+        store.upsert(owner: "o", repo: "r", number: 3) { $0.state = TriageState.notActionable.rawValue }
+        store.deletePending()
+        #expect(!store.hasRecord(owner: "o", repo: "r", number: 1))
+        #expect(store.record(owner: "o", repo: "r", number: 2)?.state == TriageState.dismissed.rawValue)
+        #expect(store.record(owner: "o", repo: "r", number: 3)?.state == TriageState.notActionable.rawValue)
+    }
 }

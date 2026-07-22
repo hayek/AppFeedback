@@ -100,6 +100,16 @@ final class FeedbackTriageCoordinator {
         store.setState(record, .dismissed)
     }
 
+    /// DEBUG: forget every triage verdict so unlinked feedback re-triages.
+    func clearAllVerdicts() {
+        store.deleteAll()
+    }
+
+    /// DEBUG: forget pending suggestions only.
+    func clearPendingSuggestions() {
+        store.deletePending()
+    }
+
     // MARK: UI queries
 
     func pendingSuggestion(owner: String, repo: String, number: Int) -> TriageVerdictRecord? {
