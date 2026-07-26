@@ -116,6 +116,16 @@ final class CLIInstallerTests: XCTestCase {
         XCTAssertTrue(CLIInstaller.skillDestinationURL.path.hasSuffix(".claude/skills/appfeedback"))
     }
 
+    /// Exec'ing through the installed symlink makes `Bundle.main` point at the symlink's
+    /// directory, not the .app — which is why version read as "?" and the skill folder
+    /// couldn't be found. The bundle must be resolved from argv[0] instead.
+    func testAppBundleResolvesToARealBundle() {
+        let bundle = CLIBranding.appBundle
+        XCTAssertNotNil(bundle.bundleURL)
+        // In the test host this is the app bundle itself, so it must carry an Info.plist.
+        XCTAssertNotNil(bundle.infoDictionary?["CFBundleIdentifier"])
+    }
+
     /// Opt-in: exercises the real install paths against the real home directory, which is what
     /// the Settings buttons do. Off by default so a normal test run never writes there.
     /// Enable with `APPFEEDBACK_LIVE_INSTALL=1`.

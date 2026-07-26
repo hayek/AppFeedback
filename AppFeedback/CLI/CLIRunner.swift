@@ -32,8 +32,9 @@ enum CLIRunner {
     static func execute(_ command: CLICommand) async -> Int32 {
         switch command {
         case .version:
-            let version = Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "?"
-            let build = Bundle.main.infoDictionary?["CFBundleVersion"] as? String ?? "?"
+            let info = CLIBranding.appBundle.infoDictionary
+            let version = info?["CFBundleShortVersionString"] as? String ?? "?"
+            let build = info?["CFBundleVersion"] as? String ?? "?"
             print("\(CLIBranding.commandName) \(version) (\(build))")
             return CLIExitCode.success.rawValue
 

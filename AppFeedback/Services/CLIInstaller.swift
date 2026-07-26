@@ -26,9 +26,10 @@ enum CLIInstaller {
             .resolvingSymlinksInPath()
     }
 
-    /// The skill folder inside the app bundle.
+    /// The skill folder inside the app bundle. Resolved via `CLIBranding.appBundle` so it is
+    /// still correct when the binary was exec'd through the installed symlink.
     static var skillSourceURL: URL? {
-        Bundle.main.resourceURL?.appending(path: "Skill/\(CLIBranding.skillFolderName)")
+        CLIBranding.appBundle.resourceURL?.appending(path: "Skill/\(CLIBranding.skillFolderName)")
     }
 
     static var skillDestinationURL: URL {
