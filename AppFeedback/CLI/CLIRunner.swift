@@ -49,6 +49,67 @@ enum CLIRunner {
                 return flags.json ? CLIOutput.encode(envelope) : CLIText.render(products: summaries)
             }
 
+        case .feedback(.list(let flags)):
+            return await withStore(flags) { store in
+                let config = try ProductResolver.resolve(flags.product, cloud: store.cloud)
+                let index = TaskIndex.build(local: store.local, owner: config.owner, repo: config.repo)
+                let result = FeedbackQuery.run(flags: flags, config: config,
+                                               local: store.local, cloud: store.cloud, index: index)
+                let asOf = ProductResolver.lastFetchedAt(local: store.local,
+                                                         owner: config.owner, repo: config.repo)
+                let envelope = CLIEnvelope(
+                    asOf: asOf, stale: isStale(asOf),
+                    closedDataIncomplete: flags.state == .open ? nil : true,
+                    product: ProductResolver.ref(config), filters: describe(flags),
+                    page: PageInfo(limit: flags.limit, offset: flags.offset, total: result.total,
+                                   hasMore: flags.offset + result.items.count < result.total),
+                    items: result.items)
+                return flags.json ? CLIOutput.encode(envelope) : CLIText.render(feedback: result.items)
+            }
+
+        case .feedback(.show(let number, let flags)):
+            return await withStore(flags) { store in
+                let config = try ProductResolver.resolve(flags.product, cloud: store.cloud)
+                let index = TaskIndex.build(local: store.local, owner: config.owner, repo: config.repo)
+                let detail = try FeedbackQuery.detail(number: number, flags: flags, config: config,
+                                                      local: store.local, cloud: store.cloud, index: index)
+                let asOf = ProductResolver.lastFetchedAt(local: store.local,
+                                                         owner: config.owner, repo: config.repo)
+                let envelope = CLIEnvelope(asOf: asOf, stale: isStale(asOf),
+                                           product: ProductResolver.ref(config), items: [detail])
+                return flags.json ? CLIOutput.encode(envelope) : CLIText.render(detail: detail)
+            }
+
+        case .tasks(.list(let flags)):
+            return await withStore(flags) { store in
+                let config = try ProductResolver.resolve(flags.product, cloud: store.cloud)
+                let index = TaskIndex.build(local: store.local, owner: config.owner, repo: config.repo)
+                let all = index.filter(flags).map { TaskIndex.dto($0, config: config) }
+                let page = Array(all.dropFirst(flags.offset).prefix(flags.limit))
+                let asOf = ProductResolver.lastFetchedAt(local: store.local,
+                                                         owner: config.owner, repo: config.repo)
+                let envelope = CLIEnvelope(
+                    asOf: asOf, stale: isStale(asOf),
+                    closedDataIncomplete: flags.state == .open ? nil : true,
+                    product: ProductResolver.ref(config), filters: describe(flags),
+                    page: PageInfo(limit: flags.limit, offset: flags.offset, total: all.count,
+                                   hasMore: flags.offset + page.count < all.count),
+                    items: page)
+                return flags.json ? CLIOutput.encode(envelope) : CLIText.render(tasks: page)
+            }
+
+        case .tasks(.show(let number, let flags)):
+            return await withStore(flags) { store in
+                let config = try ProductResolver.resolve(flags.product, cloud: store.cloud)
+                let index = TaskIndex.build(local: store.local, owner: config.owner, repo: config.repo)
+                let detail = try index.detail(number: number, config: config, local: store.local)
+                let asOf = ProductResolver.lastFetchedAt(local: store.local,
+                                                         owner: config.owner, repo: config.repo)
+                let envelope = CLIEnvelope(asOf: asOf, stale: isStale(asOf),
+                                           product: ProductResolver.ref(config), items: [detail])
+                return flags.json ? CLIOutput.encode(envelope) : CLIText.render(taskDetail: detail)
+            }
+
         default:
             return emit(error: .remote(message: "not implemented yet"))
         }
@@ -106,7 +167,8 @@ enum CLIRunner {
         if let hint = error.hint { payload["hint"] = hint }
         if !error.candidates.isEmpty { payload["candidates"] = error.candidates }
         if let data = try? JSONSerialization.data(withJSONObject: ["error": payload],
-                                                  options: [.prettyPrinted, .sortedKeys]),
+                                                  options: [.prettyPrinted, .sortedKeys,
+                                                            .withoutEscapingSlashes]),
            let text = String(data: data, encoding: .utf8) {
             print(text)
         }

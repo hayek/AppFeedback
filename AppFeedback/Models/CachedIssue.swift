@@ -79,6 +79,11 @@ final class CachedIssue {
             email: email,
             description: issueDescription,
             labels: Self.decodeLabels(labelsJSON),
+            // Carry state/updatedAt back out so the cache round-trip is lossless. The UI's
+            // cache path only ever loads OPEN rows, so this changes nothing there; the CLI
+            // reads every state and needs both fields to be truthful.
+            updatedAt: updatedAt,
+            state: IssueState(rawValue: state) ?? .open,
             milestoneTitle: milestoneTitle,
             detectedLanguageCode: detectedLanguageCode,
             translatedTitle: translatedTitle,
