@@ -198,7 +198,7 @@ identical feedback. `--app` is the real scoping knob, and the skill says so.
 `--source sdk|app-store|email` · `--type bug|feature-request` · `--label <name>`
 (repeatable, exact) · `--search <text>` · `--since 7d|2026-07-01|ISO8601` ·
 `--updated-since …` · `--min-rating N` · `--max-rating N` ·
-`--version <appVersion>` · `--has-task` / `--no-task` · `--include-hidden` ·
+`--app-version <v>` · `--has-task` / `--no-task` · `--include-hidden` ·
 `--include-emails` · `--sort created|updated` (default `created`) ·
 `--order desc|asc` (default `desc`).
 
