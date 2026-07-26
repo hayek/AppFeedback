@@ -32,6 +32,15 @@ enum KeychainService {
     /// Synchronous variant — calls SecItemCopyMatching directly so it can be
     /// used inside a `@Sendable () -> String?` closure without `await`.
     static func loadSync(for repo: ProductConfig) -> String? {
+        loadWithStatus(for: repo).token
+    }
+
+    /// Like `loadSync` but keeps the `OSStatus`, so a caller can tell "no token stored" from
+    /// "the keychain is locked". These tokens are synchronizable, which puts them in the
+    /// data-protection keychain — unreadable while the screen is locked or over a bare SSH
+    /// session. Both cases return nil, and telling a user to re-authenticate when they only
+    /// need to unlock their Mac sends them down the wrong path.
+    static func loadWithStatus(for repo: ProductConfig) -> (token: String?, status: OSStatus) {
         let query: [String: Any] = [
             kSecClass as String:              kSecClassGenericPassword,
             kSecAttrService as String:        service,
@@ -41,9 +50,14 @@ enum KeychainService {
             kSecMatchLimit as String:         kSecMatchLimitOne,
         ]
         var result: AnyObject?
-        guard SecItemCopyMatching(query as CFDictionary, &result) == errSecSuccess,
-              let data = result as? Data else { return nil }
-        return String(data: data, encoding: .utf8)
+        let status = SecItemCopyMatching(query as CFDictionary, &result)
+        guard status == errSecSuccess, let data = result as? Data else { return (nil, status) }
+        return (String(data: data, encoding: .utf8), status)
+    }
+
+    /// True when the failure was the keychain refusing access rather than the item being absent.
+    static func isLocked(_ status: OSStatus) -> Bool {
+        status == errSecInteractionNotAllowed || status == errSecAuthFailed
     }
 
     static func delete(for repo: ProductConfig) async {

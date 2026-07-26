@@ -183,18 +183,23 @@ enum CLIRunner {
         }
     }
 
-    /// Maps the app's typed failure back onto a CLI error so exit codes stay meaningful.
+    /// Maps the app's typed failure back onto a CLI error. The app sends the exit code it
+    /// actually hit, so this reconstructs the matching case rather than guessing from the
+    /// error-code string — a new error code on the app side then needs no change here.
     static func mapRemote(_ response: CLIResponse) -> CLIError {
         let message = response.errorMessage ?? "The app reported a failure."
-        switch response.errorCode {
-        case "auth":
-            return .auth(message: message, hint: response.errorHint)
-        case let code? where code.hasSuffix("_not_found") || code == "version_has_no_milestone"
-                          || code == "product_ambiguous" || code == "no_products":
+        let code = response.errorCode ?? "remote_failure"
+        switch response.errorExitCode.flatMap(CLIExitCode.init(rawValue:)) {
+        case .usage:
+            return .usage(CLIUsageError(code: code, message: message, hint: response.errorHint))
+        case .notFound:
             return .notFound(code: code, message: message, hint: response.errorHint)
-        case "missing_flag", "bad_value", "unknown_flag", "conflicting_flags", "missing_value":
-            return .usage(CLIUsageError(code: response.errorCode ?? "usage",
-                                        message: message, hint: response.errorHint))
+        case .noLocalData:
+            return .noLocalData(message: message, hint: response.errorHint)
+        case .auth:
+            return .auth(message: message, hint: response.errorHint)
+        case .appNotRunning:
+            return .appNotRunning
         default:
             return .remote(message: message, hint: response.errorHint)
         }

@@ -319,10 +319,25 @@ struct AppFeedbackApp: App {
 
         #if os(macOS)
         // Registered here rather than in a view so the CLI channel answers regardless of
-        // window state, and re-pointed at launch so a moved app self-heals its symlinks.
+        // window state. `respond` gets the same store instances the UI uses, so a reply sent
+        // from the CLI is indistinguishable from one sent by hand.
+        let replyDeps = CLIRequestHandlers.ReplyDependencies(
+            accountStore: mailAccountStoreLocal,
+            settingsStore: mailSettingsStoreLocal,
+            threadStore: threadStoreLocal,
+            tracker: _outboundTracker.wrappedValue,
+            failureStore: _outboundFailures.wrappedValue,
+            activityLog: activityLogValue,
+            templateStore: _replyTemplateStore.wrappedValue,
+            mirror: _mirrorHolder.wrappedValue.mirror,
+            appStoreMirrorStore: ascMirrorStore,
+            appStoreContext: { [registry = ascRegistry] productID in
+                await registry.responderContext(productID: productID)
+            })
         let responder = CLIRequestResponder { request in
             try await CLIRequestHandlers.handle(
-                request, deps: CLIRequestHandlers.Dependencies(registry: issueRegistry))
+                request,
+                deps: CLIRequestHandlers.Dependencies(registry: issueRegistry, reply: replyDeps))
         }
         responder.start()
         _cliResponder = State(initialValue: responder)

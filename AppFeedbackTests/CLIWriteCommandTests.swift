@@ -145,24 +145,112 @@ final class CLIWriteCommandTests: XCTestCase {
         }
     }
 
+    // MARK: - respond channel selection
+
+    private func issue(number: Int = 1, source: FeedbackSource, email: String?) -> FeedbackIssue {
+        FeedbackIssue(number: number, title: "T", createdAt: Date(), rawBody: "", appName: nil,
+                      appVersion: nil, device: nil, osVersion: nil, email: email,
+                      description: "", labels: [], source: source)
+    }
+
+    func testAppStoreFeedbackAutoSelectsTheAppStoreChannel() throws {
+        XCTAssertEqual(try CLIRequestHandlers.channel(for: issue(source: .appStore, email: nil),
+                                                      requested: .auto), .appStore)
+    }
+
+    func testEmailSourceAutoSelectsEmail() throws {
+        XCTAssertEqual(try CLIRequestHandlers.channel(for: issue(source: .email, email: "a@b.com"),
+                                                      requested: .auto), .email)
+    }
+
+    func testSDKWithAnAddressAutoSelectsEmail() throws {
+        XCTAssertEqual(try CLIRequestHandlers.channel(for: issue(source: .sdk, email: "a@b.com"),
+                                                      requested: .auto), .email)
+    }
+
+    func testSDKWithoutAnAddressHasNoAutoChannel() {
+        XCTAssertThrowsError(try CLIRequestHandlers.channel(for: issue(source: .sdk, email: nil),
+                                                            requested: .auto)) { error in
+            guard let cliError = error as? CLIError, case .notFound(let code, _, let hint, _) = cliError else {
+                return XCTFail("expected .notFound")
+            }
+            XCTAssertEqual(code, "no_reply_channel")
+            XCTAssertTrue(hint?.contains("--via comment") == true)
+        }
+    }
+
+    func testAnExplicitChannelOverridesAutoSelection() throws {
+        XCTAssertEqual(try CLIRequestHandlers.channel(for: issue(source: .appStore, email: nil),
+                                                      requested: .comment), .comment)
+        XCTAssertEqual(try CLIRequestHandlers.channel(for: issue(source: .sdk, email: "a@b.com"),
+                                                      requested: .appStore), .appStore)
+    }
+
+    func testExplicitEmailWithoutAnAddressIsAnError() {
+        XCTAssertThrowsError(try CLIRequestHandlers.channel(for: issue(source: .sdk, email: ""),
+                                                            requested: .email))
+    }
+
+    func testAppStoreBodyLengthIsValidatedAgainstTheDocumentedCap() {
+        let tooLong = String(repeating: "x", count: AppStoreResponseController.maxBodyLength + 1)
+        XCTAssertThrowsError(try CLIRequestHandlers.validateAppStoreBody(tooLong)) { error in
+            guard let cliError = error as? CLIError, case .usage(let usage) = cliError else {
+                return XCTFail("expected .usage")
+            }
+            XCTAssertEqual(usage.code, "bad_value")
+        }
+        XCTAssertNoThrow(try CLIRequestHandlers.validateAppStoreBody("short"))
+        XCTAssertNoThrow(try CLIRequestHandlers.validateAppStoreBody(
+            String(repeating: "x", count: AppStoreResponseController.maxBodyLength)))
+    }
+
     // MARK: - Remote failure mapping
 
-    func testRemoteFailureMapsOntoExitCodes() {
-        func mapped(_ code: String) -> CLIExitCode {
-            CLIRunner.mapRemote(CLIResponse(id: UUID(), ok: false, errorCode: code,
-                                            errorMessage: "m")).exitCode
+    /// The app sends the exit code it actually hit, so an error code it has never seen before
+    /// still round-trips to the right exit status.
+    func testRemoteFailureUsesTheExitCodeTheAppReported() {
+        func mapped(_ code: CLIExitCode) -> CLIExitCode {
+            CLIRunner.mapRemote(CLIResponse(id: UUID(), ok: false, errorCode: "anything",
+                                            errorMessage: "m",
+                                            errorExitCode: code.rawValue)).exitCode
         }
-        XCTAssertEqual(mapped("auth"), .auth)
-        XCTAssertEqual(mapped("task_not_found"), .notFound)
-        XCTAssertEqual(mapped("version_has_no_milestone"), .notFound)
-        XCTAssertEqual(mapped("product_ambiguous"), .notFound)
-        XCTAssertEqual(mapped("missing_flag"), .usage)
-        XCTAssertEqual(mapped("something_else"), .remote)
+        XCTAssertEqual(mapped(.usage), .usage)
+        XCTAssertEqual(mapped(.notFound), .notFound)
+        XCTAssertEqual(mapped(.noLocalData), .noLocalData)
+        XCTAssertEqual(mapped(.auth), .auth)
+        XCTAssertEqual(mapped(.remote), .remote)
+        XCTAssertEqual(mapped(.appNotRunning), .appNotRunning)
+    }
+
+    /// Every CLIError the app can raise must survive the round trip with its exit code intact.
+    func testEveryAppSideErrorRoundTripsItsExitCode() {
+        let errors: [CLIError] = [
+            .usage(CLIUsageError(code: "missing_flag", message: "m")),
+            .notFound(code: "no_reply_channel", message: "m"),
+            .noLocalData(message: "m", hint: nil),
+            .auth(message: "m", hint: nil),
+            .remote(message: "m"),
+        ]
+        for error in errors {
+            let response = CLIResponse(id: UUID(), ok: false, errorCode: error.code,
+                                       errorMessage: error.message, errorHint: error.hint,
+                                       errorExitCode: error.exitCode.rawValue)
+            XCTAssertEqual(CLIRunner.mapRemote(response).exitCode, error.exitCode,
+                           "\(error.code) should map back to \(error.exitCode)")
+            XCTAssertEqual(CLIRunner.mapRemote(response).code, error.code)
+        }
+    }
+
+    /// A response from an older app build carries no exit code — degrade to remote, not crash.
+    func testMissingExitCodeFallsBackToRemote() {
+        XCTAssertEqual(CLIRunner.mapRemote(CLIResponse(id: UUID(), ok: false, errorCode: "x",
+                                                       errorMessage: "m")).exitCode, .remote)
     }
 
     func testRemoteFailurePreservesHint() {
         let error = CLIRunner.mapRemote(CLIResponse(id: UUID(), ok: false, errorCode: "auth",
-                                                    errorMessage: "m", errorHint: "Re-authenticate"))
+                                                    errorMessage: "m", errorHint: "Re-authenticate",
+                                                    errorExitCode: CLIExitCode.auth.rawValue))
         XCTAssertEqual(error.hint, "Re-authenticate")
     }
 }

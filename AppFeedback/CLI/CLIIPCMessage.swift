@@ -29,17 +29,22 @@ struct CLIResponse: Codable {
     var errorCode: String?
     var errorMessage: String?
     var errorHint: String?
+    /// The app already knows exactly which `CLIError` it hit, so it sends the exit code
+    /// rather than leaving the CLI to infer one by sniffing `errorCode` strings.
+    var errorExitCode: Int32?
     var warnings: [String] = []
     /// The successful result, already JSON-encoded by the app side.
     var json: String?
 
     init(id: UUID, ok: Bool, errorCode: String? = nil, errorMessage: String? = nil,
-         errorHint: String? = nil, warnings: [String] = [], json: String? = nil) {
+         errorHint: String? = nil, errorExitCode: Int32? = nil,
+         warnings: [String] = [], json: String? = nil) {
         self.id = id
         self.ok = ok
         self.errorCode = errorCode
         self.errorMessage = errorMessage
         self.errorHint = errorHint
+        self.errorExitCode = errorExitCode
         self.warnings = warnings
         self.json = json
     }
