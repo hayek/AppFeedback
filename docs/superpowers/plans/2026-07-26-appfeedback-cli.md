@@ -5199,6 +5199,42 @@ done
 
 ---
 
+## Execution log (2026-07-26)
+
+All 18 tasks implemented on `feat/appfeedback-cli`. **155 CLI tests, 0 failures.**
+The full macOS suite shows 9 failing cases (KeychainServicePerAccountTests,
+GitHubAccountStoreTests, UnreadSummaryViewModelTests) — verified identical on `main`
+before any of this work, so pre-existing. The first two need an unlocked screen; the
+third passes in isolation and only fails in a full-suite run.
+
+Five things the plan did not anticipate, all found by running against real data:
+
+1. **Container shape** (Task 0) — the read-only open must reproduce the app's *exact*
+   two-named-configuration container. See the spike result above.
+2. **`toFeedbackIssue()` dropped `state` and `updatedAt`** — the live GraphQL path set
+   both, the cache path silently didn't, so every cache-loaded issue read as open with
+   no update time. Fixed; the UI only loads open rows from cache so its behaviour is
+   unchanged.
+3. **`DistributedNotificationCenter`'s block-based `addObserver` takes no suspension
+   behavior** — only the selector-based overload does, so the responder had to become an
+   `NSObject`. Without `.deliverImmediately` every request would hang until the app next
+   came forward.
+4. **Error codes had to carry their exit code** — string-sniffing `errorCode` mapped
+   `no_reply_channel` to 5 instead of 2. The app now sends `errorExitCode`.
+5. **`Bundle.main` is wrong when exec'd through the installed symlink** — `version` read
+   as `? (?)` and the bundled skill folder couldn't be found. Resolved via
+   `Bundle.main.executablePath`; argv[0] is useless because a PATH lookup passes the bare
+   command name.
+
+A sixth was environmental rather than a defect: synchronizable keychain items are
+unreadable while the screen is locked, which is why token-dependent commands began
+failing mid-session. The error now says so instead of advising re-authentication.
+
+**Not verified live:** `respond` over email and `--via comment`, and the App Store
+channel. All three need a GitHub/SMTP token, which requires an unlocked screen. Channel
+selection, template lookup, body validation and error mapping are unit-tested, and the
+full IPC path was confirmed by watching the app reject a reply with `no_reply_channel`.
+
 ## Self-review notes
 
 **Spec coverage:** entry point (T2) · read-only stores (T0, T3) · products (T4) · feedback list/show (T6, T7) · tasks read (T7) · text output (T8) · IPC (T9) · refresh (T10) · fetchIssue (T11) · tasks create (T12) · link/unlink (T13) · respond (T14) · installer (T15) · Settings (T16) · skill + xcodegen resource (T17). Exit codes, envelope shape, redaction, truncation, `closedDataIncomplete` and filter-combination rules all have tests.

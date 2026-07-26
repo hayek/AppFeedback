@@ -1,7 +1,11 @@
 # AppFeedback CLI + AI Skill — Design
 
 **Date:** 2026-07-26
-**Status:** Draft
+**Status:** Implemented (2026-07-26) — see
+`docs/superpowers/plans/2026-07-26-appfeedback-cli.md` for the build log.
+Two things deviate from this spec, both recorded below: the read-only container
+must reproduce the app's exact two-named-configuration shape, and the app returns
+its exit code over IPC rather than the CLI inferring one from the error string.
 
 ## Summary
 
@@ -332,6 +336,9 @@ human message on stderr.
 { "error": { "code": "product_ambiguous", "message": "…", "hint": "…",
              "candidates": ["…"] } }
 ```
+
+The app sends back the exit code it actually hit rather than the CLI inferring
+one from `error.code`; a new app-side error then needs no CLI change.
 
 | Code | Meaning |
 |---|---|
