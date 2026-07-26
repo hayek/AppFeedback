@@ -42,15 +42,17 @@ enum CLIRunner {
             return CLIExitCode.success.rawValue
 
         case .products(let flags):
-            return await withStore(flags) { store in
+            return await withStore(flags) { store, refreshTimedOut in
                 let summaries = ProductResolver.all(cloud: store.cloud, local: store.local)
                 let envelope = CLIEnvelope(asOf: summaries.compactMap(\.lastFetchedAt).max(),
-                                           stale: false, items: summaries)
+                                           stale: false,
+                                           refreshTimedOut: refreshTimedOut ? true : nil,
+                                           items: summaries)
                 return flags.json ? CLIOutput.encode(envelope) : CLIText.render(products: summaries)
             }
 
         case .feedback(.list(let flags)):
-            return await withStore(flags) { store in
+            return await withStore(flags) { store, refreshTimedOut in
                 let config = try ProductResolver.resolve(flags.product, cloud: store.cloud)
                 let index = TaskIndex.build(local: store.local, owner: config.owner, repo: config.repo)
                 let result = FeedbackQuery.run(flags: flags, config: config,
@@ -59,6 +61,7 @@ enum CLIRunner {
                                                          owner: config.owner, repo: config.repo)
                 let envelope = CLIEnvelope(
                     asOf: asOf, stale: isStale(asOf),
+                    refreshTimedOut: refreshTimedOut ? true : nil,
                     closedDataIncomplete: flags.state == .open ? nil : true,
                     product: ProductResolver.ref(config), filters: describe(flags),
                     page: PageInfo(limit: flags.limit, offset: flags.offset, total: result.total,
@@ -68,7 +71,7 @@ enum CLIRunner {
             }
 
         case .feedback(.show(let number, let flags)):
-            return await withStore(flags) { store in
+            return await withStore(flags) { store, refreshTimedOut in
                 let config = try ProductResolver.resolve(flags.product, cloud: store.cloud)
                 let index = TaskIndex.build(local: store.local, owner: config.owner, repo: config.repo)
                 let detail = try FeedbackQuery.detail(number: number, flags: flags, config: config,
@@ -76,12 +79,13 @@ enum CLIRunner {
                 let asOf = ProductResolver.lastFetchedAt(local: store.local,
                                                          owner: config.owner, repo: config.repo)
                 let envelope = CLIEnvelope(asOf: asOf, stale: isStale(asOf),
+                                           refreshTimedOut: refreshTimedOut ? true : nil,
                                            product: ProductResolver.ref(config), items: [detail])
                 return flags.json ? CLIOutput.encode(envelope) : CLIText.render(detail: detail)
             }
 
         case .tasks(.list(let flags)):
-            return await withStore(flags) { store in
+            return await withStore(flags) { store, refreshTimedOut in
                 let config = try ProductResolver.resolve(flags.product, cloud: store.cloud)
                 let index = TaskIndex.build(local: store.local, owner: config.owner, repo: config.repo)
                 let all = index.filter(flags).map { TaskIndex.dto($0, config: config) }
@@ -90,6 +94,7 @@ enum CLIRunner {
                                                          owner: config.owner, repo: config.repo)
                 let envelope = CLIEnvelope(
                     asOf: asOf, stale: isStale(asOf),
+                    refreshTimedOut: refreshTimedOut ? true : nil,
                     closedDataIncomplete: flags.state == .open ? nil : true,
                     product: ProductResolver.ref(config), filters: describe(flags),
                     page: PageInfo(limit: flags.limit, offset: flags.offset, total: all.count,
@@ -99,13 +104,14 @@ enum CLIRunner {
             }
 
         case .tasks(.show(let number, let flags)):
-            return await withStore(flags) { store in
+            return await withStore(flags) { store, refreshTimedOut in
                 let config = try ProductResolver.resolve(flags.product, cloud: store.cloud)
                 let index = TaskIndex.build(local: store.local, owner: config.owner, repo: config.repo)
                 let detail = try index.detail(number: number, config: config, local: store.local)
                 let asOf = ProductResolver.lastFetchedAt(local: store.local,
                                                          owner: config.owner, repo: config.repo)
                 let envelope = CLIEnvelope(asOf: asOf, stale: isStale(asOf),
+                                           refreshTimedOut: refreshTimedOut ? true : nil,
                                            product: ProductResolver.ref(config), items: [detail])
                 return flags.json ? CLIOutput.encode(envelope) : CLIText.render(taskDetail: detail)
             }
@@ -119,16 +125,44 @@ enum CLIRunner {
 
     /// Opens the store, runs `body`, prints what it returns. Every read command shares this so
     /// error mapping and exit codes stay in one place.
+    ///
+    /// With `--refresh`, the app is asked to poll GitHub FIRST and the store is opened only
+    /// once it has answered — opening earlier would read pre-refresh data under a fresh
+    /// `asOf`, which is worse than not refreshing at all. `refreshTimedOut` is passed to
+    /// `body` so the envelope can say the data is stale rather than failing the read.
     static func withStore(_ flags: CLIFlags,
-                          _ body: (CLIStore) throws -> String) async -> Int32 {
+                          _ body: (CLIStore, Bool) throws -> String) async -> Int32 {
         do {
+            var timedOut = false
+            if flags.refresh {
+                // Resolving the product needs the store, so open a short-lived one first.
+                let productID = try? ProductResolver.resolve(flags.product,
+                                                             cloud: CLIStore.open().cloud).id
+                timedOut = try await requestRefresh(productID: productID, timeout: flags.timeout)
+            }
             let store = try CLIStore.open()
-            print(try body(store))
+            print(try body(store, timedOut))
             return CLIExitCode.success.rawValue
         } catch let error as CLIError {
             return emit(error: error)
         } catch {
             return emit(error: .noLocalData(message: error.localizedDescription, hint: nil))
+        }
+    }
+
+    /// Returns true when the refresh timed out (answer from cache and say so). Only
+    /// app-not-running is fatal.
+    static func requestRefresh(productID: UUID?, timeout: TimeInterval) async throws -> Bool {
+        var payload: [String: String] = [:]
+        if let productID { payload["productID"] = productID.uuidString }
+        do {
+            _ = try await CLIRequestClient.send(CLIRequest(kind: .refresh, payload: payload),
+                                                timeout: timeout)
+            return false
+        } catch CLIError.appNotRunning {
+            throw CLIError.appNotRunning
+        } catch {
+            return true
         }
     }
 

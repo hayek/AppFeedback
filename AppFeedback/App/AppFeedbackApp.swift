@@ -63,6 +63,9 @@ struct AppFeedbackApp: App {
     @State private var appStoreReviewMirrorStore: AppStoreReviewMirrorStore
     @State private var appStoreRegistry: AppStoreReviewCoordinatorRegistry
     @State private var issueLoaderRegistry: IssueLoaderRegistry
+    #if os(macOS)
+    @State private var cliResponder: CLIRequestResponder
+    #endif
     @State private var mailLocalStateStore: MailAccountLocalStateStore
     @State private var mailDraftStore = MailDraftStore()
     @State private var quickLook = QuickLookPresenter()
@@ -313,6 +316,17 @@ struct AppFeedbackApp: App {
             await triageCoordinatorLocal.processLoaded(groups)
         }
         _issueLoaderRegistry = State(initialValue: issueRegistry)
+
+        #if os(macOS)
+        // Registered here rather than in a view so the CLI channel answers regardless of
+        // window state, and re-pointed at launch so a moved app self-heals its symlinks.
+        let responder = CLIRequestResponder { request in
+            try await CLIRequestHandlers.handle(
+                request, deps: CLIRequestHandlers.Dependencies(registry: issueRegistry))
+        }
+        responder.start()
+        _cliResponder = State(initialValue: responder)
+        #endif
 
         #if os(iOS)
         let driver = iOSBackgroundRefreshDriver(
