@@ -132,7 +132,29 @@ git add docs/superpowers/plans/2026-07-26-appfeedback-cli.md
 git commit -m "docs(plans): record CLI store read-only spike result"
 ```
 
-**Spike result:** _(fill in during execution)_
+**Spike result (2026-07-26): PASSES, but only with the app's exact container shape.**
+
+The standalone `swift main.swift` form was inconclusive — a partial model makes SwiftData
+attempt an in-place migration (`NSMigratePersistentStoresAutomaticallyOption` is on by
+default), which fails read-only with *"Cannot migrate store in-place: attempt to write a
+readonly database"*. That error is about schema mismatch, not about read-only or contention.
+
+The spike was therefore folded into Task 3 as `CLIStoreTests.testOpensTheLiveStoreReadOnly`,
+which opens the real `~/Library/Application Support/{local,cloud}.store` and skips when absent.
+
+First attempt failed the same way. **Root cause:** the app builds ONE container with TWO
+*named* configurations (`"cloud"`, `"local"`) over the combined schema, and Core Data records
+a store's compatibility against that whole model. Opening with a single unnamed configuration
+holding only the six local entities reads as an incompatible model → migration → failure.
+
+**Fix (already applied to Task 3's code):** reproduce the app's container exactly —
+`ModelContainer(for: Schema(cloudTypes + localTypes), configurations: cloudConfig, localConfig)`
+with both configurations named and `allowsSave: false, cloudKitDatabase: .none`. One context
+serves both stores; Core Data routes each fetch to the owning store.
+
+Verified: **541 cached issues, 3 products**, both with the app closed and with the GUI running
+and holding the stores open. The `VACUUM INTO` snapshot stays a fallback, and its test now
+reads the snapshot back through the same container shape.
 
 ---
 

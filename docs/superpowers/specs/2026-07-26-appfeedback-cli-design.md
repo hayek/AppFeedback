@@ -111,6 +111,13 @@ container those fail noisily.
 Both use `allowsSave: false, cloudKitDatabase: .none` — no second CloudKit
 syncer, no writes. Schemas match the split at `AppFeedbackApp.swift:98-105`.
 
+**The container must reproduce the app's exact shape** — one `ModelContainer` over the
+combined schema with both configurations *named* `"cloud"` and `"local"`, not two
+single-configuration containers. Core Data records a store's compatibility against the
+whole model it was created with; a narrower or unnamed configuration reads as
+incompatible, triggers an in-place migration, and fails on a read-only store. Verified
+against the live store, both with the app closed and with the GUI holding it open.
+
 Guards:
 
 - `FileManager.fileExists` on each store **before** opening. A `ModelContainer`
