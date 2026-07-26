@@ -10,6 +10,7 @@ enum SettingsSelection: Hashable {
     case email
     case intelligence
     case notifications
+    case cli
 
     var productID: UUID? {
         if case .product(let id) = self { return id }
@@ -111,6 +112,8 @@ struct SettingsView: View {
                         SettingsIconRow(title: "Notifications", systemImage: "bell.badge.fill", tileColor: .red)
                             .tag(SettingsSelection.notifications)
                     }
+                    SettingsIconRow(title: "CLI & AI Skill", systemImage: "terminal.fill", tileColor: .gray)
+                        .tag(SettingsSelection.cli)
                 }
             }
             .navigationSplitViewColumnWidth(min: 180, ideal: 220, max: 300)
@@ -163,6 +166,8 @@ struct SettingsView: View {
             if let notificationService {
                 NotificationsSettingsView(settings: notificationSettings, service: notificationService)
             }
+        case .cli:
+            CLISettingsView()
         case nil:
             noProductsView
         }

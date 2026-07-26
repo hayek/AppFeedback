@@ -341,6 +341,8 @@ struct AppFeedbackApp: App {
         }
         responder.start()
         _cliResponder = State(initialValue: responder)
+        // Re-point whatever the user already installed, so a moved or rebuilt app self-heals.
+        CLIInstaller.refreshInstalledLinks()
         #endif
 
         #if os(iOS)

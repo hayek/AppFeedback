@@ -26,6 +26,13 @@ targets:
     sources:
       - path: AppFeedback
         createIntermediateGroups: true
+        excludes:
+          - "Resources/Skill/**"
+      # Folder reference so the directory structure survives into the bundle. xcodegen gives
+      # .md files no build phase by default, so without this the skill silently wouldn't ship.
+      - path: AppFeedback/Resources/Skill
+        buildPhase: resources
+        type: folder
     dependencies:
       - package: SwiftMail
         product: SwiftMail
