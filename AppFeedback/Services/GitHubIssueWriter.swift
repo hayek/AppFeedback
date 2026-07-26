@@ -1,5 +1,15 @@
 import Foundation
 
+/// One issue as GitHub currently has it. `tasks link` rewrites the machine-managed addresses
+/// block against this rather than the cache, which can be up to a poll interval behind.
+struct FetchedIssue: Sendable {
+    let number: Int
+    let title: String
+    let body: String
+    let labels: [String]
+    let state: String
+}
+
 /// Narrow seam over `GitHubIssueWriter` so synthesis coordinators can inject a fake writer in
 /// tests. The signatures mirror the actor's exactly.
 protocol IssueWriting: Sendable {
@@ -8,6 +18,7 @@ protocol IssueWriting: Sendable {
     func updateIssue(owner: String, repo: String, number: Int,
                      title: String?, body: String?, labels: [String]?,
                      milestoneNumber: Int??, state: String?, token: String) async throws
+    func fetchIssue(owner: String, repo: String, number: Int, token: String) async throws -> FetchedIssue
 }
 
 /// Creates and mutates GitHub issues used to model tasks. Mirrors `GitHubCommentPoster`'s
@@ -48,6 +59,31 @@ actor GitHubIssueWriter {
             throw WriteError.apiError(0, message: "Missing number in response")
         }
         return number
+    }
+
+    /// Reads one issue. `tasks link`/`unlink` need the LIVE body: rewriting the addresses block
+    /// from the cached copy would clobber any edit made since the last poll.
+    func fetchIssue(owner: String, repo: String, number: Int, token: String) async throws -> FetchedIssue {
+        var request = URLRequest(url: URL(string: "https://api.github.com/repos/\(owner)/\(repo)/issues/\(number)")!)
+        request.setValue("Bearer \(token)",             forHTTPHeaderField: "Authorization")
+        request.setValue("application/vnd.github+json", forHTTPHeaderField: "Accept")
+
+        let (data, response) = try await session.data(for: request)
+        guard let http = response as? HTTPURLResponse else { throw WriteError.apiError(0, message: nil) }
+        guard (200...299).contains(http.statusCode) else {
+            let message = (try? JSONSerialization.jsonObject(with: data) as? [String: Any])?["message"] as? String
+            throw WriteError.apiError(http.statusCode, message: message)
+        }
+        guard let object = try JSONSerialization.jsonObject(with: data) as? [String: Any],
+              let issueNumber = object["number"] as? Int else {
+            throw WriteError.apiError(http.statusCode, message: "Malformed issue response")
+        }
+        return FetchedIssue(
+            number: issueNumber,
+            title: object["title"] as? String ?? "",
+            body: object["body"] as? String ?? "",
+            labels: (object["labels"] as? [[String: Any]])?.compactMap { $0["name"] as? String } ?? [],
+            state: object["state"] as? String ?? "open")
     }
 
     /// PATCHes any subset of issue fields. Pass `state` as "open"/"closed".

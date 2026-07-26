@@ -230,6 +230,7 @@
 		562460209F2D73146B278AD2 /* UnreadSummaryViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = F21997922568B439D705E5DA /* UnreadSummaryViewModel.swift */; };
 		56B990A2A121235799F444A9 /* MailToFeedbackMirror.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4ABB61C51890FF18A6A5EC48 /* MailToFeedbackMirror.swift */; };
 		56CC2B9967F4A70A2DF60675 /* MailToGitHubMirror.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4319D976803D979C7D114484 /* MailToGitHubMirror.swift */; };
+		56F7544075DCE1D09BA7C4DC /* CLIWriteCommandTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = ECCBB7B9477ABCD5FCD8AAFF /* CLIWriteCommandTests.swift */; };
 		5772D38212FF45DDEC039AEC /* InspectorFilterBars.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA9230F8F5C542709BB4BE44 /* InspectorFilterBars.swift */; };
 		57A1B6E768B25DD22D47D28B /* AppFeedbackTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 98F8C9ECF3F6884F65EFEE8D /* AppFeedbackTests.swift */; };
 		58901B4252AAC850499F3FE2 /* CLIInvocation.swift in Sources */ = {isa = PBXBuildFile; fileRef = BD26362F77EAA4C4D87A627B /* CLIInvocation.swift */; };
@@ -586,6 +587,7 @@
 		E1B284FC2FFA5E1D746E4B88 /* RepoTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = B9E1CC5A4E26DBA9C9751A90 /* RepoTests.swift */; };
 		E1E011994123EF9AA5F26612 /* IMAPClientProvider.swift in Sources */ = {isa = PBXBuildFile; fileRef = C38023FD819403D9B886D034 /* IMAPClientProvider.swift */; };
 		E1E73AAC7E5ED58A44D5DB71 /* MailComposer.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0FC01BF334B5D65CF0147005 /* MailComposer.swift */; };
+		E220FA53D5C3458C625BE9DE /* CLIWriteCommandTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = ECCBB7B9477ABCD5FCD8AAFF /* CLIWriteCommandTests.swift */; };
 		E3611B8BC7E8C7EE99D7407D /* FeedbackIssue.swift in Sources */ = {isa = PBXBuildFile; fileRef = F4CA31D8EBA15B135854E873 /* FeedbackIssue.swift */; };
 		E4DEE5AFC2FF2F643F556BF6 /* SummaryPromptBuilder.swift in Sources */ = {isa = PBXBuildFile; fileRef = BB83534C837E0AC43EC21616 /* SummaryPromptBuilder.swift */; };
 		E643717C712D4549A06A0C8F /* SeenIssueStoreTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = B5C2311360F0CB7096391D93 /* SeenIssueStoreTests.swift */; };
@@ -965,6 +967,7 @@
 		EA7637C6767CDB442F67C814 /* TaskMetadataTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TaskMetadataTests.swift; sourceTree = "<group>"; };
 		EBC84D73F559C8192BD55BC8 /* MailAccountLocalState.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MailAccountLocalState.swift; sourceTree = "<group>"; };
 		EC52FD3E27B1F223D322FA99 /* ActivityLogTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ActivityLogTests.swift; sourceTree = "<group>"; };
+		ECCBB7B9477ABCD5FCD8AAFF /* CLIWriteCommandTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CLIWriteCommandTests.swift; sourceTree = "<group>"; };
 		ED152BDBBB643F768E8F162F /* CachedIssue.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CachedIssue.swift; sourceTree = "<group>"; };
 		ED45644F876811CA79E17198 /* IMAPClientError.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = IMAPClientError.swift; sourceTree = "<group>"; };
 		EF491478E027637A0E1DE634 /* ReplyTemplateStoreTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ReplyTemplateStoreTests.swift; sourceTree = "<group>"; };
@@ -1376,6 +1379,7 @@
 				A95F677A3AE47CB1F386C895 /* CLIIPCTests.swift */,
 				527BEBD303ECE72E22689990 /* CLIOutputTests.swift */,
 				6F509001309B41B74F2E3634 /* CLIStoreTests.swift */,
+				ECCBB7B9477ABCD5FCD8AAFF /* CLIWriteCommandTests.swift */,
 				1A5E9D6EA54332099D0A0E76 /* CloudSyncStatusTests.swift */,
 				BBD948EB35D428BC8AD5D517 /* ColorPaletteTests.swift */,
 				44217CE722F7BB9B95104162 /* ComposeMailViewModelTests.swift */,
@@ -1927,6 +1931,7 @@
 				B5D2E08FBDE951ADA6AE56FA /* CLIInvocationTests.swift in Sources */,
 				97FA752210FD86EEEC783AAF /* CLIOutputTests.swift in Sources */,
 				23DBA1ADAB732C8A90E7377D /* CLIStoreTests.swift in Sources */,
+				56F7544075DCE1D09BA7C4DC /* CLIWriteCommandTests.swift in Sources */,
 				2037D35C3B023DEC580F759A /* CachedIssueTests.swift in Sources */,
 				B9689C8F511CEFFC7154AE31 /* CloudSyncStatusTests.swift in Sources */,
 				83CECBE7C21FE854EA0AC18A /* ColorPaletteTests.swift in Sources */,
@@ -2257,6 +2262,7 @@
 				EFF21F933C5F0F1DA694DB79 /* CLIInvocationTests.swift in Sources */,
 				9E1437C06D1974E8963AEE83 /* CLIOutputTests.swift in Sources */,
 				98FD22D8E6C23290281963CD /* CLIStoreTests.swift in Sources */,
+				E220FA53D5C3458C625BE9DE /* CLIWriteCommandTests.swift in Sources */,
 				4BA65C0D4CF6EFD47B96CB72 /* CachedIssueTests.swift in Sources */,
 				A5E4894A6D7EF95BFC260B9A /* CloudSyncStatusTests.swift in Sources */,
 				1FFBC02E1CD2B43D200270EF /* ColorPaletteTests.swift in Sources */,

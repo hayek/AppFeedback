@@ -116,8 +116,87 @@ enum CLIRunner {
                 return flags.json ? CLIOutput.encode(envelope) : CLIText.render(taskDetail: detail)
             }
 
+        case .tasks(.create(let flags)):
+            return await sendWrite(kind: .createTask, flags: flags, payload: [
+                "product": flags.product,
+                "title": flags.title ?? "",
+                "notes": flags.notes ?? "",
+                "status": (flags.statuses.first ?? .todo).rawValue,
+                "priority": (flags.priorities.first ?? .med).rawValue,
+                "version": flags.version ?? "",
+                "feedback": flags.feedbackNumbers.map(String.init).joined(separator: ","),
+            ])
+
+        case .tasks(.link(let flags)):
+            return await sendWrite(kind: .linkTask, flags: flags, payload: linkPayload(flags))
+
+        case .tasks(.unlink(let flags)):
+            return await sendWrite(kind: .unlinkTask, flags: flags, payload: linkPayload(flags))
+
+        case .respond(let flags):
+            return await sendWrite(kind: .respond, flags: flags, payload: [
+                "product": flags.product,
+                "feedback": flags.feedbackNumbers.map(String.init).joined(separator: ","),
+                "body": flags.body ?? "",
+                "template": flags.template ?? "",
+                "via": flags.channel.rawValue,
+            ])
+
         default:
             return emit(error: .remote(message: "not implemented yet"))
+        }
+    }
+
+    private static func linkPayload(_ flags: CLIFlags) -> [String: String] {
+        ["product": flags.product,
+         "task": flags.taskNumber.map(String.init) ?? "",
+         "feedback": flags.feedbackNumbers.map(String.init).joined(separator: ",")]
+    }
+
+    /// Delegates a write to the running app and prints its result. The app runs the identical
+    /// call its own UI makes, so behaviour cannot drift between the two.
+    static func sendWrite(kind: CLIRequestKind, flags: CLIFlags,
+                          payload: [String: String]) async -> Int32 {
+        do {
+            let response = try await CLIRequestClient.send(
+                CLIRequest(kind: kind, payload: payload.filter { !$0.value.isEmpty }),
+                timeout: flags.timeout)
+            guard response.ok else { return emit(error: mapRemote(response)) }
+
+            var envelope: [String: Any] = ["ok": true]
+            if let json = response.json,
+               let object = try? JSONSerialization.jsonObject(with: Data(json.utf8)) {
+                envelope["result"] = object
+            }
+            if !response.warnings.isEmpty { envelope["warnings"] = response.warnings }
+            if let data = try? JSONSerialization.data(withJSONObject: envelope,
+                                                      options: [.prettyPrinted, .sortedKeys,
+                                                                .withoutEscapingSlashes]),
+               let text = String(data: data, encoding: .utf8) {
+                print(text)
+            }
+            return CLIExitCode.success.rawValue
+        } catch let error as CLIError {
+            return emit(error: error)
+        } catch {
+            return emit(error: .remote(message: error.localizedDescription))
+        }
+    }
+
+    /// Maps the app's typed failure back onto a CLI error so exit codes stay meaningful.
+    static func mapRemote(_ response: CLIResponse) -> CLIError {
+        let message = response.errorMessage ?? "The app reported a failure."
+        switch response.errorCode {
+        case "auth":
+            return .auth(message: message, hint: response.errorHint)
+        case let code? where code.hasSuffix("_not_found") || code == "version_has_no_milestone"
+                          || code == "product_ambiguous" || code == "no_products":
+            return .notFound(code: code, message: message, hint: response.errorHint)
+        case "missing_flag", "bad_value", "unknown_flag", "conflicting_flags", "missing_value":
+            return .usage(CLIUsageError(code: response.errorCode ?? "usage",
+                                        message: message, hint: response.errorHint))
+        default:
+            return .remote(message: message, hint: response.errorHint)
         }
     }
 
