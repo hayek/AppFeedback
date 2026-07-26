@@ -41,9 +41,63 @@ enum CLIRunner {
             print(helpText(for: topic))
             return CLIExitCode.success.rawValue
 
+        case .products(let flags):
+            return await withStore(flags) { store in
+                let summaries = ProductResolver.all(cloud: store.cloud, local: store.local)
+                let envelope = CLIEnvelope(asOf: summaries.compactMap(\.lastFetchedAt).max(),
+                                           stale: false, items: summaries)
+                return flags.json ? CLIOutput.encode(envelope) : CLIText.render(products: summaries)
+            }
+
         default:
             return emit(error: .remote(message: "not implemented yet"))
         }
+    }
+
+    // MARK: - Shared plumbing
+
+    /// Opens the store, runs `body`, prints what it returns. Every read command shares this so
+    /// error mapping and exit codes stay in one place.
+    static func withStore(_ flags: CLIFlags,
+                          _ body: (CLIStore) throws -> String) async -> Int32 {
+        do {
+            let store = try CLIStore.open()
+            print(try body(store))
+            return CLIExitCode.success.rawValue
+        } catch let error as CLIError {
+            return emit(error: error)
+        } catch {
+            return emit(error: .noLocalData(message: error.localizedDescription, hint: nil))
+        }
+    }
+
+    /// The app polls every 15 minutes; anything older than that is stale.
+    static func isStale(_ asOf: Date?, now: Date = Date()) -> Bool {
+        guard let asOf else { return true }
+        return now.timeIntervalSince(asOf) > 15 * 60
+    }
+
+    /// Echoes the filters that were actually applied, so an agent can self-check a guessed value.
+    static func describe(_ flags: CLIFlags) -> [String: String] {
+        var described: [String: String] = ["state": flags.state.rawValue,
+                                           "sort": flags.sort.rawValue,
+                                           "order": flags.order.rawValue]
+        if !flags.apps.isEmpty       { described["app"] = flags.apps.joined(separator: ",") }
+        if !flags.labels.isEmpty     { described["label"] = flags.labels.joined(separator: ",") }
+        if !flags.sources.isEmpty    { described["source"] = flags.sources.map(\.rawValue).joined(separator: ",") }
+        if !flags.types.isEmpty      { described["type"] = flags.types.map(\.rawValue).joined(separator: ",") }
+        if !flags.statuses.isEmpty   { described["status"] = flags.statuses.map(\.rawValue).joined(separator: ",") }
+        if !flags.priorities.isEmpty { described["priority"] = flags.priorities.map(\.rawValue).joined(separator: ",") }
+        if let search = flags.search { described["search"] = search }
+        if let since = flags.since   { described["since"] = CLIOutput.iso8601.string(from: since) }
+        if let since = flags.updatedSince { described["updatedSince"] = CLIOutput.iso8601.string(from: since) }
+        if let low = flags.minRating  { described["minRating"] = String(low) }
+        if let high = flags.maxRating { described["maxRating"] = String(high) }
+        if let version = flags.appVersion { described["appVersion"] = version }
+        if let version = flags.version    { described["version"] = version }
+        if let hasTask = flags.hasTask    { described["hasTask"] = String(hasTask) }
+        if flags.includeHidden       { described["includeHidden"] = "true" }
+        return described
     }
 
     /// JSON error on stdout (so a failed call is still parseable) plus a one-liner on stderr.
