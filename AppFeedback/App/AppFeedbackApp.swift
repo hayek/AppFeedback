@@ -29,7 +29,6 @@ private final class ProductConfigSnapshot: @unchecked Sendable {
     }
 }
 
-@main
 struct AppFeedbackApp: App {
     @Environment(\.scenePhase) private var scenePhase
     private let container: ModelContainer
