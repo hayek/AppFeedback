@@ -35,10 +35,18 @@ struct TaskIndex {
 
     /// `--state open` (the default) hides completed tasks; `.all` shows everything;
     /// `.closed` shows only completed ones.
+    ///
+    /// The two dimensions overlap, because `displayStatus` folds "closed" into `.done`: a task the
+    /// status filter calls `.done` is exactly one the `--state open` default rejects, which left
+    /// the documented `tasks --status done` unsatisfiable for every product. An explicit
+    /// `--status done` is the more specific intent, so it supersedes the state filter — which also
+    /// matches the UI, where status is the *only* completion dimension (`filteredTasks` filters on
+    /// `displayStatus` and has no state filter at all).
     func filter(_ flags: CLIFlags) -> [TaskItem] {
-        tasks.filter { task in
+        let statusAsksForCompleted = flags.statuses.contains(.done)
+        return tasks.filter { task in
             switch flags.state {
-            case .open:   if task.isCompleted { return false }
+            case .open:   if task.isCompleted, !statusAsksForCompleted { return false }
             case .closed: if !task.isCompleted { return false }
             case .all:    break
             }

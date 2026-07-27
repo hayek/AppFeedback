@@ -66,6 +66,27 @@ final class MailMessage {
         MailMessageHeaders(messageID: messageID, inReplyTo: inReplyTo, references: referencesAsArray)
     }
 
+    /// Where a reply to this message goes. Inbound → its sender; outbound → its first
+    /// recipient, because replying to our own message must not address ourselves. Bare
+    /// address: SwiftMail's SMTP layer rejects the `Display Name <addr>` form.
+    ///
+    /// The address the reporter *filed* with is deliberately not consulted — they may have
+    /// carried on the conversation from another address, and the reply threads (In-Reply-To)
+    /// into that conversation. `MailThreadView` and the CLI share this one rule.
+    var replyRecipient: String {
+        let raw = direction == .outbound ? (toAddresses.first ?? fromAddress) : fromAddress
+        return MailAddress.bare(from: raw) ?? raw
+    }
+
+    /// Which account a reply to this message is sent FROM: the account that handled it, as
+    /// long as that account still exists, else the global default sender. `nil` accountID is
+    /// a legacy row that pre-dates multi-account support.
+    @MainActor
+    func replySenderAccountID(in store: MailAccountStore) -> UUID? {
+        if let accountID, store.account(id: accountID) != nil { return accountID }
+        return store.defaultSender?.id
+    }
+
     init(
         id: UUID = UUID(),
         messageID: String = "",

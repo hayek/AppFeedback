@@ -119,6 +119,19 @@ final class ProductResolverTests: XCTestCase {
         XCTAssertEqual(summary.taskCount, 2)
     }
 
+    /// `feedback list` hides these by default, so the advertised total must match what paging
+    /// can actually reach.
+    func testSummaryFeedbackCountExcludesHiddenApps() throws {
+        makeProduct("P")
+        makeIssue(number: 1, app: "Zcode")
+        makeIssue(number: 2, app: "Secret")
+        context.insert(HiddenApp(repoOwner: "o", repoName: "r", appName: "Secret"))
+
+        let summary = try XCTUnwrap(ProductResolver.all(cloud: context, local: context).first)
+        XCTAssertEqual(summary.feedbackCount, 1)
+        XCTAssertEqual(summary.apps.count, 2, "the per-app breakdown still lists the hidden app")
+    }
+
     func testSummaryCountsOnlyOpenIssues() throws {
         makeProduct("P")
         makeIssue(number: 1, app: "A")

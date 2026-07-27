@@ -57,6 +57,13 @@ struct CLISettingsView: View {
         case .brokenLink(let url):
             Label("Broken link at \(url.path) — reinstall", systemImage: "exclamationmark.triangle.fill")
                 .foregroundStyle(.orange)
+        case .occupied(let url):
+            // Left alone until the user presses Install, so nothing they wrote disappears on a
+            // plain app launch.
+            Label("\(url.path) already exists and wasn't installed by this app. Installing moves "
+                  + "it aside to \(url.lastPathComponent).backup-<date> first.",
+                  systemImage: "hand.raised.fill")
+                .foregroundStyle(.orange)
         case .notInstalled:
             Label(missing, systemImage: "circle.dashed").foregroundStyle(.secondary)
         }

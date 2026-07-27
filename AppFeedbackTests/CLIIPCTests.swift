@@ -66,6 +66,71 @@ final class CLIIPCTests: XCTestCase {
         _ = try CLIIPCTransport.readRequest(id: request.id, in: directory)
         XCTAssertThrowsError(try CLIIPCTransport.readRequest(id: request.id, in: directory),
                              "a consumed request must not be readable twice")
+
+        // The claim is a rename, so the payload must not survive under the claimed name either —
+        // otherwise the directory fills with unanswered requests nothing will ever reap early.
+        let leftovers = try FileManager.default.contentsOfDirectory(atPath: directory.path)
+            .filter { $0.contains(request.id.uuidString) }
+        XCTAssertEqual(leftovers, [], "the claim file must be removed once the request is read")
+    }
+
+    /// Two app instances (installed build + Xcode dev build) wake on the same ping. If both
+    /// could read the payload, a single `respond` would email the reporter twice; the atomic
+    /// rename must let exactly one through.
+    func testOnlyOneConcurrentReaderClaimsTheRequest() async throws {
+        let request = CLIRequest(kind: .respond, payload: ["body": "Thanks for the report."])
+        try CLIIPCTransport.write(request: request, in: directory)
+        let id = request.id
+        let directory = self.directory!
+
+        var claims = 0
+        await withTaskGroup(of: Bool.self) { group in
+            for _ in 0..<8 {
+                group.addTask {
+                    (try? CLIIPCTransport.readRequest(id: id, in: directory)) != nil
+                }
+            }
+            for await claimed in group where claimed { claims += 1 }
+        }
+        XCTAssertEqual(claims, 1, "exactly one reader may consume a request")
+    }
+
+    /// The claim decides the winner, so two instances must never aim at the same destination.
+    func testClaimPathIsPerProcessAndDistinctFromTheRequestPath() {
+        let id = UUID()
+        let mine = CLIIPCTransport.claimURL(id: id, in: directory, pid: 111)
+        let theirs = CLIIPCTransport.claimURL(id: id, in: directory, pid: 222)
+        XCTAssertNotEqual(mine, theirs)
+        XCTAssertNotEqual(mine, CLIIPCTransport.requestURL(id: id, in: directory))
+        XCTAssertTrue(mine.lastPathComponent.contains("claim-111"))
+    }
+
+    /// An instance that died between claiming and replying leaves the payload under its claim
+    /// name; `rename` preserves the modification date, so the sweep must still reap it.
+    func testSweepReapsAClaimLeftBehindByACrashedInstance() throws {
+        let request = CLIRequest(kind: .respond, payload: [:])
+        try CLIIPCTransport.write(request: request, in: directory)
+        let claimed = CLIIPCTransport.claimURL(id: request.id, in: directory, pid: 4242)
+        try FileManager.default.moveItem(
+            at: CLIIPCTransport.requestURL(id: request.id, in: directory), to: claimed)
+        try FileManager.default.setAttributes([.modificationDate: Date(timeIntervalSinceNow: -7200)],
+                                              ofItemAtPath: claimed.path)
+
+        CLIIPCTransport.sweep(in: directory, olderThan: 3600)
+        XCTAssertFalse(FileManager.default.fileExists(atPath: claimed.path))
+    }
+
+    /// ...but a claim made moments ago belongs to a request still being answered.
+    func testSweepLeavesAFreshClaimAlone() throws {
+        let request = CLIRequest(kind: .respond, payload: [:])
+        try CLIIPCTransport.write(request: request, in: directory)
+        let claimed = CLIIPCTransport.claimURL(id: request.id, in: directory, pid: 4242)
+        try FileManager.default.moveItem(
+            at: CLIIPCTransport.requestURL(id: request.id, in: directory), to: claimed)
+
+        CLIIPCTransport.sweep(in: directory, olderThan: 3600)
+        XCTAssertTrue(FileManager.default.fileExists(atPath: claimed.path),
+                      "an in-flight request must not be swept out from under the responder")
     }
 
     func testSweepRemovesStaleFilesOnly() throws {
@@ -162,6 +227,29 @@ final class CLIRequestResponderTests: XCTestCase {
             return CLIResponse(id: UUID(), ok: true)
         }
         await responder.handle(requestID: UUID())
+    }
+
+    /// Both the installed app and an Xcode build observe the same notification name, so the
+    /// responder can be asked to handle one id more than once. The handler — which sends the
+    /// email — must run exactly once.
+    @MainActor
+    func testResponderRunsTheHandlerOnlyOncePerRequest() async throws {
+        final class Box: @unchecked Sendable { var runs = 0 }
+        let box = Box()
+        let request = CLIRequest(kind: .respond, payload: ["body": "Thanks!"])
+        try CLIIPCTransport.write(request: request, in: directory)
+
+        let responder = CLIRequestResponder(directory: directory) { received in
+            box.runs += 1
+            return CLIResponse(id: received.id, ok: true)
+        }
+        await responder.handle(requestID: request.id)
+        _ = try CLIIPCTransport.readResponse(id: request.id, in: directory)   // the CLI collects it
+        await responder.handle(requestID: request.id)
+
+        XCTAssertEqual(box.runs, 1, "a request must be executed exactly once")
+        XCTAssertThrowsError(try CLIIPCTransport.readResponse(id: request.id, in: directory),
+                             "the second pass must not have written a second response")
     }
 
     /// AppKit suspends distributed-notification delivery while the app is inactive — which it

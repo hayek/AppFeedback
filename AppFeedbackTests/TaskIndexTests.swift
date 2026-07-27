@@ -114,6 +114,18 @@ final class TaskIndexTests: XCTestCase {
         XCTAssertEqual(index().filter(flags).map(\.number).sorted(), [1, 2])
     }
 
+    /// `tasks --status done` is documented, so it must return the done tasks rather than being
+    /// silently cancelled out by the `--state open` default.
+    func testExplicitDoneStatusSurvivesTheOpenStateDefault() {
+        insert(number: 1, labels: [AppFeedbackLabels.task, "status:todo"])
+        insert(number: 2, labels: [AppFeedbackLabels.task, "status:done"])
+        insert(number: 3, labels: [AppFeedbackLabels.task, "status:todo"], state: .closed)
+        var flags = CLIFlags()          // state defaults to .open
+        flags.statuses = [.done]
+        XCTAssertEqual(index().filter(flags).map(\.number).sorted(), [2, 3],
+                       "a closed task displays as done and belongs in this result too")
+    }
+
     // MARK: - DTO and detail
 
     func testDTOCarriesRefsAndURL() {

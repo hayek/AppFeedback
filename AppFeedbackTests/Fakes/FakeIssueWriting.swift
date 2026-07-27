@@ -5,7 +5,10 @@ import Foundation
 /// assert synthesis without touching the network.
 actor FakeIssueWriting: IssueWriting {
     struct CreateCall: Sendable { let owner, repo, title, body: String; let labels: [String] }
-    struct UpdateCall: Sendable { let owner, repo: String; let number: Int; let title: String?; let body: String?; let labels: [String]?; let state: String? }
+    /// `milestoneNumber` is the double optional the API takes: outer nil = "not sent, leave the
+    /// milestone alone", `.some(nil)` = "clear it". Recorded so callers that must not touch the
+    /// milestone can be held to it.
+    struct UpdateCall: Sendable { let owner, repo: String; let number: Int; let title: String?; let body: String?; let labels: [String]?; let milestoneNumber: Int??; let state: String? }
 
     private(set) var creates: [CreateCall] = []
     private(set) var updates: [UpdateCall] = []
@@ -38,6 +41,6 @@ actor FakeIssueWriting: IssueWriting {
     func updateIssue(owner: String, repo: String, number: Int,
                      title: String?, body: String?, labels: [String]?,
                      milestoneNumber: Int??, state: String?, token: String) async throws {
-        updates.append(UpdateCall(owner: owner, repo: repo, number: number, title: title, body: body, labels: labels, state: state))
+        updates.append(UpdateCall(owner: owner, repo: repo, number: number, title: title, body: body, labels: labels, milestoneNumber: milestoneNumber, state: state))
     }
 }

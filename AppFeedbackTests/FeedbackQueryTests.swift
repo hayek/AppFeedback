@@ -42,6 +42,15 @@ final class FeedbackQueryTests: XCTestCase {
         return FeedbackQuery.run(flags: flags, config: config, local: context, cloud: context, index: index)
     }
 
+    func detail(_ number: Int, _ mutate: (inout CLIFlags) -> Void = { _ in }) throws -> FeedbackDetail {
+        var flags = CLIFlags()
+        flags.product = "P"
+        mutate(&flags)
+        let index = TaskIndex.build(local: context, owner: "o", repo: "r")
+        return try FeedbackQuery.detail(number: number, flags: flags, config: config,
+                                        local: context, cloud: context, index: index)
+    }
+
     // MARK: - Task exclusion and hidden apps
 
     func testExcludesTaskLabelledIssues() {
@@ -82,10 +91,13 @@ final class FeedbackQueryTests: XCTestCase {
         XCTAssertEqual(run { $0.apps = ["Zcode"]; $0.types = [.bug] }.items.map(\.number), [1])
     }
 
-    func testLabelFilterRequiresEveryRequestedLabel() {
+    /// `--label` is repeatable and ORs, like `--app` — SKILL.md promises that for every flag.
+    func testRepeatedLabelFlagOrsValues() {
         insert(number: 1, labels: ["bug", "user-submitted"])
         insert(number: 2, labels: ["bug"])
-        XCTAssertEqual(run { $0.labels = ["bug", "user-submitted"] }.items.map(\.number), [1])
+        insert(number: 3, labels: ["question"])
+        XCTAssertEqual(run { $0.labels = ["user-submitted", "question"] }.items.map(\.number).sorted(),
+                       [1, 3])
     }
 
     func testSourceFilter() {
@@ -258,6 +270,63 @@ final class FeedbackQueryTests: XCTestCase {
             }
             XCTAssertEqual(code, "feedback_not_found")
         }
+    }
+
+    /// The detail path (`feedback show`) applies the same redaction the list path does. Two lines
+    /// below it, `rawIssue` deliberately returns the UNREDACTED address for `respond`, so it is
+    /// easy to wire detail to the wrong one — this test is what notices.
+    func testDetailRedactsEmailUnlessIncludeEmails() throws {
+        insert(number: 7, email: "amir@icloud.com")
+        let redacted = try detail(7)
+        let included = try detail(7, { $0.includeEmails = true })
+        XCTAssertEqual(redacted.email, "a***@icloud.com")
+        XCTAssertEqual(included.email, "amir@icloud.com")
+
+        // …while the respond path still gets the real address.
+        var flags = CLIFlags(); flags.product = "P"
+        XCTAssertEqual(try FeedbackQuery.rawIssue(number: 7, config: config, local: context).email,
+                       "amir@icloud.com")
+    }
+
+    /// The privacy contract is only kept if the address is absent from what actually reaches the
+    /// user: the encoded envelope and the `--text` rendering, not just the DTO field.
+    func testEncodedListOutputNeverContainsTheRealAddress() {
+        insert(number: 1, email: "amir@icloud.com")
+
+        let redacted = CLIOutput.encode(CLIEnvelope(items: run().items))
+        XCTAssertFalse(redacted.contains("amir@icloud.com"),
+                       "list JSON leaked the reporter address:\n\(redacted)")
+        XCTAssertTrue(redacted.contains("a***@icloud.com"))
+
+        let included = CLIOutput.encode(CLIEnvelope(items: run { $0.includeEmails = true }.items))
+        XCTAssertTrue(included.contains("amir@icloud.com"), "--include-emails must pass it through")
+    }
+
+    func testEncodedDetailOutputNeverContainsTheRealAddress() throws {
+        insert(number: 7, email: "amir@icloud.com")
+
+        let redacted = CLIOutput.encode(CLIEnvelope(items: [try detail(7)]))
+        XCTAssertFalse(redacted.contains("amir@icloud.com"),
+                       "detail JSON leaked the reporter address:\n\(redacted)")
+        XCTAssertTrue(redacted.contains("a***@icloud.com"))
+
+        let withEmails = try detail(7, { $0.includeEmails = true })
+        XCTAssertTrue(CLIOutput.encode(CLIEnvelope(items: [withEmails])).contains("amir@icloud.com"),
+                      "--include-emails must pass it through")
+    }
+
+    /// `CLIText.render(detail:)` prints a `reporter:` line, so `--text` is a leak surface too.
+    func testTextRenderedDetailNeverContainsTheRealAddress() throws {
+        insert(number: 7, email: "amir@icloud.com")
+
+        let redacted = CLIText.render(detail: try detail(7))
+        XCTAssertTrue(redacted.contains("reporter:"), "guard is meaningless if the line vanished")
+        XCTAssertFalse(redacted.contains("amir@icloud.com"),
+                       "--text detail leaked the reporter address:\n\(redacted)")
+        XCTAssertTrue(redacted.contains("a***@icloud.com"))
+
+        let withEmails = try detail(7, { $0.includeEmails = true })
+        XCTAssertTrue(CLIText.render(detail: withEmails).contains("amir@icloud.com"))
     }
 
     func testDetailRefusesToReturnATaskAsFeedback() {

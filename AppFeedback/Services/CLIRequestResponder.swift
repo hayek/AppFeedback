@@ -76,6 +76,14 @@ enum CLIRequestHandlers {
     @MainActor
     struct Dependencies {
         let registry: IssueLoaderRegistry
+        /// The SwiftData contexts the handlers read. These are the APP's own contexts, not a
+        /// `CLIStore`: a second container over the same store files is right in the CLI
+        /// process (read-only, no other opener) but wrong here — it would build a duplicate
+        /// two-configuration container, synchronously on the main actor, on every request.
+        /// Both point at the one container spanning the cloud and local stores; the two names
+        /// exist purely for call-site clarity, as in `CLIStore`. Tests inject in-memory ones.
+        let local: ModelContext
+        let cloud: ModelContext
         var taskService: TaskService = TaskService()
         var writer: any IssueWriting = GitHubIssueWriter()
         var tokenProvider: (ProductConfig) -> String? = { KeychainService.loadSync(for: $0) }
@@ -152,13 +160,12 @@ enum CLIRequestHandlers {
     }
 
     static func respond(_ request: CLIRequest, deps: Dependencies) async throws -> CLIResponse {
-        let store = try CLIStore.open()
-        let config = try resolveConfig(request, store: store)
+        let config = try resolveConfig(request, cloud: deps.cloud)
         guard let number = numbers(request.payload["feedback"]).first else {
             throw CLIError.usage(CLIUsageError(code: "missing_flag", message: "--feedback is required"))
         }
         // The unredacted issue — the real recipient address is needed to actually send.
-        let issue = try FeedbackQuery.rawIssue(number: number, config: config, local: store.local)
+        let issue = try FeedbackQuery.rawIssue(number: number, config: config, local: deps.local)
         guard let reply = deps.reply else {
             throw CLIError.remote(message: "Replying is unavailable in this build.")
         }
@@ -204,15 +211,17 @@ enum CLIRequestHandlers {
 
         case .email:
             #if canImport(SwiftMail)
-            let sent = try await sendEmailReply(issue: issue, config: config, body: body, reply: reply)
-            guard sent else {
+            guard let recipient = try await sendEmailReply(issue: issue, config: config,
+                                                           body: body, reply: reply) else {
                 throw CLIError.remote(
                     message: "The send failed.",
                     hint: "Check Activity in AppFeedback for the reason (often a missing SMTP password).")
             }
             await deps.registry.load(productID: config.id)
+            // The address actually written to, which is the thread's reply address and need
+            // not be the one the feedback was filed with.
             return CLIResponse(id: request.id, ok: true, json: CLIOutput.encode(
-                ["via": "email", "to": FeedbackQuery.redact(issue.email ?? ""),
+                ["via": "email", "to": FeedbackQuery.redact(recipient),
                  "url": FeedbackQuery.url(for: number, config: config)]))
             #else
             throw CLIError.remote(message: "This build has no mail stack.")
@@ -261,6 +270,13 @@ enum CLIRequestHandlers {
         if let error = controller.lastError {
             throw appStoreError(error)
         }
+        // A 403 is NOT reported through `lastError`: `applyWriteError` records it as
+        // `discoveredReadOnly` (the panel greys itself out instead of showing an error), so
+        // nil `lastError` alone would let a read-only key exit 0 having published nothing.
+        guard !controller.discoveredReadOnly else {
+            throw CLIError.auth(message: "This App Store Connect key is read-only.",
+                                hint: "Use a key with App Manager access to publish responses.")
+        }
         return CLIResponse(id: request.id, ok: true, json: CLIOutput.encode(
             ["via": "app-store", "reviewId": reviewId,
              "url": FeedbackQuery.url(for: issue.number, config: config)]))
@@ -290,10 +306,9 @@ enum CLIRequestHandlers {
     /// Mirrors `MailThreadView.beginReply` when a thread exists and `IssueCardView.replyToEmail`
     /// when it doesn't, then builds the view model exactly as `InlineReplyView.setupViewModel`
     /// does — including the IMAP Sent-folder appender — and calls the same `send()`.
+    /// Returns the address it sent to, or nil if the send failed.
     private static func sendEmailReply(issue: FeedbackIssue, config: ProductConfig,
-                                       body: String, reply: ReplyDependencies) async throws -> Bool {
-        guard let recipient = issue.email, !recipient.isEmpty else { return false }
-
+                                       body: String, reply: ReplyDependencies) async throws -> String? {
         let threads = reply.threadStore.threads(forIssue: (owner: config.owner, repo: config.repo,
                                                            number: issue.number, title: issue.title))
         let lastMessage = threads
@@ -301,14 +316,24 @@ enum CLIRequestHandlers {
             .sorted { $0.date < $1.date }
             .last
 
-        guard let senderID = reply.accountStore.defaultSender?.id else {
+        // Same rules as the thread UI: reply to the conversation's own address and from the
+        // account that has been carrying it. Only a threadless reply uses the filed address —
+        // as does a thread whose last message carries no usable address, which would otherwise
+        // hand SMTP an empty recipient.
+        let filed = (issue.email?.isEmpty == false) ? issue.email : nil
+        let threaded = lastMessage?.replyRecipient.isEmpty == false ? lastMessage?.replyRecipient : nil
+        guard let recipient = threaded
+                ?? filed.map({ MailAddress.bare(from: $0) ?? $0 }) else { return nil }
+
+        guard let senderID = lastMessage?.replySenderAccountID(in: reply.accountStore)
+                ?? reply.accountStore.defaultSender?.id else {
             throw CLIError.auth(message: "No mail account is configured to send from.",
                                 hint: "Add one in AppFeedback's Email settings.")
         }
         let appenderProvider = IMAPClientProvider(accountStore: reply.accountStore, accountID: senderID)
 
         let viewModel = ComposeMailViewModel(
-            recipient: MailAddress.bare(from: recipient) ?? recipient,
+            recipient: recipient,
             issue: issue, repoOwner: config.owner, repoName: config.repo,
             store: reply.accountStore, settingsStore: reply.settingsStore,
             threadStore: reply.threadStore, tracker: reply.tracker,
@@ -322,7 +347,7 @@ enum CLIRequestHandlers {
         // Same placeholder substitution the UI applies to template bodies.
         viewModel.body = NSAttributedString(
             string: MailComposer().applyPlaceholders(body, context: viewModel.placeholderContext()))
-        return await viewModel.send()
+        return (await viewModel.send()) ? recipient : nil
     }
     #endif
 
@@ -337,16 +362,15 @@ enum CLIRequestHandlers {
     // MARK: - tasks create
 
     static func createTask(_ request: CLIRequest, deps: Dependencies) async throws -> CLIResponse {
-        let store = try CLIStore.open()
-        let config = try resolveConfig(request, store: store)
+        let config = try resolveConfig(request, cloud: deps.cloud)
         let title = request.payload["title"] ?? ""
         let prose = request.payload["notes"] ?? ""
         let refs = numbers(request.payload["feedback"])
         let status = TaskStatus(rawValue: request.payload["status"] ?? "") ?? .todo
         let priority = TaskPriority(rawValue: request.payload["priority"] ?? "") ?? .med
         let versionName = request.payload["version"]
-        let milestone = try milestoneNumber(forVersion: versionName, config: config, cloud: store.cloud)
-        let warnings = warnAboutUncached(refs, config: config, local: store.local)
+        let milestone = try milestoneNumber(forVersion: versionName, config: config, cloud: deps.cloud)
+        let warnings = warnAboutUncached(refs, config: config, local: deps.local)
 
         let number: Int
         do {
@@ -372,8 +396,7 @@ enum CLIRequestHandlers {
     // MARK: - tasks link / unlink
 
     static func link(_ request: CLIRequest, deps: Dependencies, removing: Bool) async throws -> CLIResponse {
-        let store = try CLIStore.open()
-        let config = try resolveConfig(request, store: store)
+        let config = try resolveConfig(request, cloud: deps.cloud)
         guard let taskNumber = request.payload["task"].flatMap(Int.init) else {
             throw CLIError.usage(CLIUsageError(code: "missing_flag", message: "--task is required"))
         }
@@ -397,7 +420,7 @@ enum CLIRequestHandlers {
                                     hint: "It has no \(AppFeedbackLabels.task) label.")
         }
 
-        let warnings = removing ? [] : warnAboutUncached(refs, config: config, local: store.local)
+        let warnings = removing ? [] : warnAboutUncached(refs, config: config, local: deps.local)
         let newBody = rewriteRefs(in: live.body, adding: removing ? [] : refs,
                                   removing: removing ? refs : [])
         do {
@@ -418,7 +441,7 @@ enum CLIRequestHandlers {
             isClosed: live.state == "closed", milestone: nil,
             notes: FeedbackTaskRefParser.prose(of: newBody),
             feedback: TaskIndex.linkedFeedback(FeedbackTaskRefParser.parse(newBody),
-                                               config: config, local: store.local),
+                                               config: config, local: deps.local),
             url: FeedbackQuery.url(for: taskNumber, config: config))
         return CLIResponse(id: request.id, ok: true, warnings: warnings,
                            json: CLIOutput.encode(result))
@@ -426,11 +449,11 @@ enum CLIRequestHandlers {
 
     // MARK: - Shared helpers
 
-    static func resolveConfig(_ request: CLIRequest, store: CLIStore) throws -> ProductConfig {
+    static func resolveConfig(_ request: CLIRequest, cloud: ModelContext) throws -> ProductConfig {
         guard let query = request.payload["product"] else {
             throw CLIError.usage(CLIUsageError(code: "missing_flag", message: "--product is required"))
         }
-        return try ProductResolver.resolve(query, cloud: store.cloud)
+        return try ProductResolver.resolve(query, cloud: cloud)
     }
 
     static func numbers(_ raw: String?) -> [Int] {

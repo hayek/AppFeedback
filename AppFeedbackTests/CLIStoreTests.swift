@@ -100,6 +100,76 @@ final class CLIStoreTests: XCTestCase {
         XCTAssertTrue(defaults.local.path.contains("Application Support"))
     }
 
+    // MARK: - Schema drift against the app
+
+    /// `CLIStore` re-declares the app's two schemas. The day a `@Model` is added to
+    /// `AppFeedbackApp`'s `cloudSchema`/`localSchema` without editing `CLIStore`, the CLI opens the
+    /// store with a narrower model, SwiftData decides a migration is due, `allowsSave: false`
+    /// rejects it, and EVERY command fails at once. These two tests are the tripwire.
+    ///
+    /// The app builds its schemas from local `let`s inside `AppFeedbackApp.init`, so the lists are
+    /// not reachable as symbols from the test target. This first test therefore pins them by name:
+    /// **if it fails, update BOTH `CLIStore.swift` and this list.**
+    func testCLISchemasMatchThePinnedEntityNames() {
+        let expectedLocal: Set<String> = [
+            "CachedIssue", "MailAttachmentLocal", "MailAccountLocalState",
+            "RepoFetchState", "FeedbackAttachmentLocal", "TriageVerdictRecord",
+        ]
+        let expectedCloud: Set<String> = [
+            "Product", "Repo", "SeenIssue", "HiddenApp", "MailAccount",
+            "GitHubAccount", "MailSettings", "MailThread", "MailMessage",
+            "MailAttachment", "IssueTranslation", "IssueSummaryCache",
+            "ProjectVersion", "SentReleaseNotification", "ReplyTemplate",
+            "RepoFilterPreference", "AppStoreReviewMirror",
+        ]
+        XCTAssertEqual(Set(Schema(CLIStore.localTypes).entities.map(\.name)), expectedLocal)
+        XCTAssertEqual(Set(Schema(CLIStore.cloudTypes).entities.map(\.name)), expectedCloud)
+
+        // The two stores must stay disjoint: an entity in both configurations is ambiguous to
+        // Core Data when it routes a fetch.
+        XCTAssertTrue(expectedLocal.isDisjoint(with: expectedCloud))
+    }
+
+    /// The real drift detector: read `AppFeedbackApp.swift` off disk and compare its
+    /// `Schema([...])` lists to `CLIStore`'s. Skipped when the sources are not next to the test
+    /// bundle (e.g. a stripped CI checkout); the pinned test above still runs everywhere.
+    func testCLISchemasMatchAppFeedbackAppSource() throws {
+        let repoRoot = URL(filePath: #filePath)
+            .deletingLastPathComponent()      // AppFeedbackTests
+            .deletingLastPathComponent()      // repo root
+        let appSource = repoRoot.appending(path: "AppFeedback/App/AppFeedbackApp.swift")
+        try XCTSkipUnless(FileManager.default.fileExists(atPath: appSource.path),
+                          "app sources not available at \(appSource.path)")
+        let source = try String(contentsOf: appSource, encoding: .utf8)
+
+        for (variable, cliTypes) in [("cloudSchema", CLIStore.cloudTypes),
+                                     ("localSchema", CLIStore.localTypes)] {
+            guard let declared = Self.schemaTypeNames(in: source, variable: variable) else {
+                return XCTFail("could not find `let \(variable) = Schema([...])` in "
+                               + "AppFeedbackApp.swift — if the app now builds its container "
+                               + "differently, retarget this test rather than deleting it")
+            }
+            XCTAssertEqual(Set(Schema(cliTypes).entities.map(\.name)), declared,
+                           "CLIStore.\(variable) has drifted from AppFeedbackApp's \(variable). "
+                           + "The CLI would open the store with the wrong model and every command "
+                           + "would fail on a rejected migration. Update CLIStore.swift.")
+        }
+    }
+
+    /// Extracts `Foo`, `Bar` from `let <variable> = Schema([Foo.self, Bar.self])`.
+    private static func schemaTypeNames(in source: String, variable: String) -> Set<String>? {
+        guard let open = source.range(of: "let \(variable) = Schema([") else { return nil }
+        guard let close = source.range(of: "])", range: open.upperBound..<source.endIndex) else {
+            return nil
+        }
+        let names = source[open.upperBound..<close.lowerBound]
+            .components(separatedBy: ",")
+            .map { $0.trimmingCharacters(in: .whitespacesAndNewlines)
+                     .replacingOccurrences(of: ".self", with: "") }
+            .filter { !$0.isEmpty }
+        return names.isEmpty ? nil : Set(names)
+    }
+
     /// The decisive check: open the REAL store this machine's app writes, from a second
     /// process, read-only. Skipped when the app has never run here.
     func testOpensTheLiveStoreReadOnly() throws {

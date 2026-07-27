@@ -334,10 +334,16 @@ struct AppFeedbackApp: App {
             appStoreContext: { [registry = ascRegistry] productID in
                 await registry.responderContext(productID: productID)
             })
+        // Reads go through the app's OWN container. Opening a second one over the same store
+        // files (what the CLI process does) from in here would duplicate the whole stack on
+        // the main actor once per request.
+        let cliContext = ModelContext(container)
         let responder = CLIRequestResponder { request in
             try await CLIRequestHandlers.handle(
                 request,
-                deps: CLIRequestHandlers.Dependencies(registry: issueRegistry, reply: replyDeps))
+                deps: CLIRequestHandlers.Dependencies(registry: issueRegistry,
+                                                      local: cliContext, cloud: cliContext,
+                                                      reply: replyDeps))
         }
         responder.start()
         _cliResponder = State(initialValue: responder)

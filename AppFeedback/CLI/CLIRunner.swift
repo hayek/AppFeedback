@@ -6,13 +6,19 @@ enum CLIRunner {
 
     /// Entry point from the dispatcher. Never returns.
     static func run(invocation: Result<CLICommand, CLIUsageError>) -> Never {
-        // A wedged async path must never hang an agent indefinitely.
+        // A wedged async path must never hang an agent indefinitely. It exits through the same
+        // emitter as every other failure: stdout has to parse as JSON on every path, and this
+        // is the one where a write's outcome is genuinely unknown.
         let watchdog = Thread {
             Thread.sleep(forTimeInterval: watchdogSeconds)
-            FileHandle.standardError.write(Data("\(CLIBranding.commandName): timed out\n".utf8))
-            exit(CLIExitCode.watchdog.rawValue)
+            exit(emit(error: .remote(
+                message: "\(CLIBranding.commandName) gave up after \(Int(watchdogSeconds))s.",
+                hint: "If this was a write, its outcome is unknown — check AppFeedback before "
+                    + "retrying, or the change may be applied twice."),
+                code: "timeout", exitCode: .watchdog))
         }
-        watchdog.stackSize = 1 << 16
+        // Big enough for the JSON emitter; the default 512K is what a Thread would get anyway.
+        watchdog.stackSize = 1 << 19
         watchdog.start()
 
         Task {
@@ -64,7 +70,7 @@ enum CLIRunner {
                     asOf: asOf, stale: isStale(asOf),
                     refreshTimedOut: refreshTimedOut ? true : nil,
                     closedDataIncomplete: flags.state == .open ? nil : true,
-                    product: ProductResolver.ref(config), filters: describe(flags),
+                    product: ProductResolver.ref(config), filters: describe(feedback: flags),
                     page: PageInfo(limit: flags.limit, offset: flags.offset, total: result.total,
                                    hasMore: flags.offset + result.items.count < result.total),
                     items: result.items)
@@ -97,7 +103,7 @@ enum CLIRunner {
                     asOf: asOf, stale: isStale(asOf),
                     refreshTimedOut: refreshTimedOut ? true : nil,
                     closedDataIncomplete: flags.state == .open ? nil : true,
-                    product: ProductResolver.ref(config), filters: describe(flags),
+                    product: ProductResolver.ref(config), filters: describe(tasks: flags),
                     page: PageInfo(limit: flags.limit, offset: flags.offset, total: all.count,
                                    hasMore: flags.offset + page.count < all.count),
                     items: page)
@@ -257,8 +263,12 @@ enum CLIRunner {
         return now.timeIntervalSince(asOf) > 15 * 60
     }
 
-    /// Echoes the filters that were actually applied, so an agent can self-check a guessed value.
-    static func describe(_ flags: CLIFlags) -> [String: String] {
+    /// Echoes the filters that were actually applied, so an agent can self-check a guessed
+    /// value. Only keys the executed command really honours may appear: a shared echo listed
+    /// flags the other noun ignores, so `tasks --since 7d` looked filtered while returning
+    /// every task in the repo. Keep each list in step with the query that consumes the flags
+    /// (`FeedbackQuery.matches` / `TaskIndex.filter`).
+    static func describe(feedback flags: CLIFlags) -> [String: String] {
         var described: [String: String] = ["state": flags.state.rawValue,
                                            "sort": flags.sort.rawValue,
                                            "order": flags.order.rawValue]
@@ -266,23 +276,32 @@ enum CLIRunner {
         if !flags.labels.isEmpty     { described["label"] = flags.labels.joined(separator: ",") }
         if !flags.sources.isEmpty    { described["source"] = flags.sources.map(\.rawValue).joined(separator: ",") }
         if !flags.types.isEmpty      { described["type"] = flags.types.map(\.rawValue).joined(separator: ",") }
-        if !flags.statuses.isEmpty   { described["status"] = flags.statuses.map(\.rawValue).joined(separator: ",") }
-        if !flags.priorities.isEmpty { described["priority"] = flags.priorities.map(\.rawValue).joined(separator: ",") }
         if let search = flags.search { described["search"] = search }
         if let since = flags.since   { described["since"] = CLIOutput.iso8601.string(from: since) }
         if let since = flags.updatedSince { described["updatedSince"] = CLIOutput.iso8601.string(from: since) }
         if let low = flags.minRating  { described["minRating"] = String(low) }
         if let high = flags.maxRating { described["maxRating"] = String(high) }
         if let version = flags.appVersion { described["appVersion"] = version }
-        if let version = flags.version    { described["version"] = version }
         if let hasTask = flags.hasTask    { described["hasTask"] = String(hasTask) }
         if flags.includeHidden       { described["includeHidden"] = "true" }
         return described
     }
 
+    /// Tasks are always newest-number-first, so `--sort`/`--order` are not echoed either.
+    static func describe(tasks flags: CLIFlags) -> [String: String] {
+        var described: [String: String] = ["state": flags.state.rawValue]
+        if !flags.statuses.isEmpty   { described["status"] = flags.statuses.map(\.rawValue).joined(separator: ",") }
+        if !flags.priorities.isEmpty { described["priority"] = flags.priorities.map(\.rawValue).joined(separator: ",") }
+        if let version = flags.version { described["version"] = version }
+        if let search = flags.search   { described["search"] = search }
+        return described
+    }
+
     /// JSON error on stdout (so a failed call is still parseable) plus a one-liner on stderr.
-    static func emit(error: CLIError) -> Int32 {
-        var payload: [String: Any] = ["code": error.code, "message": error.message]
+    /// `code`/`exitCode` override the error's own, for failures the `CLIError` cases don't
+    /// model — currently only the watchdog, which reports `timeout`/7 through a `.remote`.
+    static func emit(error: CLIError, code: String? = nil, exitCode: CLIExitCode? = nil) -> Int32 {
+        var payload: [String: Any] = ["code": code ?? error.code, "message": error.message]
         if let hint = error.hint { payload["hint"] = hint }
         if !error.candidates.isEmpty { payload["candidates"] = error.candidates }
         if let data = try? JSONSerialization.data(withJSONObject: ["error": payload],
@@ -292,7 +311,7 @@ enum CLIRunner {
             print(text)
         }
         FileHandle.standardError.write(Data("\(CLIBranding.commandName): \(error.message)\n".utf8))
-        return error.exitCode.rawValue
+        return (exitCode ?? error.exitCode).rawValue
     }
 
     static func helpText(for topic: String?) -> String {
@@ -308,7 +327,7 @@ enum CLIRunner {
               --state open|closed|all      default: open
               --source sdk|app-store|email
               --type bug|feature-request
-              --label <name>        repeatable, exact match
+              --label <name>        repeatable; ORs together (exact match)
               --search <text>       title, description, app name
               --since 7d|YYYY-MM-DD --updated-since ...
               --min-rating N --max-rating N     inclusive, 1-5

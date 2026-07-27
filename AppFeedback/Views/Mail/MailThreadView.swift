@@ -26,12 +26,7 @@ struct MailThreadView: View {
     private var messages: [MailMessage] { thread.sortedDedupedMessages }
 
     private var resolvedSenderAccountID: UUID? {
-        if let last = messages.last,
-           let id = last.accountID,
-           accountStore.account(id: id) != nil {
-            return id
-        }
-        return accountStore.defaultSender?.id
+        messages.last?.replySenderAccountID(in: accountStore) ?? accountStore.defaultSender?.id
     }
 
     var body: some View {
@@ -76,15 +71,7 @@ struct MailThreadView: View {
         .padding(.vertical, 4)
     }
 
-    private var replyRecipient: String? {
-        guard let last = messages.last else { return nil }
-        // When the last message is outbound, reply to the first recipient (not our own from address).
-        let rawRecipient = last.direction == .outbound
-            ? (last.toAddresses.first ?? last.fromAddress)
-            : last.fromAddress
-        // SwiftMail's SMTP layer rejects `Display Name <addr>` form, so strip to bare addr.
-        return MailAddress.bare(from: rawRecipient) ?? rawRecipient
-    }
+    private var replyRecipient: String? { messages.last?.replyRecipient }
 
     private func beginReply(senderAccountID: UUID? = nil) {
         #if canImport(SwiftMail)

@@ -20,6 +20,12 @@ enum CLIIPCTransport {
         directory.appending(path: "res-\(id.uuidString).json")
     }
 
+    /// Where a request lands once this process has claimed it. The pid keeps two instances
+    /// from picking the same destination, so the claim itself decides the winner.
+    static func claimURL(id: UUID, in directory: URL, pid: Int32 = getpid()) -> URL {
+        directory.appending(path: "req-\(id.uuidString).claim-\(pid).json")
+    }
+
     static func ensureDirectory(_ directory: URL) throws {
         try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
     }
@@ -31,11 +37,20 @@ enum CLIIPCTransport {
     }
 
     /// Reading consumes the file — a request is answered once.
+    ///
+    /// The claim is an atomic `rename(2)`, not read-then-delete: the installed app and an
+    /// Xcode dev build both register this notification name and both wake on the same ping,
+    /// so with a plain read each could load the payload before either delete landed and a
+    /// single `respond` would email the reporter twice. Exactly one rename can succeed; the
+    /// loser sees ENOENT and treats the request as already consumed. `rename` preserves the
+    /// modification date, so a claimed file a crash left behind is still reaped by `sweep`.
     static func readRequest(id: UUID, in directory: URL) throws -> CLIRequest {
-        let url = requestURL(id: id, in: directory)
-        let data = try Data(contentsOf: url)
-        try? FileManager.default.removeItem(at: url)
-        return try JSONDecoder().decode(CLIRequest.self, from: data)
+        let claimed = claimURL(id: id, in: directory)
+        guard rename(requestURL(id: id, in: directory).path, claimed.path) == 0 else {
+            throw NSError(domain: NSPOSIXErrorDomain, code: Int(errno))
+        }
+        defer { try? FileManager.default.removeItem(at: claimed) }
+        return try JSONDecoder().decode(CLIRequest.self, from: try Data(contentsOf: claimed))
     }
 
     static func write(response: CLIResponse, in directory: URL) throws {
@@ -51,7 +66,9 @@ enum CLIIPCTransport {
         return try JSONDecoder().decode(CLIResponse.self, from: data)
     }
 
-    /// Drops abandoned files (a CLI killed mid-wait, or a request no app answered).
+    /// Drops abandoned files (a CLI killed mid-wait, a request no app answered, or a request
+    /// claimed by an instance that died before it could reply). Everything in the directory is
+    /// judged by modification date, so claimed files need no special case.
     static func sweep(in directory: URL = directory, olderThan seconds: TimeInterval = 3600) {
         let manager = FileManager.default
         guard let entries = try? manager.contentsOfDirectory(

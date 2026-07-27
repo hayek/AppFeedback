@@ -56,6 +56,9 @@ enum ProductResolver {
             let split = partition(open)
 
             let hidden = hiddenApps(owner: owner, repo: repo, cloud: cloud)
+            let headline = headlineCounts(split, hidden: hidden)
+            // The per-app breakdown still lists hidden apps — with `hidden: true` — so the caller
+            // can see what `--include-hidden` would add.
             let counts = Dictionary(grouping: split.feedback.compactMap(\.appName).filter { !$0.isEmpty },
                                     by: { $0 }).mapValues(\.count)
             let apps = counts.keys.sorted().map {
@@ -81,10 +84,23 @@ enum ProductResolver {
                 sources: SourceFlags(sdk: true,
                                      appStore: product.appStoreAppAppleID != nil,
                                      email: product.feedbackInboxAccountID != nil),
-                feedbackCount: split.feedback.count,
-                taskCount: split.tasks.count,
+                feedbackCount: headline.feedback,
+                taskCount: headline.tasks,
                 lastFetchedAt: lastFetchedAt(local: local, owner: owner, repo: repo))
         }
+    }
+
+    /// The headline `products` counts, and the single place the hidden-app exclusion is decided so
+    /// it can't be applied to one count and forgotten on the other. `feedback list` drops hidden
+    /// apps unless `--include-hidden`, so `feedbackCount` must drop them too — otherwise `products`
+    /// advertises a total no amount of paging can ever reach. Tasks are deliberately *not*
+    /// filtered: they carry no app attribution and `tasks list` has no hidden dimension, so
+    /// excluding them would create the same mismatch in the other direction.
+    static func headlineCounts(_ split: (tasks: [CachedIssue], feedback: [CachedIssue]),
+                               hidden: Set<String>) -> (feedback: Int, tasks: Int) {
+        let visible = hidden.isEmpty ? split.feedback
+                                     : split.feedback.filter { !hidden.contains($0.appName ?? "") }
+        return (feedback: visible.count, tasks: split.tasks.count)
     }
 
     /// Splits cached rows into (tasks, feedback) by the `appfeedback:task` label.

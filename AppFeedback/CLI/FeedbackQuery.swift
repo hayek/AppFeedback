@@ -53,8 +53,9 @@ enum FeedbackQuery {
             guard let type = issue.labels.issueType?.type, flags.types.contains(type) else { return false }
         }
         if !flags.labels.isEmpty {
+            // Repeating a flag ORs its values, like every other repeatable filter here.
             let names = Set(issue.labels.map(\.name))
-            guard flags.labels.allSatisfy(names.contains) else { return false }
+            guard flags.labels.contains(where: names.contains) else { return false }
         }
         if let version = flags.appVersion, issue.appVersion != version { return false }
         if let since = flags.since, issue.createdAt < since { return false }

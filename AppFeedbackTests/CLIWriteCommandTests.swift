@@ -12,7 +12,67 @@ final class CLIWriteCommandTests: XCTestCase {
     override func setUpWithError() throws {
         let modelConfig = ModelConfiguration(isStoredInMemoryOnly: true, cloudKitDatabase: .none)
         context = ModelContext(try ModelContainer(
-            for: CachedIssue.self, ProjectVersion.self, configurations: modelConfig))
+            for: Product.self, HiddenApp.self, ProjectVersion.self,
+                CachedIssue.self, RepoFetchState.self, TriageVerdictRecord.self,
+            configurations: modelConfig))
+    }
+
+    // MARK: - Handler-level fixtures
+
+    /// The product every handler test resolves `--product P` to. Without a row here
+    /// `resolveConfig` fails before any handler logic runs.
+    @discardableResult
+    private func insertProduct(name: String = "P") -> Product {
+        let product = Product(displayName: name, owner: "o", repo: "r")
+        context.insert(product)
+        return product
+    }
+
+    private func cache(_ number: Int, title: String = "Cached") {
+        context.insert(CachedIssue(repoOwner: "o", repoName: "r", number: number, title: title,
+                                   createdAt: Date(), rawBody: "", appName: nil, appVersion: nil,
+                                   device: nil, osVersion: nil, email: nil, issueDescription: ""))
+    }
+
+    /// Real handler dependencies over in-memory contexts: nothing here reaches GitHub, the
+    /// keychain or the network, so the handlers themselves are what is under test.
+    private func makeDeps(writer: FakeIssueWriting,
+                          token: String? = "gh-token") -> CLIRequestHandlers.Dependencies {
+        CLIRequestHandlers.Dependencies(
+            registry: IssueLoaderRegistry(factory: { IssueLoader(config: $0, session: .mock) },
+                                          tokenProvider: { _ in nil }),
+            local: context, cloud: context,
+            writer: writer, tokenProvider: { _ in token })
+    }
+
+    private func linkRequest(task: String? = "90", feedback: String,
+                             product: String = "P") -> CLIRequest {
+        var payload = ["product": product, "feedback": feedback]
+        if let task { payload["task"] = task }
+        return CLIRequest(kind: .linkTask, payload: payload)
+    }
+
+    private func taskIssue(number: Int = 90, refs: [Int], prose: String = "notes",
+                           labels: [String] = [AppFeedbackLabels.task, "status:in-progress",
+                                               "priority:high"],
+                           state: String = "open") -> FetchedIssue {
+        FetchedIssue(number: number, title: "Task",
+                     body: FeedbackTaskRefParser.upsert(into: prose, refs: refs),
+                     labels: labels, state: state)
+    }
+
+    private func detail(_ response: CLIResponse) throws -> TaskDetail {
+        try JSONDecoder().decode(TaskDetail.self,
+                                 from: Data(try XCTUnwrap(response.json).utf8))
+    }
+
+    private func cliError(_ error: Error, file: StaticString = #filePath,
+                          line: UInt = #line) throws -> CLIError {
+        guard let cliError = error as? CLIError else {
+            XCTFail("expected a CLIError, got \(error)", file: file, line: line)
+            throw error
+        }
+        return cliError
     }
 
     // MARK: - Milestone resolution
@@ -103,45 +163,294 @@ final class CLIWriteCommandTests: XCTestCase {
         XCTAssertEqual(CLIRequestHandlers.numbers(""), [])
     }
 
-    // MARK: - link against a fake writer
+    // MARK: - link / unlink through the real handler
 
-    /// The cache says [10]; GitHub says [10, 20]. Linking 30 must yield [10, 20, 30] — proving
-    /// the rewrite happens against the LIVE body, not the stale cached one.
-    func testLinkRewritesTheLiveBodyNotTheCachedOne() async throws {
+    /// The cache says [10]; GitHub says [10, 20]. Linking 30 must PATCH [10, 20, 30] — proving
+    /// the handler rewrites the LIVE body it fetched, not the stale cached one.
+    func testLinkHandlerRewritesTheLiveBodyNotTheCachedOne() async throws {
+        insertProduct()
+        cache(10); cache(20); cache(30)
         let writer = FakeIssueWriting()
-        await writer.stub(FetchedIssue(number: 90, title: "Task",
-                                       body: FeedbackTaskRefParser.upsert(into: "notes", refs: [10, 20]),
-                                       labels: [AppFeedbackLabels.task, "status:todo"], state: "open"))
+        await writer.stub(taskIssue(refs: [10, 20]))
 
-        let live = try await writer.fetchIssue(owner: "o", repo: "r", number: 90, token: "t")
-        let updated = CLIRequestHandlers.rewriteRefs(in: live.body, adding: [30], removing: [])
-        XCTAssertEqual(FeedbackTaskRefParser.parse(updated), [10, 20, 30],
-                       "must union against the live body, not the cached [10]")
-    }
+        let response = try await CLIRequestHandlers.link(linkRequest(feedback: "30"),
+                                                         deps: makeDeps(writer: writer),
+                                                         removing: false)
+        XCTAssertTrue(response.ok)
+        let fetches = await writer.fetches
+        XCTAssertEqual(fetches, [90], "the live task must be read before rewriting")
 
-    func testLinkPatchesOnlyTheBody() async throws {
-        let writer = FakeIssueWriting()
-        try await writer.updateIssue(owner: "o", repo: "r", number: 90, title: nil,
-                                     body: CLIRequestHandlers.rewriteRefs(in: "notes",
-                                                                          adding: [7], removing: []),
-                                     labels: nil, milestoneNumber: nil, state: nil, token: "t")
         let updates = await writer.updates
         XCTAssertEqual(updates.count, 1)
+        XCTAssertEqual(FeedbackTaskRefParser.parse(try XCTUnwrap(updates[0].body)), [10, 20, 30],
+                       "must union against the live body, not the cached [10]")
+        XCTAssertEqual(FeedbackTaskRefParser.prose(of: try XCTUnwrap(updates[0].body)), "notes",
+                       "the human prose must survive the machine-managed block rewrite")
+    }
+
+    /// A regression that also sent labels/state/milestone would silently strip a task's
+    /// priority, reopen a finished task, or clear its milestone — all while exiting 0.
+    func testLinkHandlerPatchesOnlyTheBody() async throws {
+        insertProduct()
+        cache(7)
+        let writer = FakeIssueWriting()
+        await writer.stub(taskIssue(refs: [], labels: [AppFeedbackLabels.task, "status:done",
+                                                       "priority:high"],
+                                    state: "closed"))
+
+        _ = try await CLIRequestHandlers.link(linkRequest(feedback: "7"),
+                                              deps: makeDeps(writer: writer), removing: false)
+
+        let updates = await writer.updates
+        XCTAssertEqual(updates.count, 1)
+        XCTAssertEqual(updates[0].owner, "o")
+        XCTAssertEqual(updates[0].repo, "r")
         XCTAssertEqual(updates[0].number, 90)
+        XCTAssertNil(updates[0].title, "the title must be left untouched")
         XCTAssertNil(updates[0].labels, "labels must be left untouched")
-        XCTAssertNil(updates[0].state, "state must be left untouched")
+        XCTAssertNil(updates[0].state, "state must be left untouched — a done task stays closed")
+        XCTAssertNil(updates[0].milestoneNumber, "the milestone must not even be sent")
         XCTAssertEqual(FeedbackTaskRefParser.parse(try XCTUnwrap(updates[0].body)), [7])
     }
 
-    func testFetchingAnUnstubbedIssueThrowsNotFound() async {
+    /// The reply describes the task as it now is: refs from the newly written body, status and
+    /// priority from the live labels, closed-ness from the live state.
+    func testLinkHandlerReportsTheUpdatedTask() async throws {
+        insertProduct()
+        cache(10, title: "Crash on launch")
+        cache(20, title: "Slow sync")
+        let writer = FakeIssueWriting()
+        await writer.stub(taskIssue(refs: [10]))
+
+        let response = try await CLIRequestHandlers.link(linkRequest(feedback: "20"),
+                                                         deps: makeDeps(writer: writer),
+                                                         removing: false)
+        let result = try detail(response)
+        XCTAssertEqual(result.number, 90)
+        XCTAssertEqual(result.title, "Task")
+        XCTAssertEqual(result.status, "in-progress")
+        XCTAssertEqual(result.priority, "high")
+        XCTAssertFalse(result.isClosed)
+        XCTAssertEqual(result.notes, "notes")
+        XCTAssertEqual(result.feedback.map(\.number), [10, 20])
+        XCTAssertEqual(result.feedback.map(\.title), ["Crash on launch", "Slow sync"])
+        XCTAssertEqual(result.url, "https://github.com/o/r/issues/90")
+    }
+
+    func testUnlinkHandlerRemovesOnlyTheNamedRef() async throws {
+        insertProduct()
+        cache(10); cache(11)
+        let writer = FakeIssueWriting()
+        await writer.stub(taskIssue(refs: [10, 11]))
+
+        let response = try await CLIRequestHandlers.link(linkRequest(feedback: "11"),
+                                                         deps: makeDeps(writer: writer),
+                                                         removing: true)
+        XCTAssertTrue(response.ok)
+        let updates = await writer.updates
+        XCTAssertEqual(FeedbackTaskRefParser.parse(try XCTUnwrap(updates[0].body)), [10])
+        XCTAssertEqual(try detail(response).feedback.map(\.number), [10])
+    }
+
+    /// The guard that stops `tasks link --task <feedback#>` from rewriting a feedback issue's
+    /// body — the issue must carry the task label or nothing is written at all.
+    func testLinkRejectsANumberThatIsNotATask() async throws {
+        insertProduct()
+        cache(10)
+        let writer = FakeIssueWriting()
+        await writer.stub(FetchedIssue(number: 90, title: "Crash on launch",
+                                       body: "A user's report", labels: ["bug"], state: "open"))
+
+        do {
+            _ = try await CLIRequestHandlers.link(linkRequest(feedback: "10"),
+                                                  deps: makeDeps(writer: writer), removing: false)
+            XCTFail("expected a throw")
+        } catch {
+            let failure = try cliError(error)
+            XCTAssertEqual(failure.code, "task_not_found")
+            XCTAssertEqual(failure.exitCode, .notFound)
+        }
+        let updates = await writer.updates
+        XCTAssertTrue(updates.isEmpty, "a non-task's body must never be rewritten")
+    }
+
+    func testLinkAgainstAnIssueGitHubDoesNotHaveIsNotFound() async throws {
+        insertProduct()
+        let writer = FakeIssueWriting()   // nothing stubbed ⇒ fetch 404s
+
+        do {
+            _ = try await CLIRequestHandlers.link(linkRequest(feedback: "10"),
+                                                  deps: makeDeps(writer: writer), removing: false)
+            XCTFail("expected a throw")
+        } catch {
+            XCTAssertEqual(try cliError(error).code, "task_not_found")
+        }
+        let updates = await writer.updates
+        XCTAssertTrue(updates.isEmpty)
+    }
+
+    /// Uncached numbers may be legitimately closed-and-never-cached, so the link still happens —
+    /// the user is warned, not blocked.
+    func testLinkWarnsAboutAnUncachedFeedbackNumberButStillLinks() async throws {
+        insertProduct()
+        cache(10)
+        let writer = FakeIssueWriting()
+        await writer.stub(taskIssue(refs: []))
+
+        let response = try await CLIRequestHandlers.link(linkRequest(feedback: "10,99"),
+                                                         deps: makeDeps(writer: writer),
+                                                         removing: false)
+        XCTAssertTrue(response.ok)
+        XCTAssertEqual(response.warnings.count, 1)
+        XCTAssertTrue(response.warnings[0].contains("99"))
+        let updates = await writer.updates
+        XCTAssertEqual(FeedbackTaskRefParser.parse(try XCTUnwrap(updates[0].body)), [10, 99],
+                       "the warning must not stop the link")
+    }
+
+    /// Unlinking an uncached number is the normal way to clean up a stale ref, so warning
+    /// about it would be noise.
+    func testUnlinkDoesNotWarnAboutUncachedNumbers() async throws {
+        insertProduct()
+        let writer = FakeIssueWriting()
+        await writer.stub(taskIssue(refs: [99]))
+
+        let response = try await CLIRequestHandlers.link(linkRequest(feedback: "99"),
+                                                         deps: makeDeps(writer: writer),
+                                                         removing: true)
+        XCTAssertEqual(response.warnings, [])
+        let updates = await writer.updates
+        XCTAssertEqual(FeedbackTaskRefParser.parse(try XCTUnwrap(updates[0].body)), [])
+    }
+
+    func testLinkWithoutATaskNumberIsAUsageErrorAndWritesNothing() async throws {
+        insertProduct()
         let writer = FakeIssueWriting()
         do {
-            _ = try await writer.fetchIssue(owner: "o", repo: "r", number: 404, token: "t")
+            _ = try await CLIRequestHandlers.link(linkRequest(task: nil, feedback: "10"),
+                                                  deps: makeDeps(writer: writer), removing: false)
             XCTFail("expected a throw")
-        } catch let error as GitHubIssueWriter.WriteError {
-            XCTAssertTrue(error.isNotFound)
         } catch {
-            XCTFail("expected WriteError, got \(error)")
+            let failure = try cliError(error)
+            XCTAssertEqual(failure.code, "missing_flag")
+            XCTAssertEqual(failure.exitCode, .usage)
+        }
+        let fetches = await writer.fetches
+        XCTAssertTrue(fetches.isEmpty)
+    }
+
+    /// Without a token there is nothing to authenticate the read with, so the handler must
+    /// stop before it ever touches GitHub.
+    func testLinkWithoutATokenFailsAuthBeforeReadingTheTask() async throws {
+        insertProduct()
+        let writer = FakeIssueWriting()
+        await writer.stub(taskIssue(refs: []))
+
+        do {
+            _ = try await CLIRequestHandlers.link(linkRequest(feedback: "10"),
+                                                  deps: makeDeps(writer: writer, token: nil),
+                                                  removing: false)
+            XCTFail("expected a throw")
+        } catch {
+            XCTAssertEqual(try cliError(error).exitCode, .auth)
+        }
+        let fetches = await writer.fetches
+        XCTAssertTrue(fetches.isEmpty, "no token ⇒ no GitHub read")
+    }
+
+    func testLinkAgainstAnUnknownProductIsNotFound() async throws {
+        insertProduct(name: "P")
+        let writer = FakeIssueWriting()
+        do {
+            _ = try await CLIRequestHandlers.link(linkRequest(feedback: "10", product: "Nope"),
+                                                  deps: makeDeps(writer: writer), removing: false)
+            XCTFail("expected a throw")
+        } catch {
+            XCTAssertEqual(try cliError(error).code, "product_not_found")
+        }
+        let fetches = await writer.fetches
+        XCTAssertTrue(fetches.isEmpty)
+    }
+
+    // MARK: - tasks create through the real handler
+
+    /// `createTask` resolves the milestone BEFORE it creates anything, so a version with no
+    /// GitHub milestone must abort rather than create a milestone-less task.
+    func testCreateTaskWithAVersionThatHasNoMilestoneIsAHardError() async throws {
+        insertProduct()
+        context.insert(ProjectVersion(repoOwner: "o", repoName: "r", name: "1.5.0",
+                                      milestoneNumber: nil))
+        let request = CLIRequest(kind: .createTask,
+                                 payload: ["product": "P", "title": "Fix it", "version": "1.5.0"])
+        do {
+            _ = try await CLIRequestHandlers.createTask(request, deps: makeDeps(writer: FakeIssueWriting()))
+            XCTFail("expected a throw")
+        } catch {
+            let failure = try cliError(error)
+            XCTAssertEqual(failure.code, "version_has_no_milestone")
+            XCTAssertEqual(failure.exitCode, .notFound)
+        }
+    }
+
+    func testCreateTaskWithAnUnknownVersionIsRejectedWithCandidates() async throws {
+        insertProduct()
+        context.insert(ProjectVersion(repoOwner: "o", repoName: "r", name: "1.4.0",
+                                      milestoneNumber: 12))
+        let request = CLIRequest(kind: .createTask,
+                                 payload: ["product": "P", "title": "Fix it", "version": "9.9.9"])
+        do {
+            _ = try await CLIRequestHandlers.createTask(request, deps: makeDeps(writer: FakeIssueWriting()))
+            XCTFail("expected a throw")
+        } catch {
+            let failure = try cliError(error)
+            guard case .notFound(let code, _, _, let candidates) = failure else {
+                return XCTFail("expected .notFound")
+            }
+            XCTAssertEqual(code, "version_not_found")
+            XCTAssertEqual(candidates, ["1.4.0"])
+        }
+    }
+
+    /// No `--version` means "no milestone", not "look one up": the repo here has versions, and
+    /// treating a missing flag as a lookup would fail here instead of reaching the create step
+    /// (which then stops on the absent token).
+    func testCreateTaskWithoutAVersionSkipsMilestoneResolutionEntirely() async throws {
+        insertProduct()
+        context.insert(ProjectVersion(repoOwner: "o", repoName: "r", name: "1.4.0",
+                                      milestoneNumber: 12))
+        let request = CLIRequest(kind: .createTask, payload: ["product": "P", "title": "Fix it"])
+        do {
+            _ = try await CLIRequestHandlers.createTask(request, deps: makeDeps(writer: FakeIssueWriting()))
+            XCTFail("expected the tokenless create to throw")
+        } catch {
+            let failure = try cliError(error)
+            XCTAssertEqual(failure.exitCode, .auth,
+                           "must fail on the missing token, i.e. past milestone resolution")
+            XCTAssertNotEqual(failure.code, "version_not_found")
+            XCTAssertNotEqual(failure.code, "version_has_no_milestone")
+        }
+    }
+
+    func testCreateTaskAgainstAnUnknownProductIsNotFound() async throws {
+        insertProduct(name: "P")
+        let request = CLIRequest(kind: .createTask, payload: ["product": "Nope", "title": "Fix it"])
+        do {
+            _ = try await CLIRequestHandlers.createTask(request, deps: makeDeps(writer: FakeIssueWriting()))
+            XCTFail("expected a throw")
+        } catch {
+            XCTAssertEqual(try cliError(error).code, "product_not_found")
+        }
+    }
+
+    func testCreateTaskWithoutAProductIsAUsageError() async throws {
+        do {
+            _ = try await CLIRequestHandlers.createTask(CLIRequest(kind: .createTask, payload: [:]),
+                                                        deps: makeDeps(writer: FakeIssueWriting()))
+            XCTFail("expected a throw")
+        } catch {
+            let failure = try cliError(error)
+            XCTAssertEqual(failure.code, "missing_flag")
+            XCTAssertEqual(failure.exitCode, .usage)
         }
     }
 
