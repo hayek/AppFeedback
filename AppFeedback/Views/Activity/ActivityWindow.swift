@@ -9,14 +9,16 @@ struct ActivityWindow: View {
         case all = "All"
         case fetches = "Fetches"
         case emails = "Emails"
+        case appStore = "App Store"
         var id: String { rawValue }
     }
 
     private var filteredEntries: [ActivityLogEntry] {
         switch filter {
-        case .all:     return log.entries
-        case .fetches: return log.entries.filter { $0.kind == .fetchIssues }
-        case .emails:  return log.entries.filter { $0.kind == .sendEmail || $0.kind == .testConnection }
+        case .all:      return log.entries
+        case .fetches:  return log.entries.filter { $0.kind == .fetchIssues }
+        case .emails:   return log.entries.filter { $0.kind == .sendEmail || $0.kind == .testConnection }
+        case .appStore: return log.entries.filter { $0.kind == .appStoreAPI }
         }
     }
 
@@ -87,6 +89,7 @@ private struct ActivityRow: View {
         case .downloadAttachment: return "paperclip"
         case .postComment:        return "bubble.left.and.text.bubble.right"
         case .createIssue:        return "plus.circle"
+        case .appStoreAPI:        return "app.badge"
         }
     }
 

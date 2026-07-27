@@ -220,7 +220,7 @@ struct AppFeedbackApp: App {
         let ascRegistry = AppStoreReviewCoordinatorRegistry { cfg in
             let auth = AppStoreConnectAuth(issuerID: cfg.issuerID, keyID: cfg.keyID,
                                            p8PEM: KeychainService.loadASCKeySync(for: cfg.id) ?? "")
-            let client = AppStoreConnectClient(auth: auth)
+            let client = AppStoreConnectClient(auth: auth, activityLog: activityLogValue)
             let owner = cfg.owner; let repo = cfg.repo
             return AppStoreReviewCoordinator(
                 config: cfg, client: client, issueWriter: GitHubIssueWriter(),

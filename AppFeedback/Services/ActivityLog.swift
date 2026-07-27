@@ -10,6 +10,7 @@ struct ActivityLogEntry: Identifiable, Codable, Equatable, Sendable {
         case downloadAttachment
         case postComment
         case createIssue
+        case appStoreAPI
     }
 
     enum Status: String, Codable, Sendable {

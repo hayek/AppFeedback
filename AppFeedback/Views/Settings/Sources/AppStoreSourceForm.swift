@@ -13,6 +13,7 @@ struct AppStoreSourceForm: View {
     var externalCanSave: Binding<Bool>? = nil
 
     @Environment(AppStoreReviewCoordinatorRegistry.self) private var registry
+    @Environment(ActivityLog.self) private var activityLog
     @Environment(\.dismiss) private var dismiss
     @State private var model = AppStoreSourceFormModel()
     @State private var showImporter = false
@@ -173,7 +174,8 @@ struct AppStoreSourceForm: View {
 
     private func runTest() async {
         await model.test { issuer, kid, pem in
-            AppStoreConnectClient(auth: AppStoreConnectAuth(issuerID: issuer, keyID: kid, p8PEM: pem))
+            AppStoreConnectClient(auth: AppStoreConnectAuth(issuerID: issuer, keyID: kid, p8PEM: pem),
+                                  activityLog: activityLog)
         }
     }
 

@@ -7,11 +7,13 @@ import Foundation
 final class AppStoreConnectClient: AppStoreConnectClientProtocol {
     private let auth: AppStoreConnectAuth
     private let session: URLSession
+    private let activityLog: ActivityLog?                  // @MainActor
     private static let base = "https://api.appstoreconnect.apple.com"
 
-    init(auth: AppStoreConnectAuth, session: URLSession = .shared) {
+    init(auth: AppStoreConnectAuth, session: URLSession = .shared, activityLog: ActivityLog? = nil) {
         self.auth = auth
         self.session = session
+        self.activityLog = activityLog
     }
 
     // MARK: - Reviews
@@ -23,35 +25,42 @@ final class AppStoreConnectClient: AppStoreConnectClientProtocol {
             + "&fields[customerReviews]=rating,title,body,reviewerNickname,createdDate,territory"
             + "&fields[customerReviewResponses]=responseBody,lastModifiedDate,state"
         guard let url = URL(string: urlString) else { throw AppStoreConnectError.http(0) }
-        let (data, http) = try await send(url: url, method: "GET", body: nil)
-        let rateRemaining = Self.parseRateRemaining(http)
-        try Self.mapStatus(http.statusCode, rateRemaining: rateRemaining, data: data)
-        let decoded: ReviewsEnvelope
-        do { decoded = try Self.decoder.decode(ReviewsEnvelope.self, from: data) }
-        catch { throw AppStoreConnectError.decoding(String(describing: error)) }
-        let responsesByID = Dictionary(uniqueKeysWithValues:
-            (decoded.included ?? [])
-                .filter { $0.type == "customerReviewResponses" }
-                .compactMap { inc -> (String, ASCResponse)? in
-                    guard let a = inc.attributes else { return nil }
-                    return (inc.id, ASCResponse(id: inc.id, responseBody: a.responseBody ?? "",
-                                                state: a.state ?? "", lastModifiedDate: a.lastModifiedDate ?? .distantPast))
-                })
-        let reviews: [ASCReview] = decoded.data.map { row in
-            let respID = row.relationships?.response?.data?.id
-            return ASCReview(
-                id: row.id,
-                rating: row.attributes?.rating ?? 0,
-                title: row.attributes?.title,
-                body: row.attributes?.body,
-                reviewerNickname: row.attributes?.reviewerNickname,
-                createdDate: row.attributes?.createdDate ?? .distantPast,
-                territory: row.attributes?.territory ?? "",
-                response: respID.flatMap { responsesByID[$0] }
-            )
+        let title = "GET reviews · app \(appAppleID)" + (cursor == nil ? "" : " (next page)")
+        return try await logged(title) {
+            let (data, http) = try await self.send(url: url, method: "GET", body: nil)
+            let rateRemaining = Self.parseRateRemaining(http)
+            try Self.mapStatus(http.statusCode, rateRemaining: rateRemaining, data: data)
+            let decoded: ReviewsEnvelope
+            do { decoded = try Self.decoder.decode(ReviewsEnvelope.self, from: data) }
+            catch { throw AppStoreConnectError.decoding(String(describing: error)) }
+            let responsesByID = Dictionary(uniqueKeysWithValues:
+                (decoded.included ?? [])
+                    .filter { $0.type == "customerReviewResponses" }
+                    .compactMap { inc -> (String, ASCResponse)? in
+                        guard let a = inc.attributes else { return nil }
+                        return (inc.id, ASCResponse(id: inc.id, responseBody: a.responseBody ?? "",
+                                                    state: a.state ?? "", lastModifiedDate: a.lastModifiedDate ?? .distantPast))
+                    })
+            let reviews: [ASCReview] = decoded.data.map { row in
+                let respID = row.relationships?.response?.data?.id
+                return ASCReview(
+                    id: row.id,
+                    rating: row.attributes?.rating ?? 0,
+                    title: row.attributes?.title,
+                    body: row.attributes?.body,
+                    reviewerNickname: row.attributes?.reviewerNickname,
+                    createdDate: row.attributes?.createdDate ?? .distantPast,
+                    territory: row.attributes?.territory ?? "",
+                    response: respID.flatMap { responsesByID[$0] }
+                )
+            }
+            let next = decoded.links?.next
+            let page = ASCReviewPage(reviews: reviews, nextCursor: (next?.isEmpty == false) ? next : nil, rateRemaining: rateRemaining)
+            let detail = Self.detail(status: http.statusCode, rateRemaining: rateRemaining,
+                                     summary: "\(reviews.count) review\(reviews.count == 1 ? "" : "s")"
+                                        + (page.nextCursor == nil ? "" : ", more pages"))
+            return (page, detail)
         }
-        let next = decoded.links?.next
-        return ASCReviewPage(reviews: reviews, nextCursor: (next?.isEmpty == false) ? next : nil, rateRemaining: rateRemaining)
     }
 
     // MARK: - Apps
@@ -60,12 +69,18 @@ final class AppStoreConnectClient: AppStoreConnectClientProtocol {
         guard let url = URL(string: "\(Self.base)/v1/apps?fields[apps]=bundleId,name&limit=200") else {
             throw AppStoreConnectError.http(0)
         }
-        let (data, http) = try await send(url: url, method: "GET", body: nil)
-        try Self.mapStatus(http.statusCode, rateRemaining: Self.parseRateRemaining(http), data: data)
-        do {
-            let env = try Self.decoder.decode(AppsEnvelope.self, from: data)
-            return env.data.map { ASCApp(id: $0.id, bundleId: $0.attributes?.bundleId ?? "", name: $0.attributes?.name ?? "") }
-        } catch { throw AppStoreConnectError.decoding(String(describing: error)) }
+        return try await logged("GET apps") {
+            let (data, http) = try await self.send(url: url, method: "GET", body: nil)
+            let rateRemaining = Self.parseRateRemaining(http)
+            try Self.mapStatus(http.statusCode, rateRemaining: rateRemaining, data: data)
+            do {
+                let env = try Self.decoder.decode(AppsEnvelope.self, from: data)
+                let apps = env.data.map { ASCApp(id: $0.id, bundleId: $0.attributes?.bundleId ?? "", name: $0.attributes?.name ?? "") }
+                let detail = Self.detail(status: http.statusCode, rateRemaining: rateRemaining,
+                                         summary: "\(apps.count) app\(apps.count == 1 ? "" : "s")")
+                return (apps, detail)
+            } catch { throw AppStoreConnectError.decoding(String(describing: error)) }
+        }
     }
 
     // MARK: - Responses (write-back; Phase 4 UI consumes these)
@@ -78,24 +93,71 @@ final class AppStoreConnectClient: AppStoreConnectClientProtocol {
             "relationships": ["review": ["data": ["type": "customerReviews", "id": reviewId]]],
         ]]
         let json = try JSONSerialization.data(withJSONObject: payload)
-        let (data, http) = try await send(url: url, method: "POST", body: json)
-        try Self.mapStatus(http.statusCode, rateRemaining: Self.parseRateRemaining(http), data: data)
-        do {
-            let env = try Self.decoder.decode(SingleResponseEnvelope.self, from: data)
-            guard let a = env.data.attributes else { throw AppStoreConnectError.decoding("missing response attributes") }
-            return ASCResponse(id: env.data.id, responseBody: a.responseBody ?? body,
-                               state: a.state ?? "PENDING_PUBLISH", lastModifiedDate: a.lastModifiedDate ?? Date())
-        } catch let e as AppStoreConnectError { throw e }
-        catch { throw AppStoreConnectError.decoding(String(describing: error)) }
+        return try await logged("POST response · review \(reviewId)") {
+            let (data, http) = try await self.send(url: url, method: "POST", body: json)
+            let rateRemaining = Self.parseRateRemaining(http)
+            try Self.mapStatus(http.statusCode, rateRemaining: rateRemaining, data: data)
+            do {
+                let env = try Self.decoder.decode(SingleResponseEnvelope.self, from: data)
+                guard let a = env.data.attributes else { throw AppStoreConnectError.decoding("missing response attributes") }
+                let response = ASCResponse(id: env.data.id, responseBody: a.responseBody ?? body,
+                                           state: a.state ?? "PENDING_PUBLISH", lastModifiedDate: a.lastModifiedDate ?? Date())
+                return (response, Self.detail(status: http.statusCode, rateRemaining: rateRemaining, summary: response.state))
+            } catch let e as AppStoreConnectError { throw e }
+            catch { throw AppStoreConnectError.decoding(String(describing: error)) }
+        }
     }
 
     func deleteResponse(responseId: String) async throws {
         guard let url = URL(string: "\(Self.base)/v1/customerReviewResponses/\(responseId)") else { throw AppStoreConnectError.http(0) }
-        let (data, http) = try await send(url: url, method: "DELETE", body: nil)
-        // 204 No Content on success.
-        guard http.statusCode == 204 else {
-            try Self.mapStatus(http.statusCode, rateRemaining: Self.parseRateRemaining(http), data: data)
-            return
+        try await logged("DELETE response \(responseId)") {
+            let (data, http) = try await self.send(url: url, method: "DELETE", body: nil)
+            let rateRemaining = Self.parseRateRemaining(http)
+            // 204 No Content on success.
+            if http.statusCode != 204 {
+                try Self.mapStatus(http.statusCode, rateRemaining: rateRemaining, data: data)
+            }
+            return ((), Self.detail(status: http.statusCode, rateRemaining: rateRemaining, summary: "deleted"))
+        }
+    }
+
+    // MARK: - Activity logging
+
+    /// Records one App Store Connect API call in the shared activity log: an in-progress entry when
+    /// the call starts, resolved with the HTTP status + a short summary, or with the error. Every
+    /// failure path is covered — JWT minting, transport, non-2xx mapping and decoding all run inside
+    /// `work`. A nil `activityLog` (tests, CLI) makes this a straight pass-through.
+    private func logged<T>(_ title: String, _ work: () async throws -> (T, String?)) async throws -> T {
+        guard let activityLog else { return try await work().0 }
+        let id = await MainActor.run { activityLog.start(kind: .appStoreAPI, title: title) }
+        do {
+            let (value, detail) = try await work()
+            await MainActor.run { activityLog.finish(id, status: .success, detail: detail) }
+            return value
+        } catch {
+            await MainActor.run { activityLog.finish(id, status: .failure, detail: Self.describe(error)) }
+            throw error
+        }
+    }
+
+    /// "200 · 42 reviews · 3490 calls left" — the status code first so a glance at the log answers
+    /// "did the call go through".
+    private static func detail(status: Int, rateRemaining: Int?, summary: String?) -> String {
+        var parts = ["\(status)"]
+        if let summary, !summary.isEmpty { parts.append(summary) }
+        if let rateRemaining { parts.append("\(rateRemaining) calls left") }
+        return parts.joined(separator: " · ")
+    }
+
+    private static func describe(_ error: Error) -> String {
+        switch error {
+        case AppStoreConnectError.authFailed:      return "401 authentication failed — check the Issuer ID, Key ID and .p8 key"
+        case AppStoreConnectError.forbidden:       return "403 forbidden — key not authorized for this request"
+        case AppStoreConnectError.rateLimited:     return "429 rate limited"
+        case let AppStoreConnectError.http(code):  return code == 0 ? "request failed" : "HTTP \(code)"
+        case let AppStoreConnectError.decoding(d): return "decoding failed — \(d)"
+        case let AppStoreConnectError.badKey(d):   return "bad .p8 key — \(d)"
+        default: return (error as? LocalizedError)?.errorDescription ?? String(describing: error)
         }
     }
 
