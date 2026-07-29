@@ -392,7 +392,7 @@ struct IssueCardView: View {
                     }
 
                     if issue.source == .appStore, let responseController {
-                        AppStoreResponsePanel(controller: responseController, accent: appColor)
+                        AppStoreResponsePanel(controller: responseController)
                     }
 
                     #if canImport(SwiftMail)

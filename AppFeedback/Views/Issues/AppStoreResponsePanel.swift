@@ -32,83 +32,103 @@ enum AppStoreResponsePanelModel {
 }
 
 /// The "Respond on App Store" panel rendered inside a feedback card whose source is the
-/// App Store. A text editor with a live character counter, a Submit/Update button, and (when
-/// a response already exists) a Delete button. A read-only ASC key shows an explanatory note
-/// instead of the editor controls.
+/// App Store. Wears the same chrome as the email composer (`InlineReplyView` +
+/// `ComposeFormCore`) — header strip, divider-separated rows, plain body editor, trailing
+/// button row — so a reply reads the same whichever source it answers. A text editor with a
+/// live character counter, a Submit/Update button, and (when a response already exists) a
+/// Delete button. A read-only ASC key shows an explanatory note instead of the editor controls.
 struct AppStoreResponsePanel: View {
     @State var controller: AppStoreResponseController
-    var accent: Color = .accentColor
 
-    init(controller: AppStoreResponseController, accent: Color = .accentColor) {
+    init(controller: AppStoreResponseController) {
         self._controller = State(initialValue: controller)
-        self.accent = accent
     }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            HStack(spacing: 6) {
-                Image(systemName: "apple.logo").font(.system(size: 11, weight: .semibold))
-                Text("Respond on App Store").font(.system(size: 12, weight: .semibold))
-                if let state = AppStoreResponsePanelModel.stateLabel(controller.responseState) {
-                    Text(state)
-                        .font(.system(size: 10, weight: .semibold))
-                        .padding(.horizontal, 6).padding(.vertical, 2)
-                        .background(accent.opacity(0.15), in: Capsule())
-                        .foregroundStyle(accent)
-                }
-                Spacer()
-            }
-            .foregroundStyle(.secondary)
-
+        VStack(alignment: .leading, spacing: 0) {
+            headerStrip
+            Divider()
             if controller.mode == .disabledReadOnly {
                 Text("This App Store Connect key is read-only. Use an Admin, App Manager, or Customer Support key to post developer responses.")
-                    .font(.system(size: 11))
+                    .font(.caption)
                     .foregroundStyle(.tertiary)
                     .fixedSize(horizontal: false, vertical: true)
+                    .padding(12)
             } else {
                 TextEditor(text: $controller.draft)
-                    .font(.system(size: 12))
-                    .frame(minHeight: 64, maxHeight: 140)
-                    .padding(6)
-                    .background(Color.secondary.opacity(0.08), in: RoundedRectangle(cornerRadius: 8))
-                    .overlay(RoundedRectangle(cornerRadius: 8)
-                        .stroke(controller.overLimit ? Color.red.opacity(0.6) : accent.opacity(0.25), lineWidth: 1))
-
-                HStack {
-                    Text("\(controller.remainingChars)")
-                        .font(.system(size: 10, weight: .medium).monospacedDigit())
-                        .foregroundStyle(controller.overLimit ? Color.red : Color.secondary)
-                    Spacer()
-                    if controller.canDelete {
-                        Button(role: .destructive) {
-                            Task { await controller.delete() }
-                        } label: { Text("Delete").font(.system(size: 11, weight: .semibold)) }
-                        .buttonStyle(.bordered)
-                        .disabled(controller.isBusy)
-                    }
-                    Button {
-                        Task { await controller.submit() }
-                    } label: {
-                        if controller.isBusy {
-                            ProgressView().controlSize(.small)
-                        } else {
-                            Text(AppStoreResponsePanelModel.primaryTitle(for: controller.mode))
-                                .font(.system(size: 11, weight: .semibold))
-                        }
-                    }
-                    .buttonStyle(.borderedProminent)
-                    .tint(accent)
-                    .disabled(!controller.canSubmit)
-                }
-
+                    .font(.body)
+                    .scrollDisabled(true)
+                    .frame(minHeight: 120)
+                    .padding(.horizontal, 8).padding(.vertical, 4)
+                Divider()
+                footerButtons
                 if let error = AppStoreResponsePanelModel.errorText(controller.lastError) {
-                    Text(error).font(.system(size: 11)).foregroundStyle(.red)
+                    Text(error)
+                        .font(.caption)
+                        .foregroundStyle(.red)
                         .fixedSize(horizontal: false, vertical: true)
+                        .padding(.horizontal, 12).padding(.bottom, 6)
                 }
             }
         }
-        .padding(10)
-        .background(Color.secondary.opacity(0.05), in: RoundedRectangle(cornerRadius: 10))
-        .padding(.top, 8)
+        .background(.background.tertiary, in: RoundedRectangle(cornerRadius: 8))
+        .overlay(
+            RoundedRectangle(cornerRadius: 8)
+                .stroke(.secondary.opacity(0.25), lineWidth: 1)
+        )
+        .padding(.top, 6)
+    }
+
+    // MARK: - Header strip
+
+    private var headerStrip: some View {
+        HStack(spacing: 8) {
+            Image(systemName: "apple.logo")
+                .foregroundStyle(.secondary)
+            Text("Respond on App Store")
+                .font(.caption)
+                .foregroundStyle(.secondary)
+                .lineLimit(1)
+            if let state = AppStoreResponsePanelModel.stateLabel(controller.responseState) {
+                Text(state)
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                    .padding(.horizontal, 8).padding(.vertical, 2)
+                    .background(Color.secondary.opacity(0.12), in: Capsule())
+            }
+            Spacer()
+        }
+        .padding(.horizontal, 10).padding(.vertical, 6)
+    }
+
+    // MARK: - Buttons
+
+    /// Mirrors `ComposeFormCore.footerButtons`: a leading affordance, then the secondary and
+    /// prominent actions. The character counter takes the paperclip's slot.
+    private var footerButtons: some View {
+        HStack {
+            Text("\(controller.remainingChars)")
+                .font(.caption.monospacedDigit())
+                .foregroundStyle(controller.overLimit ? Color.red : Color.secondary)
+            Spacer()
+            if controller.canDelete {
+                Button("Delete", role: .destructive) {
+                    Task { await controller.delete() }
+                }
+                .disabled(controller.isBusy)
+            }
+            Button {
+                Task { await controller.submit() }
+            } label: {
+                if controller.isBusy {
+                    ProgressView().controlSize(.small)
+                } else {
+                    Text(AppStoreResponsePanelModel.primaryTitle(for: controller.mode))
+                }
+            }
+            .buttonStyle(.borderedProminent)
+            .disabled(!controller.canSubmit)
+        }
+        .padding(12)
     }
 }
