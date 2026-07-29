@@ -114,4 +114,21 @@ final class AppStoreConnectClientTests: XCTestCase {
         let rel = ((data?["relationships"] as? [String: Any])?["review"] as? [String: Any])?["data"] as? [String: Any]
         XCTAssertEqual(rel?["id"] as? String, "R1")
     }
+
+    /// Transport failures must land in the activity log as one readable line, not a multi-paragraph
+    /// `NSError` dump with the whole request URL and CFNetwork userInfo inlined.
+    @MainActor
+    func testTransportFailureIsLoggedReadably() async {
+        MockURLProtocol.requestHandler = { _ in throw URLError(.notConnectedToInternet) }
+        let log = ActivityLog(persistenceURL: nil)
+        let client = AppStoreConnectClient(auth: auth(), session: .mock, activityLog: log)
+        _ = try? await client.listReviews(appAppleID: "123", page: nil)
+
+        let entry = log.entries.first
+        XCTAssertEqual(entry?.kind, .appStoreAPI)
+        XCTAssertEqual(entry?.status, .failure)
+        let detail = entry?.detail ?? ""
+        XCTAssertEqual(detail, "no internet connection")
+        XCTAssertFalse(detail.contains("NSErrorFailingURLStringKey"), "raw NSError userInfo must not leak into the log")
+    }
 }

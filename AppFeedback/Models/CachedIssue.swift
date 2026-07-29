@@ -70,7 +70,11 @@ final class CachedIssue {
         FeedbackIssue(
             number: number,
             title: title,
-            createdAt: createdAt,
+            // Rows cached before the review-date fix hold the import time; the stored body carries
+            // the review's own date, so read it back rather than waiting for a full reconcile.
+            createdAt: source == FeedbackSource.appStore.rawValue
+                ? (IssueBodyParser.sourceCreatedAt(in: rawBody) ?? createdAt)
+                : createdAt,
             rawBody: rawBody,
             appName: appName,
             appVersion: appVersion,

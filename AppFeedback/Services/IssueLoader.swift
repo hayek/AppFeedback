@@ -291,7 +291,9 @@ final class IssueLoader {
             return FeedbackIssue(
                 number: node.number,
                 title: node.title,
-                createdAt: node.createdAt,
+                // App Store reviews are filed as issues whenever the poll first sees them, so
+                // `node.createdAt` is the import time. Prefer the review's own date from the body.
+                createdAt: IssueBodyParser.markerDate(parsed.reviewCreatedAt) ?? node.createdAt,
                 rawBody: node.body ?? "",
                 appName: parsed.app,
                 appVersion: parsed.appVersion,

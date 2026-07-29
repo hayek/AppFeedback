@@ -306,4 +306,42 @@ final class IssueLoaderTests: XCTestCase {
         XCTAssertEqual(result.first?.milestoneTitle, "1.2.0")
         XCTAssertTrue(result.first.map(TaskItem.isTask) ?? false)
     }
+
+    /// App Store reviews are synthesized into GitHub issues whenever the poll happens to see them —
+    /// a 3-month-old review imported today gets `createdAt` = today, so the list showed every review
+    /// with the import date and sorted them in import order. The body's `reviewCreatedAt` marker
+    /// carries the real review date and must win.
+    func testAppStoreReviewUsesReviewDateAsCreatedAt() throws {
+        let review = ASCReview.make(id: "R1", rating: 5, title: "Great", body: "Love it",
+                                    created: Date(timeIntervalSince1970: 1_700_000_000))  // 2023-11-14T22:13:20Z
+        let body = AppStoreReviewSynthesizer.body(for: review)
+            .replacingOccurrences(of: "\"", with: "\\\"")
+            .replacingOccurrences(of: "\n", with: "\\n")
+        let json = """
+        {"data":{"repository":{"issues":{
+          "pageInfo":{"hasNextPage":false,"endCursor":null},
+          "nodes":[{"number":7,"title":"Great","body":"\(body)","createdAt":"2026-07-28T09:00:00Z",
+            "updatedAt":"2026-07-28T09:00:00Z","state":"OPEN",
+            "labels":{"nodes":[{"name":"source:app-store","color":"ededed"}]}}]
+        }}}}
+        """.data(using: .utf8)!
+        let result = try IssueLoader.decodePageForTesting(data: json, owner: "o", repo: "r")
+        XCTAssertEqual(result.first?.createdAt, Date(timeIntervalSince1970: 1_700_000_000),
+                       "the review's own date must win over the issue's import date")
+    }
+
+    /// Issues with no `reviewCreatedAt` marker (SDK feedback, email, plain GitHub issues) keep the
+    /// GitHub `createdAt` — that IS their real date.
+    func testIssueWithoutReviewDateKeepsGitHubCreatedAt() throws {
+        let json = """
+        {"data":{"repository":{"issues":{
+          "pageInfo":{"hasNextPage":false,"endCursor":null},
+          "nodes":[{"number":7,"title":"X","body":"plain body","createdAt":"2024-01-01T00:00:00Z",
+            "updatedAt":"2024-01-01T00:00:00Z","state":"OPEN","labels":{"nodes":[]}}]
+        }}}}
+        """.data(using: .utf8)!
+        let result = try IssueLoader.decodePageForTesting(data: json, owner: "o", repo: "r")
+        let expected = ISO8601DateFormatter().date(from: "2024-01-01T00:00:00Z")
+        XCTAssertEqual(result.first?.createdAt, expected)
+    }
 }

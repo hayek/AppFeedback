@@ -149,6 +149,8 @@ final class AppStoreConnectClient: AppStoreConnectClientProtocol {
         return parts.joined(separator: " · ")
     }
 
+    /// One readable line per failure. `URLError`'s own description drags the failing URL and the
+    /// whole CFNetwork `userInfo` into the log, so transport errors get short phrasings instead.
     private static func describe(_ error: Error) -> String {
         switch error {
         case AppStoreConnectError.authFailed:      return "401 authentication failed — check the Issuer ID, Key ID and .p8 key"
@@ -157,6 +159,16 @@ final class AppStoreConnectClient: AppStoreConnectClientProtocol {
         case let AppStoreConnectError.http(code):  return code == 0 ? "request failed" : "HTTP \(code)"
         case let AppStoreConnectError.decoding(d): return "decoding failed — \(d)"
         case let AppStoreConnectError.badKey(d):   return "bad .p8 key — \(d)"
+        case is CancellationError:                 return "cancelled"
+        case let urlError as URLError:
+            switch urlError.code {
+            case .notConnectedToInternet, .dataNotAllowed: return "no internet connection"
+            case .networkConnectionLost:                   return "network connection lost"
+            case .cannotFindHost, .dnsLookupFailed:        return "could not reach api.appstoreconnect.apple.com"
+            case .timedOut:                                return "request timed out"
+            case .cancelled:                               return "cancelled"
+            default: return "network error (\(urlError.code.rawValue))"
+            }
         default: return (error as? LocalizedError)?.errorDescription ?? String(describing: error)
         }
     }

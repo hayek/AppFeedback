@@ -47,6 +47,24 @@ final class SourceContractTests: XCTestCase {
         XCTAssertEqual(back.rating, 5)
     }
 
+    /// Rows cached before the review-date fix carry the import time in `createdAt`. Reading them
+    /// back must prefer the `reviewCreatedAt` marker in the stored body, so existing caches heal
+    /// without waiting for the next full reconcile.
+    func test_cachedAppStoreIssue_readsReviewDateFromStoredBody() {
+        let review = ASCReview.make(id: "R1", rating: 4, title: "T", body: "B",
+                                    created: Date(timeIntervalSince1970: 1_700_000_000))
+        let importedAt = Date(timeIntervalSince1970: 1_800_000_000)
+        let issue = FeedbackIssue(
+            number: 1, title: "T", createdAt: importedAt,
+            rawBody: AppStoreReviewSynthesizer.body(for: review),
+            appName: nil, appVersion: nil, device: nil, osVersion: nil, email: nil,
+            description: "B", labels: [], source: .appStore, rating: 4
+        )
+        let cached = CachedIssue.from(issue, repoOwner: "o", repoName: "r")
+        cached.createdAt = importedAt          // simulate a row written before the fix
+        XCTAssertEqual(cached.toFeedbackIssue().createdAt, Date(timeIntervalSince1970: 1_700_000_000))
+    }
+
     func test_cachedIssue_legacy_nil_source_maps_to_sdk() {
         let issue = FeedbackIssue(
             number: 2, title: "T", createdAt: Date(), rawBody: "b",
