@@ -272,7 +272,6 @@ enum CLIRunner {
         var described: [String: String] = ["state": flags.state.rawValue,
                                            "sort": flags.sort.rawValue,
                                            "order": flags.order.rawValue]
-        if !flags.apps.isEmpty       { described["app"] = flags.apps.joined(separator: ",") }
         if !flags.labels.isEmpty     { described["label"] = flags.labels.joined(separator: ",") }
         if !flags.sources.isEmpty    { described["source"] = flags.sources.map(\.rawValue).joined(separator: ",") }
         if !flags.types.isEmpty      { described["type"] = flags.types.map(\.rawValue).joined(separator: ",") }
@@ -283,7 +282,6 @@ enum CLIRunner {
         if let high = flags.maxRating { described["maxRating"] = String(high) }
         if let version = flags.appVersion { described["appVersion"] = version }
         if let hasTask = flags.hasTask    { described["hasTask"] = String(hasTask) }
-        if flags.includeHidden       { described["includeHidden"] = "true" }
         return described
     }
 
@@ -323,17 +321,15 @@ enum CLIRunner {
             \(name) feedback show <number> --product <p> [--raw]
 
             Filters:
-              --app <name>          repeatable; ORs together
               --state open|closed|all      default: open
               --source sdk|app-store|email
               --type bug|feature-request
               --label <name>        repeatable; ORs together (exact match)
-              --search <text>       title, description, app name
+              --search <text>       title and description
               --since 7d|YYYY-MM-DD --updated-since ...
               --min-rating N --max-rating N     inclusive, 1-5
               --app-version <v>
               --has-task | --no-task
-              --include-hidden      include apps hidden in the app
               --include-emails      unredacted reporter addresses
               --sort created|updated  --order desc|asc
               --limit N (<=200, default 20)  --offset N

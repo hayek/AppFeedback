@@ -3,12 +3,6 @@ import Foundation
 
 // MARK: - Products
 
-struct AppSummary: Codable, Equatable {
-    let name: String
-    let count: Int
-    let hidden: Bool
-}
-
 struct VersionSummary: Codable, Equatable {
     let name: String
     let milestoneNumber: Int?
@@ -26,7 +20,6 @@ struct ProductSummary: Codable, Equatable {
     let displayName: String
     let repo: String
     let connectedRepo: String?
-    let apps: [AppSummary]
     let versions: [VersionSummary]
     let sources: SourceFlags
     let feedbackCount: Int

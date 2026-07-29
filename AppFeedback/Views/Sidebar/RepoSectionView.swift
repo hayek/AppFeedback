@@ -30,7 +30,6 @@ enum ProductContextMenuAction: CaseIterable, Equatable {
 struct RepoSectionView: View {
     let repo: ProductConfig
     let issues: [FeedbackIssue]
-    let allApps: [String]          // retained param (callers still pass it); unused for selection now
     @Binding var selection: SidebarSelection?
     var store: ProductStore
     var seenStore: SeenIssueStore
@@ -38,14 +37,11 @@ struct RepoSectionView: View {
     @State private var showRemoveConfirmation = false
 
     /// Unread feedback for this repo: feedback issues not yet marked seen, excluding tasks (which
-    /// are GitHub issues too but never enter the seen store) and hidden apps, so the badge matches
-    /// what's actually shown as unread in the list (mirrors IssueListViewModel.unreadIssues).
+    /// are GitHub issues too but never enter the seen store), so the badge matches what's actually
+    /// shown as unread in the list (mirrors IssueListViewModel.unreadIssues).
     private var unreadCount: Int {
         let seen = seenStore.seenNumbers(owner: repo.owner, repo: repo.repo)
-        let hidden = store.hiddenAppsFor(repo.id)
-        return issues.filter {
-            !TaskItem.isTask($0) && !seen.contains($0.number) && !hidden.contains($0.appName ?? "")
-        }.count
+        return issues.filter { !TaskItem.isTask($0) && !seen.contains($0.number) }.count
     }
 
     var body: some View {

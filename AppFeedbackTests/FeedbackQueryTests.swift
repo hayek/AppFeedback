@@ -11,7 +11,7 @@ final class FeedbackQueryTests: XCTestCase {
     override func setUpWithError() throws {
         let modelConfig = ModelConfiguration(isStoredInMemoryOnly: true, cloudKitDatabase: .none)
         context = ModelContext(try ModelContainer(
-            for: CachedIssue.self, HiddenApp.self, TriageVerdictRecord.self,
+            for: CachedIssue.self, TriageVerdictRecord.self,
                 FeedbackAttachmentLocal.self,
             configurations: modelConfig))
     }
@@ -51,20 +51,12 @@ final class FeedbackQueryTests: XCTestCase {
                                         local: context, cloud: context, index: index)
     }
 
-    // MARK: - Task exclusion and hidden apps
+    // MARK: - Task exclusion
 
     func testExcludesTaskLabelledIssues() {
         insert(number: 1)
         insert(number: 2, labels: [AppFeedbackLabels.task])
         XCTAssertEqual(run().items.map(\.number), [1])
-    }
-
-    func testHiddenAppsAreExcludedByDefaultAndIncludableOnDemand() {
-        insert(number: 1, app: "Zcode")
-        insert(number: 2, app: "Secret")
-        context.insert(HiddenApp(repoOwner: "o", repoName: "r", appName: "Secret"))
-        XCTAssertEqual(run().items.map(\.number), [1])
-        XCTAssertEqual(run { $0.includeHidden = true }.items.map(\.number).sorted(), [1, 2])
     }
 
     // MARK: - Filters
@@ -77,21 +69,14 @@ final class FeedbackQueryTests: XCTestCase {
         XCTAssertEqual(run { $0.state = .all }.items.map(\.number).sorted(), [1, 2])
     }
 
-    func testRepeatedAppFlagOrsValues() {
-        insert(number: 1, app: "Zcode")
-        insert(number: 2, app: "XcodeMini")
-        insert(number: 3, app: "Other")
-        XCTAssertEqual(run { $0.apps = ["Zcode", "XcodeMini"] }.items.map(\.number).sorted(), [1, 2])
-    }
-
     func testDifferentFlagsAndTogether() {
-        insert(number: 1, app: "Zcode", labels: ["bug"])
-        insert(number: 2, app: "Zcode", labels: ["feature-request"])
-        insert(number: 3, app: "Other", labels: ["bug"])
-        XCTAssertEqual(run { $0.apps = ["Zcode"]; $0.types = [.bug] }.items.map(\.number), [1])
+        insert(number: 1, labels: ["bug"], state: .open)
+        insert(number: 2, labels: ["feature-request"], state: .open)
+        insert(number: 3, labels: ["bug"], state: .closed)
+        XCTAssertEqual(run { $0.labels = ["bug"]; $0.types = [.bug] }.items.map(\.number), [1])
     }
 
-    /// `--label` is repeatable and ORs, like `--app` — SKILL.md promises that for every flag.
+    /// `--label` is repeatable and ORs — SKILL.md promises that for every repeatable flag.
     func testRepeatedLabelFlagOrsValues() {
         insert(number: 1, labels: ["bug", "user-submitted"])
         insert(number: 2, labels: ["bug"])

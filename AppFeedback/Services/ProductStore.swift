@@ -10,18 +10,14 @@ final class ProductStore {
     /// name is kept to avoid churning existing `store.repos` call sites). Reading
     /// `products` registers the same Observation dependency as reading `repos`.
     var products: [ProductConfig] { repos }
-    private(set) var hiddenApps: [UUID: Set<String>] = [:]
-    private(set) var appColors: [UUID: [String: String]] = [:]
 
     private let context: ModelContext
-    private let hiddenAppStore: HiddenAppStore?
     private var didSaveTask: Task<Void, Never>?
     private var remoteChangeTask: Task<Void, Never>?
     private var cloudKitImportTask: Task<Void, Never>?
 
-    init(context: ModelContext, hiddenAppStore: HiddenAppStore? = nil) {
+    init(context: ModelContext) {
         self.context = context
-        self.hiddenAppStore = hiddenAppStore
         reload()
 
         // Filter out notifications from our own context — those mutations already called reload().
@@ -119,38 +115,6 @@ final class ProductStore {
         reload()
     }
 
-    // MARK: - Hidden apps
-
-    func hideApp(_ appName: String, in repoId: UUID) {
-        guard let model = fetchModel(id: repoId) else { return }
-        hiddenAppStore?.hide(owner: model.owner, repo: model.repo, appName: appName)
-        reload()
-    }
-
-    func unhideAllApps(in repoId: UUID) {
-        guard let model = fetchModel(id: repoId) else { return }
-        hiddenAppStore?.unhideAll(owner: model.owner, repo: model.repo)
-        reload()
-    }
-
-    func hiddenAppsFor(_ repoId: UUID) -> Set<String> {
-        hiddenApps[repoId] ?? []
-    }
-
-    // MARK: - App colors
-
-    func setColor(_ hex: String, forApp appName: String, in repoId: UUID) {
-        guard let model = fetchModel(id: repoId) else { return }
-        if model.appColors[appName] == hex { return }
-        model.appColors[appName] = hex
-        save()
-        reload()
-    }
-
-    func colorHexFor(app appName: String, in repoId: UUID) -> String? {
-        appColors[repoId]?[appName]
-    }
-
     // MARK: - Product color
 
     /// Set (or clear, with `nil`) the sidebar accent color for a product.
@@ -198,24 +162,7 @@ final class ProductStore {
                 feedbackInboxAccountID: $0.feedbackInboxAccountID
             )
         }
-        // Build hidden-app map from HiddenAppStore (CloudKit-synced) with one-time
-        // best-effort migration from legacy Product.hiddenAppNames into HiddenApp rows.
-        var newHiddenApps: [UUID: Set<String>] = [:]
-        for model in models {
-            if let store = hiddenAppStore {
-                store.migrateLegacy(owner: model.owner, repo: model.repo, legacyNames: model.hiddenAppNames)
-                newHiddenApps[model.id] = store.hiddenApps(owner: model.owner, repo: model.repo)
-            } else {
-                // Fallback for tests that don't inject a store: read from legacy field.
-                newHiddenApps[model.id] = Set(model.hiddenAppNames)
-            }
-        }
-        let newAppColors = Dictionary(
-            uniqueKeysWithValues: models.map { ($0.id, $0.appColors) }
-        )
         if repos != newRepos { repos = newRepos }
-        if hiddenApps != newHiddenApps { hiddenApps = newHiddenApps }
-        if appColors != newAppColors { appColors = newAppColors }
     }
 }
 

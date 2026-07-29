@@ -44,11 +44,11 @@ final class EmailSourceFormModelTests: XCTestCase {
     /// the exact same ID we set up in the "simulate Test Connection" step below).
     func test_remove_afterTestConnection_deletesOrphanedMailAccount() async throws {
         // ── Set up in-memory stores ──────────────────────────────────────────────────────
-        let schema = Schema([Product.self, HiddenApp.self, MailAccount.self])
+        let schema = Schema([Product.self, MailAccount.self])
         let config = ModelConfiguration(schema: schema, isStoredInMemoryOnly: true, cloudKitDatabase: .none)
         let container = try ModelContainer(for: schema, configurations: config)
         let ctx = ModelContext(container)
-        let productStore = ProductStore(context: ctx, hiddenAppStore: HiddenAppStore(context: ctx))
+        let productStore = ProductStore(context: ctx)
         let accountStore = MailAccountStore(context: ctx)
 
         // ── Seed a product with NO initial inbox account ─────────────────────────────────
@@ -99,11 +99,11 @@ final class EmailSourceFormModelTests: XCTestCase {
     /// Confirms the original bug: using model.existingAccountID (nil) fails to delete the
     /// account created mid-session, leaving an orphan.
     func test_remove_usingOnlyExistingAccountID_orphansAccountCreatedMidSession() async throws {
-        let schema = Schema([Product.self, HiddenApp.self, MailAccount.self])
+        let schema = Schema([Product.self, MailAccount.self])
         let config = ModelConfiguration(schema: schema, isStoredInMemoryOnly: true, cloudKitDatabase: .none)
         let container = try ModelContainer(for: schema, configurations: config)
         let ctx = ModelContext(container)
-        let productStore = ProductStore(context: ctx, hiddenAppStore: HiddenAppStore(context: ctx))
+        let productStore = ProductStore(context: ctx)
         let accountStore = MailAccountStore(context: ctx)
 
         let product = ProductConfig(displayName: "Demo", owner: "org", repo: "app2")

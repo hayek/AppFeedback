@@ -25,7 +25,6 @@ final class FilterPreferenceStoreTests: XCTestCase {
         bundle.task.statuses = [.inProgress]
         bundle.version.states = [.new]
         bundle.feedback.appVersion = ["2.8"]
-        bundle.feedback.appFilter = ["MyApp"]
         store.save(owner: "o", repo: "r", bundle: bundle)
 
         let loaded = store.load(owner: "o", repo: "r")
@@ -67,8 +66,10 @@ final class FilterPreferenceStoreTests: XCTestCase {
     }
 
     func test_feedback_sources_default_to_all_when_absent() throws {
-        // A bundle encoded WITHOUT the sources field (legacy JSON) must decode to all-on.
-        let legacyJSON = #"{"appVersion":[],"device":[],"osVersion":[],"issueType":[],"appFilter":[]}"#
+        // A bundle encoded WITHOUT the sources field (legacy JSON) must decode to all-on. The
+        // retired `appFilter` key is still present here on purpose: rows saved before the
+        // one-app-per-product change must keep decoding, with the extra key ignored.
+        let legacyJSON = #"{"appVersion":[],"device":[],"osVersion":[],"issueType":[],"appFilter":["MyApp"]}"#
         let data = legacyJSON.data(using: .utf8)!
         let decoded = try JSONDecoder().decode(PersistedFeedbackFilters.self, from: data)
         XCTAssertEqual(decoded.sources, Set(FeedbackSource.allCases))

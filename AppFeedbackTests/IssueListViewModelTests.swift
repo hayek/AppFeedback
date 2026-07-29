@@ -30,14 +30,6 @@ final class IssueListViewModelTests: XCTestCase {
         XCTAssertEqual(vm.visibleIssues.count, 2)
     }
 
-    func test_visibleIssues_appFilter() {
-        let vm = IssueListViewModel()
-        vm.allIssues = [makeIssue(number: 1, appName: "A"), makeIssue(number: 2, appName: "B")]
-        vm.appFilter = ["A"]
-        XCTAssertEqual(vm.visibleIssues.count, 1)
-        XCTAssertEqual(vm.visibleIssues.first?.number, 1)
-    }
-
     func test_visibleIssues_versionPillFilter() {
         let vm = IssueListViewModel()
         vm.allIssues = [makeIssue(number: 1, appVersion: "1.0"), makeIssue(number: 2, appVersion: "2.0")]
@@ -53,55 +45,14 @@ final class IssueListViewModelTests: XCTestCase {
         XCTAssertEqual(vm.visibleIssues.first?.title, "Crash on launch")
     }
 
-    func test_uniqueAppVersions_forCurrentApp() {
+    func test_uniqueAppVersions_coverEveryLoadedIssue() {
         let vm = IssueListViewModel()
         vm.allIssues = [
-            makeIssue(number: 1, appName: "A", appVersion: "1.0"),
-            makeIssue(number: 2, appName: "A", appVersion: "2.0"),
-            makeIssue(number: 3, appName: "B", appVersion: "3.0"),
+            makeIssue(number: 1, appVersion: "1.0"),
+            makeIssue(number: 2, appVersion: "2.0"),
+            makeIssue(number: 3, appVersion: "2.0"),
         ]
-        vm.appFilter = ["A"]
         XCTAssertEqual(Set(vm.uniqueValues(for: \.appVersion)), ["1.0", "2.0"])
-    }
-
-    func test_hiddenApps_excludedFromVisibleIssues() {
-        let vm = IssueListViewModel()
-        vm.allIssues = [
-            makeIssue(number: 1, appName: "Foo"),
-            makeIssue(number: 2, appName: "Bar"),
-            makeIssue(number: 3, appName: "Foo"),
-        ]
-        vm.hiddenApps = ["Foo"]
-        let visible = vm.visibleIssues
-        XCTAssertEqual(visible.count, 1)
-        XCTAssertEqual(visible.first?.number, 2)
-    }
-
-    func test_hiddenApps_excludedFromUniqueAppNames() {
-        let vm = IssueListViewModel()
-        vm.allIssues = [
-            makeIssue(number: 1, appName: "Foo"),
-            makeIssue(number: 2, appName: "Bar"),
-        ]
-        vm.hiddenApps = ["Foo"]
-        XCTAssertEqual(vm.uniqueAppNames, ["Bar"])
-        XCTAssertFalse(vm.uniqueAppNames.contains("Foo"))
-    }
-
-    func test_hiddenApps_excludedFromUniqueValues() {
-        let vm = IssueListViewModel()
-        vm.allIssues = [
-            makeIssue(number: 1, appName: "Foo", appVersion: "2.0"),
-            makeIssue(number: 2, appName: "Bar", appVersion: "1.0"),
-        ]
-        vm.hiddenApps = ["Foo"]
-        XCTAssertEqual(vm.uniqueValues(for: \.appVersion), ["1.0"])
-    }
-
-    func test_hiddenApps_emptyByDefault() {
-        let vm = IssueListViewModel()
-        vm.allIssues = [makeIssue(number: 1, appName: "Foo"), makeIssue(number: 2, appName: "Bar")]
-        XCTAssertEqual(vm.visibleIssues.count, 2)
     }
 
     func test_issuesRecentForSummary_ordersNewestWithinThirtyDays() {
@@ -112,16 +63,6 @@ final class IssueListViewModelTests: XCTestCase {
             makeIssue(number: 30, title: "C", daysAgo: 1),
         ]
         XCTAssertEqual(vm.issuesRecentForSummary.map(\.number), [30, 10])
-    }
-
-    func test_issuesRecentForSummary_respectsHiddenApps() {
-        let vm = IssueListViewModel()
-        vm.allIssues = [
-            makeIssue(number: 1, appName: "Hide", daysAgo: 5),
-            makeIssue(number: 2, appName: "Show", daysAgo: 5),
-        ]
-        vm.hiddenApps = ["Hide"]
-        XCTAssertEqual(vm.issuesRecentForSummary.map(\.number), [2])
     }
 
     func test_issuesForAISummary_prefersUnreadWhenTwoOrMore() throws {
@@ -143,18 +84,11 @@ final class IssueListViewModelTests: XCTestCase {
         XCTAssertEqual(vm.issuesForAISummaryCard.map(\.number), vm.issuesRecentForSummary.map(\.number))
     }
 
-    func test_hiddenApps_excludedFromUnreadIssues() throws {
+    func test_unreadIssues_coverEveryUnseenIssue() throws {
         let vm = IssueListViewModel()
         vm.attachSeenStore(try makeStore(), owner: "o", repo: "r")
-        vm.allIssues = [
-            makeIssue(number: 10, appName: "Foo"),
-            makeIssue(number: 11, appName: "Bar"),
-        ]
-        vm.hiddenApps = ["Foo"]
-        vm.applyLoaded(vm.allIssues) // marks both as unread
-        let unread = vm.unreadIssues
-        XCTAssertFalse(unread.contains(where: { $0.number == 10 }), "Foo issue should not be unread-visible")
-        XCTAssertTrue(unread.contains(where: { $0.number == 11 }), "Bar issue should be unread-visible")
+        vm.applyLoaded([makeIssue(number: 10), makeIssue(number: 11)])
+        XCTAssertEqual(Set(vm.unreadIssues.map(\.number)), [10, 11])
     }
 }
 

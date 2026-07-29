@@ -37,7 +37,7 @@ enum ProductResolver {
             throw CLIError.notFound(
                 code: "product_ambiguous",
                 message: "\(byRepo.count) products share the repo '\(query)'. They see identical feedback.",
-                hint: "Use the product id, or pick either and scope with --app.",
+                hint: "Use the product id.",
                 candidates: byRepo.map(describe))
         }
         throw CLIError.notFound(code: "product_not_found",
@@ -55,16 +55,6 @@ enum ProductResolver {
             let open = cached.filter { $0.state == IssueState.open.rawValue }
             let split = partition(open)
 
-            let hidden = hiddenApps(owner: owner, repo: repo, cloud: cloud)
-            let headline = headlineCounts(split, hidden: hidden)
-            // The per-app breakdown still lists hidden apps — with `hidden: true` — so the caller
-            // can see what `--include-hidden` would add.
-            let counts = Dictionary(grouping: split.feedback.compactMap(\.appName).filter { !$0.isEmpty },
-                                    by: { $0 }).mapValues(\.count)
-            let apps = counts.keys.sorted().map {
-                AppSummary(name: $0, count: counts[$0] ?? 0, hidden: hidden.contains($0))
-            }
-
             let versions = ((try? cloud.fetch(FetchDescriptor<ProjectVersion>(predicate: #Predicate {
                 $0.repoOwner == owner && $0.repoName == repo
             }))) ?? [])
@@ -79,28 +69,14 @@ enum ProductResolver {
                 connectedRepo: product.connectedRepoOwner.flatMap { connectedOwner in
                     product.connectedRepoName.map { "\(connectedOwner)/\($0)" }
                 },
-                apps: apps,
                 versions: versions,
                 sources: SourceFlags(sdk: true,
                                      appStore: product.appStoreAppAppleID != nil,
                                      email: product.feedbackInboxAccountID != nil),
-                feedbackCount: headline.feedback,
-                taskCount: headline.tasks,
+                feedbackCount: split.feedback.count,
+                taskCount: split.tasks.count,
                 lastFetchedAt: lastFetchedAt(local: local, owner: owner, repo: repo))
         }
-    }
-
-    /// The headline `products` counts, and the single place the hidden-app exclusion is decided so
-    /// it can't be applied to one count and forgotten on the other. `feedback list` drops hidden
-    /// apps unless `--include-hidden`, so `feedbackCount` must drop them too — otherwise `products`
-    /// advertises a total no amount of paging can ever reach. Tasks are deliberately *not*
-    /// filtered: they carry no app attribution and `tasks list` has no hidden dimension, so
-    /// excluding them would create the same mismatch in the other direction.
-    static func headlineCounts(_ split: (tasks: [CachedIssue], feedback: [CachedIssue]),
-                               hidden: Set<String>) -> (feedback: Int, tasks: Int) {
-        let visible = hidden.isEmpty ? split.feedback
-                                     : split.feedback.filter { !hidden.contains($0.appName ?? "") }
-        return (feedback: visible.count, tasks: split.tasks.count)
     }
 
     /// Splits cached rows into (tasks, feedback) by the `appfeedback:task` label.
@@ -114,13 +90,6 @@ enum ProductResolver {
 
     static func labelNames(of row: CachedIssue) -> [String] {
         row.toFeedbackIssue().labels.map(\.name)
-    }
-
-    static func hiddenApps(owner: String, repo: String, cloud: ModelContext) -> Set<String> {
-        let rows = (try? cloud.fetch(FetchDescriptor<HiddenApp>(predicate: #Predicate {
-            $0.repoOwner == owner && $0.repoName == repo
-        }))) ?? []
-        return Set(rows.map(\.appName))
     }
 
     static func lastFetchedAt(local: ModelContext, owner: String, repo: String) -> Date? {

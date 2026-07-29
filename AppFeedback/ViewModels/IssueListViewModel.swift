@@ -5,17 +5,14 @@ import SwiftData
 @Observable @MainActor
 final class IssueListViewModel {
     var allIssues: [FeedbackIssue] = []
-    /// App names that are hidden for the current repo. Issues whose `appName`
-    /// is in this set are excluded from all derived properties and counts.
-    var hiddenApps: Set<String> = []
 
-    /// Rolling window for AI summary (respects hidden apps + current app scope like `visibleBase`).
+    /// Rolling window for AI summary.
     private static let summarizationWindowDays = 30
     /// When at least this many issues are unread, AI summarizes unread only instead of the rolling-month digest.
     private static let minUnreadIssuesToPreferUnreadSummary = 2
 
     var unreadIssues: [FeedbackIssue] {
-        allIssues.filter { sessionUnread.contains($0.number) && !hiddenApps.contains($0.appName ?? "") }
+        allIssues.filter { sessionUnread.contains($0.number) }
     }
 
     /// `true` when the summary card should summarize the unread backlog; otherwise rolling 30 days.
@@ -36,19 +33,13 @@ final class IssueListViewModel {
     var issuesRecentForSummary: [FeedbackIssue] {
         guard let cutoff = Calendar.current.date(byAdding: .day, value: -Self.summarizationWindowDays, to: Date())
         else { return [] }
-        return visibleBase.filter { $0.createdAt >= cutoff }
+        return allIssues.filter { $0.createdAt >= cutoff }
             .sorted { $0.createdAt > $1.createdAt }
     }
     var searchQuery = ""
-    var appFilter: Set<String> = []
-    var allowsAppFilter: Bool = false
     var filters = ActiveFilters()
     /// Set by deep-link notification tap to highlight a specific issue.
     var highlightedIssueNumber: Int? = nil
-
-    var uniqueAppNames: [String] {
-        Array(Set(allIssues.compactMap(\.appName).filter { !hiddenApps.contains($0) })).sorted()
-    }
 
     struct ActiveFilters: Equatable {
         var appVersion: Set<String> = []
@@ -75,15 +66,6 @@ final class IssueListViewModel {
     var visibleIssues: [FeedbackIssue] {
         var list = allIssues
 
-        // Defensively hide any issue whose app is in the hidden set — this covers
-        // the .allIssues (cross-app) view and the edge case of a hidden single app.
-        if !hiddenApps.isEmpty {
-            list = list.filter { !hiddenApps.contains($0.appName ?? "") }
-        }
-
-        if !appFilter.isEmpty {
-            list = list.filter { appFilter.contains($0.appName ?? "") }
-        }
         if !filters.appVersion.isEmpty { list = list.filter { filters.appVersion.contains($0.appVersion ?? "") } }
         if !filters.device.isEmpty     { list = list.filter { filters.device.contains($0.device ?? "") } }
         if !filters.osVersion.isEmpty  { list = list.filter { filters.osVersion.contains($0.osVersion ?? "") } }
@@ -106,33 +88,25 @@ final class IssueListViewModel {
     }
 
     var uniqueIssueTypes: [IssueType] {
-        let base = visibleBase
-        let types = base.compactMap { $0.labels.issueType?.type }
+        let types = allIssues.compactMap { $0.labels.issueType?.type }
         return Array(Set(types)).sorted { $0.displayName < $1.displayName }
     }
 
     func uniqueValues(for keyPath: KeyPath<FeedbackIssue, String?>) -> [String] {
-        let base = visibleBase
-        return Array(Set(base.compactMap { $0[keyPath: keyPath] })).sorted()
+        Array(Set(allIssues.compactMap { $0[keyPath: keyPath] })).sorted()
     }
 
-    /// Distinct app versions present among the visible issues, sorted newest-first using a numeric
+    /// Distinct app versions present in this product's feedback, sorted newest-first using a numeric
     /// (not lexicographic) comparison so "2.8" sorts above "2.6 (80)" above "1.6" above "0.1.0".
     var uniqueVersions: [String] {
-        Array(Set(visibleBase.compactMap(\.appVersion)))
+        Array(Set(allIssues.compactMap(\.appVersion)))
             .sorted { $0.compare($1, options: .numeric) == .orderedDescending }
     }
 
-    /// Distinct sources present among the visible issues, in canonical case order.
+    /// Distinct sources present in this product's feedback, in canonical case order.
     var uniqueSources: [FeedbackSource] {
-        let present = Set(visibleBase.map(\.source))
+        let present = Set(allIssues.map(\.source))
         return FeedbackSource.allCases.filter { present.contains($0) }
-    }
-
-    /// All issues with hidden apps filtered out, optionally narrowed to the selected app.
-    private var visibleBase: [FeedbackIssue] {
-        let withoutHidden = hiddenApps.isEmpty ? allIssues : allIssues.filter { !hiddenApps.contains($0.appName ?? "") }
-        return appFilter.isEmpty ? withoutHidden : withoutHidden.filter { appFilter.contains($0.appName ?? "") }
     }
 
     func clearFilters() {
@@ -143,7 +117,7 @@ final class IssueListViewModel {
     var persistedFeedbackFilters: PersistedFeedbackFilters {
         PersistedFeedbackFilters(appVersion: filters.appVersion, device: filters.device,
                                  osVersion: filters.osVersion, issueType: filters.issueType,
-                                 appFilter: appFilter, sources: filters.sources)
+                                 sources: filters.sources)
     }
 
     func applyFeedbackFilters(_ dto: PersistedFeedbackFilters) {
@@ -151,7 +125,6 @@ final class IssueListViewModel {
         filters.device = dto.device
         filters.osVersion = dto.osVersion
         filters.issueType = dto.issueType
-        appFilter = dto.appFilter
         filters.sources = dto.sources
     }
 
@@ -301,7 +274,7 @@ final class IssueListViewModel {
     /// transient per-device filters are active).
     func summaryCacheBinding(targetLanguage: String) -> SummaryCacheBinding? {
         guard let cacheContext,
-              appFilter.isEmpty, filters.isEmpty,
+              filters.isEmpty,
               !seenOwner.isEmpty, !seenRepo.isEmpty else { return nil }
         return SummaryCacheBinding(
             scope: SummaryCacheScope(

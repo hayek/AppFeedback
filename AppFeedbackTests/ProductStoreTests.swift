@@ -52,25 +52,10 @@ final class ProductStoreTests: XCTestCase {
         XCTAssertEqual(store.repos.first?.displayName, "New")
     }
 
-    func test_hideApp_recordsName() {
-        let p = ProductConfig(displayName: "T", owner: "o", repo: "r")
-        store.add(p)
-        store.hideApp("AppA", in: p.id)
-        XCTAssertEqual(store.hiddenAppsFor(p.id), ["AppA"])
-    }
-
     func test_persistsAcrossInstances() {
         store.add(ProductConfig(displayName: "Persisted", owner: "x", repo: "y"))
         let store2 = ProductStore(context: ModelContext(harness.container))
         XCTAssertEqual(store2.repos.first?.displayName, "Persisted")
-    }
-
-    func test_setColor_storesAndReadsHex() {
-        let p = ProductConfig(displayName: "T", owner: "o", repo: "r")
-        store.add(p)
-        store.setColor("4ef8d0", forApp: "AppA", in: p.id)
-        XCTAssertEqual(store.colorHexFor(app: "AppA", in: p.id), "4ef8d0")
-        XCTAssertNil(store.colorHexFor(app: "AppB", in: p.id))
     }
 
     func test_setProductColor_storesAndReadsHex() {

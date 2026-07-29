@@ -21,22 +21,23 @@ Match the `connectedRepo` field against the current repo:
     git remote get-url origin
 
 If nothing matches, or several do, **ask the user which product** — never guess.
-Products that share a `repo` return identical feedback; `--app` is how you narrow to one app.
+Each product is one app backed by one repo; products that share a `repo` return identical
+feedback, so pick by `id` when two of them do.
 
 ## 2. Read feedback
 
-    appfeedback feedback --product "Usage for Claude" --app Zcode --limit 20
+    appfeedback feedback --product "Usage for Claude" --limit 20
     appfeedback feedback --product "Usage for Claude" --type bug --since 14d
     appfeedback feedback --product "Usage for Claude" --source app-store --max-rating 2
     appfeedback feedback --product "Usage for Claude" --search "crash" --no-task
     appfeedback feedback show 559 --product "Usage for Claude"
 
-Filters: `--app` `--state open|closed|all` `--source sdk|app-store|email`
+Filters: `--state open|closed|all` `--source sdk|app-store|email`
 `--type bug|feature-request` `--label` `--search` `--since 7d|YYYY-MM-DD` `--updated-since`
-`--min-rating` `--max-rating` `--app-version` `--has-task` `--no-task` `--include-hidden`
+`--min-rating` `--max-rating` `--app-version` `--has-task` `--no-task`
 `--sort created|updated` `--order desc|asc` `--limit` (max 200) `--offset`.
 
-Repeating a flag ORs its values (`--app A --app B`); different flags AND together.
+Repeating a flag ORs its values (`--label A --label B`); different flags AND together.
 
 `list` truncates `description` at 500 characters and sets `"truncated": true` — use
 `feedback show` for the full text. Keep paging while `page.hasMore` is true.

@@ -7,15 +7,6 @@ struct FilterBarView: View {
     var body: some View {
         ScrollView(.horizontal, showsIndicators: false) {
             HStack(spacing: 6) {
-                if viewModel.allowsAppFilter {
-                    MultiSelectFilterChip(
-                        label: "App",
-                        values: viewModel.uniqueAppNames,
-                        selection: $viewModel.appFilter,
-                        display: { $0 },
-                        accent: accent
-                    )
-                }
                 MultiSelectFilterChip(
                     label: "Type",
                     values: viewModel.uniqueIssueTypes,
@@ -84,12 +75,11 @@ struct FilterBarView: View {
     }
 
     private var hasAnyActiveFilter: Bool {
-        !viewModel.appFilter.isEmpty || !viewModel.filters.isEmpty
+        !viewModel.filters.isEmpty
     }
 
     private func clearAll() {
         withAnimation(.easeInOut(duration: 0.18)) {
-            viewModel.appFilter = []
             viewModel.clearFilters()
         }
     }

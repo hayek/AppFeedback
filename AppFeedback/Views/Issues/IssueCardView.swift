@@ -55,11 +55,9 @@ struct IssueCardView: View {
     let appColor: Color
     var isUnread: Bool = false
     var onInteract: (() -> Void)? = nil
-    var activeApp: Set<String> = []
     var activeAppVersion: Set<String> = []
     var activeDevice: Set<String> = []
     var activeOSVersion: Set<String> = []
-    var onToggleApp: ((String) -> Void)? = nil
     var onToggleAppVersion: ((String) -> Void)? = nil
     var onToggleDevice: ((String) -> Void)? = nil
     var onToggleOSVersion: ((String) -> Void)? = nil
@@ -317,11 +315,6 @@ struct IssueCardView: View {
                                 }
                                 ForEach(issue.labels.cardChips, id: \.name) { label in
                                     LabelChipView(label: label)
-                                }
-                                if let app = issue.appName, !activeApp.contains(app) {
-                                    tappable(value: app, onTap: onToggleApp) {
-                                        TagView(text: app, color: appColor, isActive: activeApp.contains(app))
-                                    }
                                 }
                                 if let version = issue.appVersion {
                                     tappable(value: version, onTap: onToggleAppVersion) {

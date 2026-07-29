@@ -47,7 +47,6 @@ struct AppFeedbackApp: App {
     @State private var outboundFailures: OutboundFailureStore
     @State private var settingsNavigation = SettingsNavigation()
     @State private var seenStore: SeenIssueStore
-    @State private var hiddenAppStore: HiddenAppStore
     @State private var cacheContext: ModelContext
     @State private var intelligenceSettings: IntelligenceSettings
     @State private var intelligenceService: IntelligenceService
@@ -82,7 +81,7 @@ struct AppFeedbackApp: App {
                 // In-process test host: single in-memory config, no CloudKit validation.
                 let testConfig = ModelConfiguration(isStoredInMemoryOnly: true, cloudKitDatabase: .none)
                 container = try ModelContainer(
-                    for: Product.self, Repo.self, SeenIssue.self, HiddenApp.self, MailAccount.self,
+                    for: Product.self, Repo.self, SeenIssue.self, MailAccount.self,
                         GitHubAccount.self,
                         MailSettings.self,
                         MailThread.self, MailMessage.self, MailAttachment.self,
@@ -97,7 +96,7 @@ struct AppFeedbackApp: App {
                     configurations: testConfig
                 )
             } else {
-                let cloudSchema = Schema([Product.self, Repo.self, SeenIssue.self, HiddenApp.self, MailAccount.self, GitHubAccount.self, MailSettings.self, MailThread.self, MailMessage.self, MailAttachment.self, IssueTranslation.self, IssueSummaryCache.self, ProjectVersion.self, SentReleaseNotification.self, ReplyTemplate.self, RepoFilterPreference.self, AppStoreReviewMirror.self])
+                let cloudSchema = Schema([Product.self, Repo.self, SeenIssue.self, MailAccount.self, GitHubAccount.self, MailSettings.self, MailThread.self, MailMessage.self, MailAttachment.self, IssueTranslation.self, IssueSummaryCache.self, ProjectVersion.self, SentReleaseNotification.self, ReplyTemplate.self, RepoFilterPreference.self, AppStoreReviewMirror.self])
                 let localSchema = Schema([CachedIssue.self, MailAttachmentLocal.self, MailAccountLocalState.self, RepoFetchState.self, FeedbackAttachmentLocal.self, TriageVerdictRecord.self])
                 let cloudConfig = ModelConfiguration(
                     "cloud",
@@ -106,7 +105,7 @@ struct AppFeedbackApp: App {
                 )
                 let localConfig = ModelConfiguration("local", schema: localSchema, cloudKitDatabase: .none)
                 container = try ModelContainer(
-                    for: Product.self, Repo.self, SeenIssue.self, HiddenApp.self, MailAccount.self,
+                    for: Product.self, Repo.self, SeenIssue.self, MailAccount.self,
                         GitHubAccount.self,
                         MailSettings.self,
                         MailThread.self, MailMessage.self, MailAttachment.self,
@@ -126,7 +125,6 @@ struct AppFeedbackApp: App {
             fatalError("Failed to create ModelContainer: \(error)")
         }
         let cloudContext = ModelContext(container)
-        let hiddenAppStoreLocal = HiddenAppStore(context: cloudContext)
         let mailAccountStoreLocal = MailAccountStore(context: ModelContext(container))
         let mailSettingsStoreLocal = MailSettingsStore(context: ModelContext(container))
         let threadStoreLocal = MailThreadStore(context: ModelContext(container))
@@ -145,8 +143,7 @@ struct AppFeedbackApp: App {
         let localStateStoreLocal = MailAccountLocalStateStore(context: ModelContext(container))
         _mailLocalStateStore = State(initialValue: localStateStoreLocal)
         _seenStore = State(initialValue: SeenIssueStore(context: cloudContext))
-        _hiddenAppStore = State(initialValue: hiddenAppStoreLocal)
-        _store = State(initialValue: ProductStore(context: ModelContext(container), hiddenAppStore: hiddenAppStoreLocal))
+        _store = State(initialValue: ProductStore(context: ModelContext(container)))
         _gitHubAccountStore = State(initialValue: GitHubAccountStore(context: ModelContext(container)))
         _versionStore = State(initialValue: VersionStore(context: ModelContext(container)))
         _filterStore = State(initialValue: FilterPreferenceStore(context: ModelContext(container)))

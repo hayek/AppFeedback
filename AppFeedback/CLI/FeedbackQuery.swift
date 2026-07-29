@@ -13,12 +13,11 @@ enum FeedbackQuery {
             $0.repoOwner == owner && $0.repoName == repo
         }))) ?? []
 
-        let hidden = flags.includeHidden ? [] : ProductResolver.hiddenApps(owner: owner, repo: repo, cloud: cloud)
         let verdicts = triageByNumber(local: local, owner: owner, repo: repo)
 
         var issues = ProductResolver.partition(rows).feedback
             .map { $0.toFeedbackIssue() }
-            .filter { matches($0, flags: flags, hidden: hidden, index: index) }
+            .filter { matches($0, flags: flags, index: index) }
 
         issues.sort { left, right in
             let leftKey = flags.sort == .created ? left.createdAt : (left.updatedAt ?? left.createdAt)
@@ -38,16 +37,12 @@ enum FeedbackQuery {
 
     // MARK: - Filtering
 
-    private static func matches(_ issue: FeedbackIssue, flags: CLIFlags,
-                                hidden: Set<String>, index: TaskIndex) -> Bool {
-        if hidden.contains(issue.appName ?? "") { return false }
-
+    private static func matches(_ issue: FeedbackIssue, flags: CLIFlags, index: TaskIndex) -> Bool {
         switch flags.state {
         case .open:   if (issue.state ?? .open) != .open { return false }
         case .closed: if (issue.state ?? .open) != .closed { return false }
         case .all:    break
         }
-        if !flags.apps.isEmpty, !flags.apps.contains(issue.appName ?? "") { return false }
         if !flags.sources.isEmpty, !flags.sources.contains(issue.source) { return false }
         if !flags.types.isEmpty {
             guard let type = issue.labels.issueType?.type, flags.types.contains(type) else { return false }

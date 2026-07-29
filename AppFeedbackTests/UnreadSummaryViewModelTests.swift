@@ -72,12 +72,11 @@ final class UnreadSummaryViewModelTests: XCTestCase {
         if case .failed = vm.state { } else { XCTFail("expected .failed, got \(vm.state)") }
     }
 
-    func test_skipped_whenAllUnreadIssuesAreFromHiddenApps() async {
-        // Hidden-app filtering trims `IssueListViewModel.issuesRecentForSummary`;
-        // upstream can leave fewer than two issues suitable for summaries.
+    func test_skipped_whenUpstreamPassesFewerThanTwoIssues() async {
+        // Filtering upstream (e.g. the rolling-30-day window in
+        // `IssueListViewModel.issuesRecentForSummary`) can leave too few issues to summarize.
         let mock = MockIntelligenceProvider()
         let vm = UnreadSummaryViewModel(provider: mock, debounceMs: 0)
-        // Pass only one issue (the hidden-app issues have been filtered out upstream).
         await vm.update(issues: [issue(1)], targetLanguage: "en", promptContext: .rollingLastThirtyDays)
         try? await Task.sleep(nanoseconds: 30_000_000)
         if case .skipped = vm.state { } else { XCTFail("expected .skipped, got \(vm.state)") }

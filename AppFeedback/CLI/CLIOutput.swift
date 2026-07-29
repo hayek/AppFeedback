@@ -39,11 +39,9 @@ enum CLIText {
     static func render(products: [ProductSummary]) -> String {
         guard !products.isEmpty else { return "No products configured." }
         return products.map { product in
-            let apps = product.apps.filter { !$0.hidden }.map(\.name).joined(separator: ", ")
-            return """
+            """
             \(product.displayName)  [\(product.repo)]
               feedback: \(product.feedbackCount)   tasks: \(product.taskCount)
-              apps: \(apps.isEmpty ? "—" : apps)
               code repo: \(product.connectedRepo ?? "—")
               id: \(product.id)
             """

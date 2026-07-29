@@ -68,7 +68,6 @@ final class CLIInvocationTests: XCTestCase {
         XCTAssertEqual(f.sort, .created)
         XCTAssertEqual(f.order, .desc)
         XCTAssertTrue(f.json, "JSON is the default output")
-        XCTAssertFalse(f.includeHidden)
         XCTAssertFalse(f.includeEmails)
         XCTAssertFalse(f.refresh)
     }
@@ -81,11 +80,11 @@ final class CLIInvocationTests: XCTestCase {
 
     // MARK: - Repeatable flags OR their values
 
-    func testRepeatedAppFlagAccumulates() {
+    func testRepeatedLabelFlagAccumulates() {
         guard case .success(.feedback(.list(let f)))? =
-                parse("feedback", "--product", "P", "--app", "Zcode", "--app", "XcodeMini")
+                parse("feedback", "--product", "P", "--label", "bug", "--label", "question")
         else { return XCTFail() }
-        XCTAssertEqual(f.apps, ["Zcode", "XcodeMini"])
+        XCTAssertEqual(f.labels, ["bug", "question"])
     }
 
     func testRepeatedStatusOnTasksAccumulates() {

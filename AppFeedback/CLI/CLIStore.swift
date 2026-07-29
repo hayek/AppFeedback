@@ -5,8 +5,8 @@ import SQLite3
 
 /// Read-only access to the app's two SwiftData stores.
 ///
-/// Deliberately does NOT reuse ProductStore/HiddenAppStore: those write on read
-/// (`ProductStore.reload` calls `HiddenAppStore.migrateLegacy`), which an
+/// Deliberately does NOT reuse the app's stores (ProductStore and friends): those are
+/// built to write — seeding defaults, running migrations, saving on read — which an
 /// `allowsSave: false` container rejects.
 ///
 /// The schema lists must stay identical to `AppFeedbackApp.init`. If they drift,
@@ -37,7 +37,7 @@ struct CLIStore {
         RepoFetchState.self, FeedbackAttachmentLocal.self, TriageVerdictRecord.self,
     ]
     static let cloudTypes: [any PersistentModel.Type] = [
-        Product.self, Repo.self, SeenIssue.self, HiddenApp.self, MailAccount.self,
+        Product.self, Repo.self, SeenIssue.self, MailAccount.self,
         GitHubAccount.self, MailSettings.self, MailThread.self, MailMessage.self,
         MailAttachment.self, IssueTranslation.self, IssueSummaryCache.self,
         ProjectVersion.self, SentReleaseNotification.self, ReplyTemplate.self,

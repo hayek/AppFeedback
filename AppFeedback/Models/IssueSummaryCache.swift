@@ -4,7 +4,7 @@ import SwiftData
 /// Cloud-synced rolling-30-day AI summary for one (repo, target language) tuple.
 /// Devices without on-device Foundation Models (e.g. older iPhones/iPads) hydrate
 /// from this row instead of recomputing locally. Only written when the rolling
-/// summary completes with an empty `appFilter` — per-device filtered views are
+/// summary completes with no filters active — per-device filtered views are
 /// transient and not cached.
 ///
 /// CloudKit constraint: every stored property must be optional or have a default.

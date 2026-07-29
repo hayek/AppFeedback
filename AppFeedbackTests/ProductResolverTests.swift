@@ -10,7 +10,7 @@ final class ProductResolverTests: XCTestCase {
     override func setUpWithError() throws {
         let config = ModelConfiguration(isStoredInMemoryOnly: true, cloudKitDatabase: .none)
         context = ModelContext(try ModelContainer(
-            for: Product.self, HiddenApp.self, ProjectVersion.self,
+            for: Product.self, ProjectVersion.self,
                 CachedIssue.self, RepoFetchState.self, TriageVerdictRecord.self,
             configurations: config))
     }
@@ -25,10 +25,10 @@ final class ProductResolverTests: XCTestCase {
         return product
     }
 
-    private func makeIssue(number: Int, app: String?, labels: [String] = [], state: IssueState = .open) {
+    private func makeIssue(number: Int, labels: [String] = [], state: IssueState = .open) {
         context.insert(CachedIssue(
             repoOwner: "o", repoName: "r", number: number, title: "T\(number)",
-            createdAt: Date(), state: state, rawBody: "", appName: app,
+            createdAt: Date(), state: state, rawBody: "", appName: nil,
             appVersion: nil, device: nil, osVersion: nil, email: nil, issueDescription: "",
             labels: labels.map { IssueLabel(name: $0, colorHex: "ededed") }))
     }
@@ -95,47 +95,32 @@ final class ProductResolverTests: XCTestCase {
 
     // MARK: - Summaries
 
-    func testSummaryReportsAppsWithCountsAndHiddenFlag() throws {
-        makeProduct("P", connected: ("hayek", "UsageForClaude"))
-        makeIssue(number: 1, app: "Zcode")
-        makeIssue(number: 2, app: "Zcode")
-        makeIssue(number: 3, app: "Secret")
-        context.insert(HiddenApp(repoOwner: "o", repoName: "r", appName: "Secret"))
-
-        let apps = try XCTUnwrap(ProductResolver.all(cloud: context, local: context).first).apps
-        XCTAssertEqual(apps.first(where: { $0.name == "Zcode" })?.count, 2)
-        XCTAssertEqual(apps.first(where: { $0.name == "Zcode" })?.hidden, false)
-        XCTAssertEqual(apps.first(where: { $0.name == "Secret" })?.hidden, true)
-    }
-
     func testSummarySeparatesFeedbackFromTaskCounts() throws {
         makeProduct("P")
-        makeIssue(number: 1, app: "A")
-        makeIssue(number: 2, app: "A", labels: [AppFeedbackLabels.task])
-        makeIssue(number: 3, app: "A", labels: [AppFeedbackLabels.task])
+        makeIssue(number: 1)
+        makeIssue(number: 2, labels: [AppFeedbackLabels.task])
+        makeIssue(number: 3, labels: [AppFeedbackLabels.task])
 
         let summary = try XCTUnwrap(ProductResolver.all(cloud: context, local: context).first)
         XCTAssertEqual(summary.feedbackCount, 1)
         XCTAssertEqual(summary.taskCount, 2)
     }
 
-    /// `feedback list` hides these by default, so the advertised total must match what paging
-    /// can actually reach.
-    func testSummaryFeedbackCountExcludesHiddenApps() throws {
+    /// The advertised total must match what paging can actually reach.
+    func testSummaryFeedbackCountMatchesWhatFeedbackListReturns() throws {
         makeProduct("P")
-        makeIssue(number: 1, app: "Zcode")
-        makeIssue(number: 2, app: "Secret")
-        context.insert(HiddenApp(repoOwner: "o", repoName: "r", appName: "Secret"))
+        makeIssue(number: 1)
+        makeIssue(number: 2)
+        makeIssue(number: 3, labels: [AppFeedbackLabels.task])
 
         let summary = try XCTUnwrap(ProductResolver.all(cloud: context, local: context).first)
-        XCTAssertEqual(summary.feedbackCount, 1)
-        XCTAssertEqual(summary.apps.count, 2, "the per-app breakdown still lists the hidden app")
+        XCTAssertEqual(summary.feedbackCount, 2)
     }
 
     func testSummaryCountsOnlyOpenIssues() throws {
         makeProduct("P")
-        makeIssue(number: 1, app: "A")
-        makeIssue(number: 2, app: "A", state: .closed)
+        makeIssue(number: 1)
+        makeIssue(number: 2, state: .closed)
         XCTAssertEqual(try XCTUnwrap(ProductResolver.all(cloud: context, local: context).first).feedbackCount, 1)
     }
 

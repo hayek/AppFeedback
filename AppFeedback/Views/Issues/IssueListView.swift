@@ -5,7 +5,6 @@ import UniformTypeIdentifiers
 struct IssueListView: View {
     @Bindable var viewModel: IssueListViewModel
     let loader: IssueLoader?
-    let allApps: [String]
     var onRefresh: (() async -> Void)?
     /// Attach a task to a feedback by dragging a task card onto a feedback row: (taskNumber, feedbackNumber).
     var onDropTask: ((Int, Int) -> Void)? = nil
@@ -61,7 +60,6 @@ struct IssueListView: View {
     init(
         viewModel: IssueListViewModel,
         loader: IssueLoader?,
-        allApps: [String],
         onRefresh: (() async -> Void)? = nil,
         onDropTask: ((Int, Int) -> Void)? = nil,
         attachedTasksByFeedback: [Int: [TaskItem]] = [:],
@@ -80,7 +78,6 @@ struct IssueListView: View {
     ) {
         self.viewModel = viewModel
         self.loader = loader
-        self.allApps = allApps
         self.onRefresh = onRefresh
         self.onDropTask = onDropTask
         self.attachedTasksByFeedback = attachedTasksByFeedback
@@ -199,7 +196,7 @@ struct IssueListView: View {
     @ViewBuilder
     private var issueList: some View {
         let visible = viewModel.visibleIssues
-        let hasActiveFilter = !viewModel.appFilter.isEmpty || !viewModel.filters.isEmpty
+        let hasActiveFilter = !viewModel.filters.isEmpty
         let showsFilterBar = !viewModel.allIssues.isEmpty || hasActiveFilter
         let summariesEnabled = viewModel.intelligenceSettings?.summariesEnabled ?? true
         ScrollViewReader { proxy in
@@ -215,7 +212,7 @@ struct IssueListView: View {
                     }
 
                     if showsFilterBar {
-                        FilterBarView(viewModel: viewModel, accent: filterAccent)
+                        FilterBarView(viewModel: viewModel, accent: accent)
                     }
 
                     if visible.isEmpty {
@@ -285,17 +282,8 @@ struct IssueListView: View {
         }
     }
 
-    private var filterAccent: Color {
-        if !viewModel.allowsAppFilter, let onlyApp = viewModel.appFilter.first {
-            return appColor(for: onlyApp)
-        }
-        return repoAccent ?? .accentColor
-    }
-
-    private func appColor(for appName: String) -> Color {
-        if let repoAccent { return repoAccent }
-        return ColorPalette.color(for: appName, in: allApps)
-    }
+    /// The product's accent, used for the filter chips and every card tag.
+    private var accent: Color { repoAccent ?? .accentColor }
 
     /// Returns the cached controller for an App Store issue, building it once (asynchronously).
     /// Returns nil for SDK/email items, when the mirror/responder deps are absent, when the
@@ -353,16 +341,12 @@ struct IssueListView: View {
             issue: issue,
             repoOwner: repoOwner,
             repoName: repoName,
-            appColor: appColor(for: issue.appName ?? ""),
+            appColor: accent,
             isUnread: viewModel.isUnread(issue),
             onInteract: { viewModel.markSeen(issue) },
-            activeApp: viewModel.appFilter,
             activeAppVersion: viewModel.filters.appVersion,
             activeDevice: viewModel.filters.device,
             activeOSVersion: viewModel.filters.osVersion,
-            onToggleApp: { value in
-                viewModel.appFilter.toggleMembership(value)
-            },
             onToggleAppVersion: { value in
                 viewModel.filters.appVersion.toggleMembership(value)
             },

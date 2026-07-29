@@ -114,7 +114,6 @@ struct RootView: View {
                     IssueListView(
                         viewModel: viewModel,
                         loader: issueLoaderRegistry.loaders[selection.repoId],
-                        allApps: allApps(for: selection.repoId),
                         onRefresh: {
                             async let mailPoll: Void = coordinatorRegistry?.pollNow() ?? ()
                             // Refresh every repo (not just the selected one) so all sidebar unread
@@ -247,9 +246,6 @@ struct RootView: View {
             issueLoaderRegistry.syncWithProducts(newRepos)
             autoSelectIfNeeded(repos: newRepos)
         }
-        .onChange(of: store.hiddenApps) { _, _ in
-            if let selection { viewModel.hiddenApps = store.hiddenAppsFor(selection.repoId) }
-        }
         .task {
             if summaryVM == nil {
                 summaryVM = UnreadSummaryViewModel(provider: intelligenceService)
@@ -318,12 +314,6 @@ struct RootView: View {
     }
     #endif
 
-    private func allApps(for repoId: UUID) -> [String] {
-        guard let loader = issueLoaderRegistry.loaders[repoId],
-              case .loaded(let issues, _) = loader.state else { return [] }
-        return Array(Set(issues.compactMap(\.appName))).sorted()
-    }
-
     @ViewBuilder
     private func inspectorPanel(for selection: SidebarSelection) -> some View {
         ProjectInspectorPanel(
@@ -375,7 +365,7 @@ struct RootView: View {
     /// Loads this repo's persisted filters into the view models. Falls back to cleared filters.
     private func loadPersistedFilters(repoId: UUID) {
         guard let (owner, repo) = ownerRepo(for: repoId) else {
-            inspector.clearFilters(); viewModel.clearFilters(); viewModel.appFilter = []
+            inspector.clearFilters(); viewModel.clearFilters()
             return
         }
         let bundle = filterStore.load(owner: owner, repo: repo)
@@ -398,30 +388,26 @@ struct RootView: View {
               case .loaded(let issues, _) = loader.state else { return }
         let owner = store.repos.first(where: { $0.id == selection.repoId })?.owner ?? ""
         let repoName = store.repos.first(where: { $0.id == selection.repoId })?.repo  ?? ""
-        viewModel.hiddenApps = store.hiddenAppsFor(selection.repoId)
         viewModel.attachSeenStore(seenStore, owner: owner, repo: repoName)
         viewModel.applyLoaded(issues)
         inspector.setTasks(viewModel.tasks)
         inspector.versionStates = versionStates(owner: owner, repo: repoName)
         loadPersistedFilters(repoId: selection.repoId)
-        viewModel.allowsAppFilter = true
     }
 
     /// Combined snapshot of the persistable filter selections (task chips, version chips, feedback
-    /// chips, app filter). Folded into one `.onChange` so the body's modifier chain stays within the
-    /// Swift type-checker's budget — any of the four changing triggers a single `savePersistedFilters`.
+    /// chips). Folded into one `.onChange` so the body's modifier chain stays within the Swift
+    /// type-checker's budget — any of the three changing triggers a single `savePersistedFilters`.
     private struct FilterPersistenceSignature: Equatable {
         var task: TaskFilters
         var version: VersionFilters
         var feedback: IssueListViewModel.ActiveFilters
-        var appFilter: Set<String>
     }
 
     private var filterPersistenceSignature: FilterPersistenceSignature {
         FilterPersistenceSignature(task: inspector.taskFilters,
                                    version: inspector.versionFilters,
-                                   feedback: viewModel.filters,
-                                   appFilter: viewModel.appFilter)
+                                   feedback: viewModel.filters)
     }
 
     private var selectedLoadedSignature: String {
@@ -712,7 +698,6 @@ struct RootView: View {
         // set highlightedIssueNumber to mark it directly without touching searchQuery.
         selection = .allIssues(repoId: repoId)
         viewModel.clearFilters()
-        viewModel.appFilter = []
         viewModel.highlightedIssueNumber = issue.number
     }
 
@@ -728,7 +713,6 @@ struct RootView: View {
             selectIssue(repoId: selection.repoId, issue: issue)
         } else {
             viewModel.clearFilters()
-            viewModel.appFilter = []
             viewModel.highlightedIssueNumber = number
         }
     }

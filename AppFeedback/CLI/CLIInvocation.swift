@@ -14,7 +14,6 @@ enum CLIChannel: String, CaseIterable { case auto, email, appStore = "app-store"
 
 struct CLIFlags {
     var product: String = ""
-    var apps: [String] = []
     var labels: [String] = []
     var sources: [FeedbackSource] = []
     var types: [IssueType] = []
@@ -29,7 +28,6 @@ struct CLIFlags {
     var appVersion: String?
     var version: String?
     var hasTask: Bool?              // nil = no constraint
-    var includeHidden = false
     var includeEmails = false
     var raw = false
     var refresh = false
@@ -238,7 +236,6 @@ enum CLIInvocation {
             }
             switch arg {
             case "--product":     flags.product = try nextValue(for: arg)
-            case "--app":         flags.apps.append(try nextValue(for: arg))
             case "--label":       flags.labels.append(try nextValue(for: arg))
             case "--search":      flags.search = try nextValue(for: arg)
             case "--title":       flags.title = try nextValue(for: arg)
@@ -305,7 +302,6 @@ enum CLIInvocation {
 
             case "--has-task":       hasTaskSeen = true; flags.hasTask = true
             case "--no-task":        noTaskSeen = true;  flags.hasTask = false
-            case "--include-hidden": flags.includeHidden = true
             case "--include-emails": flags.includeEmails = true
             case "--raw":            flags.raw = true
             case "--refresh":        flags.refresh = true

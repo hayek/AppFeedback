@@ -7,8 +7,6 @@ final class Product {
     var displayName: String = ""
     var owner: String = ""
     var repo: String = ""
-    var hiddenAppNames: [String] = []
-    var appColors: [String: String] = [:]
     /// Optional sidebar accent color for this product, as a 6-digit hex string. `nil` = default.
     var colorHex: String? = nil
     var createdAt: Date = Date()
@@ -32,8 +30,6 @@ final class Product {
         displayName: String,
         owner: String,
         repo: String,
-        hiddenAppNames: [String] = [],
-        appColors: [String: String] = [:],
         colorHex: String? = nil,
         createdAt: Date = Date(),
         mirrorEmailsToGitHub: Bool = true,
@@ -49,8 +45,6 @@ final class Product {
         self.displayName = displayName
         self.owner = owner
         self.repo = repo
-        self.hiddenAppNames = hiddenAppNames
-        self.appColors = appColors
         self.colorHex = colorHex
         self.createdAt = createdAt
         self.mirrorEmailsToGitHub = mirrorEmailsToGitHub

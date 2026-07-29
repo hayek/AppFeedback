@@ -12,7 +12,7 @@ final class CLIWriteCommandTests: XCTestCase {
     override func setUpWithError() throws {
         let modelConfig = ModelConfiguration(isStoredInMemoryOnly: true, cloudKitDatabase: .none)
         context = ModelContext(try ModelContainer(
-            for: Product.self, HiddenApp.self, ProjectVersion.self,
+            for: Product.self, ProjectVersion.self,
                 CachedIssue.self, RepoFetchState.self, TriageVerdictRecord.self,
             configurations: modelConfig))
     }

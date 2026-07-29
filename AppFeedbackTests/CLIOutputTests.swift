@@ -89,8 +89,6 @@ final class CLIOutputTests: XCTestCase {
     func testProductTextShowsRepoAndCounts() {
         let summary = ProductSummary(id: "id", displayName: "Usage for Claude",
                                      repo: "hayek/FeedbackRepo", connectedRepo: "hayek/UsageForClaude",
-                                     apps: [AppSummary(name: "Zcode", count: 5, hidden: false),
-                                            AppSummary(name: "Hidden", count: 1, hidden: true)],
                                      versions: [],
                                      sources: SourceFlags(sdk: true, appStore: false, email: false),
                                      feedbackCount: 499, taskCount: 40, lastFetchedAt: nil)
@@ -99,8 +97,7 @@ final class CLIOutputTests: XCTestCase {
         XCTAssertTrue(text.contains("hayek/FeedbackRepo"))
         XCTAssertTrue(text.contains("499"))
         XCTAssertTrue(text.contains("40"))
-        XCTAssertTrue(text.contains("Zcode"))
-        XCTAssertFalse(text.contains("Hidden"), "hidden apps are not listed in the text summary")
+        XCTAssertTrue(text.contains("hayek/UsageForClaude"))
     }
 
     func testTaskTextShowsStatusPriorityAndFeedbackRefs() {

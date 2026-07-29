@@ -116,7 +116,7 @@ final class CLIStoreTests: XCTestCase {
             "RepoFetchState", "FeedbackAttachmentLocal", "TriageVerdictRecord",
         ]
         let expectedCloud: Set<String> = [
-            "Product", "Repo", "SeenIssue", "HiddenApp", "MailAccount",
+            "Product", "Repo", "SeenIssue", "MailAccount",
             "GitHubAccount", "MailSettings", "MailThread", "MailMessage",
             "MailAttachment", "IssueTranslation", "IssueSummaryCache",
             "ProjectVersion", "SentReleaseNotification", "ReplyTemplate",

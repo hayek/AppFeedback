@@ -2,7 +2,9 @@ import Foundation
 import SwiftData
 
 /// One-time, idempotent copy of every legacy `Repo` row into a `Product` with the SAME
-/// `id`/`owner`/`repo` and all fields. Run in `AppFeedbackApp.init()` when not testing,
+/// `id`/`owner`/`repo` and every field `Product` still has — the legacy per-app columns
+/// (`hiddenAppNames`, `appColors`) are dropped, since a product now has exactly one app.
+/// Run in `AppFeedbackApp.init()` when not testing,
 /// exactly like `MailAccountMigration`. Gated by a `UserDefaults` flag set only on success,
 /// so a failure leaves legacy `Repo` data intact and retries next launch.
 enum ProductMigration {
@@ -40,8 +42,6 @@ enum ProductMigration {
                 displayName: legacy.displayName,
                 owner: legacy.owner,
                 repo: legacy.repo,
-                hiddenAppNames: legacy.hiddenAppNames,
-                appColors: legacy.appColors,
                 colorHex: legacy.colorHex,
                 createdAt: legacy.createdAt,
                 mirrorEmailsToGitHub: legacy.mirrorEmailsToGitHub,

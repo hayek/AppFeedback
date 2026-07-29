@@ -22,12 +22,9 @@ struct SidebarView: View {
             } else {
                 List(selection: $selection) {
                     ForEach(store.repos) { repo in
-                        let issues = issuesFor(repo)
-                        let apps = allAppsFor(issues)
                         RepoSectionView(
                             repo: repo,
-                            issues: issues,
-                            allApps: apps,
+                            issues: issuesFor(repo),
                             selection: $selection,
                             store: store,
                             seenStore: seenStore,
@@ -48,9 +45,5 @@ struct SidebarView: View {
         guard let loader = loaders[repo.id],
               case .loaded(let issues, _) = loader.state else { return [] }
         return issues
-    }
-
-    private func allAppsFor(_ issues: [FeedbackIssue]) -> [String] {
-        Array(Set(issues.compactMap(\.appName))).sorted()
     }
 }

@@ -20,13 +20,13 @@ struct ProductStoreTestHarness {
     let store: ProductStore
 
     /// `extraModels` lets a caller widen the schema (e.g. Phase 5 adds `MailThread.self`,
-    /// `MailAccount.self`) while still getting the standard `Product` + `HiddenApp` registration.
+    /// `MailAccount.self`) while still getting the standard `Product` registration.
     init(extraModels: [any PersistentModel.Type] = []) throws {
-        let schema = Schema([Product.self, HiddenApp.self] + extraModels)
+        let schema = Schema([Product.self] + extraModels)
         let config = ModelConfiguration(schema: schema, isStoredInMemoryOnly: true, cloudKitDatabase: .none)
         container = try ModelContainer(for: schema, configurations: config)
         context = ModelContext(container)
-        store = ProductStore(context: context, hiddenAppStore: HiddenAppStore(context: context))
+        store = ProductStore(context: context)
     }
 
     /// Seeds one product and returns its config. Mirrors `ProductConfig`'s field set so a
