@@ -110,6 +110,9 @@ struct IssueCardView: View {
     @State private var didCopy: Bool = false
     @State private var threads: [MailThread] = []
     @State private var showTemplatePicker: Bool = false
+    /// Whether the App Store response composer is expanded. Collapsed by default so the card
+    /// stays the same size as any other feedback card until you choose to reply.
+    @State private var showsAppStoreResponder: Bool = false
 
     private var translationVisible: Bool { issue.hasTranslation && !showOriginal }
 
@@ -312,7 +315,7 @@ struct IssueCardView: View {
                                         onRemove: onRemoveTask.map { remove in { remove(task) } }
                                     )
                                 }
-                                ForEach(issue.labels.withoutTypeAndUserSubmitted, id: \.name) { label in
+                                ForEach(issue.labels.cardChips, id: \.name) { label in
                                     LabelChipView(label: label)
                                 }
                                 if let app = issue.appName, !activeApp.contains(app) {
@@ -351,6 +354,17 @@ struct IssueCardView: View {
                             )
                         )
                         .padding(.leading, -12)
+
+                        if issue.source == .appStore, responseController != nil, !showsAppStoreResponder {
+                            AppStoreRespondBadgeButton(
+                                color: appColor,
+                                hasResponse: responseController?.mode == .hasResponse,
+                                onRespond: {
+                                    onInteract?()
+                                    withAnimation(.easeOut(duration: 0.2)) { showsAppStoreResponder = true }
+                                }
+                            )
+                        }
 
                         if let email = issue.email, threads.isEmpty {
                             ReplyBadgeButton(
@@ -391,8 +405,16 @@ struct IssueCardView: View {
                         }
                     }
 
-                    if issue.source == .appStore, let responseController {
-                        AppStoreResponsePanel(controller: responseController)
+                    // Opened from the "Respond"/"Update response" badge, exactly like the email
+                    // composer opens from Reply — an App Store card is otherwise as compact as
+                    // every other feedback card.
+                    if issue.source == .appStore, let responseController, showsAppStoreResponder {
+                        AppStoreResponsePanel(
+                            controller: responseController,
+                            onClose: {
+                                withAnimation(.easeOut(duration: 0.2)) { showsAppStoreResponder = false }
+                            }
+                        )
                     }
 
                     #if canImport(SwiftMail)
@@ -746,6 +768,22 @@ private struct MetaTagView: View {
     }
 }
 
+/// The pill chrome worn by a card's inline action badges (Reply, Respond on App Store) — one
+/// definition so a new source's badge can't drift from the others.
+struct CardBadgePill: ViewModifier {
+    let color: Color
+
+    func body(content: Content) -> some View {
+        content
+            .background(color.opacity(0.12), in: RoundedRectangle(cornerRadius: 6))
+            .overlay(RoundedRectangle(cornerRadius: 6).stroke(color.opacity(0.4), lineWidth: 1))
+    }
+}
+
+extension View {
+    func cardBadgePill(color: Color) -> some View { modifier(CardBadgePill(color: color)) }
+}
+
 struct ReplyBadgeButton: View {
     struct ReplyFromOption: Identifiable, Hashable {
         let id: UUID
@@ -795,8 +833,7 @@ struct ReplyBadgeButton: View {
                 .accessibilityLabel("Reply with template")
             }
         }
-        .background(color.opacity(0.12), in: RoundedRectangle(cornerRadius: 6))
-        .overlay(RoundedRectangle(cornerRadius: 6).stroke(color.opacity(0.4), lineWidth: 1))
+        .cardBadgePill(color: color)
         .contextMenu {
             Button("Reply to \(email)", action: onReply)
             if !replyFromOptions.isEmpty, let onReplyFrom {

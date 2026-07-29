@@ -40,6 +40,16 @@ extension Array where Element == IssueLabel {
     var withoutTypeAndUserSubmitted: [IssueLabel] {
         filter { IssueType(rawValue: $0.name) == nil && $0.name != "user-submitted" }
     }
+
+    /// Chips rendered on a feedback card. Also drops the `source:`/`rating:` markers the App Store
+    /// synthesizer writes: the card header already shows the source glyph and the star rating, so
+    /// repeating them as raw label chips is what made an App Store card look unlike every other
+    /// card. `withoutTypeAndUserSubmitted` keeps them for the clipboard's flat badge list.
+    var cardChips: [IssueLabel] {
+        withoutTypeAndUserSubmitted.filter {
+            !$0.name.hasPrefix("source:") && !$0.name.hasPrefix("rating:")
+        }
+    }
 }
 
 struct FeedbackIssue: Identifiable, Codable, Sendable {

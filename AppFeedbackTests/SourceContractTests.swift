@@ -47,6 +47,22 @@ final class SourceContractTests: XCTestCase {
         XCTAssertEqual(back.rating, 5)
     }
 
+    /// An App Store card already shows its source (the Apple glyph) and rating (the stars) in the
+    /// header, so repeating them as raw `source:`/`rating:` chips is noise that no other feedback
+    /// source carries. The clipboard's own list keeps them.
+    func test_cardChips_dropSourceAndRatingMarkers() {
+        let labels = [
+            IssueLabel(name: "source:app-store", colorHex: "ededed"),
+            IssueLabel(name: "rating:5", colorHex: "ededed"),
+            IssueLabel(name: "user-submitted", colorHex: "ededed"),
+            IssueLabel(name: "needs-triage", colorHex: "d93f0b"),
+        ]
+        XCTAssertEqual(labels.cardChips.map(\.name), ["needs-triage"])
+        XCTAssertEqual(labels.withoutTypeAndUserSubmitted.map(\.name),
+                       ["source:app-store", "rating:5", "needs-triage"],
+                       "the clipboard's label list is unchanged")
+    }
+
     /// Rows cached before the review-date fix carry the import time in `createdAt`. Reading them
     /// back must prefer the `reviewCreatedAt` marker in the stored body, so existing caches heal
     /// without waiting for the next full reconcile.

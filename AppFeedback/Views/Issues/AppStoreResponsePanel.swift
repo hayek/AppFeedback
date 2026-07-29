@@ -31,6 +31,31 @@ enum AppStoreResponsePanelModel {
     }
 }
 
+/// The App Store card's counterpart to `ReplyBadgeButton`: same pill chrome, same place in the
+/// chip row, opening the response composer instead of the email composer.
+struct AppStoreRespondBadgeButton: View {
+    let color: Color
+    let hasResponse: Bool
+    let onRespond: () -> Void
+
+    var body: some View {
+        Button(action: onRespond) {
+            HStack(spacing: 4) {
+                Image(systemName: "arrowshape.turn.up.left.fill")
+                    .font(.system(size: 9, weight: .semibold))
+                Text(hasResponse ? "Update response" : "Respond")
+                    .font(.system(size: 11, weight: .semibold))
+            }
+            .foregroundStyle(color)
+            .padding(.horizontal, 8)
+            .padding(.vertical, 3)
+        }
+        .buttonStyle(.plain)
+        .cardBadgePill(color: color)
+        .help(hasResponse ? "Update your App Store response" : "Respond on the App Store")
+    }
+}
+
 /// The "Respond on App Store" panel rendered inside a feedback card whose source is the
 /// App Store. Wears the same chrome as the email composer (`InlineReplyView` +
 /// `ComposeFormCore`) — header strip, divider-separated rows, plain body editor, trailing
@@ -39,9 +64,12 @@ enum AppStoreResponsePanelModel {
 /// Delete button. A read-only ASC key shows an explanatory note instead of the editor controls.
 struct AppStoreResponsePanel: View {
     @State var controller: AppStoreResponseController
+    /// Collapses the composer back to the card's "Respond" badge, like the email composer's ×.
+    var onClose: (() -> Void)?
 
-    init(controller: AppStoreResponseController) {
+    init(controller: AppStoreResponseController, onClose: (() -> Void)? = nil) {
         self._controller = State(initialValue: controller)
+        self.onClose = onClose
     }
 
     var body: some View {
@@ -97,6 +125,14 @@ struct AppStoreResponsePanel: View {
                     .background(Color.secondary.opacity(0.12), in: Capsule())
             }
             Spacer()
+            if let onClose {
+                Button(action: onClose) {
+                    Image(systemName: "xmark.circle.fill")
+                        .foregroundStyle(.tertiary)
+                }
+                .buttonStyle(.plain)
+                .accessibilityLabel("Close response composer")
+            }
         }
         .padding(.horizontal, 10).padding(.vertical, 6)
     }
