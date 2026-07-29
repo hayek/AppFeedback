@@ -85,8 +85,14 @@ actor AppStoreReviewCoordinator: FeedbackSourceIngestor {
         }
     }
 
+    /// Idempotent, like `IssueLoaderRegistry.start()`. The registry starts a coordinator twice at
+    /// launch — once from `syncWithProducts` when it creates it, once from `registry.start()` on the
+    /// window's `onAppear` — and restarting a live loop cancelled the launch poll's in-flight
+    /// request (NSURLErrorCancelled -999). The replacement loop then skipped its own poll because
+    /// `inFlight` was still set by the request just killed, so the first review sync slipped a full
+    /// poll interval. Only `stop()` (which clears `loopTask`) ends a loop.
     func start() {
-        loopTask?.cancel()
+        if let loopTask, !loopTask.isCancelled { return }
         loopTask = Task { [weak self] in
             guard let self else { return }
             await self.pollNow()

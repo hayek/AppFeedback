@@ -14,6 +14,12 @@ final class FakeAppStoreConnectClient: AppStoreConnectClientProtocol, @unchecked
         var createCalls: [(reviewId: String, body: String)] = []
         var deleteCalls: [String] = []
         var throwOnList: Error?
+        // Gate: lets a test hold `listReviews` "in flight" and observe cancellation.
+        var gateArmed = false
+        var gateCancelled = false
+        var gateContinuation: CheckedContinuation<Void, Error>?
+        var listCallCount = 0
+        var listCancelCount = 0
     }
 
     init() {}
@@ -25,15 +31,56 @@ final class FakeAppStoreConnectClient: AppStoreConnectClientProtocol, @unchecked
     var createCalls: [(reviewId: String, body: String)] { lock.withLock { $0.createCalls } }
     var deleteCalls: [String] { lock.withLock { $0.deleteCalls } }
 
+    /// Arms the gate: the next `listReviews` suspends until `releaseList()` — and throws
+    /// `CancellationError` if its task is cancelled meanwhile, the way `URLSession.data(for:)`
+    /// surfaces `NSURLErrorCancelled`. Lets a test hold a poll in flight and prove it survived.
+    func armListGate() { lock.withLock { $0.gateArmed = true } }
+    func releaseList() { takeGateContinuation()?.resume() }
+    var listCallCount: Int { lock.withLock { $0.listCallCount } }
+    var listCancelCount: Int { lock.withLock { $0.listCancelCount } }
+
+    private func takeGateContinuation() -> CheckedContinuation<Void, Error>? {
+        lock.withLock { state in
+            defer { state.gateContinuation = nil }
+            return state.gateContinuation
+        }
+    }
+
     // MARK: - Protocol
     func listReviews(appAppleID: String, page cursor: String?) async throws -> ASCReviewPage {
-        try lock.withLock { state in
+        let armed = lock.withLock { state -> Bool in
+            state.listCallCount += 1
+            return state.gateArmed
+        }
+        if armed { try await waitOnGate() }
+        return try lock.withLock { state in
             if let e = state.throwOnList { throw e }
             guard state.pageIndex < state.pages.count else {
                 return ASCReviewPage(reviews: [], nextCursor: nil, rateRemaining: nil)
             }
             defer { state.pageIndex += 1 }
             return state.pages[state.pageIndex]
+        }
+    }
+
+    private func waitOnGate() async throws {
+        try await withTaskCancellationHandler {
+            try await withCheckedThrowingContinuation { (cont: CheckedContinuation<Void, Error>) in
+                let alreadyCancelled = lock.withLock { state -> Bool in
+                    if state.gateCancelled { return true }
+                    state.gateContinuation = cont
+                    return false
+                }
+                if alreadyCancelled {
+                    cont.resume(throwing: CancellationError())
+                } else if Task.isCancelled {
+                    // onCancel may have run before the continuation was stored.
+                    takeGateContinuation()?.resume(throwing: CancellationError())
+                }
+            }
+        } onCancel: {
+            lock.withLock { $0.gateCancelled = true; $0.listCancelCount += 1 }
+            takeGateContinuation()?.resume(throwing: CancellationError())
         }
     }
     func listApps() async throws -> [ASCApp] {

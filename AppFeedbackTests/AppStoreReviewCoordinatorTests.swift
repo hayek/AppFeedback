@@ -139,6 +139,43 @@ final class AppStoreReviewCoordinatorTests: XCTestCase {
         XCTAssertNotNil(status.lastError)
     }
 
+    /// `start()` is called twice at launch — once by the registry's `syncWithProducts` when the
+    /// coordinator is created, once by `registry.start()` from the window's `onAppear`. The second
+    /// call must NOT cancel the launch poll that the first one kicked off: cancelling it killed the
+    /// in-flight `GET customerReviews` (NSURLErrorCancelled -999) and the replacement loop then
+    /// skipped its own poll because `inFlight` was still set, delaying the first sync by a full
+    /// poll interval.
+    func testSecondStartDoesNotCancelTheInFlightLaunchPoll() async throws {
+        let cfg = config(); let client = FakeAppStoreConnectClient(); let writer = FakeIssueWriting(startingNumber: 500)
+        let store = try makeStore()
+        client.setPages([ASCReviewPage(reviews: [
+            .make(id: "R1", rating: 5, title: "Great", body: "Love", created: Date(timeIntervalSince1970: 1_700_000_000))
+        ], nextCursor: nil, rateRemaining: nil)])
+        client.armListGate()                       // hold the launch poll in flight
+        let coord = makeCoordinator(cfg, client: client, writer: writer, store: store)
+
+        await coord.start()
+        try await waitUntil { client.listCallCount == 1 }   // poll #1 is in flight
+        await coord.start()                                 // the onAppear double-start
+        client.releaseList()
+
+        try await waitUntil { store.mirror(reviewId: "R1") != nil }
+        XCTAssertEqual(client.listCancelCount, 0, "the in-flight launch poll must not be cancelled")
+        XCTAssertEqual(store.mirror(reviewId: "R1")?.issueNumber, 500, "the launch poll must complete")
+        let status = await coord.status()
+        XCTAssertNil(status.lastError)
+        await coord.stop()
+    }
+
+    /// Polls `condition` every 10ms until true or ~2s elapse.
+    private func waitUntil(_ condition: @MainActor () async -> Bool) async throws {
+        for _ in 0..<200 {
+            if await condition() { return }
+            try await Task.sleep(for: .milliseconds(10))
+        }
+        XCTFail("condition not met within timeout")
+    }
+
     // [G] Deletion close preserves the rating badge: the body is NOT rewritten (markers survive),
     // so IssueLoader.resolveRating still yields the rating after the close.
     func testDeletionPreservesRatingMarkerForResolveRating() async throws {
