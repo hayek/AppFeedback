@@ -296,5 +296,123 @@ final class ComposeMailViewModelTests: XCTestCase {
         XCTAssertEqual(sent[0].2, "bob-password")
         _ = a
     }
+
+    // MARK: - Failure text
+
+    /// The badge and the Activity log show `localizedDescription`, so the wrapper has to carry the
+    /// whole story — NIO's bridged text ("NIOCore.ChannelError error 0") names nothing.
+    func test_transportError_namesServerStageAndCause() {
+        let nio = SMTPTransportError(
+            host: "smtp.mail.me.com", port: 587, stage: .connect,
+            underlying: SMTPError.connectionFailed("refused")
+        )
+        XCTAssertEqual(nio.localizedDescription,
+                       "Couldn't connect to smtp.mail.me.com:587 — SMTP connection failed: refused")
+
+        struct Bare: Error, CustomStringConvertible { var description: String { "connectTimeout" } }
+        let bare = SMTPTransportError(host: "smtp.x", port: 465, stage: .login, underlying: Bare())
+        XCTAssertEqual(bare.localizedDescription, "Couldn't sign in to smtp.x:465 — connectTimeout")
+    }
+
+    // MARK: - Retry (resend of a failed message)
+
+    private func makeThreadContext() throws -> ModelContext {
+        let config = ModelConfiguration(isStoredInMemoryOnly: true, cloudKitDatabase: .none)
+        let container = try ModelContainer(
+            for: MailThread.self, MailMessage.self, MailAttachment.self,
+                MailAttachmentLocal.self, MailAccountLocalState.self,
+            configurations: config
+        )
+        return ModelContext(container)
+    }
+
+    /// The retry path the "Failed" badge menu drives: same Message-Id, same row, failure cleared.
+    func test_resend_reusesMessageIDAndClearsFailure() async throws {
+        let accounts = try makeStore()
+        let acc = try XCTUnwrap(accounts.defaultSender)
+        let ctx = try makeThreadContext()
+        let threadStore = MailThreadStore(context: ctx)
+        let tracker = OutboundSendTracker()
+        let failures = OutboundFailureStore(persistenceURL: nil)
+        let sender = FakeSender()
+        await sender.setShouldThrow(NSError(domain: "Test", code: 1,
+                                            userInfo: [NSLocalizedDescriptionKey: "smtp down"]))
+
+        func makeVM(subject: String, body: String) throws -> ComposeMailViewModel {
+            let vm = ComposeMailViewModel(
+                recipient: "bob@example.com", issue: makeIssue(),
+                repoOwner: "o", repoName: "r",
+                store: accounts, settingsStore: try makeSettingsStore(),
+                threadStore: threadStore, tracker: tracker, failureStore: failures,
+                sender: sender, activityLog: ActivityLog(persistenceURL: nil),
+                initialSubject: subject,
+                senderAccountID: acc.id,
+                passwordLoader: { _ in "pw" }
+            )
+            vm.subject = subject
+            vm.body = NSAttributedString(string: body)
+            return vm
+        }
+
+        let first = try makeVM(subject: "Re: Crash", body: "Thanks for the update.")
+        let firstOK = await first.send()
+        XCTAssertFalse(firstOK, "the first attempt fails at the SMTP hop")
+
+        let recorded = try XCTUnwrap(threadStore.threads(forIssue: (owner: "o", repo: "r", number: 7,
+                                                                   title: "Crash"))
+            .flatMap(\.sortedDedupedMessages).first)
+        let originalID = recorded.messageID
+        XCTAssertEqual(failures.reason(for: originalID), "smtp down")
+        XCTAssertNil(recorded.sentAt)
+
+        // Retry: same message, this time the SMTP hop succeeds.
+        await sender.setShouldThrow(nil)
+        let retry = try makeVM(subject: recorded.subject, body: recorded.bodyPlain)
+        let retryOK = await retry.send(resending: .init(message: recorded))
+        XCTAssertTrue(retryOK, "the retry goes out")
+
+        let sent = await sender.snapshot()
+        XCTAssertEqual(sent.count, 1, "only the successful attempt reaches the sender")
+        XCTAssertEqual(sent[0].0.messageID?.description, originalID,
+                       "a retry must reuse the original Message-Id so the thread doesn't fork")
+
+        let rows = try ctx.fetch(FetchDescriptor<MailMessage>())
+        XCTAssertEqual(rows.count, 1, "the retry updates the existing row, it doesn't add one")
+        XCTAssertNotNil(recorded.sentAt, "a successful retry marks the message sent")
+        XCTAssertNil(failures.reason(for: originalID), "the recorded failure is cleared")
+    }
+
+    /// A retry of a threaded reply keeps the headers of the original attempt rather than
+    /// re-deriving them (which would thread the message under itself).
+    func test_resend_keepsOriginalReplyHeaders() async throws {
+        let accounts = try makeStore()
+        let acc = try XCTUnwrap(accounts.defaultSender)
+        let ctx = try makeThreadContext()
+        let threadStore = MailThreadStore(context: ctx)
+        let sender = FakeSender()
+        let parent = MailMessageHeaders(messageID: "<parent@x>", inReplyTo: nil,
+                                        references: ["<root@x>"])
+        let vm = ComposeMailViewModel(
+            recipient: "bob@example.com", issue: makeIssue(),
+            repoOwner: "o", repoName: "r",
+            store: accounts, settingsStore: try makeSettingsStore(),
+            threadStore: threadStore, sender: sender,
+            activityLog: ActivityLog(persistenceURL: nil),
+            inReplyTo: parent, senderAccountID: acc.id,
+            passwordLoader: { _ in "pw" }
+        )
+        vm.subject = "Re: Crash"
+        vm.body = NSAttributedString(string: "ack")
+        await vm.send()
+
+        let recorded = try XCTUnwrap(ctx.fetch(FetchDescriptor<MailMessage>()).first)
+        await vm.send(resending: .init(message: recorded))
+
+        let sent = await sender.snapshot()
+        XCTAssertEqual(sent.count, 2)
+        XCTAssertEqual(sent[1].0.messageID?.description, recorded.messageID)
+        XCTAssertEqual(sent[1].0.additionalHeaders?["In-Reply-To"], "<parent@x>")
+        XCTAssertEqual(sent[1].0.additionalHeaders?["References"], "<root@x> <parent@x>")
+    }
 }
 #endif

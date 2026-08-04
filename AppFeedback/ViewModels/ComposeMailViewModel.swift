@@ -124,16 +124,37 @@ final class ComposeMailViewModel {
         )
     }
 
+    /// An outbound message that was already recorded but never made it out over SMTP. Re-sending
+    /// reuses its Message-Id and threading headers, so `recordOutbound` dedupes onto the existing
+    /// row — the thread shows the same reply flipping Failed → Sending… → Sent rather than growing
+    /// a second copy per attempt.
+    struct ResendTarget {
+        let messageID: String
+        let replyHeaders: ReplyHeaderBuilder.Output?
+
+        init(message: MailMessage) {
+            messageID = message.messageID
+            let inReplyTo = message.inReplyTo
+            let references = message.referencesAsArray
+            replyHeaders = (inReplyTo == nil && references.isEmpty)
+                ? nil
+                : ReplyHeaderBuilder.Output(inReplyTo: inReplyTo, references: references)
+        }
+    }
+
     @discardableResult
-    func send() async -> Bool {
+    func send(resending target: ResendTarget? = nil) async -> Bool {
         guard let credentials = currentCredentials() else { return false }
 
-        let messageID = MessageIDGenerator.generate(
+        let messageID = target?.messageID ?? MessageIDGenerator.generate(
             repoOwner: repoOwner,
             repoName: repoName,
             issueNumber: issue.number
         )
-        let replyHeaders = ReplyHeaderBuilder.build(parent: inReplyTo, newMessageID: messageID)
+        // A retry keeps the headers the first attempt was recorded with; rebuilding them from
+        // `inReplyTo` would re-derive a *new* message's position in the thread.
+        let replyHeaders = target?.replyHeaders
+            ?? (target == nil ? ReplyHeaderBuilder.build(parent: inReplyTo, newMessageID: messageID) : nil)
 
         threadStore?.recordOutbound(
             messageID: messageID,

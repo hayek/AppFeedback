@@ -1,4 +1,9 @@
 import SwiftUI
+#if os(macOS)
+import AppKit
+#else
+import UIKit
+#endif
 
 enum MailSendState: Equatable {
     case sending
@@ -8,11 +13,12 @@ enum MailSendState: Equatable {
 
 struct MailSendStatusBadge: View {
     let state: MailSendState
+    /// Re-runs the SMTP send for this message. Nil where no retry is wired up — the failure
+    /// menu then only explains what went wrong.
+    var onRetry: (() -> Void)? = nil
 
     #if os(macOS)
     @Environment(\.openWindow) private var openWindow
-    #else
-    @State private var showFailureAlert: Bool = false
     #endif
 
     var body: some View {
@@ -32,27 +38,48 @@ struct MailSendStatusBadge: View {
         .animation(.easeInOut(duration: 0.25), value: state)
     }
 
+    /// Tapping "Failed" opens a menu rather than a window: the retry is the thing you almost
+    /// always want, and the reason — previously a macOS-only tooltip — reads as its header.
     private func failedBadge(reason: String) -> some View {
-        Button(action: failedTapped) {
+        Menu {
+            Section(header: Text(headline(for: reason))) {
+                if let onRetry {
+                    Button("Retry Send", systemImage: "arrow.clockwise", action: onRetry)
+                }
+                Button("Copy Error", systemImage: "doc.on.doc") { copy(reason) }
+                #if os(macOS)
+                Button("Show Activity", systemImage: "list.bullet.rectangle") {
+                    openWindow(id: "activity")
+                }
+                #endif
+            }
+        } label: {
             row(icon: "exclamationmark.triangle.fill", color: .red) { Text("Failed") }
         }
+        .menuStyle(.button)
         .buttonStyle(.plain)
-        #if os(macOS)
+        .menuIndicator(.hidden)
+        .fixedSize()
         .help(reason)
-        #else
-        .alert("Failed to send", isPresented: $showFailureAlert) {
-            Button("OK", role: .cancel) {}
-        } message: {
-            Text(reason)
-        }
-        #endif
     }
 
-    private func failedTapped() {
+    /// A menu header is one unwrapped line, so collapse newlines and cap the length — a verbose
+    /// SMTP error would otherwise stretch the menu across the screen. The full text stays on the
+    /// tooltip and behind Copy Error.
+    private func headline(for reason: String) -> String {
+        let single = reason
+            .replacingOccurrences(of: "\n", with: " ")
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+        guard single.count > 120 else { return single }
+        return single.prefix(119) + "…"
+    }
+
+    private func copy(_ text: String) {
         #if os(macOS)
-        openWindow(id: "activity")
+        NSPasteboard.general.clearContents()
+        NSPasteboard.general.setString(text, forType: .string)
         #else
-        showFailureAlert = true
+        UIPasteboard.general.string = text
         #endif
     }
 

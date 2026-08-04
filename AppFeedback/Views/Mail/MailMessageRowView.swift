@@ -7,11 +7,19 @@ import UIKit
 
 struct MailMessageRowView: View {
     let message: MailMessage
+    /// Issue context for a retry — the placeholder substitution in the header/footer template
+    /// needs the same values the original send used.
+    let issue: FeedbackIssue
+    let repoOwner: String
+    let repoName: String
 
+    @Environment(MailAccountStore.self) private var accountStore
     @Environment(MailSettingsStore.self) private var settingsStore
     @Environment(MailThreadStore.self) private var threadStore
     @Environment(OutboundSendTracker.self) private var outboundTracker
     @Environment(OutboundFailureStore.self) private var outboundFailures
+    @Environment(ActivityLog.self) private var activityLog
+    @Environment(MailToGitHubMirrorHolder.self) private var mirrorHolder: MailToGitHubMirrorHolder?
     @Environment(AttachmentDownloaderHolder.self) private var downloaderHolder: AttachmentDownloaderHolder?
     @Environment(QuickLookPresenter.self) private var quickLook
     @Environment(ThumbnailCache.self) private var thumbnailCache
@@ -96,7 +104,7 @@ struct MailMessageRowView: View {
                     .font(.system(size: 11))
                     .foregroundStyle(.tertiary)
                 if let sendState = sendState {
-                    MailSendStatusBadge(state: sendState)
+                    MailSendStatusBadge(state: sendState, onRetry: retrySend)
                 }
             }
             .lineLimit(1)
@@ -118,6 +126,42 @@ struct MailMessageRowView: View {
             .buttonStyle(.borderless)
             .font(.caption)
         }
+    }
+
+    /// Re-sends a message whose first SMTP attempt failed. Builds the composer view model the way
+    /// `InlineReplyView.setupViewModel` does, but seeded from the stored message and pointed at its
+    /// existing Message-Id, so the retry lands on this same row instead of adding another.
+    ///
+    /// Attachments are not recoverable: only their metadata is persisted, and a message that never
+    /// sent has none at all — a retry therefore carries the text only.
+    private func retrySend() {
+        #if canImport(SwiftMail)
+        guard let senderID = message.replySenderAccountID(in: accountStore) else { return }
+        let recipient = message.replyRecipient
+        guard !recipient.isEmpty else { return }
+
+        let appenderProvider = IMAPClientProvider(accountStore: accountStore, accountID: senderID)
+        let vm = ComposeMailViewModel(
+            recipient: recipient,
+            issue: issue,
+            repoOwner: repoOwner,
+            repoName: repoName,
+            store: accountStore,
+            settingsStore: settingsStore,
+            threadStore: threadStore,
+            tracker: outboundTracker,
+            failureStore: outboundFailures,
+            sender: MailSender(),
+            activityLog: activityLog,
+            mirror: mirrorHolder?.mirror,
+            initialSubject: message.subject,
+            senderAccountID: senderID,
+            sentAppender: { @Sendable email in try await appenderProvider.appendToSent(email) }
+        )
+        vm.body = NSAttributedString(string: message.bodyPlain)
+        let target = ComposeMailViewModel.ResendTarget(message: message)
+        Task { await vm.send(resending: target) }
+        #endif
     }
 
     private func copyFromAddress() {

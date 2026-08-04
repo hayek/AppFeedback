@@ -35,7 +35,8 @@ struct MailThreadView: View {
             if isExpanded {
                 Divider()
                 ForEach(messages) { message in
-                    MailMessageRowView(message: message)
+                    MailMessageRowView(message: message, issue: issue,
+                                       repoOwner: repoOwner, repoName: repoName)
                     Divider()
                 }
                 replyArea
