@@ -1,5 +1,7 @@
 import XCTest
 import SwiftData
+import ImageIO
+import UniformTypeIdentifiers
 @testable import AppFeedback
 
 #if canImport(SwiftMail)
@@ -413,6 +415,88 @@ final class ComposeMailViewModelTests: XCTestCase {
         XCTAssertEqual(sent[1].0.messageID?.description, recorded.messageID)
         XCTAssertEqual(sent[1].0.additionalHeaders?["In-Reply-To"], "<parent@x>")
         XCTAssertEqual(sent[1].0.additionalHeaders?["References"], "<root@x> <parent@x>")
+    }
+    // MARK: - Raw attachment ingestion (shared by Files + Photo Library picks)
+
+    /// A real 2×2 PNG: `ImagePreprocessor` runs picked bytes through ImageIO, so a
+    /// synthetic `Data([1,2,3])` would be rejected before it ever reaches the strip.
+    private func tinyPNG() throws -> Data {
+        let space = CGColorSpaceCreateDeviceRGB()
+        let ctx = try XCTUnwrap(CGContext(
+            data: nil, width: 2, height: 2, bitsPerComponent: 8, bytesPerRow: 0,
+            space: space, bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue
+        ))
+        ctx.setFillColor(CGColor(red: 1, green: 0, blue: 0, alpha: 1))
+        ctx.fill(CGRect(x: 0, y: 0, width: 2, height: 2))
+        let image = try XCTUnwrap(ctx.makeImage())
+        let out = NSMutableData()
+        let dest = try XCTUnwrap(CGImageDestinationCreateWithData(
+            out as CFMutableData, UTType.png.identifier as CFString, 1, nil
+        ))
+        CGImageDestinationAddImage(dest, image, nil)
+        XCTAssertTrue(CGImageDestinationFinalize(dest))
+        return out as Data
+    }
+
+    private func makeComposeVM() throws -> ComposeMailViewModel {
+        let store = try makeStore()
+        let acc = try XCTUnwrap(store.defaultSender)
+        return ComposeMailViewModel(
+            recipient: "bob@example.com",
+            issue: makeIssue(),
+            repoOwner: "o", repoName: "r",
+            store: store,
+            settingsStore: try makeSettingsStore(),
+            sender: FakeSender(),
+            activityLog: ActivityLog(persistenceURL: nil),
+            senderAccountID: acc.id,
+            passwordLoader: { _ in "pw" }
+        )
+    }
+
+    func test_ingest_appendsPickedImages() throws {
+        let vm = try makeComposeVM()
+        let png = try tinyPNG()
+
+        vm.ingest([RawAttachmentInput(filename: "Photo.png", mimeType: "image/png", data: png)])
+
+        XCTAssertEqual(vm.pendingAttachments.count, 1)
+        XCTAssertEqual(vm.pendingAttachments[0].filename, "Photo.png")
+        XCTAssertEqual(vm.pendingAttachments[0].mimeType, "image/png")
+        XCTAssertNil(vm.attachmentError)
+    }
+
+    func test_ingest_stopsAtTheThreeAttachmentLimit() throws {
+        let vm = try makeComposeVM()
+        let png = try tinyPNG()
+        let picks = (1...4).map {
+            RawAttachmentInput(filename: "Photo-\($0).png", mimeType: "image/png", data: png)
+        }
+
+        vm.ingest(picks)
+
+        XCTAssertEqual(vm.pendingAttachments.count, 3, "SDK caps a report at 3 attachments")
+        XCTAssertNil(vm.attachmentError)
+    }
+
+    /// A tapped photo that can't be decoded used to vanish silently, which reads as a
+    /// broken button. It has to say something instead.
+    func test_ingest_reportsUnreadableImageInsteadOfSkippingIt() throws {
+        let vm = try makeComposeVM()
+
+        vm.ingest([RawAttachmentInput(filename: "Photo.png", mimeType: "image/png", data: Data([1, 2, 3]))])
+
+        XCTAssertTrue(vm.pendingAttachments.isEmpty)
+        let message = try XCTUnwrap(vm.attachmentError)
+        XCTAssertTrue(message.contains("Photo.png"), "error should name the failed pick, got: \(message)")
+    }
+
+    func test_ingest_flagsAPickTheValidatorRejects() throws {
+        let vm = try makeComposeVM()
+
+        vm.ingest([RawAttachmentInput(filename: "Photo.webp", mimeType: "image/webp", data: Data([1, 2, 3]))])
+
+        XCTAssertEqual(vm.attachmentError, "Photo.webp: unsupported type.")
     }
 }
 #endif

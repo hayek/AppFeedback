@@ -4,6 +4,9 @@ import UniformTypeIdentifiers
 #if os(macOS)
 import AppKit
 #endif
+#if os(iOS)
+import PhotosUI
+#endif
 
 /// Shared body of any compose surface (windowed, sheeted, inline). Renders the From / To /
 /// Subject rows, header/footer template previews, the body editor, and a Send button.
@@ -25,6 +28,16 @@ struct ComposeFormCore: View {
     #endif
 
     @State private var showFileImporter = false
+    #if os(iOS)
+    @State private var showPhotoPicker = false
+    @State private var photoPicks: [PhotosPickerItem] = []
+    #endif
+
+    /// Both pickers cap their own selection at what the composer can still hold, so a pick
+    /// can't silently overshoot the SDK's 3-attachment limit.
+    private var freeAttachmentSlots: Int {
+        max(0, ComposeMailViewModel.maxAttachments - vm.pendingAttachments.count)
+    }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
@@ -73,7 +86,41 @@ struct ComposeFormCore: View {
         ) { result in
             if case .success(let urls) = result { vm.ingestURLs(urls) }
         }
+        #if os(iOS)
+        // `.current` keeps each pick in its own format, so the MIME we derive from
+        // `supportedContentTypes` matches the bytes. HEIC→JPEG then happens in one
+        // predictable place: `ImagePreprocessor`, which also strips the GPS tags a
+        // camera-roll photo carries.
+        .photosPicker(
+            isPresented: $showPhotoPicker,
+            selection: $photoPicks,
+            maxSelectionCount: freeAttachmentSlots,
+            matching: .images,
+            preferredItemEncoding: .current
+        )
+        .onChange(of: photoPicks) { _, picks in
+            guard !picks.isEmpty else { return }
+            Task { await ingestPicks(picks) }
+        }
+        #endif
     }
+
+    #if os(iOS)
+    private func ingestPicks(_ picks: [PhotosPickerItem]) async {
+        let taken = Set(vm.pendingAttachments.map(\.filename))
+        let loaded = await PhotoAttachmentLoader.load(picks, avoiding: taken)
+        let dropped = picks.count - loaded.count
+        vm.ingest(loaded)
+        // Set after ingest: `ingest` revalidates and would clear this. A validator
+        // complaint about what did land is the more actionable message, so it wins.
+        if dropped > 0, vm.attachmentError == nil {
+            vm.attachmentError = dropped == 1
+                ? "Couldn\u{2019}t load that photo."
+                : "Couldn\u{2019}t load \(dropped) photos."
+        }
+        photoPicks = []
+    }
+    #endif
 
     private var fromRow: some View {
         HStack {
@@ -138,13 +185,7 @@ struct ComposeFormCore: View {
 
     private var footerButtons: some View {
         HStack {
-            Button {
-                showFileImporter = true
-            } label: {
-                Image(systemName: "paperclip")
-            }
-            .buttonStyle(.plain)
-            .disabled(vm.pendingAttachments.count >= 3)
+            attachButton
 
             Spacer()
             if let onDiscard {
@@ -156,6 +197,38 @@ struct ComposeFormCore: View {
                 .disabled(!vm.canSend)
         }
         .padding(12)
+    }
+
+    /// On iOS the paperclip opens a source menu — Files can't reach the camera roll, and
+    /// the photo picker can't reach iCloud Drive. macOS has only one source, so it opens
+    /// the importer directly rather than growing a one-item menu.
+    @ViewBuilder
+    private var attachButton: some View {
+        #if os(iOS)
+        Menu {
+            Button {
+                showPhotoPicker = true
+            } label: {
+                Label("Photo Library", systemImage: "photo.on.rectangle")
+            }
+            Button {
+                showFileImporter = true
+            } label: {
+                Label("Files\u{2026}", systemImage: "folder")
+            }
+        } label: {
+            Image(systemName: "paperclip")
+        }
+        .disabled(freeAttachmentSlots == 0)
+        #else
+        Button {
+            showFileImporter = true
+        } label: {
+            Image(systemName: "paperclip")
+        }
+        .buttonStyle(.plain)
+        .disabled(freeAttachmentSlots == 0)
+        #endif
     }
 
     @ViewBuilder

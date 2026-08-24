@@ -32,3 +32,12 @@ struct PendingAttachment: Identifiable, Sendable, Equatable {
         self.data = data
     }
 }
+
+/// A picked file's bytes before they become a ``PendingAttachment`` — the shape both
+/// attachment sources (the Files importer and the iOS photo picker) hand to
+/// `ComposeMailViewModel.ingest(_:)`, which preprocesses and validates them.
+struct RawAttachmentInput: Sendable, Equatable {
+    let filename: String
+    let mimeType: String
+    let data: Data
+}

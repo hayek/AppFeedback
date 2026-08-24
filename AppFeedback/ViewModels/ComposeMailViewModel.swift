@@ -14,6 +14,8 @@ final class ComposeMailViewModel {
     var subject: String = ""
     var body: NSAttributedString = NSAttributedString(string: "")
     var pendingAttachments: [PendingAttachment] = []
+    /// Mirrors `FeedbackAttachmentValidator.maxCount`, which isn't public in the SDK package.
+    static let maxAttachments = 3
     var attachmentError: String? = nil
 
     let recipient: String
@@ -237,19 +239,36 @@ final class ComposeMailViewModel {
     // MARK: - Attachment ingestion + validation
 
     func ingestURLs(_ urls: [URL]) {
+        var inputs: [RawAttachmentInput] = []
         for url in urls {
-            guard pendingAttachments.count < 3 else { break }
             guard url.startAccessingSecurityScopedResource() else { continue }
             defer { url.stopAccessingSecurityScopedResource() }
             guard let data = try? Data(contentsOf: url) else { continue }
-            let mime = mimeType(for: url)
+            inputs.append(RawAttachmentInput(
+                filename: url.lastPathComponent,
+                mimeType: mimeType(for: url),
+                data: data
+            ))
+        }
+        ingest(inputs)
+    }
+
+    /// Preprocesses and pins picked bytes to the compose strip, whatever picked them —
+    /// the Files importer, a macOS drop, or the iOS photo picker.
+    func ingest(_ inputs: [RawAttachmentInput]) {
+        var failed: [String] = []
+        for input in inputs {
+            guard pendingAttachments.count < Self.maxAttachments else { break }
             // Preprocess images (EXIF/GPS strip, HEIC→JPEG) before pinning to PendingAttachment.
-            let modeled = FeedbackAttachment(filename: url.lastPathComponent, mimeType: mime, data: data)
+            // Matters most for camera-roll picks, which carry location metadata.
+            let modeled = FeedbackAttachment(filename: input.filename, mimeType: input.mimeType, data: input.data)
             let processed: FeedbackAttachment
             do {
                 processed = try ImagePreprocessor.process(modeled)
             } catch {
-                // Skip files that fail preprocessing — they would be rejected on submit anyway.
+                // Named, not skipped: to someone who just tapped a photo, a silent drop
+                // reads as a broken button.
+                failed.append(input.filename)
                 continue
             }
             pendingAttachments.append(PendingAttachment(
@@ -259,6 +278,11 @@ final class ComposeMailViewModel {
             ))
         }
         revalidateAttachments()
+        // A validator complaint about what *did* land is the more actionable message,
+        // so it wins when both happen.
+        if attachmentError == nil, !failed.isEmpty {
+            attachmentError = "Couldn\u{2019}t read \(failed.joined(separator: ", "))."
+        }
     }
 
     func removeAttachment(id: UUID) {
