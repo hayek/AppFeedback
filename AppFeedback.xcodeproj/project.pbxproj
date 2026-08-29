@@ -680,7 +680,7 @@
 		001DBB4F64123F2C298BCC8F /* TriageSuggestionChip.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TriageSuggestionChip.swift; sourceTree = "<group>"; };
 		002279BEE7F52BAC103B4E99 /* GitHubAccountStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GitHubAccountStore.swift; sourceTree = "<group>"; };
 		002A66CA995D79ADE3FE8722 /* AppFeedbackMain.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppFeedbackMain.swift; sourceTree = "<group>"; };
-		005F6BC6E30CFBFB803770A1 /* AppFeedback.app */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.application; path = AppFeedback.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		005F6BC6E30CFBFB803770A1 /* AppFeedback.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = AppFeedback.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		00F960BE036D65B0E276B47E /* UnreadSummaryViewModelTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UnreadSummaryViewModelTests.swift; sourceTree = "<group>"; };
 		010274A79120CEA885A09F03 /* GitHubAccountStoreTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GitHubAccountStoreTests.swift; sourceTree = "<group>"; };
 		01EF2AF87A9357C9D020B117 /* AccountRepoPicker.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AccountRepoPicker.swift; sourceTree = "<group>"; };
@@ -1665,10 +1665,6 @@
 						DevelopmentTeam = Q7U5734Q3T;
 						ProvisioningStyle = Automatic;
 					};
-					8853BB5D103CA8AE5D6613DC = {
-						DevelopmentTeam = Q7U5734Q3T;
-						ProvisioningStyle = Automatic;
-					};
 					E1C35F66081908F9234D1288 = {
 						DevelopmentTeam = Q7U5734Q3T;
 						ProvisioningStyle = Automatic;
@@ -2414,7 +2410,7 @@
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				CODE_SIGN_ENTITLEMENTS = AppFeedback/AppFeedback.entitlements;
-				CODE_SIGN_IDENTITY = "iPhone Developer";
+				CODE_SIGN_IDENTITY = "Apple Development";
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
 				DEVELOPMENT_TEAM = Q7U5734Q3T;
@@ -2428,6 +2424,7 @@
 				MARKETING_VERSION = 1.0;
 				PRODUCT_BUNDLE_IDENTIFIER = com.amirhayek.AppFeedback;
 				PRODUCT_NAME = AppFeedback;
+				PROVISIONING_PROFILE_SPECIFIER = "";
 				SDKROOT = iphoneos;
 				SWIFT_VERSION = 5.9;
 				TARGETED_DEVICE_FAMILY = "1,2";
@@ -2670,7 +2667,7 @@
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				CODE_SIGN_ENTITLEMENTS = AppFeedback/AppFeedback.entitlements;
-				CODE_SIGN_IDENTITY = "iPhone Developer";
+				CODE_SIGN_IDENTITY = "Apple Development";
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
 				DEVELOPMENT_TEAM = Q7U5734Q3T;
@@ -2684,6 +2681,7 @@
 				MARKETING_VERSION = 1.0;
 				PRODUCT_BUNDLE_IDENTIFIER = com.amirhayek.AppFeedback;
 				PRODUCT_NAME = AppFeedback;
+				PROVISIONING_PROFILE_SPECIFIER = "";
 				SDKROOT = iphoneos;
 				SWIFT_VERSION = 5.9;
 				TARGETED_DEVICE_FAMILY = "1,2";
