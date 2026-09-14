@@ -306,7 +306,10 @@ struct TaskCard: View {
         .clipShape(RoundedRectangle(cornerRadius: Surface.cardRadius, style: .continuous))
         .contentShape(RoundedRectangle(cornerRadius: Surface.cardRadius, style: .continuous))
         .onTapGesture { onOpen() }
-        .draggable(TaskDragItem.self, item: TaskDragItem(number: task.number))
+        // Pairs with the panel's `dragContainer(for: TaskDragItem.self)`. On iOS 27 the standalone
+        // `draggable(_:item:)` never starts a drag; the container form does (verified in a
+        // simulator UI test).
+        .draggable(containerItemID: task.number)
         // A task only means something to this app: never let it land in Finder or another app.
         .dragConfiguration(DragConfiguration(operationsOutsideApp: .init(allowCopy: false)))
         .onHover { hovering = $0 }

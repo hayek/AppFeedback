@@ -777,6 +777,10 @@ struct RootView: View {
 /// `.inspector` renders as a trailing column whose chevron is the only dismiss affordance and
 /// which won't surface a `NavigationStack`'s toolbar. On iPad / macOS (regular width) the native
 /// inspector column is the right presentation, so we keep it there.
+///
+/// The iPhone sheet opens at a medium detent with background interaction enabled, so the
+/// feedback list above it stays live: a task card can be dragged out of the sheet and dropped
+/// on a feedback. A full-height (or modal) sheet would leave no drop target on screen.
 private struct TasksPanelPresentation<Panel: View>: ViewModifier {
     @Binding var isPresented: Bool
     @ViewBuilder var panel: () -> Panel
@@ -797,6 +801,8 @@ private struct TasksPanelPresentation<Panel: View>: ViewModifier {
                             }
                         }
                 }
+                .presentationDetents([.medium, .large])
+                .presentationBackgroundInteraction(.enabled(upThrough: .medium))
             }
         } else {
             content.inspector(isPresented: $isPresented) { panel() }

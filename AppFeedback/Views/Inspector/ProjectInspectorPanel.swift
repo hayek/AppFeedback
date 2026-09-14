@@ -55,6 +55,10 @@ struct ProjectInspectorPanel: View {
                         filterRow { VersionFilterBar(inspector: inspector, accent: accent) }
                         versionRows(repo: repo)
                     }
+                    // Supplies the payload for each task card's `draggable(containerItemID:)`.
+                    .dragContainer(for: TaskDragItem.self) { (numbers: [Int]) in
+                        numbers.map { TaskDragItem(number: $0) }
+                    }
                 }
                 .scrollIndicators(.hidden)
                 .swipeActionsContainer()
