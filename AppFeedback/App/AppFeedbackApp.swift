@@ -43,7 +43,7 @@ struct AppFeedbackApp: App {
     @State private var gitHubAccountStore: GitHubAccountStore
     @State private var mailSettingsStore: MailSettingsStore
     @State private var threadStore: MailThreadStore
-    @State private var outboundTracker: OutboundSendTracker = OutboundSendTracker()
+    @State private var outboundTracker: OutboundSendTracker
     @State private var outboundFailures: OutboundFailureStore
     @State private var settingsNavigation = SettingsNavigation()
     @State private var seenStore: SeenIssueStore
@@ -147,7 +147,8 @@ struct AppFeedbackApp: App {
         _gitHubAccountStore = State(initialValue: GitHubAccountStore(context: ModelContext(container)))
         _versionStore = State(initialValue: VersionStore(context: ModelContext(container)))
         _filterStore = State(initialValue: FilterPreferenceStore(context: ModelContext(container)))
-        _replyTemplateStore = State(initialValue: ReplyTemplateStore(context: ModelContext(container)))
+        let replyTemplateStoreLocal = ReplyTemplateStore(context: ModelContext(container))
+        _replyTemplateStore = State(initialValue: replyTemplateStoreLocal)
         _cacheContext = State(initialValue: ModelContext(container))
         _syncStatus = State(initialValue: CloudSyncStatus())
         // Seed the snapshot so tokenProvider works even before the first repos observation.
@@ -165,7 +166,10 @@ struct AppFeedbackApp: App {
                 .appendingPathComponent("AppFeedback", isDirectory: true)
             return supportDir.appendingPathComponent("outbound-failures.json")
         }()
-        _outboundFailures = State(initialValue: OutboundFailureStore(persistenceURL: failureStoreURL))
+        let outboundFailuresLocal = OutboundFailureStore(persistenceURL: failureStoreURL)
+        _outboundFailures = State(initialValue: outboundFailuresLocal)
+        let outboundTrackerLocal = OutboundSendTracker()
+        _outboundTracker = State(initialValue: outboundTrackerLocal)
         _intelligenceSettings = State(initialValue: IntelligenceSettings())
         _intelligenceService = State(initialValue: IntelligenceService())
 
@@ -322,11 +326,11 @@ struct AppFeedbackApp: App {
             accountStore: mailAccountStoreLocal,
             settingsStore: mailSettingsStoreLocal,
             threadStore: threadStoreLocal,
-            tracker: _outboundTracker.wrappedValue,
-            failureStore: _outboundFailures.wrappedValue,
+            tracker: outboundTrackerLocal,
+            failureStore: outboundFailuresLocal,
             activityLog: activityLogValue,
-            templateStore: _replyTemplateStore.wrappedValue,
-            mirror: _mirrorHolder.wrappedValue.mirror,
+            templateStore: replyTemplateStoreLocal,
+            mirror: mirrorLocal,
             appStoreMirrorStore: ascMirrorStore,
             appStoreContext: { [registry = ascRegistry] productID in
                 await registry.responderContext(productID: productID)
@@ -444,8 +448,8 @@ struct AppFeedbackApp: App {
                 #endif
         }
         .modelContainer(container)
+        #if os(macOS)
         .commands {
-            #if os(macOS)
             CommandGroup(after: .windowList) {
                 ActivityMenuCommand()
             }
@@ -455,8 +459,8 @@ struct AppFeedbackApp: App {
             CommandGroup(replacing: .appSettings) {
                 OpenSettingsCommand()
             }
-            #endif
         }
+        #endif
         #if os(macOS)
         Window("Activity", id: "activity") {
             ActivityWindow()
