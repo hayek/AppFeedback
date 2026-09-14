@@ -1,4 +1,21 @@
 import Foundation
+import CoreTransferable
+import UniformTypeIdentifiers
+
+extension UTType {
+    /// A task dragged from the inspector panel; declared in Info.plist `UTExportedTypeDeclarations`.
+    static let appFeedbackTask = UTType(exportedAs: "com.amirhayek.AppFeedback.task", conformingTo: .data)
+}
+
+/// Drag payload for attaching a task to a feedback by dragging its card onto a feedback card.
+struct TaskDragItem: Codable, Transferable, Identifiable, Sendable {
+    let number: Int
+    var id: Int { number }
+
+    static var transferRepresentation: some TransferRepresentation {
+        CodableRepresentation(contentType: .appFeedbackTask)
+    }
+}
 
 /// In-memory projection of a GitHub issue that carries the `appfeedback:task` label.
 /// Not persisted — derived from a loaded `FeedbackIssue` on every fetch.

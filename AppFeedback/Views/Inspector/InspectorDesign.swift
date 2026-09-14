@@ -306,7 +306,9 @@ struct TaskCard: View {
         .clipShape(RoundedRectangle(cornerRadius: Surface.cardRadius, style: .continuous))
         .contentShape(RoundedRectangle(cornerRadius: Surface.cardRadius, style: .continuous))
         .onTapGesture { onOpen() }
-        .onDrag { NSItemProvider(object: "\(task.number)" as NSString) }
+        .draggable(TaskDragItem.self, item: TaskDragItem(number: task.number))
+        // A task only means something to this app: never let it land in Finder or another app.
+        .dragConfiguration(DragConfiguration(operationsOutsideApp: .init(allowCopy: false)))
         .onHover { hovering = $0 }
         .animation(.easeOut(duration: 0.14), value: hovering)
     }

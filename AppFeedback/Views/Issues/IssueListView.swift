@@ -237,18 +237,20 @@ struct IssueListView: View {
                                         .strokeBorder(Color.accentColor, lineWidth: 2)
                                 }
                             }
-                            .onDrop(of: [.text], isTargeted: Binding(
-                                get: { dropTargetNumber == issue.number },
-                                set: { dropTargetNumber = ($0 && onDropTask != nil) ? issue.number : nil }
-                            )) { providers in
-                                guard onDropTask != nil, let provider = providers.first else { return false }
-                                let feedbackNumber = issue.number
-                                _ = provider.loadObject(ofClass: NSString.self) { object, _ in
-                                    if let string = object as? String, let taskNumber = Int(string) {
-                                        Task { @MainActor in onDropTask?(taskNumber, feedbackNumber) }
-                                    }
+                            .dropDestination(for: TaskDragItem.self, isEnabled: onDropTask != nil) { items, _ in
+                                dropTargetNumber = nil
+                                guard let first = items.first else { return }
+                                onDropTask?(first.number, issue.number)
+                            }
+                            .onDropSessionUpdated { session in
+                                switch session.phase {
+                                case .entering, .active:
+                                    dropTargetNumber = issue.number
+                                case .exiting, .ended, .dataTransferCompleted:
+                                    if dropTargetNumber == issue.number { dropTargetNumber = nil }
+                                @unknown default:
+                                    if dropTargetNumber == issue.number { dropTargetNumber = nil }
                                 }
-                                return true
                             }
                             .id(issue.number)
                         }

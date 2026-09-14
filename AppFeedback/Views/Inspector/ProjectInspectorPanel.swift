@@ -27,6 +27,8 @@ struct ProjectInspectorPanel: View {
     @State private var versionToOpen: ProjectVersion?
     @State private var taskToDelete: TaskItem?
     @State private var versionToDelete: ProjectVersion?
+    /// The row whose swipe actions are showing (`swipeActionsContainer` keeps it to one).
+    @State private var revealedSwipeRow: String?
     private let taskService = TaskService()
 
     @Environment(FeedbackTriageCoordinator.self) private var triageCoordinator
@@ -34,28 +36,28 @@ struct ProjectInspectorPanel: View {
     var body: some View {
         Group {
             if let repo {
-                // Row insert/remove animate via List's own animation (driven by `withAnimation`
-                // at the mutation sites); the badge fades via a value-animation on the card. The
-                // key is NOT to put custom `.transition`s on List rows — that suppresses List's
-                // built-in animation.
+                // A ScrollView, not a List: a List row owns its mouse/touch tracking, which keeps
+                // task cards from starting a drag. `swipeActionsContainer()` gives the rows swipe
+                // actions outside a List. Row insert/remove animate via `withAnimation` at the
+                // mutation sites; the badge fades via a value-animation on the card.
                 // Chips/buttons use `.accentColor` for interactivity — intentionally unlike
                 // RepoSectionView's sidebar dot, which falls back to `.secondary` as a neutral marker.
                 let accent: Color = repo.colorHex.map(Color.init(hex:)) ?? .accentColor
-                List {
-                    header(title: "Tasks", count: taskRowItems.count,
-                           addLabel: "New Task", add: onCreateTask, topPad: 4)
-                    filterRow { TaskFilterBar(inspector: inspector, accent: accent) }
-                    taskRows(repo: repo)
+                ScrollView {
+                    LazyVStack(alignment: .leading, spacing: 0) {
+                        header(title: "Tasks", count: taskRowItems.count,
+                               addLabel: "New Task", add: onCreateTask, topPad: 4)
+                        filterRow { TaskFilterBar(inspector: inspector, accent: accent) }
+                        taskRows(repo: repo)
 
-                    header(title: "Versions", count: filteredVersions(repo: repo).count,
-                           addLabel: "New Version", add: onCreateVersion, topPad: 22)
-                    filterRow { VersionFilterBar(inspector: inspector, accent: accent) }
-                    versionRows(repo: repo)
+                        header(title: "Versions", count: filteredVersions(repo: repo).count,
+                               addLabel: "New Version", add: onCreateVersion, topPad: 22)
+                        filterRow { VersionFilterBar(inspector: inspector, accent: accent) }
+                        versionRows(repo: repo)
+                    }
                 }
-                .listStyle(.plain)
-                .environment(\.defaultMinListRowHeight, 0)
-                .scrollContentBackground(.hidden)
                 .scrollIndicators(.hidden)
+                .swipeActionsContainer()
                 .refreshable { await onRefresh() }
                 #if os(iOS)
                 .contentMargins(.top, 16, for: .scrollContent)
@@ -112,17 +114,13 @@ struct ProjectInspectorPanel: View {
 
     private func header(title: String, count: Int, addLabel: String, add: @escaping () -> Void, topPad: CGFloat) -> some View {
         PanelSectionHeader(title: title, count: count, addLabel: addLabel, add: add)
-            .listRowSeparator(.hidden)
-            .listRowBackground(Color.clear)
-            .listRowInsets(EdgeInsets(top: topPad, leading: 12, bottom: 8, trailing: 12))
+            .padding(EdgeInsets(top: topPad, leading: 12, bottom: 8, trailing: 12))
     }
 
     @ViewBuilder
     private func filterRow<Content: View>(@ViewBuilder _ content: () -> Content) -> some View {
         content()
-            .listRowSeparator(.hidden)
-            .listRowBackground(Color.clear)
-            .listRowInsets(EdgeInsets(top: 0, leading: 0, bottom: 4, trailing: 0))
+            .padding(.bottom, 4)
     }
 
     /// Real tasks and not-yet-reloaded creation placeholders, merged and sorted together so a
@@ -152,16 +150,17 @@ struct ProjectInspectorPanel: View {
                     task: task,
                     onStatus: { changeStatus(repo: repo, task: task, status: $0) },
                     onPriority: { changePriority(repo: repo, task: task, priority: $0) },
-                    onOpen: { taskToOpen = task },
+                    // A tap on a card whose Delete is showing only dismisses the action.
+                    onOpen: { if revealedSwipeRow != row.id { taskToOpen = task } },
                     creationBadge: badge,
                     isAICreated: aiCreatedTaskNumbers.contains(task.number)
                 )
-                .cardRow()
                 .swipeActions(edge: .trailing, allowsFullSwipe: false) {
                     Button(role: .destructive) { taskToDelete = task } label: {
                         Label("Delete", systemImage: "trash")
                     }
-                }
+                } onPresentationChanged: { revealedSwipeRow = $0 ? row.id : nil }
+                .cardRow()
             case .pending(let creation):
                 PendingTaskCard(
                     creation: creation,
@@ -203,14 +202,14 @@ struct ProjectInspectorPanel: View {
                 creationBadge: versionCreations.status(version.id),
                 onRetry: { onRetryVersion(version.id) },
                 onDismiss: { onDismissVersion(version.id) },
-                action: { versionToOpen = version }
+                action: { if revealedSwipeRow != "version-\(version.id)" { versionToOpen = version } }
             )
-            .cardRow()
             .swipeActions(edge: .trailing, allowsFullSwipe: false) {
                 Button(role: .destructive) { versionToDelete = version } label: {
                     Label("Delete", systemImage: "trash")
                 }
-            }
+            } onPresentationChanged: { revealedSwipeRow = $0 ? "version-\(version.id)" : nil }
+            .cardRow()
         }
         if versions.isEmpty {
             if inspector.versionFilters.isActive && total > 0 {
@@ -251,12 +250,10 @@ struct ProjectInspectorPanel: View {
 }
 
 private extension View {
-    /// A card row: full width, no separators, clear background, tight side margins.
+    /// A card row: full width with tight side margins.
     func cardRow() -> some View {
         self
-            .listRowSeparator(.hidden)
-            .listRowBackground(Color.clear)
-            .listRowInsets(EdgeInsets(top: 5, leading: 12, bottom: 5, trailing: 12))
+            .padding(EdgeInsets(top: 5, leading: 12, bottom: 5, trailing: 12))
     }
 }
 
