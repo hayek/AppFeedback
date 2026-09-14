@@ -60,10 +60,6 @@ final class IntelligenceService: IntelligenceProvider {
 
     func recomputeAvailability() {
         #if canImport(FoundationModels)
-        guard #available(macOS 26, iOS 26, *) else {
-            availability = .osTooOld
-            return
-        }
         guard case .unavailable(let reason) = SystemLanguageModel.default.availability else {
             availability = .available
             return
@@ -86,49 +82,45 @@ final class IntelligenceService: IntelligenceProvider {
     ) async throws -> IssueSummaryDTO {
         try await MainActor.run { try checkAvailable() }
         #if canImport(FoundationModels)
-        if #available(macOS 26, iOS 26, *) {
-            return try await runSummarize(
-                issues: issues,
-                targetLanguage: targetLanguage,
-                promptContext: promptContext
-            )
-        }
-        #endif
+        return try await runSummarize(
+            issues: issues,
+            targetLanguage: targetLanguage,
+            promptContext: promptContext
+        )
+        #else
         throw IntelligenceError.unavailable
+        #endif
     }
 
     nonisolated func triageClassify(issue: FeedbackIssue) async throws -> TriageClassificationDTO {
         try await MainActor.run { try checkAvailable() }
         #if canImport(FoundationModels)
-        if #available(macOS 26, iOS 26, *) {
-            return try await runTriageClassify(issue: issue)
-        }
-        #endif
+        return try await runTriageClassify(issue: issue)
+        #else
         throw IntelligenceError.unavailable
+        #endif
     }
 
     nonisolated func triageMatch(feedbackTitle: String, signal: String, kind: TriageKind,
                                  roster: [TriageTaskRosterEntry]) async throws -> TriageDecisionDTO {
         try await MainActor.run { try checkAvailable() }
         #if canImport(FoundationModels)
-        if #available(macOS 26, iOS 26, *) {
-            return try await runTriageMatch(feedbackTitle: feedbackTitle, signal: signal,
-                                            kind: kind, roster: roster)
-        }
-        #endif
+        return try await runTriageMatch(feedbackTitle: feedbackTitle, signal: signal,
+                                        kind: kind, roster: roster)
+        #else
         throw IntelligenceError.unavailable
+        #endif
     }
 
     nonisolated func triageVerify(feedbackTitle: String, signal: String, kind: TriageKind,
                                   candidate: TriageTaskRosterEntry) async throws -> Bool {
         try await MainActor.run { try checkAvailable() }
         #if canImport(FoundationModels)
-        if #available(macOS 26, iOS 26, *) {
-            return await runTriageVerify(feedbackTitle: feedbackTitle, signal: signal,
-                                         kind: kind, candidate: candidate)
-        }
-        #endif
+        return await runTriageVerify(feedbackTitle: feedbackTitle, signal: signal,
+                                     kind: kind, candidate: candidate)
+        #else
         throw IntelligenceError.unavailable
+        #endif
     }
 
     @MainActor
@@ -144,7 +136,6 @@ enum IntelligenceError: Error, Equatable {
 }
 
 #if canImport(FoundationModels)
-@available(macOS 26, iOS 26, *)
 extension IntelligenceService {
     fileprivate func runSummarize(
         issues: [FeedbackIssue],
@@ -172,7 +163,7 @@ extension IntelligenceService {
             do {
                 let response = try await session.respond(to: prompt, generating: IssueSummary.self)
                 return IssueSummaryDTO(response.content)
-            } catch let error as LanguageModelSession.GenerationError {
+            } catch let error as LanguageModelError {
                 if case .guardrailViolation = error {
                     let headlinePrefix = promptContext == .unreadIssues
                         ? "\(issues.count) unread feedback issues"
@@ -183,7 +174,7 @@ extension IntelligenceService {
                         cons: ""
                     )
                 }
-                if case .exceededContextWindowSize = error {
+                if case .contextSizeExceeded = error {
                     lastBudgetError = error
                     continue
                 }
@@ -203,9 +194,9 @@ extension IntelligenceService {
             do {
                 let response = try await session.respond(to: prompt, generating: TriageClassification.self)
                 return TriageClassificationDTO(response.content)
-            } catch let error as LanguageModelSession.GenerationError {
+            } catch let error as LanguageModelError {
                 if case .guardrailViolation = error { throw IntelligenceError.guardrailBlocked }
-                if case .exceededContextWindowSize = error { lastBudgetError = error; continue }
+                if case .contextSizeExceeded = error { lastBudgetError = error; continue }
                 throw error
             }
         }
@@ -243,9 +234,9 @@ extension IntelligenceService {
                     return await reproposeNewTask(signal: signal, kind: kind, fallbackTitle: fallbackTitle)
                 }
                 return decision
-            } catch let error as LanguageModelSession.GenerationError {
+            } catch let error as LanguageModelError {
                 if case .guardrailViolation = error { throw IntelligenceError.guardrailBlocked }
-                if case .exceededContextWindowSize = error { lastBudgetError = error; continue }
+                if case .contextSizeExceeded = error { lastBudgetError = error; continue }
                 throw error
             }
         }

@@ -60,7 +60,6 @@ extension TriageDecisionDTO {
 }
 
 #if canImport(FoundationModels)
-@available(macOS 26, iOS 26, *)
 @Generable
 struct TriageClassification: Equatable, Sendable {
     @Guide(description: "true only when the feedback describes something a developer can act on: a bug, crash, or regression; a concrete feature request; or a usability complaint (confusing, hard to find, too many steps). false for praise, content-free negativity ('don't like it'), and questions or support requests.")
@@ -73,7 +72,6 @@ struct TriageClassification: Equatable, Sendable {
     var signal: String
 }
 
-@available(macOS 26, iOS 26, *)
 extension TriageClassificationDTO {
     init(_ c: TriageClassification) {
         let kind = TriageKind(modelOutput: c.kind)
@@ -85,7 +83,6 @@ extension TriageClassificationDTO {
     }
 }
 
-@available(macOS 26, iOS 26, *)
 @Generable
 struct TriageMatchDecision: Equatable, Sendable {
     @Guide(description: "Does one of the listed tasks describe the SAME specific feature or problem as this feedback? Most feedback does not match any existing task — false is the common, correct answer. Only true when the task is clearly about the same thing.")
@@ -104,7 +101,6 @@ struct TriageMatchDecision: Equatable, Sendable {
     var newTaskSummary: String
 }
 
-@available(macOS 26, iOS 26, *)
 @Generable
 struct TriagePairVerifyDecision: Equatable, Sendable {
     @Guide(description: "true ONLY when the development task clearly refers to the same specific feature or problem the feedback describes. Shared words, a shared app area, or vague similarity is NOT the same problem — answer false then. When unsure, answer false.")
@@ -114,7 +110,6 @@ struct TriagePairVerifyDecision: Equatable, Sendable {
     var reason: String
 }
 
-@available(macOS 26, iOS 26, *)
 extension TriageDecisionDTO {
     /// Converts a raw model decision, demoting unverifiable match claims to createNew.
     init(_ d: TriageMatchDecision, includedRoster: [TriageTaskRosterEntry],

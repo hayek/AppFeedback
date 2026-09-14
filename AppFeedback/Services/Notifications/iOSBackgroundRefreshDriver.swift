@@ -43,7 +43,7 @@ final class iOSBackgroundRefreshDriver {
         guard settings.isEnabled else { return }
         let request = BGAppRefreshTaskRequest(identifier: Self.taskIdentifier)
         request.earliestBeginDate = Date().addingTimeInterval(IssueLoaderRegistry.pollInterval)
-        try? BGTaskScheduler.shared.submit(request)
+        BGTaskScheduler.shared.submitTaskRequest(request) { _ in }
     }
 
     func cancelPending() {

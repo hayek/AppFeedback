@@ -335,12 +335,8 @@ final class ComposeMailViewModel {
         let group = DispatchGroup()
         for p in providers {
             group.enter()
-            p.loadItem(forTypeIdentifier: UTType.fileURL.identifier, options: nil) { item, _ in
-                if let data = item as? Data, let url = URL(dataRepresentation: data, relativeTo: nil) {
-                    collector.append(url)
-                } else if let url = item as? URL {
-                    collector.append(url)
-                }
+            _ = p.loadObject(ofClass: URL.self) { url, _ in
+                if let url { collector.append(url) }
                 group.leave()
             }
         }

@@ -4,7 +4,6 @@ import FoundationModels
 #endif
 
 #if canImport(FoundationModels)
-@available(macOS 26, iOS 26, *)
 @Generable
 struct IssueSummary: Equatable, Sendable {
     @Guide(description: "One headline sentence on overall feedback tone and focus for this period.")
@@ -26,7 +25,6 @@ struct IssueSummaryDTO: Equatable, Sendable {
 }
 
 #if canImport(FoundationModels)
-@available(macOS 26, iOS 26, *)
 extension IssueSummaryDTO {
     init(_ summary: IssueSummary) {
         self.headline = summary.headline
