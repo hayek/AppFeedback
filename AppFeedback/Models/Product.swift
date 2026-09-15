@@ -10,6 +10,9 @@ final class Product {
     /// Optional sidebar accent color for this product, as a 6-digit hex string. `nil` = default.
     var colorHex: String? = nil
     var createdAt: Date = Date()
+    /// User-chosen sidebar position (ascending). Ties — e.g. every pre-existing product at the
+    /// default 0 — fall back to `createdAt`, so the original order survives the migration.
+    var sortOrder: Double = 0
     /// When true, every email this app sends or receives for an issue in this product is
     /// also posted as a comment on the GitHub issue.
     var mirrorEmailsToGitHub: Bool = true
@@ -55,5 +58,10 @@ final class Product {
         self.appStoreKeyID = appStoreKeyID
         self.appStoreAppAppleID = appStoreAppAppleID
         self.feedbackInboxAccountID = feedbackInboxAccountID
+    }
+
+    /// The order products appear in the sidebar (and CLI listings).
+    static var sidebarOrder: [SortDescriptor<Product>] {
+        [SortDescriptor(\.sortOrder), SortDescriptor(\.createdAt)]
     }
 }

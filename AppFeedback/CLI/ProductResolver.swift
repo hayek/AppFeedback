@@ -5,7 +5,7 @@ import SwiftData
 enum ProductResolver {
 
     static func products(cloud: ModelContext) -> [Product] {
-        (try? cloud.fetch(FetchDescriptor<Product>(sortBy: [SortDescriptor(\.createdAt)]))) ?? []
+        (try? cloud.fetch(FetchDescriptor<Product>(sortBy: Product.sidebarOrder))) ?? []
     }
 
     /// UUID → display name (case-insensitive) → owner/repo. Ambiguity is an error, never a guess.

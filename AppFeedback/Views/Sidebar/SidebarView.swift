@@ -31,6 +31,7 @@ struct SidebarView: View {
                             onOpenSettings: onOpenProductSettings
                         )
                     }
+                    .onMove { store.move(fromOffsets: $0, toOffset: $1) }
                 }
                 .listStyle(.sidebar)
             }

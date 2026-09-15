@@ -52,6 +52,42 @@ final class ProductStoreTests: XCTestCase {
         XCTAssertEqual(store.repos.first?.displayName, "New")
     }
 
+    func test_add_appendsToEndOfOrder() {
+        let a = harness.seed(owner: "o", repo: "a")
+        let b = harness.seed(owner: "o", repo: "b")
+        let c = harness.seed(owner: "o", repo: "c")
+        XCTAssertEqual(store.repos.map(\.id), [a.id, b.id, c.id])
+    }
+
+    func test_move_reordersAndPersists() {
+        let a = harness.seed(owner: "o", repo: "a")
+        let b = harness.seed(owner: "o", repo: "b")
+        let c = harness.seed(owner: "o", repo: "c")
+        store.move(fromOffsets: IndexSet(integer: 2), toOffset: 0)
+        XCTAssertEqual(store.repos.map(\.id), [c.id, a.id, b.id])
+
+        let store2 = ProductStore(context: ModelContext(harness.container))
+        XCTAssertEqual(store2.repos.map(\.id), [c.id, a.id, b.id])
+    }
+
+    func test_move_thenAdd_appendsAfterReordered() {
+        let a = harness.seed(owner: "o", repo: "a")
+        let b = harness.seed(owner: "o", repo: "b")
+        store.move(fromOffsets: IndexSet(integer: 0), toOffset: 2)
+        let c = harness.seed(owner: "o", repo: "c")
+        XCTAssertEqual(store.repos.map(\.id), [b.id, a.id, c.id])
+    }
+
+    func test_legacyProductsWithDefaultSortOrder_keepCreationOrder() throws {
+        let older = Product(displayName: "Older", owner: "o", repo: "old", createdAt: Date(timeIntervalSince1970: 1))
+        let newer = Product(displayName: "Newer", owner: "o", repo: "new", createdAt: Date(timeIntervalSince1970: 2))
+        harness.context.insert(newer)
+        harness.context.insert(older)
+        try harness.context.save()
+        let fresh = ProductStore(context: ModelContext(harness.container))
+        XCTAssertEqual(fresh.repos.map(\.id), [older.id, newer.id])
+    }
+
     func test_persistsAcrossInstances() {
         store.add(ProductConfig(displayName: "Persisted", owner: "x", repo: "y"))
         let store2 = ProductStore(context: ModelContext(harness.container))

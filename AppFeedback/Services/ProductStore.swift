@@ -74,6 +74,8 @@ final class ProductStore {
             appStoreAppAppleID: repo.appStoreAppAppleID,
             feedbackInboxAccountID: repo.feedbackInboxAccountID
         )
+        // Append to the end of the user's arrangement.
+        model.sortOrder = (fetchSortedModels().last?.sortOrder ?? -1) + 1
         context.insert(model)
         save()
         reload()
@@ -115,6 +117,23 @@ final class ProductStore {
         reload()
     }
 
+    // MARK: - Ordering
+
+    /// Reorders products in the sidebar (`List.onMove` semantics). The new order is persisted
+    /// as `Product.sortOrder`, which syncs to other devices through CloudKit.
+    func move(fromOffsets source: IndexSet, toOffset destination: Int) {
+        var models = fetchSortedModels()
+        models.move(fromOffsets: source, toOffset: destination)
+        var changed = false
+        for (index, model) in models.enumerated() where model.sortOrder != Double(index) {
+            model.sortOrder = Double(index)
+            changed = true
+        }
+        guard changed else { return }
+        save()
+        reload()
+    }
+
     // MARK: - Product color
 
     /// Set (or clear, with `nil`) the sidebar accent color for a product.
@@ -141,11 +160,12 @@ final class ProductStore {
         try? context.save()
     }
 
+    private func fetchSortedModels() -> [Product] {
+        (try? context.fetch(FetchDescriptor<Product>(sortBy: Product.sidebarOrder))) ?? []
+    }
+
     private func reload() {
-        let models = (try? context.fetch(FetchDescriptor<Product>(
-            sortBy: [SortDescriptor(\.createdAt)]
-        ))) ?? []
-        let newRepos = models.map {
+        let newRepos = fetchSortedModels().map {
             ProductConfig(
                 id: $0.id,
                 displayName: $0.displayName,
