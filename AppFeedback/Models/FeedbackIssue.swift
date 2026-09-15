@@ -74,6 +74,8 @@ struct FeedbackIssue: Identifiable, Codable, Sendable {
     var attachments: [FeedbackAttachmentRef] = []
     var source: FeedbackSource = .sdk
     var rating: Int?
+    /// ISO-3166 alpha-3 storefront of an App Store review (e.g. "USA"); nil for other sources.
+    var territory: String?
 
     var id: Int { number }
 
@@ -98,7 +100,8 @@ struct FeedbackIssue: Identifiable, Codable, Sendable {
         translationTargetLanguage: String? = nil,
         attachments: [FeedbackAttachmentRef] = [],
         source: FeedbackSource = .sdk,
-        rating: Int? = nil
+        rating: Int? = nil,
+        territory: String? = nil
     ) {
         self.number = number
         self.title = title
@@ -121,6 +124,7 @@ struct FeedbackIssue: Identifiable, Codable, Sendable {
         self.attachments = attachments
         self.source = source
         self.rating = rating
+        self.territory = territory
     }
 
     func displayedTitle(translated: Bool) -> String {

@@ -307,7 +307,8 @@ final class IssueLoader {
                 milestoneTitle: node.milestone?.title,
                 attachments: parsed.attachments,
                 source: IssueLoader.resolveSource(markerSource: parsed.source, labels: labels.map(\.name)),
-                rating: IssueLoader.resolveRating(markerRating: parsed.rating, labels: labels.map(\.name))
+                rating: IssueLoader.resolveRating(markerRating: parsed.rating, labels: labels.map(\.name)),
+                territory: parsed.territory
             )
         }
         return PageResult(

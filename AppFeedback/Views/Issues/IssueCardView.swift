@@ -241,7 +241,7 @@ struct IssueCardView: View {
                     let titleText = issue.displayedTitle(translated: translationVisible)
                     let bodyText = issue.displayedBody(translated: translationVisible)
                     HStack(alignment: .top, spacing: 12) {
-                        SourceBadgeView(source: issue.source, rating: issue.rating)
+                        SourceBadgeView(source: issue.source, rating: issue.rating, territory: issue.territory)
                             .fixedSize()
                         if !titleText.isEmpty {
                             IssueTitleText(text: titleText)

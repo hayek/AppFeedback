@@ -13,6 +13,15 @@ enum SourceBadge {
     static func showsStars(source: FeedbackSource, rating: Int?) -> Bool {
         source == .appStore && rating != nil
     }
+
+    /// Localized country name for an App Store storefront code (ASC sends ISO-3166 alpha-3, which
+    /// `Locale` resolves directly). Falls back to the raw code for unknown territories; nil when
+    /// the item isn't an App Store review or carries no territory.
+    static func countryName(source: FeedbackSource, territory: String?, locale: Locale = .current) -> String? {
+        guard source == .appStore,
+              let code = territory?.trimmingCharacters(in: .whitespaces), !code.isEmpty else { return nil }
+        return locale.localizedString(forRegionCode: code) ?? code
+    }
 }
 
 /// Leading badge on a feedback row showing its source: App Store (Apple mark + an
@@ -21,6 +30,7 @@ enum SourceBadge {
 struct SourceBadgeView: View {
     let source: FeedbackSource
     let rating: Int?
+    var territory: String? = nil
 
     var body: some View {
         HStack(spacing: 4) {
@@ -30,6 +40,12 @@ struct SourceBadgeView: View {
                 .accessibilityLabel(source.displayName)
             if SourceBadge.showsStars(source: source, rating: rating) {
                 starRow
+            }
+            if let country = SourceBadge.countryName(source: source, territory: territory) {
+                Text(country)
+                    .font(.system(size: 10, weight: .medium))
+                    .foregroundStyle(.secondary)
+                    .lineLimit(1)
             }
         }
         .padding(.horizontal, 6)

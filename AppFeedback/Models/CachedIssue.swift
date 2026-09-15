@@ -67,14 +67,14 @@ final class CachedIssue {
     }
 
     func toFeedbackIssue() -> FeedbackIssue {
-        FeedbackIssue(
+        // Review date and territory live only in the stored body (no dedicated columns), so App
+        // Store rows read them back from it; rows cached before the review-date fix hold the
+        // import time as `createdAt`.
+        let reviewMarkers = source == FeedbackSource.appStore.rawValue ? IssueBodyParser.parse(rawBody) : nil
+        return FeedbackIssue(
             number: number,
             title: title,
-            // Rows cached before the review-date fix hold the import time; the stored body carries
-            // the review's own date, so read it back rather than waiting for a full reconcile.
-            createdAt: source == FeedbackSource.appStore.rawValue
-                ? (IssueBodyParser.sourceCreatedAt(in: rawBody) ?? createdAt)
-                : createdAt,
+            createdAt: IssueBodyParser.markerDate(reviewMarkers?.reviewCreatedAt) ?? createdAt,
             rawBody: rawBody,
             appName: appName,
             appVersion: appVersion,
@@ -95,7 +95,8 @@ final class CachedIssue {
             translationTargetLanguage: translationTargetLanguage,
             attachments: Self.decodeAttachments(attachmentsJSON),
             source: FeedbackSource(rawValue: source ?? "") ?? .sdk,
-            rating: rating
+            rating: rating,
+            territory: reviewMarkers?.territory
         )
     }
 
