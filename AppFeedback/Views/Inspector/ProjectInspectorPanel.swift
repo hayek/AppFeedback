@@ -29,6 +29,8 @@ struct ProjectInspectorPanel: View {
     @State private var versionToDelete: ProjectVersion?
     /// The row whose swipe actions are showing (`swipeActionsContainer` keeps it to one).
     @State private var revealedSwipeRow: String?
+    /// The version card a task is currently being dragged over (drawn with an accent ring).
+    @State private var versionDropTarget: UUID?
     private let taskService = TaskService()
 
     @Environment(FeedbackTriageCoordinator.self) private var triageCoordinator
@@ -213,6 +215,29 @@ struct ProjectInspectorPanel: View {
                     Label("Delete", systemImage: "trash")
                 }
             } onPresentationChanged: { revealedSwipeRow = $0 ? "version-\(version.id)" : nil }
+            .overlay {
+                if versionDropTarget == version.id {
+                    RoundedRectangle(cornerRadius: 12, style: .continuous)
+                        .strokeBorder(Color.accentColor, lineWidth: 2)
+                }
+            }
+            // Dropping a task card here moves the task to this version. A version whose milestone
+            // was never provisioned has nothing to point the issue at, so it refuses the drop.
+            .dropDestination(for: TaskDragItem.self, isEnabled: version.milestoneNumber != nil) { items, _ in
+                versionDropTarget = nil
+                guard let first = items.first else { return }
+                assignVersion(repo: repo, taskNumber: first.number, version: version)
+            }
+            .onDropSessionUpdated { session in
+                switch session.phase {
+                case .entering, .active:
+                    versionDropTarget = version.id
+                case .exiting, .ended, .dataTransferCompleted:
+                    if versionDropTarget == version.id { versionDropTarget = nil }
+                @unknown default:
+                    if versionDropTarget == version.id { versionDropTarget = nil }
+                }
+            }
             .cardRow()
         }
         if versions.isEmpty {
@@ -244,6 +269,19 @@ struct ProjectInspectorPanel: View {
         Task {
             do { try await taskService.setPriority(repo: repo, task: task, priority: priority) }
             catch { if let previous { inspector.restore(previous) } }
+        }
+    }
+
+    private func assignVersion(repo: ProductConfig, taskNumber: Int, version: ProjectVersion) {
+        guard let milestoneNumber = version.milestoneNumber,
+              let task = inspector.task(number: taskNumber),
+              task.milestoneTitle != version.name else { return }
+        let previous = withAnimation {
+            inspector.applyOptimistic(number: task.number, milestone: .some(version.name))
+        }
+        Task {
+            do { try await taskService.setMilestone(repo: repo, task: task, milestoneNumber: milestoneNumber) }
+            catch { if let previous { withAnimation { inspector.restore(previous) } } }
         }
     }
 
