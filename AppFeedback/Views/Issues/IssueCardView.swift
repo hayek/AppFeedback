@@ -465,7 +465,9 @@ struct IssueCardView: View {
         .contentShape(Rectangle())
         .onAppear { refreshThreads() }
         .onChange(of: threadStore.version) { _, _ in refreshThreads() }
-        .onTapGesture { onInteract?() }
+        // Simultaneous so clicks on the selectable title/body still mark the card seen —
+        // `.textSelection(.enabled)` swallows a plain `.onTapGesture` on macOS.
+        .simultaneousGesture(TapGesture().onEnded { onInteract?() })
         .onChange(of: isHighlighted) { _, newValue in
             if newValue {
                 highlightActive = true
