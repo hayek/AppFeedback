@@ -21,7 +21,7 @@ enum FeedbackClipboard {
             lines.append(body)
         }
 
-        var badges: [String] = []
+        var badges: [String] = [issue.createdAt.formatted(date: .abbreviated, time: .shortened)]
         if let typed = issue.labels.issueType {
             badges.append(typed.type.displayName)
         }
@@ -33,10 +33,8 @@ enum FeedbackClipboard {
         if let device = issue.device { badges.append("device: \(DeviceName.friendly(device))") }
         if let os = issue.osVersion { badges.append("os: \(OSVersionFormat.display(os))") }
         if let email = issue.email { badges.append("✉ \(email)") }
-        if !badges.isEmpty {
-            lines.append("")
-            lines.append(badges.joined(separator: " • "))
-        }
+        lines.append("")
+        lines.append(badges.joined(separator: " • "))
 
         let messages = dedupedMessages(from: threads)
         if !messages.isEmpty {

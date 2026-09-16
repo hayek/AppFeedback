@@ -81,12 +81,13 @@ final class FeedbackClipboardTests: XCTestCase {
         let issue = makeIssue()
         let text = FeedbackClipboard.text(for: issue, threads: [], translated: false)
 
+        let date = issue.createdAt.formatted(date: .abbreviated, time: .shortened)
         let expected = """
         App crashes
 
         It crashes on launch
 
-        MyApp • v1.2 • ✉ user@example.com
+        \(date) • MyApp • v1.2 • ✉ user@example.com
         """
         XCTAssertEqual(text, expected)
     }
